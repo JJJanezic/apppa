@@ -96,7 +96,7 @@
 - Kosten: Entwicklung im Gratis-Tarif; Produktion ab Pilotstart im Pro-Tarif (ca. 25 USD/Monat)
 
 ## Open Questions
-- [ ] E-Mail-Adresse des ersten Betreiber-Admins (nicht jjj@rechtundco.at, sondern eine andere Adresse)
+- [x] E-Mail-Adresse des ersten Betreiber-Admins → `joachim@janezic.at` (geklärt 2026-10-13)
 - [ ] Eigener Mailversand-Dienst und Absender-Domain festlegen, spätestens vor dem Pilotstart (Empfehlung: Brevo)
 - [ ] Auftragsverarbeitungsvertrag (AVV) mit den Kunden muss den Lesezugriff des Betreibers auf Kundendaten abdecken
 - [ ] AVV/DPA mit Supabase (und später dem Mail-Dienst) abschließen
@@ -117,6 +117,7 @@
 | Protokoll lesbar für Inhaber + Admin, 2 Jahre Aufbewahrung, DSGVO-Löschung greift auch dort | Ausgewogen zwischen Nachvollziehbarkeit, Datenschutz und Speicher | 2026-10-13 |
 | Produktion im Pro-Tarif mit Tagesbackups (7 Tage), Test-Wiederherstellung vor dem Pilot | Gratis-Tarif hat keine Backups und pausiert Projekte | 2026-10-13 |
 | Admin-Rechte nur manuell außerhalb der App vergeben | Keine Rechteausweitung über die Oberfläche möglich | 2026-10-13 |
+| Erster Betreiber-Admin: `joachim@janezic.at`; später änderbar | Rechte hängen am Konto, nicht an der Adresse: Wechsel per E-Mail-Änderung des Kontos oder durch ein neues Admin-Konto mit manuellem Entzug des alten | 2026-10-13 |
 
 ### Technical Decisions
 <!-- Added by /architecture -->
