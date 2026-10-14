@@ -26,8 +26,20 @@ describe('safeRedirectPath', () => {
     ['Zeilenumbruch', '/\n/evil.com'],
     ['javascript:', 'javascript:alert(1)'],
     ['relativ ohne Slash', 'evil.com'],
+    ['Punkt-Segment (BUG-9)', '/.//evil.com'],
+    ['Doppelpunkt-Segment (BUG-9)', '/..//evil.com'],
+    ['mehrere Punkt-Segmente', '/a/../..//evil.com'],
+    ['kodiertes Punkt-Segment', '/%2e//evil.com'],
   ])('weist fremde Ziele ab: %s', (_, next) => {
     expect(safeRedirectPath(next, origin)).toBe('/')
+  })
+
+  it.each([
+    '/\\evil.com', '/%5Cevil.com', '/%2F%2Fevil.com', '/.//evil.com', '/..//evil.com', '/@evil.com',
+    '/　/evil.com', '/／／evil.com', '/;//evil.com', '/https://evil.com', '///evil.com',
+  ])('Ergebnis bleibt beim erneuten Auflösen in der App: %s', (next) => {
+    const result = safeRedirectPath(next, origin)
+    expect(new URL(result, origin).origin).toBe(origin)
   })
 
   it('nutzt den angegebenen Rückfallpfad', () => {

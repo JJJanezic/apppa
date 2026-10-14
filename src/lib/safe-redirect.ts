@@ -12,5 +12,10 @@ export function safeRedirectPath(next: string | null | undefined, origin: string
   }
   if (target.origin !== new URL(origin).origin) return fallback
 
-  return `${target.pathname}${target.search}${target.hash}`
+  // Punkt-Segmente werden erst beim Auflösen entfernt: „/.//evil.com“ wird zu „//evil.com“,
+  // was beim späteren erneuten Auflösen wieder eine fremde Adresse ergäbe.
+  const path = `${target.pathname}${target.search}${target.hash}`
+  if (path.startsWith('//')) return fallback
+
+  return path
 }

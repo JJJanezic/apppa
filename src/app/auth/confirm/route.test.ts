@@ -27,8 +27,8 @@ describe('GET /auth/confirm', () => {
     expect(res.headers.get('location')).toBe('https://app.example/willkommen')
   })
 
-  it.each(['/\\evil.com', '//evil.com', 'https://evil.com'])(
-    'leitet bei fremdem Ziel %s auf die Startseite (BUG-1)',
+  it.each(['/\\evil.com', '//evil.com', 'https://evil.com', '/.//evil.com', '/..//evil.com'])(
+    'leitet bei fremdem Ziel %s auf die Startseite (BUG-1, BUG-9)',
     async (next) => {
       const res = await confirm({ token_hash: 'abc', type: 'recovery', next })
       expect(res.headers.get('location')).toBe('https://app.example/')

@@ -1,6 +1,6 @@
 # PROJ-1: Supabase Infrastructure Setup
 
-## Status: In Review
+## Status: In Progress
 **Created:** 2026-10-13
 **Last Updated:** 2026-10-14
 
@@ -277,6 +277,11 @@ _Stand 2026-10-14 (/backend)_
 - `src/app/auth/confirm/route.ts` nutzt diese Funktion statt des Zeichenketten-Vergleichs
 - Tests: `src/lib/safe-redirect.test.ts` (16) und `src/app/auth/confirm/route.test.ts` (6, mit simuliertem Supabase). `npm test` 51/51 grün, `tsc` ohne Fehler
 
+**Fix BUG-9 (Umgehung über Punkt-Segmente), 2026-10-14**
+- `safeRedirectPath` weist jetzt auch Ergebnisse ab, die nach dem Auflösen mit `//` beginnen (z. B. `/.//evil.com` → `//evil.com`)
+- Neue Tests: Punkt-Segmente (auch kodiert und mehrfach) sowie eine Prüfung, dass jedes Ergebnis beim erneuten Auflösen in der App bleibt; Route-Test um beide Umgehungen erweitert
+- `npm test` 68/68 grün, `tsc` ohne Fehler; alle 17 Angriffsvarianten aus der QA-Nachprüfung werden abgewehrt
+
 **Abweichungen / Ergänzungen zum Tech Design**
 - Zusätzlich `src/app/auth/confirm/route.ts`: bestätigt die Links aus Einladungs- und Reset-Mails (`token_hash`). Ohne diese Route wären die Mail-Links nicht funktionsfähig. Die Oberflächen folgen in PROJ-3.
 - Das Admin-Kennzeichen ist für angemeldete Nutzer gesperrt, mit dem Secret Key (`service_role`) aber setzbar. Die Tests brauchen das; App-Code darf es nicht nutzen.
@@ -380,6 +385,7 @@ _Stand 2026-10-14 (/backend)_
 - **Ursache:** Die Prüfung findet vor der Normalisierung der Punkt-Segmente statt, der zurückgegebene Pfad wird danach aber erneut als URL interpretiert. Ein Ergebnis, das mit `//` beginnt, wird nicht abgefangen
 - **Fehlender Test:** `safe-redirect.test.ts` deckt Punkt-Segmente vor einem doppelten Slash nicht ab
 - **Priority:** Fix before deployment
+- **Status:** ✅ Behoben 2026-10-14 (/backend), erneute QA ausstehend
 
 #### BUG-2: Einladungs- und Reset-Mails sind englisch
 - **Severity:** Medium
