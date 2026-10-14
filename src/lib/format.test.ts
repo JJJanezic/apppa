@@ -1,14 +1,14 @@
 import { createFormatter } from 'next-intl'
 import { describe, expect, it } from 'vitest'
 
-import { formatDecimal } from './format'
+import { formatCurrency, formatNumber, formatPercent } from './format'
 import { LOCALE, TIME_ZONE } from './locale'
 
 // Österreichische Formate wie im Entwurf, mit fester Zeitzone Europe/Vienna
 const format = createFormatter({ locale: LOCALE, timeZone: TIME_ZONE })
-const nbsp = (s: string) => s.replace(/[  ]/g, ' ')
+const plain = (s: string) => s.replace(/[  ]/g, ' ')
 
-describe('Formate de-AT', () => {
+describe('Datum de-AT', () => {
   it('Datum wie im Seitenkopf', () => {
     const d = new Date('2026-10-05T08:00:00Z')
     expect(format.dateTime(d, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })).toBe(
@@ -21,18 +21,40 @@ describe('Formate de-AT', () => {
     expect(format.dateTime(d, { day: 'numeric', month: 'long' })).toBe('6. Oktober')
   })
 
-  it('Euro ohne und mit Cent', () => {
-    expect(nbsp(format.number(17480, { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }))).toBe('€ 17.480')
-    expect(nbsp(format.number(1179.8, { style: 'currency', currency: 'EUR' }))).toBe('€ 1.179,80')
-  })
-
-  it('Zahlen mit Tausenderpunkt und Komma (formatDecimal)', () => {
-    expect(formatDecimal(1179.8, { minimumFractionDigits: 2 })).toBe('1.179,80')
-    expect(formatDecimal(145)).toBe('145')
-    expect(formatDecimal(12345)).toBe('12.345')
-  })
-
   it('Monate österreichisch', () => {
     expect(format.dateTime(new Date('2026-01-15T10:00:00Z'), { month: 'long' })).toBe('Jänner')
+  })
+})
+
+describe('Zahlen: Tausenderpunkt immer', () => {
+  it.each([
+    [145, '145'],
+    [1234, '1.234'],
+    [12345, '12.345'],
+    [1234567, '1.234.567'],
+    [-1234, '-1.234'],
+  ])('formatNumber(%s) → %s', (value, expected) => {
+    expect(formatNumber(value)).toBe(expected)
+  })
+
+  it('Dezimalstellen mit Komma', () => {
+    expect(formatNumber(1179.8, { minimumFractionDigits: 2 })).toBe('1.179,80')
+  })
+
+  it('Prozent', () => {
+    expect(plain(formatPercent(0.58))).toBe('58 %')
+    expect(plain(formatPercent(12.345))).toBe('1.235 %')
+  })
+
+  it('Euro ohne und mit Cent', () => {
+    expect(plain(formatCurrency(17480))).toBe('€ 17.480')
+    expect(plain(formatCurrency(1179.8, { cents: true }))).toBe('€ 1.179,80')
+    expect(plain(formatCurrency(1234567.5, { cents: true }))).toBe('€ 1.234.567,50')
+  })
+
+  it('kein Leerzeichen als Tausendertrenner', () => {
+    for (const s of [formatNumber(1234567), formatPercent(123.45), formatCurrency(1234567)]) {
+      expect(s).not.toMatch(/\d[   ]\d/)
+    }
   })
 })

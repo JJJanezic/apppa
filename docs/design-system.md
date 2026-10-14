@@ -78,6 +78,11 @@ Bildunterschriften: 11px, gedämpfter Text.
 - **Textauswahl:** accent mit 30 % Deckkraft
 - **Trennlinie:** 1px, divider, Abstand 20px oben/unten
 
+## Zahlenformate
+- Tausender **immer mit Punkt**, Dezimalstellen mit Komma: „1.179,80“, „58 %“, „€ 17.480“
+- In der Oberfläche nur über `src/lib/format.ts` formatieren: `formatNumber()`, `formatPercent()`, `formatCurrency()`. Nicht über `format.number()` von next-intl, `toLocaleString()` oder `#` in ICU-Texten (de-AT setzt dort ein schmales Leerzeichen)
+- Datum über next-intl in de-AT (Monate österreichisch, z. B. „Jänner“), Zeitzone Europe/Vienna
+
 ## Hinweise für die Umsetzung
 - Die Tokens werden auf die shadcn/ui-CSS-Variablen abgebildet (`--background`, `--foreground`, `--primary`, `--border`, `--radius` usw.). Es werden keine eigenen Varianten installierter shadcn-Komponenten gebaut.
 - Die Druck-Effekte des Systems (CMYK-Plattenversatz, Halftone-Raster, `.cmyk-head`/`.cmyk-num`) eignen sich höchstens für Login- oder Marketing-Seiten, nicht für die eigentliche App-Oberfläche.

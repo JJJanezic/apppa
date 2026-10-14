@@ -163,6 +163,7 @@
 | Zeitzone fest Europe/Vienna | Vercel läuft in UTC; sonst falsches Datum bzw. falsche Begrüßung | 2026-10-14 |
 | `tailwindcss-animate` ergänzen, Animationen nur ohne „Bewegung reduzieren“ | Von shadcn-Bausteinen vorausgesetzt; Barrierefreiheit | 2026-10-14 |
 | Vercel-Vorschauen mit Zugriffsschutz bis PROJ-3 | Kein öffentlicher Zugang ohne Login | 2026-10-14 |
+| App-weite Zahlenformate mit Tausenderpunkt über `src/lib/format.ts` (Zahl/Prozent de-DE, Euro de-AT) | Nutzerwunsch: Tausenderpunkt immer; de-AT nutzt sonst Leerzeichen | 2026-10-14 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
@@ -279,17 +280,17 @@ _Stand 2026-10-14 (/frontend)_
 
 **Grundbausteine** (`src/components/`): `page-header`, `kpi-tile` (+ `KpiGrid`), `detail-panel` (shadcn `Sheet` rechts, max. 440 px, am Handy voll), `empty-state`, `app-toaster` (Sonner, dunkle Leiste unten mittig, festes helles Theme)
 
-**Logik** (`src/lib/`): `navigation.ts` (zentrale Liste mit `ready`, Rollen und Handy-Platz; nur das Dashboard ist `ready`), `areas.ts` (`requireArea()` → „Nicht gefunden“ für ausgeblendete Bereiche), `shell.ts` (Platzhalter für Person, Kunde, Sync), `greeting.ts`, `format.ts`, `locale.ts` (de-AT, Europe/Vienna)
+**Logik** (`src/lib/`): `navigation.ts` (zentrale Liste mit `ready`, Rollen und Handy-Platz; nur das Dashboard ist `ready`), `areas.ts` (`requireArea()` → „Nicht gefunden“ für ausgeblendete Bereiche), `shell.ts` (Platzhalter für Person, Kunde, Sync), `greeting.ts`, `format.ts` (`formatNumber`, `formatPercent`, `formatCurrency`), `locale.ts` (de-AT, Europe/Vienna)
 
 **Design und Sprache**: Broadsheet-Tokens in `src/app/globals.css` (shadcn-Variablen + `--color-*`-Rampen), in Tailwind als `ds-*` nutzbar (z. B. `text-ds-neutral-700`); Schrift `Source Serif 4` über `next/font`; Texte in `messages/de.json` über `next-intl` (`src/i18n/request.ts`, Plugin in `next.config.ts`); `tailwindcss-animate` ergänzt; Animationen bei „Bewegung reduzieren“ abgeschaltet
 
 **Anpassungen an shadcn-Dateien**: `sheet.tsx` und `dialog.tsx` mit deutschem Screenreader-Text „Schließen“; Abdunklung in `sheet.tsx`, `dialog.tsx` und `alert-dialog.tsx` von Schwarz 80 % auf Text 30 % wie im Entwurf
 
-**Tests**: `navigation.test.ts`, `greeting.test.ts`, `format.test.ts` (neu, 30 Fälle). `npm test` 92/92 grün, `npm run build` erfolgreich, `tsc` ohne Fehler
+**Tests**: `navigation.test.ts`, `greeting.test.ts`, `format.test.ts` (neu, 37 Fälle). `npm test` 99/99 grün, `npm run build` erfolgreich, `tsc` ohne Fehler
 
 **Abweichungen / Hinweise**
 - „Mehr“ erscheint am Handy immer, auch ohne weitere Bereiche: Dort liegen Kunde, Benutzermenü (Abmelden) und Sync-Status. Die Spec sah „nur wenn es mehr gibt“ vor
-- Einfache Zahlen formatiert `de-AT` mit schmalem Leerzeichen („1 179,80“). Für den Tausenderpunkt wie im Entwurf gibt es `formatDecimal()`; Datum und Euro bleiben `de-AT` („Jänner“, „€ 17.480“)
+- **Tausenderpunkt immer** (Entscheidung des Nutzers, 2026-10-14): Alle Zahlen laufen über `src/lib/format.ts`. `formatNumber()` und `formatPercent()` nutzen intern de-DE, `formatCurrency()` nutzt de-AT. So gilt „1.179,80“, „1.235 %“ und „€ 17.480“. Grund: `de-AT` trennt einfache Zahlen, Prozent und Einheiten sonst mit schmalem Leerzeichen („1 179,80“). Datum bleibt `de-AT` („Jänner“). In ICU-Texten wird statt `#` die vorformatierte Zahl `{value}` eingesetzt (z. B. Sync-Status)
 - Die Rollenbezeichnung ist vorerst „Inhaber“ bzw. „Mitarbeiter“; der Entwurf zeigt „Inhaberin“. Gendergerechte Bezeichnung mit PROJ-4 klären
 - Rahmenlinien (`neutral-300`) sind dekorativ und haben nur 1,3:1 Kontrast. Für Eingabefelder (ab PROJ-3) braucht es mindestens 3:1
 - Sichtprüfung im Browser und E2E-Tests stehen aus: Der Download von Playwright-Chromium wurde in dieser Umgebung abgebrochen (`npx playwright install chromium` einmal selbst ausführen)

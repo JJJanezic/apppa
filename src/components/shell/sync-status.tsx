@@ -4,6 +4,7 @@ import { ArrowsClockwise, Warning } from '@phosphor-icons/react'
 import { useTranslations } from 'next-intl'
 
 import { useShell } from '@/components/shell/shell-context'
+import { formatNumber } from '@/lib/format'
 
 // Sync-Status der Plattform-Verbindungen; echte Werte mit PROJ-10/11
 export function SyncStatus() {
@@ -21,7 +22,9 @@ export function SyncStatus() {
       ) : (
         <ArrowsClockwise size={16} weight="duotone" aria-hidden="true" />
       )}
-      <span>{problem ? t('syncProblem', { count: sync.problems }) : t('sync', { count: sync.connections })}</span>
+      <span>{problem
+          ? t('syncProblem', { count: sync.problems, value: formatNumber(sync.problems) })
+          : t('sync', { count: sync.connections, value: formatNumber(sync.connections) })}</span>
     </div>
   )
 }
