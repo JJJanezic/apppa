@@ -1,6 +1,6 @@
 # PROJ-1: Supabase Infrastructure Setup
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-10-13
 **Last Updated:** 2026-10-14
 
@@ -251,6 +251,32 @@ Repository
 - Automatische Tests mit zwei Test-Mandanten, Testpersonen in verschiedenen Rollen und einem Test-Admin: Sie prüfen jede Zugriffsregel aus den Akzeptanzkriterien direkt gegen die Datenbank
 - Supabase-Sicherheitsberater (Advisors) ohne Warnungen
 - Produktions-Backup und Test-Wiederherstellung werden vor dem Pilotstart per Runbook geprüft
+
+## Implementation Notes (Backend)
+_Stand 2026-10-14 (/backend)_
+
+**Datenbank** (`supabase/migrations/`)
+- `20261014120000_foundation.sql`: Enums `member_role` (owner/staff) und `tenant_status`; Tabellen `tenants`, `profiles`, `memberships` mit Standardfeldern; Prüf-Bausteine `private.is_member`, `private.has_role`, `private.is_admin` (verlangt `aal2`) und `private.shares_tenant_with`; Profil-Anlage per Trigger auf `auth.users`; Schutz des Admin-Kennzeichens; Schutz des letzten Inhabers; RLS und Spaltenrechte auf allen Tabellen
+- `20261014120100_audit_log.sql`: `audit_log` mit Trigger `private.audit_row()`; `private.enable_tenant_table(tabelle)` als Ein-Befehl-Muster für Fachtabellen; `private.purge_audit_personal_data()` für DSGVO-Löschungen; Schreibrechte für alle Rollen entzogen, auch für `service_role`
+- `20261014120200_audit_retention.sql`: pg_cron-Job `purge-audit-log`, täglich, löscht Einträge älter als 2 Jahre
+- `20261014130000_restrict_rls_auto_enable.sql`: behebt die zwei Advisor-Warnungen zur Supabase-eigenen Event-Trigger-Funktion `public.rls_auto_enable()`
+- In „apppa“ eingespielt; `migration list` lokal = remote; Security- und Performance-Advisors ohne Befund
+
+**Auth** (`supabase/config.toml`, per `config push` in „apppa“ übernommen): Registrierung aus (geprüft: `signUp` wird abgelehnt), Passwort mind. 10 Zeichen mit a-z/A-Z/0-9, TOTP aktiv
+- **Offen – deutsche Mail-Vorlagen:** Die Vorlagen liegen in `supabase/templates/`, Supabase lehnt sie im Gratis-Tarif mit dem eingebauten Mailversand aber ab. Sie sind in `config.toml` auskommentiert und werden aktiviert, sobald ein eigener SMTP-Dienst eingerichtet ist (Open Question Brevo). Bis dahin sind Einladungs- und Reset-Mails englisch. Das Akzeptanzkriterium „Mail auf Deutsch“ ist damit noch nicht erfüllt.
+- Stolperfalle: `[auth.email] enable_signup = false` schaltet den E-Mail-Login komplett ab. Die Registrierung sperrt allein `[auth] enable_signup = false`.
+
+**App**: `src/lib/env.ts` (Zod-Prüfung mit klarer Fehlermeldung), `src/lib/supabase/{client,server,admin,proxy}.ts`, `src/proxy.ts` (Next 16, Sitzungs-Auffrischung), `src/types/database.ts`, `.env.local.example`. Der Platzhalter `src/lib/supabase.ts` wurde entfernt.
+
+**Tests**: `src/lib/env.test.ts` (4) und `supabase/tests/rls.integration.test.ts` (19) gegen „apppa“: alle 23 grün (2026-10-14). Die RLS-Tests werden übersprungen, wenn `SUPABASE_SECRET_KEY` fehlt.
+
+**Runbook**: `docs/runbooks/supabase.md` (CLI, erster Admin, Produktion, Backup-Test, Muster für Fachtabellen)
+
+**Abweichungen / Ergänzungen zum Tech Design**
+- Zusätzlich `src/app/auth/confirm/route.ts`: bestätigt die Links aus Einladungs- und Reset-Mails (`token_hash`). Ohne diese Route wären die Mail-Links nicht funktionsfähig. Die Oberflächen folgen in PROJ-3.
+- Das Admin-Kennzeichen ist für angemeldete Nutzer gesperrt, mit dem Secret Key (`service_role`) aber setzbar. Die Tests brauchen das; App-Code darf es nicht nutzen.
+- Protokolleinträge der Test-Mandanten bleiben nach Testläufen in „apppa“ stehen, weil das Protokoll nicht löschbar ist.
+- Mandanten werden auch über `tenants` selbst protokolliert (Mandanten-ID = eigene ID), Mitgliedschaften ebenfalls.
 
 ## QA Test Results
 _To be added by /qa_
