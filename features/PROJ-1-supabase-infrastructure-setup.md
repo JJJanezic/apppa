@@ -1,6 +1,6 @@
 # PROJ-1: Supabase Infrastructure Setup
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-10-13
 **Last Updated:** 2026-10-14
 
@@ -290,7 +290,7 @@ _Stand 2026-10-14 (/backend)_
 
 ## QA Test Results
 
-**Tested:** 2026-10-14 (erster Durchlauf), 2026-10-14 (Nachprüfung BUG-1)
+**Tested:** 2026-10-14 (erster Durchlauf), 2026-10-14 (Nachprüfung BUG-1), 2026-10-14 (Nachprüfung BUG-9)
 **Umgebung:** Entwicklungsprojekt „apppa“ (`nizgfmvjplhegoosanmu`) + Code-Review der Migrationen und von `src/`
 **Tester:** QA Engineer (AI)
 
@@ -357,7 +357,7 @@ _Stand 2026-10-14 (/backend)_
 - [x] Interne Funktionen liegen im nicht veröffentlichten Schema `private`
 - [x] Supabase Security Advisor: keine Befunde. Performance Advisor: nur INFO „ungenutzter Index `audit_log_created_idx`“ (wird von der nächtlichen Bereinigung gebraucht, ok)
 - [x] Keine Geheimnisse im Code; der Secret Key wird nur in `server-only`-Code verwendet
-- [ ] BUG-1 (Medium): Open Redirect in `/auth/confirm`
+- [x] Open Redirect in `/auth/confirm` behoben (BUG-1, BUG-9); 111.150 Varianten ohne Umgehung
 - [ ] BUG-3 (Medium): Mail-Linkscanner verbrauchen den Einmal-Link
 - [ ] BUG-4 (Medium): Inhaber können beliebige Konten ohne Zustimmung aufnehmen und deren E-Mail sehen
 - [ ] BUG-7 (Low): Sicherheits-Header fehlen
@@ -372,7 +372,7 @@ _Stand 2026-10-14 (/backend)_
   3. Actual: Die Prüfung `startsWith('/') && !startsWith('//')` lässt `/\evil.com` durch, und `new URL()` macht daraus `https://evil.com/` (nachgestellt mit Node)
 - **Risiko:** Ein Angreifer kann einen eigenen gültigen Token in einen Link packen. Das Opfer wird dann in das Konto des Angreifers eingeloggt und auf eine fremde Seite weitergeleitet (Phishing, Login-CSRF)
 - **Priority:** Fix before deployment
-- **Status:** ⚠️ Teilweise behoben 2026-10-14. Die Nachprüfung fand eine Umgehung, siehe BUG-9
+- **Status:** ✅ Behoben 2026-10-14 (zusammen mit BUG-9, in der Nachprüfung bestätigt)
 
 #### BUG-9: Open Redirect weiterhin möglich über Punkt-Segmente (Umgehung des BUG-1-Fixes)
 - **Severity:** Medium
@@ -385,7 +385,7 @@ _Stand 2026-10-14 (/backend)_
 - **Ursache:** Die Prüfung findet vor der Normalisierung der Punkt-Segmente statt, der zurückgegebene Pfad wird danach aber erneut als URL interpretiert. Ein Ergebnis, das mit `//` beginnt, wird nicht abgefangen
 - **Fehlender Test:** `safe-redirect.test.ts` deckt Punkt-Segmente vor einem doppelten Slash nicht ab
 - **Priority:** Fix before deployment
-- **Status:** ✅ Behoben 2026-10-14 (/backend), erneute QA ausstehend
+- **Status:** ✅ Behoben 2026-10-14, in der Nachprüfung bestätigt
 
 #### BUG-2: Einladungs- und Reset-Mails sind englisch
 - **Severity:** Medium
@@ -443,12 +443,18 @@ _Stand 2026-10-14 (/backend)_
 - **2 Umgehungen gefunden:** `/.//evil.com` und `/..//evil.com` leiten weiterhin auf `https://evil.com/` → **BUG-9 (Medium)**
 - Ergebnis: BUG-1 nur teilweise behoben
 
+### Nachprüfung BUG-9 (2026-10-14)
+- `npm test` 68/68 grün, `tsc` ohne Fehler, keine Regressionen
+- Code-Review: `safeRedirectPath` weist jetzt auch Ergebnisse ab, die mit `//` beginnen; die Route verwendet die Funktion unverändert
+- Systematischer Angriffstest: **111.150 generierte Varianten** aus 18 Bausteinen (Slash, Backslash, Punkt-Segmente auch kodiert, `@`, `:`, `?`, `#`, Tab, Leerzeichen, Unicode-Slash und -Leerzeichen, `http:`, Zieldomain) bis zu 4 Bausteinen lang: **0 Umgehungen**. Jedes Ergebnis bleibt auch beim erneuten Auflösen in der App
+- Ergebnis: BUG-1 und BUG-9 behoben
+
 ### Summary
 - **Acceptance Criteria:** 19/24 bestanden, 2 nicht erfüllt (BUG-2, BUG-5), 3 ausstehend (Admin-Einrichtung teilweise erledigt, Backups erst mit Produktion)
-- **Bugs Found:** 9 total (0 critical, 0 high, 5 medium, 4 low); BUG-1 teilweise behoben, Rest offen in BUG-9
-- **Security:** Mandantentrennung und Rollen sind solide; 3 Medium-Befunde rund um die Mail-Links (BUG-1/BUG-9, BUG-3) und 1 Medium-Befund zur Aufnahme von Mitgliedern (BUG-4)
-- **Production Ready:** YES (keine Critical/High-Bugs). Vor dem Pilotstart müssen aber BUG-2 bis BUG-4, BUG-7 und BUG-9 behoben und die ausstehenden Kriterien geprüft sein
-- **Recommendation:** BUG-9 jetzt beheben (betrifft bestehenden Code), danach kurze Nachprüfung. Die übrigen Bugs in den genannten Features
+- **Bugs Found:** 9 total (0 critical, 0 high, 5 medium, 4 low); **behoben: BUG-1, BUG-9**; offen: 3 medium (BUG-2, BUG-3, BUG-4), 4 low (BUG-5 bis BUG-8)
+- **Security:** Mandantentrennung und Rollen sind solide; Open Redirect behoben (BUG-1/BUG-9); offen sind 1 Medium-Befund zu den Mail-Links (BUG-3) und 1 Medium-Befund zur Aufnahme von Mitgliedern (BUG-4)
+- **Production Ready:** YES (keine Critical/High-Bugs). Vor dem Pilotstart müssen aber BUG-2 bis BUG-4 und BUG-7 behoben und die ausstehenden Kriterien geprüft sein
+- **Recommendation:** Freigeben. Die offenen Bugs werden in den zuständigen Features erledigt: BUG-3 in PROJ-3, BUG-4 in PROJ-4, BUG-6 in PROJ-5, BUG-2 mit dem eigenen Mailversand, BUG-7 bei /deploy
 
 ## Deployment
 _To be added by /deploy_
