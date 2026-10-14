@@ -1,6 +1,6 @@
 # PROJ-2: App-Shell & Design-System
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-10-14
 **Last Updated:** 2026-10-14
 
@@ -265,6 +265,35 @@ Gespeichert wird nichts, weder im Browser noch in der Datenbank.
 - E2E-Tests (Playwright) in 375, 768 und 1440 px: Seitenleiste bzw. untere Leiste, „Mehr“, kein waagrechtes Scrollen, Detail-Panel mit Esc und Fokus-Rückgabe, 404 für unbekannte und ausgeblendete Adressen, Tastaturbedienung
 - Automatische Barrierefreiheits-Prüfung (Kontraste, Beschriftungen) mit axe in den E2E-Tests
 - Optischer Abgleich mit `docs/design/app-entwurf.html` und den Screenshots
+
+## Implementation Notes (Frontend)
+_Stand 2026-10-14 (/frontend)_
+
+**Rahmen und Seiten**
+- `src/app/(app)/layout.tsx`: gemeinsamer Rahmen. Seitenleiste ab 1024 px (`AppSidebar` auf shadcn `Sidebar`, `collapsible="none"`), darunter `BottomNav`. Das Umschalten läuft rein über CSS (`lg:`)
+- `src/app/(app)/page.tsx`: Dashboard-Leerzustand mit Datum, Begrüßung nach Tageszeit und `EmptyState`; wird bei jedem Aufruf neu berechnet (`connection()`)
+- `src/app/(app)/loading.tsx` (Skeleton), `src/app/(app)/error.tsx` („Erneut versuchen“, Rahmen bleibt), `src/app/not-found.tsx`
+- Die Startseite der Vorlage (`src/app/page.tsx`) wurde entfernt; `lang="de-AT"`, Seitentitel „<Seite> · apppa“
+
+**Shell-Bausteine** (`src/components/shell/`): `app-sidebar`, `bottom-nav` („Mehr“ als shadcn `Sheet` von unten), `user-menu` (shadcn `DropdownMenu`; „Mein Konto“ und „Abmelden“ deaktiviert bis PROJ-3), `tenant-label` (Kunden-Auswahl vorbereitet für PROJ-4), `sync-status`, `wordmark`, `nav-icon` (Phosphor Duotone), `truncated-text` (Tooltip bei langen Namen), `shell-context`
+
+**Grundbausteine** (`src/components/`): `page-header`, `kpi-tile` (+ `KpiGrid`), `detail-panel` (shadcn `Sheet` rechts, max. 440 px, am Handy voll), `empty-state`, `app-toaster` (Sonner, dunkle Leiste unten mittig, festes helles Theme)
+
+**Logik** (`src/lib/`): `navigation.ts` (zentrale Liste mit `ready`, Rollen und Handy-Platz; nur das Dashboard ist `ready`), `areas.ts` (`requireArea()` → „Nicht gefunden“ für ausgeblendete Bereiche), `shell.ts` (Platzhalter für Person, Kunde, Sync), `greeting.ts`, `format.ts`, `locale.ts` (de-AT, Europe/Vienna)
+
+**Design und Sprache**: Broadsheet-Tokens in `src/app/globals.css` (shadcn-Variablen + `--color-*`-Rampen), in Tailwind als `ds-*` nutzbar (z. B. `text-ds-neutral-700`); Schrift `Source Serif 4` über `next/font`; Texte in `messages/de.json` über `next-intl` (`src/i18n/request.ts`, Plugin in `next.config.ts`); `tailwindcss-animate` ergänzt; Animationen bei „Bewegung reduzieren“ abgeschaltet
+
+**Anpassungen an shadcn-Dateien**: `sheet.tsx` und `dialog.tsx` mit deutschem Screenreader-Text „Schließen“; Abdunklung in `sheet.tsx`, `dialog.tsx` und `alert-dialog.tsx` von Schwarz 80 % auf Text 30 % wie im Entwurf
+
+**Tests**: `navigation.test.ts`, `greeting.test.ts`, `format.test.ts` (neu, 30 Fälle). `npm test` 92/92 grün, `npm run build` erfolgreich, `tsc` ohne Fehler
+
+**Abweichungen / Hinweise**
+- „Mehr“ erscheint am Handy immer, auch ohne weitere Bereiche: Dort liegen Kunde, Benutzermenü (Abmelden) und Sync-Status. Die Spec sah „nur wenn es mehr gibt“ vor
+- Einfache Zahlen formatiert `de-AT` mit schmalem Leerzeichen („1 179,80“). Für den Tausenderpunkt wie im Entwurf gibt es `formatDecimal()`; Datum und Euro bleiben `de-AT` („Jänner“, „€ 17.480“)
+- Die Rollenbezeichnung ist vorerst „Inhaber“ bzw. „Mitarbeiter“; der Entwurf zeigt „Inhaberin“. Gendergerechte Bezeichnung mit PROJ-4 klären
+- Rahmenlinien (`neutral-300`) sind dekorativ und haben nur 1,3:1 Kontrast. Für Eingabefelder (ab PROJ-3) braucht es mindestens 3:1
+- Sichtprüfung im Browser und E2E-Tests stehen aus: Der Download von Playwright-Chromium wurde in dieser Umgebung abgebrochen (`npx playwright install chromium` einmal selbst ausführen)
+- Build-Hinweis: Next.js findet eine zweite `package-lock.json` im übergeordneten Ordner `/Users/jjj/Documents/apppa/` und warnt wegen des Projektstamms
 
 ## QA Test Results
 _To be added by /qa_

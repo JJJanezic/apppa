@@ -1,0 +1,56 @@
+{
+  "app": {
+    "name": "apppa"
+  },
+  "nav": {
+    "label": "Hauptnavigation",
+    "mobileLabel": "Navigation",
+    "more": "Mehr",
+    "moreTitle": "Weitere Bereiche",
+    "dashboard": "Dashboard",
+    "calendar": "Belegung",
+    "bookings": "Buchungen",
+    "guests": "Gäste",
+    "payments": "Zahlungen",
+    "reports": "Auswertungen",
+    "tax": "Tourismusabgabe",
+    "channels": "Kanäle & Kalender",
+    "settings": "Einstellungen"
+  },
+  "roles": {
+    "owner": "Inhaber",
+    "staff": "Mitarbeiter"
+  },
+  "shell": {
+    "tenantPlaceholder": "Kunde folgt mit dem Login",
+    "personPlaceholder": "Name folgt mit dem Login",
+    "switchTenant": "Kunden wechseln",
+    "userMenu": "Benutzermenü",
+    "myAccount": "Mein Konto",
+    "signOut": "Abmelden",
+    "comingWithLogin": "Folgt mit dem Login",
+    "sync": "{count, plural, =0 {Noch keine Verbindungen} one {# Verbindung synchron} other {# Verbindungen synchron}}",
+    "syncProblem": "{count, plural, one {# Verbindung mit Problem} other {# Verbindungen mit Problem}}"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "greetingMorning": "{name, select, none {Guten Morgen.} other {Guten Morgen, {name}.}}",
+    "greetingDay": "{name, select, none {Guten Tag.} other {Guten Tag, {name}.}}",
+    "greetingEvening": "{name, select, none {Guten Abend.} other {Guten Abend, {name}.}}",
+    "lead": "Willkommen bei apppa.",
+    "emptyTitle": "Hier erscheinen bald deine Buchungen.",
+    "emptyText": "Sobald Wohnungen und Buchungen angelegt sind, siehst du hier, was heute ansteht."
+  },
+  "common": {
+    "close": "Schließen",
+    "loading": "Lädt …",
+    "retry": "Erneut versuchen",
+    "toDashboard": "Zum Dashboard"
+  },
+  "errors": {
+    "title": "Da ist etwas schiefgelaufen.",
+    "text": "Die Seite konnte nicht geladen werden. Bitte versuche es noch einmal.",
+    "notFoundTitle": "Seite nicht gefunden",
+    "notFoundText": "Diese Seite gibt es nicht oder sie ist für dich nicht verfügbar."
+  }
+}
