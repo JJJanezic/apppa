@@ -9,6 +9,7 @@ export function AppToaster() {
       theme="light"
       position="bottom-center"
       closeButton
+      containerAriaLabel="Benachrichtigungen"
       duration={4000}
       offset={88}
       mobileOffset={{ bottom: 88 }}

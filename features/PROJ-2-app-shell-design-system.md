@@ -1,6 +1,6 @@
 # PROJ-2: App-Shell & Design-System
 
-## Status: Approved
+## Status: In Progress
 **Created:** 2026-10-14
 **Last Updated:** 2026-10-14
 
@@ -297,6 +297,14 @@ _Stand 2026-10-14 (/frontend)_
 - Sichtprüfung 2026-10-14 in Chrome: Seitenleiste ab 1024 px, untere Leiste bei 768/375 px, kein waagrechtes Scrollen, „Mehr“-Blatt funktioniert, `/buchungen` liefert 404, Tab-Titel „Dashboard · apppa“. Behoben: Beim Öffnen von „Mehr“ sprang der Tooltip des Kundennamens auf (Name war fokussierbar)
 - Build-Hinweis: Next.js findet eine zweite `package-lock.json` im übergeordneten Ordner `/Users/jjj/Documents/apppa/` und warnt wegen des Projektstamms
 
+**Fixes nach QA (2026-10-14, /frontend)**
+- BUG-1: Breite der Seitenleiste 236 px per `style` an `SidebarProvider` (überschreibt den Inline-Standard 16rem); der wirkungslose Eintrag in `globals.css` ist entfernt
+- BUG-2: `SidebarProvider` hat die neue Option `keyboardShortcut` (Standard `true`); im App-Rahmen auf `false`, Cmd/Ctrl+B wird nicht mehr abgefangen und kein Cookie `sidebar_state` gesetzt (kleine Ergänzung in `src/components/ui/sidebar.tsx`)
+- BUG-3: Meldungsbereich deutsch beschriftet („Benachrichtigungen“, Sonner `containerAriaLabel`)
+- BUG-4: Neue Seite `src/app/global-error.tsx`, deutsch, mit „Erneut versuchen“; Texte direkt aus `messages/de.json`, weil next-intl dort nicht verfügbar ist
+- Tests: `src/app/global-error.test.tsx` und 3 Regressionstests in `tests/PROJ-2-app-shell.spec.ts`; `npm test` 106/106, E2E 57/57 (15 übersprungen, weil breitenspezifisch), Build erfolgreich
+- `.gitignore`: Playwright-Ausgaben (`/test-results/`, `/playwright-report/`, `/blob-report/`)
+
 ## QA Test Results
 
 **Tested:** 2026-10-14
@@ -375,24 +383,28 @@ _Stand 2026-10-14 (/frontend)_
 
 #### BUG-1: Seitenleiste 256 statt 236 px breit
 - **Severity:** Low
+- **Status:** ✅ Behoben 2026-10-14 (/frontend), Nachprüfung ausstehend
 - **Steps to Reproduce:** Desktop 1440 px → Breite der Seitenleiste messen → 256 px; Entwurf und `--sidebar-width` in `globals.css`: 236 px
 - **Ursache:** `SidebarProvider` setzt `--sidebar-width` per Inline-Style auf 16rem und überschreibt damit den Wert aus `globals.css`
 - **Priority:** Nice to have (Abgleich mit dem Entwurf)
 
 #### BUG-2: Cmd/Ctrl+B wird app-weit abgefangen
 - **Severity:** Low
+- **Status:** ✅ Behoben 2026-10-14 (/frontend), Nachprüfung ausstehend
 - **Steps to Reproduce:** Seite öffnen, z. B. in einem Textfeld Cmd+B (Mac) bzw. Ctrl+B drücken → Die Tastenkombination wird von der shadcn-Sidebar verschluckt (Standard-Kürzel zum Ein-/Ausklappen) und setzt den Cookie `sidebar_state`. Sichtbar passiert nichts, weil die Seitenleiste fest ausgeklappt ist
 - **Folge:** Später fehlt „fett“ in Texteingaben (z. B. Notizen zu Buchungen)
 - **Priority:** Fix in next sprint (spätestens vor dem ersten Feature mit Texteingabe)
 
 #### BUG-3: Bereich der Hinweis-Meldungen englisch beschriftet
 - **Severity:** Low
+- **Status:** ✅ Behoben 2026-10-14 (/frontend), Nachprüfung ausstehend
 - **Steps to Reproduce:** Screenreader bzw. Barrierefreiheitsbaum: Bereich heißt „Notifications alt+T“
 - **Expected:** deutsche Bezeichnung, z. B. „Benachrichtigungen (Alt+T)“ (Sonner-Option `containerAriaLabel`)
 - **Priority:** Nice to have
 
 #### BUG-4: Keine eigene Fehlerseite für Fehler im obersten Layout
 - **Severity:** Low
+- **Status:** ✅ Behoben 2026-10-14 (/frontend), Nachprüfung ausstehend
 - **Steps to Reproduce:** Fehler im Root-Layout (z. B. fehlende Umgebungsvariable beim Laden der Texte) → Next.js zeigt seine englische Standard-Fehlerseite
 - **Expected:** deutsche Fehlerseite (`src/app/global-error.tsx`)
 - **Priority:** Nice to have

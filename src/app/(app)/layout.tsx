@@ -11,7 +11,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <ShellProvider value={shell}>
-      <SidebarProvider defaultOpen className="bg-ds-bg">
+      <SidebarProvider
+        defaultOpen
+        keyboardShortcut={false}
+        // Breite wie im Entwurf; SidebarProvider setzt sonst 16rem per Inline-Style
+        style={{ '--sidebar-width': '236px' } as React.CSSProperties}
+        className="bg-ds-bg"
+      >
         <AppSidebar wordmark={<Wordmark />} />
         <main
           id="inhalt"

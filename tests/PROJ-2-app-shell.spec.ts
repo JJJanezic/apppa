@@ -190,3 +190,31 @@ test.describe('Barrierefreiheit', () => {
     expect(parseFloat(duration)).toBeLessThan(0.01)
   })
 })
+
+test.describe('Regression (QA-Bugs PROJ-2)', () => {
+  test('BUG-1: Seitenleiste ist 236 px breit wie im Entwurf', async ({ page }) => {
+    test.skip(!isDesktop(page), 'nur Desktop')
+    await page.goto('/')
+    const box = await sidebar(page).boundingBox()
+    expect(box?.width).toBe(236)
+  })
+
+  test('BUG-2: Cmd/Ctrl+B wird nicht abgefangen', async ({ page }) => {
+    await page.goto('/')
+    const prevented = await page.evaluate(
+      () =>
+        new Promise<boolean>((resolve) => {
+          window.addEventListener('keydown', (e) => setTimeout(() => resolve(e.defaultPrevented), 0), { once: true })
+          window.dispatchEvent(
+            new KeyboardEvent('keydown', { key: 'b', metaKey: true, ctrlKey: true, bubbles: true, cancelable: true })
+          )
+        })
+    )
+    expect(prevented).toBe(false)
+  })
+
+  test('BUG-3: Bereich der Hinweis-Meldungen ist deutsch beschriftet', async ({ page }) => {
+    await page.goto('/')
+    await expect(page.getByRole('region', { name: /^Benachrichtigungen/ })).toBeAttached()
+  })
+})
