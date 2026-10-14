@@ -324,7 +324,7 @@ _Stand 2026-10-14 (/backend)_
 - [x] Protokolleinträge kann niemand ändern oder löschen, auch nicht mit dem Secret Key
 
 #### Admin-Einrichtung & Backups
-- [ ] Ausstehend: Der erste Betreiber-Admin (`joachim@janezic.at`) ist in „apppa“ noch nicht eingerichtet (es gibt noch kein Profil). Manueller Schritt laut Runbook, Abschnitt 4
+- [ ] Teilweise (Stand 2026-10-14): `joachim@janezic.at` ist in „apppa“ eingeladen und als Admin gekennzeichnet (Runbook 4.1 und 4.3). Ausstehend: Einladung annehmen, Passwort setzen und 2FA einrichten. Das geht erst mit PROJ-3; die Einladungsmail kam nicht an (laut Supabase-Protokoll versendet)
 - [ ] Ausstehend: Tägliche Backups, erst mit dem Produktionsprojekt prüfbar (vor dem Pilotstart)
 - [ ] Ausstehend: Test-Wiederherstellung, erst mit dem Produktionsprojekt prüfbar (vor dem Pilotstart)
 
@@ -410,7 +410,7 @@ _Stand 2026-10-14 (/backend)_
 - **Priority:** Nice to have
 
 #### Hinweise (keine Bugs)
-1. Der erste Admin ist in „apppa“ noch nicht eingerichtet (Runbook, Abschnitt 4). Bitte manuell durchführen.
+1. Der erste Admin ist in „apppa“ eingeladen und gekennzeichnet; Passwort und 2FA folgen mit PROJ-3. Die Einladungsmail an `joachim@janezic.at` kam nicht an, obwohl Supabase sie laut Protokoll versendet hat (Spam/Quarantäne prüfen; dauerhafte Lösung: eigener Mailversand, siehe BUG-2).
 2. `private.purge_audit_personal_data()` ist nicht über die API erreichbar. PROJ-7 braucht dafür einen serverseitigen Aufruf (z. B. eine öffentliche Funktion, die nur der Secret Key ausführen darf).
 
 ### Summary
