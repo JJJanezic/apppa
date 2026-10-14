@@ -2,6 +2,7 @@
 
 > Quelle: https://claude.ai/code/artifact/354c87d0-94cc-4b0f-a0ba-3809f0d37301
 > Diese Datei fasst die Tokens und Komponentenregeln für die App zusammen. Der `/frontend`-Skill liest sie beim Bauen der Oberfläche.
+> App-Entwurf (Layout, Navigation, Seiten): `docs/design/app-entwurf.html` (lauffähig) und `docs/design/app-entwurf-quelltext.html` (lesbar), Quelle https://claude.ai/artifact/7ajSUrRxcJKYgzUPsNdrTA. Wo Entwurf und diese Datei abweichen (z. B. Buttons und Balken in `accent-700` statt `accent`), gilt der Entwurf.
 
 ## Charakter
 Ruhige, papierartige Fläche, dunkle Tinte als Text, zwei kräftige Druckfarben (Cyan und Magenta) als Akzente. Klare Serifenschrift, kleine Radien, sparsame Schatten.
