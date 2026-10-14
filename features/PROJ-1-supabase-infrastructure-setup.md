@@ -1,6 +1,6 @@
 # PROJ-1: Supabase Infrastructure Setup
 
-## Status: In Progress
+## Status: In Review
 **Created:** 2026-10-13
 **Last Updated:** 2026-10-14
 
@@ -285,7 +285,7 @@ _Stand 2026-10-14 (/backend)_
 
 ## QA Test Results
 
-**Tested:** 2026-10-14
+**Tested:** 2026-10-14 (erster Durchlauf), 2026-10-14 (Nachprüfung BUG-1)
 **Umgebung:** Entwicklungsprojekt „apppa“ (`nizgfmvjplhegoosanmu`) + Code-Review der Migrationen und von `src/`
 **Tester:** QA Engineer (AI)
 
@@ -367,7 +367,19 @@ _Stand 2026-10-14 (/backend)_
   3. Actual: Die Prüfung `startsWith('/') && !startsWith('//')` lässt `/\evil.com` durch, und `new URL()` macht daraus `https://evil.com/` (nachgestellt mit Node)
 - **Risiko:** Ein Angreifer kann einen eigenen gültigen Token in einen Link packen. Das Opfer wird dann in das Konto des Angreifers eingeloggt und auf eine fremde Seite weitergeleitet (Phishing, Login-CSRF)
 - **Priority:** Fix before deployment
-- **Status:** ✅ Behoben 2026-10-14 (/backend), siehe Implementation Notes – erneute QA ausstehend
+- **Status:** ⚠️ Teilweise behoben 2026-10-14. Die Nachprüfung fand eine Umgehung, siehe BUG-9
+
+#### BUG-9: Open Redirect weiterhin möglich über Punkt-Segmente (Umgehung des BUG-1-Fixes)
+- **Severity:** Medium
+- **Gefunden:** 2026-10-14, Nachprüfung von BUG-1
+- **Steps to Reproduce:**
+  1. Link aufrufen: `/auth/confirm?token_hash=<gültiger Token>&type=recovery&next=/.//evil.com` (ebenso `next=/..//evil.com`)
+  2. `safeRedirectPath` prüft den Ursprung korrekt (`https://app.example/` → eigener Ursprung) und gibt den normalisierten Pfad `//evil.com` zurück
+  3. Die Route macht daraus mit `new URL('//evil.com', origin)` die Adresse `https://evil.com/`
+  4. Expected: Weiterleitung auf `/`. Actual: Weiterleitung auf `https://evil.com/` (mit Node nachgestellt)
+- **Ursache:** Die Prüfung findet vor der Normalisierung der Punkt-Segmente statt, der zurückgegebene Pfad wird danach aber erneut als URL interpretiert. Ein Ergebnis, das mit `//` beginnt, wird nicht abgefangen
+- **Fehlender Test:** `safe-redirect.test.ts` deckt Punkt-Segmente vor einem doppelten Slash nicht ab
+- **Priority:** Fix before deployment
 
 #### BUG-2: Einladungs- und Reset-Mails sind englisch
 - **Severity:** Medium
@@ -419,12 +431,18 @@ _Stand 2026-10-14 (/backend)_
 1. Der erste Admin ist in „apppa“ eingeladen und gekennzeichnet; Passwort und 2FA folgen mit PROJ-3. Die Einladungsmail an `joachim@janezic.at` kam nicht an, obwohl Supabase sie laut Protokoll versendet hat (Spam/Quarantäne prüfen; dauerhafte Lösung: eigener Mailversand, siehe BUG-2).
 2. `private.purge_audit_personal_data()` ist nicht über die API erreichbar. PROJ-7 braucht dafür einen serverseitigen Aufruf (z. B. eine öffentliche Funktion, die nur der Secret Key ausführen darf).
 
+### Nachprüfung BUG-1 (2026-10-14)
+- `npm test` 51/51 grün (inkl. 22 neuer Tests aus dem Fix), `tsc` ohne Fehler, keine Regressionen
+- Zusätzlicher Angriffstest mit 17 weiteren Varianten (kodierte Slashes und Backslashes, Unicode-Leerzeichen und -Slashes, `@`, `;`, Steuerzeichen): 15 werden korrekt abgewehrt
+- **2 Umgehungen gefunden:** `/.//evil.com` und `/..//evil.com` leiten weiterhin auf `https://evil.com/` → **BUG-9 (Medium)**
+- Ergebnis: BUG-1 nur teilweise behoben
+
 ### Summary
-- **Acceptance Criteria:** 19/24 bestanden, 2 nicht erfüllt (BUG-2, BUG-5), 3 ausstehend (Admin-Einrichtung manuell, Backups erst mit Produktion)
-- **Bugs Found:** 8 total (0 critical, 0 high, 4 medium, 4 low)
-- **Security:** Mandantentrennung und Rollen sind solide; 2 Medium-Befunde rund um die Mail-Links (BUG-1, BUG-3) und 1 Medium-Befund zur Aufnahme von Mitgliedern (BUG-4)
-- **Production Ready:** YES (keine Critical/High-Bugs). Vor dem Pilotstart müssen aber BUG-1 bis BUG-4 und BUG-7 behoben und die ausstehenden Kriterien geprüft sein
-- **Recommendation:** Als Fundament freigeben. BUG-1 jetzt beheben (klein, betrifft bestehenden Code), die übrigen in den genannten Features
+- **Acceptance Criteria:** 19/24 bestanden, 2 nicht erfüllt (BUG-2, BUG-5), 3 ausstehend (Admin-Einrichtung teilweise erledigt, Backups erst mit Produktion)
+- **Bugs Found:** 9 total (0 critical, 0 high, 5 medium, 4 low); BUG-1 teilweise behoben, Rest offen in BUG-9
+- **Security:** Mandantentrennung und Rollen sind solide; 3 Medium-Befunde rund um die Mail-Links (BUG-1/BUG-9, BUG-3) und 1 Medium-Befund zur Aufnahme von Mitgliedern (BUG-4)
+- **Production Ready:** YES (keine Critical/High-Bugs). Vor dem Pilotstart müssen aber BUG-2 bis BUG-4, BUG-7 und BUG-9 behoben und die ausstehenden Kriterien geprüft sein
+- **Recommendation:** BUG-9 jetzt beheben (betrifft bestehenden Code), danach kurze Nachprüfung. Die übrigen Bugs in den genannten Features
 
 ## Deployment
 _To be added by /deploy_
