@@ -1,6 +1,6 @@
 # PROJ-1: Supabase Infrastructure Setup
 
-## Status: Approved
+## Status: In Progress
 **Created:** 2026-10-13
 **Last Updated:** 2026-10-14
 
@@ -272,6 +272,11 @@ _Stand 2026-10-14 (/backend)_
 
 **Runbook**: `docs/runbooks/supabase.md` (CLI, erster Admin, Produktion, Backup-Test, Muster für Fachtabellen)
 
+**Fix BUG-1 (Open Redirect), 2026-10-14**
+- Neu `src/lib/safe-redirect.ts`: `safeRedirectPath(next, origin)` löst das Ziel wie ein Browser auf und lässt nur den eigenen Ursprung zu. Backslashes und Steuerzeichen werden vorab abgewiesen; sonst gilt der Rückfallpfad `/`
+- `src/app/auth/confirm/route.ts` nutzt diese Funktion statt des Zeichenketten-Vergleichs
+- Tests: `src/lib/safe-redirect.test.ts` (16) und `src/app/auth/confirm/route.test.ts` (6, mit simuliertem Supabase). `npm test` 51/51 grün, `tsc` ohne Fehler
+
 **Abweichungen / Ergänzungen zum Tech Design**
 - Zusätzlich `src/app/auth/confirm/route.ts`: bestätigt die Links aus Einladungs- und Reset-Mails (`token_hash`). Ohne diese Route wären die Mail-Links nicht funktionsfähig. Die Oberflächen folgen in PROJ-3.
 - Das Admin-Kennzeichen ist für angemeldete Nutzer gesperrt, mit dem Secret Key (`service_role`) aber setzbar. Die Tests brauchen das; App-Code darf es nicht nutzen.
@@ -362,6 +367,7 @@ _Stand 2026-10-14 (/backend)_
   3. Actual: Die Prüfung `startsWith('/') && !startsWith('//')` lässt `/\evil.com` durch, und `new URL()` macht daraus `https://evil.com/` (nachgestellt mit Node)
 - **Risiko:** Ein Angreifer kann einen eigenen gültigen Token in einen Link packen. Das Opfer wird dann in das Konto des Angreifers eingeloggt und auf eine fremde Seite weitergeleitet (Phishing, Login-CSRF)
 - **Priority:** Fix before deployment
+- **Status:** ✅ Behoben 2026-10-14 (/backend), siehe Implementation Notes – erneute QA ausstehend
 
 #### BUG-2: Einladungs- und Reset-Mails sind englisch
 - **Severity:** Medium
