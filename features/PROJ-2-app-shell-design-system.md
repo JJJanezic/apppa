@@ -1,6 +1,6 @@
 # PROJ-2: App-Shell & Design-System
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-10-14
 **Last Updated:** 2026-10-14
 
@@ -307,7 +307,7 @@ _Stand 2026-10-14 (/frontend)_
 
 ## QA Test Results
 
-**Tested:** 2026-10-14
+**Tested:** 2026-10-14 (erster Durchlauf und Nachprüfung der Fixes)
 **App URL:** http://localhost:3000 (Dev-Server und Produktions-Build)
 **Tester:** QA Engineer (AI)
 **Browser:** Google Chrome (über Playwright, `channel: 'chrome'`) in 1440, 768 und 375 px. Firefox und Safari konnten in dieser Umgebung nicht getestet werden (kein Browser-Download möglich, siehe Implementation Notes)
@@ -352,7 +352,7 @@ _Stand 2026-10-14 (/frontend)_
 - [x] Platzhalter für Name, Kunde und Sync-Status (E2E)
 
 #### Design-System, Sprache und Formate
-- [ ] Teilweise: Farben, Schrift, Abstände und Radien aus dem Design-System; Abweichung vom Entwurf bei der Breite der Seitenleiste, siehe BUG-1
+- [x] Farben, Schrift, Abstände und Radien aus dem Design-System; Seitenleiste nach BUG-1-Fix 236 px wie im Entwurf
 - [x] Österreichische Formate mit Tausenderpunkt (Unit-Tests; E2E für das Datum)
 - [x] Browser-Tab „Dashboard · apppa“ (E2E)
 
@@ -369,42 +369,42 @@ _Stand 2026-10-14 (/frontend)_
 - [x] Detail-Panel mit viel Inhalt scrollt in sich (`overflow-y-auto`, Code-Review)
 - [x] Mehrere Hinweis-Meldungen werden von Sonner gestapelt (Code-Review)
 - [x] „Bewegung reduzieren“ schaltet Animationen ab (E2E)
-- [ ] BUG-4 (zusätzlich gefunden): Fehler im obersten Layout zeigen die englische Standardseite von Next.js
+- [x] Fehler im obersten Layout: eigene deutsche Fehlerseite (BUG-4 behoben, Unit-Test)
 
 ### Security Audit Results
 - [x] Keine Geheimnisse im Browser-Code: Der Produktions-Build enthält weder `sb_secret_` noch `SUPABASE_SECRET_KEY`, das Admin-Modul (`createAdminClient`) ist nicht im Client-Bundle
 - [x] Keine Verbindungen zu Dritten beim Seitenaufruf (nur `localhost`): Schrift selbst ausgeliefert, DSGVO-freundlich
 - [x] Ausgeblendete Bereiche auch per Adresse nicht erreichbar (404)
 - [x] Keine Eingabefelder, daher keine Injektionsfläche; Texte kommen ausschließlich aus `messages/de.json`
-- [x] Einziger Cookie `sidebar_state` (rein funktional, nur nach Cmd/Ctrl+B gesetzt; siehe BUG-2)
+- [x] Keine Cookies (nach BUG-2-Fix setzt auch Cmd/Ctrl+B keinen `sidebar_state` mehr)
 - [ ] Sicherheits-Header fehlen weiterhin (bekannt als BUG-7 aus PROJ-1, wird bei /deploy erledigt)
 
 ### Bugs Found
 
 #### BUG-1: Seitenleiste 256 statt 236 px breit
 - **Severity:** Low
-- **Status:** ✅ Behoben 2026-10-14 (/frontend), Nachprüfung ausstehend
+- **Status:** ✅ Behoben 2026-10-14, in der Nachprüfung bestätigt
 - **Steps to Reproduce:** Desktop 1440 px → Breite der Seitenleiste messen → 256 px; Entwurf und `--sidebar-width` in `globals.css`: 236 px
 - **Ursache:** `SidebarProvider` setzt `--sidebar-width` per Inline-Style auf 16rem und überschreibt damit den Wert aus `globals.css`
 - **Priority:** Nice to have (Abgleich mit dem Entwurf)
 
 #### BUG-2: Cmd/Ctrl+B wird app-weit abgefangen
 - **Severity:** Low
-- **Status:** ✅ Behoben 2026-10-14 (/frontend), Nachprüfung ausstehend
+- **Status:** ✅ Behoben 2026-10-14, in der Nachprüfung bestätigt
 - **Steps to Reproduce:** Seite öffnen, z. B. in einem Textfeld Cmd+B (Mac) bzw. Ctrl+B drücken → Die Tastenkombination wird von der shadcn-Sidebar verschluckt (Standard-Kürzel zum Ein-/Ausklappen) und setzt den Cookie `sidebar_state`. Sichtbar passiert nichts, weil die Seitenleiste fest ausgeklappt ist
 - **Folge:** Später fehlt „fett“ in Texteingaben (z. B. Notizen zu Buchungen)
 - **Priority:** Fix in next sprint (spätestens vor dem ersten Feature mit Texteingabe)
 
 #### BUG-3: Bereich der Hinweis-Meldungen englisch beschriftet
 - **Severity:** Low
-- **Status:** ✅ Behoben 2026-10-14 (/frontend), Nachprüfung ausstehend
+- **Status:** ✅ Behoben 2026-10-14, in der Nachprüfung bestätigt
 - **Steps to Reproduce:** Screenreader bzw. Barrierefreiheitsbaum: Bereich heißt „Notifications alt+T“
 - **Expected:** deutsche Bezeichnung, z. B. „Benachrichtigungen (Alt+T)“ (Sonner-Option `containerAriaLabel`)
 - **Priority:** Nice to have
 
 #### BUG-4: Keine eigene Fehlerseite für Fehler im obersten Layout
 - **Severity:** Low
-- **Status:** ✅ Behoben 2026-10-14 (/frontend), Nachprüfung ausstehend
+- **Status:** ✅ Behoben 2026-10-14, in der Nachprüfung bestätigt
 - **Steps to Reproduce:** Fehler im Root-Layout (z. B. fehlende Umgebungsvariable beim Laden der Texte) → Next.js zeigt seine englische Standard-Fehlerseite
 - **Expected:** deutsche Fehlerseite (`src/app/global-error.tsx`)
 - **Priority:** Nice to have
@@ -414,12 +414,18 @@ _Stand 2026-10-14 (/frontend)_
 - Mitarbeiter-Ansicht und Kunden-Auswahl lassen sich erst mit PROJ-4 im Browser testen (bis dahin Unit-Tests)
 - Detail-Panel, Kennzahl-Kachel, Hinweis-Meldung und Ladezustand werden noch auf keiner Seite genutzt; ihr Verhalten im Browser wird mit dem ersten nutzenden Feature erneut geprüft
 
+### Nachprüfung der Fixes (2026-10-14)
+- `npm test` 106/106, E2E 57/57 (15 übersprungen, weil breitenspezifisch), `tsc` ohne Fehler, Build erfolgreich, keine Regressionen
+- Unabhängige Browser-Prüfung in Chrome: Seitenleiste 236 px (BUG-1), Cmd/Ctrl+B wird nicht mehr abgefangen und setzt keinen Cookie (BUG-2), Meldungsbereich „Benachrichtigungen alt+T“ (BUG-3; „alt+T“ ist das von Sonner angehängte Tastenkürzel), Netzwerk weiterhin nur `localhost`
+- BUG-4: Fehlerseite per Unit-Test geprüft (lässt sich im Browser nur durch einen künstlichen Fehler im obersten Layout auslösen)
+- Code-Review der Änderung an `src/components/ui/sidebar.tsx`: neue Option `keyboardShortcut` mit Standard `true`, wird nicht an das DOM weitergereicht; andere Nutzungen der Sidebar bleiben unverändert
+
 ### Summary
-- **Acceptance Criteria:** 27/28 bestanden, 1 teilweise (Design-Abgleich: BUG-1)
-- **Bugs Found:** 4 total (0 critical, 0 high, 0 medium, 4 low)
+- **Acceptance Criteria:** 28/28 bestanden
+- **Bugs Found:** 4 total (0 critical, 0 high, 0 medium, 4 low), **alle 4 behoben und bestätigt**
 - **Security:** Bestanden (keine Geheimnisse im Client, keine Drittanbieter-Anfragen; Sicherheits-Header offen aus PROJ-1)
 - **Production Ready:** YES (keine Critical/High-Bugs; der Rahmen bleibt bis PROJ-3 ohnehin nur lokal bzw. in Vorschauen)
-- **Recommendation:** Freigeben. BUG-1 bis BUG-3 sind klein und sollten vor PROJ-3 erledigt werden, BUG-4 bei Gelegenheit
+- **Recommendation:** Freigeben. Offen bleiben nur die Hinweise (Firefox/Safari manuell prüfen, Rollen und Bausteine mit den nutzenden Features erneut testen) und die Sicherheits-Header aus PROJ-1 bei /deploy
 
 ## Deployment
 _To be added by /deploy_
