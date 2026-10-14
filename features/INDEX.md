@@ -15,7 +15,7 @@
 
 | ID | Feature | Beschreibung | Priority | Dependencies | Status | Spec | Created |
 |----|---------|--------------|----------|--------------|--------|------|---------|
-| PROJ-1 | Supabase Infrastructure Setup | Projekt-Anbindung, Env-Variablen, Schema-Grundriss, Mandanten-RLS-Muster, Auth-Konfiguration | P0 | None | Planned | [Spec](PROJ-1-supabase-infrastructure-setup.md) | 2026-10-12 |
+| PROJ-1 | Supabase Infrastructure Setup | Projekt-Anbindung, Env-Variablen, Schema-Grundriss, Mandanten-RLS-Muster, Auth-Konfiguration | P0 | None | Architected | [Spec](PROJ-1-supabase-infrastructure-setup.md) | 2026-10-12 |
 | PROJ-2 | App-Shell & Design-System | Responsives Layout, Navigation, Broadsheet-Tokens in shadcn/ui, i18n-Grundlage (Deutsch) | P0 | None | Roadmap | – | 2026-10-12 |
 | PROJ-3 | Authentifizierung | Login, Einladung annehmen, Passwort zurücksetzen, Logout | P0 | PROJ-1, PROJ-2 | Roadmap | – | 2026-10-12 |
 | PROJ-4 | Kundenkonten & Rollen | Mandant (Kunde), Rollen Inhaber/Mitarbeiter, Team-Mitglieder einladen | P0 | PROJ-1, PROJ-3 | Roadmap | – | 2026-10-12 |

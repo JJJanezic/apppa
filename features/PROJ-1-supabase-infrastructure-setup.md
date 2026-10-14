@@ -1,8 +1,8 @@
 # PROJ-1: Supabase Infrastructure Setup
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-10-13
-**Last Updated:** 2026-10-13
+**Last Updated:** 2026-10-14
 
 ## Dependencies
 - Keine. PROJ-1 ist die Grundlage für PROJ-3 bis PROJ-19.
@@ -100,7 +100,7 @@
 - [ ] Eigener Mailversand-Dienst und Absender-Domain festlegen, spätestens vor dem Pilotstart (Empfehlung: Brevo)
 - [ ] Auftragsverarbeitungsvertrag (AVV) mit den Kunden muss den Lesezugriff des Betreibers auf Kundendaten abdecken
 - [ ] AVV/DPA mit Supabase (und später dem Mail-Dienst) abschließen
-- [ ] Mindestanforderungen an Passwörter (Länge, Komplexität)
+- [x] Mindestanforderungen an Passwörter → mind. 10 Zeichen, Klein-/Großbuchstaben und Ziffern; in Produktion zusätzlich Leak-Prüfung (geklärt 2026-10-14)
 
 ## Decision Log
 
@@ -123,12 +123,134 @@
 <!-- Added by /architecture -->
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Supabase (PostgreSQL) statt localStorage | Mehrmandanten, mehrere Geräte und Nutzer; Daten müssen zentral und geschützt liegen | 2026-10-14 |
+| Zugriffsschutz per Row Level Security auf jeder Tabelle | Schutz greift auch bei App-Fehlern; nicht über den Browser umgehbar | 2026-10-14 |
+| Rolle wird je Zeile gegen deren Mandanten geprüft; aktiver Mandant ist reine UI-Auswahl | Mehrfach-Mitgliedschaften ohne Rechtevermischung; kein Sitzungszustand in der Datenbank nötig | 2026-10-14 |
+| Admin-Lesezugriff nur bei 2FA-bestätigter Sitzung | Setzt die 2FA-Pflicht für den Admin in der Datenbank durch, nicht nur in der Oberfläche | 2026-10-14 |
+| Admin-Kennzeichen im Profil, für App-Nutzer nicht änderbar | Keine Rechteausweitung über die App; Vergabe nur direkt in der Datenbank | 2026-10-14 |
+| Zentrale Prüf-Bausteine (Mitglied/Rolle/Admin) für alle Regeln | Einheitliche, schnelle Regeln; jede neue Tabelle folgt demselben Muster | 2026-10-14 |
+| Standardfelder und Änderungsprotokoll per Datenbank-Automatik (Trigger) | Erfasst auch Importe und direkte Änderungen; kann von keinem Feature vergessen werden; nicht fälschbar | 2026-10-14 |
+| Protokoll-Bereinigung nach 2 Jahren mit pg_cron | In Supabase enthalten, kein externer Dienst nötig | 2026-10-14 |
+| Migrationen als Dateien im Repo über die Supabase-CLI | Entwicklung und Produktion bleiben identisch und nachvollziehbar | 2026-10-14 |
+| `@supabase/ssr` mit Cookie-Sitzungen und Sitzungs-Auffrischung bei jedem Aufruf | Offizieller Weg für Next.js App Router; Server und Browser kennen denselben Login | 2026-10-14 |
+| Geheimer Schlüssel (`SUPABASE_SECRET_KEY`) nur serverseitig | Systemrechte dürfen nie in den Browser gelangen | 2026-10-14 |
+| Umgebungsvariablen beim Start mit Zod prüfen | Klare Fehlermeldung statt rätselhafter Laufzeitfehler (Akzeptanzkriterium) | 2026-10-14 |
+| Passwort mind. 10 Zeichen mit a-z/A-Z/0-9; Leak-Prüfung in Produktion | Mit dem Nutzer abgestimmt; Leak-Prüfung erst im Pro-Tarif verfügbar | 2026-10-14 |
+| Erster Admin per Einladung + einmaliger manueller Datenbankeintrag (Runbook) | Konto-ID ist je Umgebung verschieden; gehört nicht in eine Migration | 2026-10-14 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### Überblick
+PROJ-1 hat **keine sichtbare Oberfläche**. Es baut das unsichtbare Fundament, auf dem alle späteren Features aufsetzen: die Verbindung zur Datenbank, die Mandantentrennung, die Rollen, das Änderungsprotokoll und die Login-Regeln. Ob es funktioniert, wird über automatische Tests geprüft, nicht über Bildschirme.
+
+### A) Bausteine (statt Komponentenbaum)
+```
+App (Next.js)
++-- Supabase-Verbindung für den Browser       (Anmeldestatus, Lesen/Schreiben im Namen des Nutzers)
++-- Supabase-Verbindung für den Server         (Seiten und Server-Aktionen, ebenfalls im Namen des Nutzers)
++-- Supabase-Verbindung mit Systemrechten      (nur Server: z. B. Einladungen, später Channex-Import)
++-- Sitzungs-Auffrischung bei jedem Seitenaufruf (hält den Login gültig)
++-- Prüfung der Umgebungsvariablen beim Start  (bricht mit klarer Meldung ab, wenn etwas fehlt)
+
+Datenbank (Supabase, eu-west-1)
++-- Mandanten
++-- Benutzerprofile (inkl. Admin-Kennzeichen)
++-- Mitgliedschaften (Person ↔ Mandant mit Rolle)
++-- Änderungsprotokoll
++-- Zugriffsregeln (Row Level Security) auf allen Tabellen
++-- Wiederverwendbare Prüf-Bausteine: „ist Mitglied?“, „hat Rolle?“, „ist Admin mit 2FA?“
++-- Automatik: Standardfelder füllen, Protokoll schreiben, alte Einträge nach 2 Jahren löschen
+
+Repository
++-- Ordner für Datenbank-Migrationen (jede Änderung als nummerierte Datei)
++-- Vorlage der Umgebungsvariablen (.env.local.example, ohne echte Werte)
++-- Automatisch erzeugte Typbeschreibung der Datenbank für den Code
++-- Kurzanleitung („Runbook“): Admin einrichten, Produktionsprojekt anlegen, Backup testen
+```
+
+### B) Datenmodell (in Worten)
+
+**Mandant (Kunde):**
+- Eindeutige ID, Name
+- Status: aktiv oder deaktiviert (deaktivierte Mandanten sperren den Zugriff ihrer Mitglieder, die Daten bleiben erhalten)
+- Standardfelder (siehe unten)
+
+**Benutzerprofil:** genau eines pro Login-Konto
+- Verweis auf das Login-Konto, Anzeigename, E-Mail (Kopie für Anzeigen)
+- Kennzeichen „Betreiber-Admin“ (ja/nein). Es kann über die App von niemandem gesetzt oder entfernt werden, nur direkt in der Datenbank
+- Wird beim ersten Anlegen eines Login-Kontos automatisch erzeugt
+
+**Mitgliedschaft:** verbindet eine Person mit einem Mandanten
+- Person, Mandant, Rolle: Inhaber oder Mitarbeiter
+- Pro Person und Mandant höchstens eine Mitgliedschaft (keine Duplikate)
+- Regel: Jeder Mandant hat immer mindestens einen Inhaber; der letzte Inhaber kann nicht entfernt oder herabgestuft werden
+
+**Änderungsprotokoll:** ein Eintrag pro Anlage, Änderung oder Löschung in einer fachlichen Tabelle
+- Mandant, betroffene Tabelle, betroffener Datensatz
+- Aktion (angelegt/geändert/gelöscht), alte Werte, neue Werte
+- Wer (Person oder „System“, z. B. Channex-Import) und wann
+- Nur lesbar für Inhaber des Mandanten und den Admin; niemand kann Einträge ändern oder löschen, nur die automatische Bereinigung nach 2 Jahren
+- Für DSGVO-Löschungen gibt es eine Funktion, die personenbezogene Daten einer Person aus dem Protokoll entfernt (wird von PROJ-7 genutzt)
+
+**Standardfelder für jede Tabelle:** angelegt am, angelegt von, geändert am, geändert von. Sie werden automatisch von der Datenbank gefüllt, nicht vom Code, und lassen sich deshalb nicht fälschen.
+
+**Muster für alle künftigen Fachtabellen (Wohnungen, Gäste, Buchungen …):**
+- Jede Zeile gehört genau einem Mandanten
+- Lesen: Mitglieder dieses Mandanten und der Admin (nur mit aktiver 2FA)
+- Schreiben: nur Mitglieder dieses Mandanten. Welche Rolle was darf, legt jedes Feature fest
+- Standardfelder und Änderungsprotokoll werden mit einem einzigen Befehl pro Tabelle aktiviert
+
+### C) Technische Entscheidungen (begründet)
+
+**Zugriffsschutz in der Datenbank selbst (Row Level Security).** Die Datenbank prüft bei jeder einzelnen Abfrage, ob die Person die Zeile sehen oder ändern darf. Selbst wenn die App einen Fehler hätte, könnte niemand die Daten eines anderen Kunden abrufen. Diese Prüfung lässt sich nicht umgehen, auch nicht über den Browser.
+
+**Mandantenwechsel als reine Ansichtssache.** Die Datenbank erlaubt einer Person Zugriff auf alle Mandanten, bei denen sie Mitglied ist, und prüft die Rolle immer für den Mandanten der jeweiligen Zeile. Welcher Kunde gerade „aktiv“ ist, merkt sich nur die Oberfläche (PROJ-4). So ist es egal, welcher Kunde gewählt ist: Rechte gelten immer nur für den richtigen Mandanten.
+
+**Admin-Lesezugriff nur mit 2FA.** Supabase vermerkt in jeder Sitzung, ob die Anmeldung mit zweitem Faktor bestätigt wurde. Die Leseregel für den Admin verlangt genau das. Ohne 2FA ist der Admin wie ein normaler Nutzer ohne Mitgliedschaft und sieht nichts.
+
+**Prüf-Bausteine statt Wiederholung.** „Ist Mitglied?“, „hat Rolle?“ und „ist Admin?“ werden einmal zentral definiert und von allen Regeln genutzt. Das hält die Regeln einheitlich und schnell (die Mitgliedschaftstabelle bekommt passende Suchindizes).
+
+**Protokoll und Standardfelder per Datenbank-Automatik.** Sie werden von der Datenbank selbst geschrieben, nicht vom App-Code. Dadurch werden auch Änderungen aus dem Channex-Import oder direkt in der Datenbank erfasst, und kein Feature kann es vergessen.
+
+**Automatische Bereinigung mit dem eingebauten Zeitplaner (pg_cron).** Supabase bringt einen Zeitplaner mit, der täglich Protokolleinträge löscht, die älter als 2 Jahre sind. Es wird kein externer Dienst gebraucht.
+
+**Migrationen mit der Supabase-Kommandozeile.** Jede Datenbankänderung ist eine Datei im Repository. Dieselben Dateien werden erst in die Entwicklung, später unverändert in die Produktion eingespielt. Damit sind beide Umgebungen garantiert gleich und alles ist im Git-Verlauf nachvollziehbar.
+
+**Anmeldung über Cookies mit dem offiziellen Next.js-Paket von Supabase.** Die Sitzung wird in sicheren Cookies gehalten, damit Server-Seiten und Browser denselben Login kennen. Eine kleine Vorschaltung frischt die Sitzung bei jedem Seitenaufruf auf.
+
+**Zwei Arten von Schlüsseln.** Der öffentliche Schlüssel (Publishable Key) darf in den Browser; alle Rechte prüft die Datenbank. Der geheime Schlüssel mit Systemrechten liegt nur auf dem Server (lokal in `.env.local`, später in Vercel) und wird nur dort verwendet, wo es nötig ist (Einladungen, Import).
+
+**Umgebungsvariablen beim Start prüfen.** Mit Zod (bereits installiert) wird beim Start geprüft, ob alle Variablen vorhanden und gültig sind. Fehlt eine, nennt die Fehlermeldung genau diese.
+
+**Auth-Konfiguration:**
+- Öffentliche Registrierung aus; Konten entstehen nur per Einladung
+- Passwort: mindestens 10 Zeichen, mit Klein- und Großbuchstaben und Ziffern; in der Produktion zusätzlich Prüfung gegen geleakte Passwörter (Pro-Tarif)
+- 2FA per Authenticator-App (TOTP) aktiviert; Pflicht wird über die Admin-Regel durchgesetzt
+- Deutsche Vorlagen für Einladungs- und Passwort-Reset-Mails
+- Erlaubte Weiterleitungsadressen: localhost (Entwicklung), später die Vercel-Adresse
+
+**Umgebungen:** Lokale Entwicklung und Vercel-Vorschauen nutzen „apppa“; die Vercel-Produktion nutzt das spätere Produktionsprojekt. Getrennte Werte pro Umgebung in Vercel.
+
+**Erster Admin:** Er wird über die Supabase-Oberfläche zu `joachim@janezic.at` eingeladen. Danach wird das Admin-Kennzeichen einmalig per Anleitung im Runbook direkt in der Datenbank gesetzt (nicht über eine Migration, weil die Konto-ID je Umgebung verschieden ist).
+
+### D) Abhängigkeiten (Pakete)
+- `@supabase/ssr`: offizielles Supabase-Paket für Login-Sitzungen in Next.js (Cookies, Server und Browser)
+- `supabase` (nur Entwicklung): Supabase-Kommandozeile für Migrationen und die Erzeugung der Typbeschreibung
+- Bereits vorhanden: `@supabase/supabase-js`, `zod`
+- Datenbank-Erweiterung `pg_cron` (in Supabase enthalten, wird nur aktiviert)
+
+### E) Neue Umgebungsvariablen (in `.env.local.example` dokumentiert)
+- `NEXT_PUBLIC_SUPABASE_URL`: Projektadresse (öffentlich)
+- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`: öffentlicher Schlüssel
+- `SUPABASE_SECRET_KEY`: geheimer Schlüssel mit Systemrechten (nur Server, nie mit `NEXT_PUBLIC_`)
+
+### F) Prüfung (für /qa)
+- Automatische Tests mit zwei Test-Mandanten, Testpersonen in verschiedenen Rollen und einem Test-Admin: Sie prüfen jede Zugriffsregel aus den Akzeptanzkriterien direkt gegen die Datenbank
+- Supabase-Sicherheitsberater (Advisors) ohne Warnungen
+- Produktions-Backup und Test-Wiederherstellung werden vor dem Pilotstart per Runbook geprüft
 
 ## QA Test Results
 _To be added by /qa_
