@@ -1,6 +1,6 @@
 # PROJ-1: Supabase Infrastructure Setup
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-10-13
 **Last Updated:** 2026-10-14
 
@@ -279,7 +279,146 @@ _Stand 2026-10-14 (/backend)_
 - Mandanten werden auch über `tenants` selbst protokolliert (Mandanten-ID = eigene ID), Mitgliedschaften ebenfalls.
 
 ## QA Test Results
-_To be added by /qa_
+
+**Tested:** 2026-10-14
+**Umgebung:** Entwicklungsprojekt „apppa“ (`nizgfmvjplhegoosanmu`) + Code-Review der Migrationen und von `src/`
+**Tester:** QA Engineer (AI)
+
+**Hinweis zum Umfang:** PROJ-1 hat keine Oberfläche. Browser-, Responsive- und Playwright-E2E-Tests entfallen. Geprüft wurde über die automatischen Integrationstests gegen die Datenbank, die Supabase-Advisors, direkte Datenbankabfragen und ein Code-Review aus Angreifersicht.
+
+**Automatische Tests:** `npm test` → 29/29 grün
+- `src/lib/env.test.ts` (4) und `supabase/tests/rls.integration.test.ts` (19), beide aus /backend
+- Neu aus /qa: `supabase/tests/auth.integration.test.ts` (6): Registrierung gesperrt, Passwortregel (zu kurz, ohne Groß-/Kleinbuchstaben, ohne Ziffer → abgelehnt; gültiges Passwort → akzeptiert)
+
+### Acceptance Criteria Status
+
+#### Umgebungen & Anbindung
+- [x] Verbindung zu „apppa“ mit gesetzten Variablen (alle Integrationstests laufen gegen „apppa“)
+- [ ] BUG-5 (Low): Eine fehlende Variable wird nicht beim Start oder Build gemeldet, sondern erst beim ersten Seitenaufruf bzw. beim ersten Zugriff. Die Meldung selbst ist klar und nennt die Variable (Unit-Tests grün)
+- [x] Datenbankänderungen liegen als 4 Migrationen in `supabase/migrations/` und sind in „apppa“ eingespielt
+- [x] Keine Geheimnisse im Repository (Suche in allen versionierten Dateien und im Git-Verlauf von `.env.local.example`; nur Platzhalter)
+
+#### Mandanten & Abschottung
+- [x] Fremder Mandant: Lesen, Ändern, Mitglieder anlegen und löschen werden verweigert
+- [x] Ohne Anmeldung keine Mandantendaten
+- [x] Rechte gelten je Mandant (B ist Inhaber in T2, Mitarbeiter in T1)
+- [x] Mitarbeiter kann Inhaber-Daten (Mandantenname, Rollen) nicht ändern
+- [x] Ohne Mitgliedschaft keine Mandanten, Mitgliedschaften oder Protokolle sichtbar
+
+#### Betreiber-Admin
+- [x] Admin mit 2FA liest alle Mandanten, Mitglieder und Protokolle
+- [x] Admin ohne Mitgliedschaft kann nichts ändern
+- [x] Niemand kann über die App Admin-Rechte geben oder entziehen (auch der Admin selbst nicht)
+- [x] Ohne 2FA-bestätigte Sitzung (aal1) hat das Admin-Konto keine Rechte
+
+#### Auth-Konfiguration
+- [x] Selbstregistrierung ohne Einladung wird abgelehnt (neuer QA-Test)
+- [ ] BUG-2 (Medium): Einladungs- und Reset-Mails sind englisch. Die deutschen Vorlagen existieren, sind aber deaktiviert, weil der Gratis-Mailversand eigene Vorlagen ablehnt
+- [x] Passwörter, die die Mindestanforderungen nicht erfüllen, werden abgelehnt (neuer QA-Test)
+
+#### Nachvollziehbarkeit
+- [x] Angelegt/geändert am/von werden von der Datenbank gesetzt und sind nicht überschreibbar
+- [x] Protokoll enthält Zeitpunkt, Person, Aktion sowie alte und neue Werte
+- [x] Inhaber und Admin sehen das Protokoll, Mitarbeiter nicht
+- [x] Bereinigung nach 2 Jahren: pg_cron-Job `purge-audit-log` ist aktiv (täglich 03:15 UTC). Die Löschung selbst konnte mangels alter Einträge nicht live beobachtet werden
+- [x] Protokolleinträge kann niemand ändern oder löschen, auch nicht mit dem Secret Key
+
+#### Admin-Einrichtung & Backups
+- [ ] Ausstehend: Der erste Betreiber-Admin (`joachim@janezic.at`) ist in „apppa“ noch nicht eingerichtet (es gibt noch kein Profil). Manueller Schritt laut Runbook, Abschnitt 4
+- [ ] Ausstehend: Tägliche Backups, erst mit dem Produktionsprojekt prüfbar (vor dem Pilotstart)
+- [ ] Ausstehend: Test-Wiederherstellung, erst mit dem Produktionsprojekt prüfbar (vor dem Pilotstart)
+
+### Edge Cases Status
+- [x] Person wird aus dem Mandanten entfernt, während sie angemeldet ist: Die Rechte werden bei jeder Abfrage neu geprüft, der nächste Zugriff liefert nichts mehr (Design + RLS-Tests)
+- [x] Letzter Inhaber kann nicht entfernt oder herabgestuft werden (Test)
+- [x] Keine doppelte Mitgliedschaft (Test)
+- [ ] Nicht testbar: Massenänderung, z. B. 500 Buchungen (es gibt noch keine Fachtabelle). Das Protokoll schreibt eine Zeile pro Änderung; mit PROJ-11 erneut prüfen
+- [ ] Teilweise: DSGVO-Löschung im Protokoll. Die Funktion existiert, ist aber nur per SQL aufrufbar, nicht über die API (siehe Hinweis 2)
+- [x] Deaktivierter Mandant sperrt seine Mitglieder, Daten bleiben erhalten (Test)
+- [x] Pausiertes Gratis-Projekt: nur Entwicklung betroffen (keine Prüfung nötig)
+- [x] Mail-Limit des Test-Versands: bekanntes, dokumentiertes Risiko
+- [x] Übernommenes Admin-Konto: ohne 2FA keine Rechte, auch mit 2FA kein Schreibzugriff (Tests)
+- [ ] BUG-6 (Low, zusätzlich gefunden): Ein Login-Konto, das letzter Inhaber eines Mandanten ist, lässt sich nicht löschen (die Inhaber-Regel blockiert die Kaskade)
+
+### Security Audit Results
+- [x] Authentifizierung: anonymer Zugriff liefert keine Daten; Selbstregistrierung gesperrt
+- [x] Autorisierung: Mandantentrennung, Rollen und Admin-Regeln halten in allen Tests
+- [x] Rechteausweitung: Admin-Kennzeichen, Mandanten-Status, E-Mail im Profil und Mandantenwechsel einer Mitgliedschaft sind über Spaltenrechte gesperrt
+- [x] Interne Funktionen liegen im nicht veröffentlichten Schema `private`
+- [x] Supabase Security Advisor: keine Befunde. Performance Advisor: nur INFO „ungenutzter Index `audit_log_created_idx`“ (wird von der nächtlichen Bereinigung gebraucht, ok)
+- [x] Keine Geheimnisse im Code; der Secret Key wird nur in `server-only`-Code verwendet
+- [ ] BUG-1 (Medium): Open Redirect in `/auth/confirm`
+- [ ] BUG-3 (Medium): Mail-Linkscanner verbrauchen den Einmal-Link
+- [ ] BUG-4 (Medium): Inhaber können beliebige Konten ohne Zustimmung aufnehmen und deren E-Mail sehen
+- [ ] BUG-7 (Low): Sicherheits-Header fehlen
+
+### Bugs Found
+
+#### BUG-1: Open Redirect in `/auth/confirm` über Backslash
+- **Severity:** Medium
+- **Steps to Reproduce:**
+  1. Link aufrufen: `/auth/confirm?token_hash=<gültiger Token>&type=recovery&next=/\evil.com`
+  2. Expected: Weiterleitung innerhalb der App oder auf `/`
+  3. Actual: Die Prüfung `startsWith('/') && !startsWith('//')` lässt `/\evil.com` durch, und `new URL()` macht daraus `https://evil.com/` (nachgestellt mit Node)
+- **Risiko:** Ein Angreifer kann einen eigenen gültigen Token in einen Link packen. Das Opfer wird dann in das Konto des Angreifers eingeloggt und auf eine fremde Seite weitergeleitet (Phishing, Login-CSRF)
+- **Priority:** Fix before deployment
+
+#### BUG-2: Einladungs- und Reset-Mails sind englisch
+- **Severity:** Medium
+- **Steps to Reproduce:** Einladung im Dashboard auslösen → Mail ist englisch (Supabase-Standard)
+- **Ursache:** Die Vorlagen in `supabase/templates/` sind in `config.toml` auskommentiert, weil der Gratis-Mailversand eigene Vorlagen ablehnt. Hängt an der offenen Frage zum Mailversand (Brevo)
+- **Priority:** Fix before deployment (spätestens vor dem Pilotstart, zusammen mit eigenem SMTP)
+
+#### BUG-3: Mail-Linkscanner (z. B. Outlook Safe Links) können den Einmal-Link verbrauchen
+- **Severity:** Medium
+- **Steps to Reproduce:**
+  1. Einladung an ein Microsoft-365-Postfach mit Safe Links senden
+  2. Der Scanner ruft den Link vor dem Nutzer per GET auf, `/auth/confirm` löst den Token sofort ein
+  3. Expected: Der Nutzer kann die Einladung annehmen. Actual: Der Link ist beim Klick bereits ungültig („link_invalid“)
+- **Hinweis:** Die Zielgruppe nutzt häufig Outlook/M365. Empfehlung für PROJ-3: Der Link öffnet eine Bestätigungsseite, erst ein Klick auf „Einladung annehmen“ löst den Token ein
+- **Priority:** Fix before deployment (in PROJ-3)
+
+#### BUG-4: Inhaber können beliebige Konten ohne Zustimmung in ihren Mandanten aufnehmen
+- **Severity:** Medium
+- **Steps to Reproduce:**
+  1. Inhaber von T1 kennt die Konto-ID einer Person X, z. B. aus einem gemeinsamen anderen Mandanten
+  2. Inhaber legt direkt eine Mitgliedschaft `{tenant_id: T1, user_id: X}` an. Die Regel prüft nur, dass der Anlegende Inhaber ist
+  3. Expected: X muss zustimmen (Einladung annehmen). Actual: X ist sofort Mitglied, und der Inhaber sieht über die Profil-Regel die E-Mail von X
+- **Hinweis:** Konto-IDs sind nicht erratbar, das Risiko ist also begrenzt. Für PROJ-4 sollte das Anlegen von Mitgliedschaften über einen Einladungs-Ablauf mit Annahme laufen statt über direktes Einfügen
+- **Priority:** Fix in PROJ-4 (vor dem Pilotstart)
+
+#### BUG-5: Fehlende Umgebungsvariablen werden erst beim ersten Zugriff gemeldet
+- **Severity:** Low
+- **Steps to Reproduce:** Variable aus `.env.local` entfernen → `npm run build` / `npm run dev` startet ohne Fehler, die Meldung erscheint erst beim ersten Seitenaufruf
+- **Expected (AC):** Meldung beim Start oder Build
+- **Priority:** Nice to have (z. B. Prüfung beim Serverstart)
+
+#### BUG-6: Konto eines letzten Inhabers lässt sich nicht löschen
+- **Severity:** Low
+- **Steps to Reproduce:** Person ist einziger Inhaber eines Mandanten → Konto im Dashboard bzw. per Admin-API löschen → Fehler „Jeder Kunde braucht mindestens einen Inhaber“
+- **Hinweis:** Das ist fachlich vertretbar, PROJ-5 braucht aber einen Ablauf dafür (erst Inhaber übertragen oder Mandant löschen)
+- **Priority:** Fix in PROJ-5
+
+#### BUG-7: Sicherheits-Header fehlen
+- **Severity:** Low
+- **Details:** `next.config.ts` setzt keine der in `.claude/rules/security.md` geforderten Header (X-Frame-Options, X-Content-Type-Options, Referrer-Policy, HSTS)
+- **Priority:** Fix before deployment (in /deploy)
+
+#### BUG-8: Testläufe hinterlassen Protokolleinträge in „apppa“
+- **Severity:** Low
+- **Details:** Jeder Testlauf lässt etwa 29 Einträge im Änderungsprotokoll zurück (aktuell 58), weil das Protokoll nicht löschbar ist. Das betrifft nur die Entwicklung; die Bereinigung greift erst nach 2 Jahren
+- **Priority:** Nice to have
+
+#### Hinweise (keine Bugs)
+1. Der erste Admin ist in „apppa“ noch nicht eingerichtet (Runbook, Abschnitt 4). Bitte manuell durchführen.
+2. `private.purge_audit_personal_data()` ist nicht über die API erreichbar. PROJ-7 braucht dafür einen serverseitigen Aufruf (z. B. eine öffentliche Funktion, die nur der Secret Key ausführen darf).
+
+### Summary
+- **Acceptance Criteria:** 19/24 bestanden, 2 nicht erfüllt (BUG-2, BUG-5), 3 ausstehend (Admin-Einrichtung manuell, Backups erst mit Produktion)
+- **Bugs Found:** 8 total (0 critical, 0 high, 4 medium, 4 low)
+- **Security:** Mandantentrennung und Rollen sind solide; 2 Medium-Befunde rund um die Mail-Links (BUG-1, BUG-3) und 1 Medium-Befund zur Aufnahme von Mitgliedern (BUG-4)
+- **Production Ready:** YES (keine Critical/High-Bugs). Vor dem Pilotstart müssen aber BUG-1 bis BUG-4 und BUG-7 behoben und die ausstehenden Kriterien geprüft sein
+- **Recommendation:** Als Fundament freigeben. BUG-1 jetzt beheben (klein, betrifft bestehenden Code), die übrigen in den genannten Features
 
 ## Deployment
 _To be added by /deploy_
