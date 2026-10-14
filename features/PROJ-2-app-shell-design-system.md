@@ -1,6 +1,6 @@
 # PROJ-2: App-Shell & Design-System
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-10-14
 **Last Updated:** 2026-10-14
 
@@ -148,12 +148,123 @@
 <!-- Added by /architecture -->
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Reines Frontend, keine Datenbank; Person/Kunde/Sync über eine „Shell-Information“ mit Platzhaltern | PROJ-3/4/10 liefern die echten Werte, ohne Umbau des Rahmens | 2026-10-14 |
+| Gemeinsamer Rahmen über eine Next.js-Routengruppe für alle App-Seiten | Jedes Feature legt nur seine Seite an; Login-Seiten bleiben ohne Rahmen | 2026-10-14 |
+| Wechsel Handy ↔ Desktop rein über CSS-Breite, Schwelle 1024 px | Kein Flackern, sofortiger Wechsel beim Drehen; Tablet hochkant = untere Leiste | 2026-10-14 |
+| Zentrale Navigationsliste mit „fertig“, Rollen und Handy-Platz | Feature-Freischaltung an einer Stelle; Grundlage für Rollenfilter (PROJ-4) | 2026-10-14 |
+| Ausgeblendete Bereiche liefern auch per Adresse „Nicht gefunden“ | Keine halbfertigen Seiten über alte Links | 2026-10-14 |
+| shadcn Sidebar, Sheet, Dropdown Menu, Sonner, Skeleton, Tooltip statt Eigenbau | Projektregel; Tastatur- und Screenreader-Unterstützung eingebaut | 2026-10-14 |
+| Sonner statt der älteren shadcn-Toast-Variante | Beide installiert; nur eine soll genutzt werden, Sonner ist der aktuelle Standard | 2026-10-14 |
+| Broadsheet-Tokens auf shadcn-Farbvariablen, Primärfarbe `accent-700` | Alle Bausteine automatisch im Design; Kontrast weiß auf `accent-700` erfüllt AA, auf `accent` nicht | 2026-10-14 |
+| Standardwerte der Vorlage (slate, dunkler Satz) entfernen | Nur ein, das eigene Erscheinungsbild; dunkler Modus später als zweiter Satz | 2026-10-14 |
+| Schrift über `next/font` selbst ausliefern | Schneller, keine Layout-Sprünge, keine Verbindung zu Google (DSGVO) | 2026-10-14 |
+| Icons `@phosphor-icons/react` (Duotone) | Wie im Entwurf; Lucide bleibt für shadcn-interne Symbole | 2026-10-14 |
+| `next-intl` für Texte und Formate, de-AT, ohne Sprachkürzel in der Adresse | Standardlösung, mehrsprachig vorbereitet (PROJ-23) | 2026-10-14 |
+| Zeitzone fest Europe/Vienna | Vercel läuft in UTC; sonst falsches Datum bzw. falsche Begrüßung | 2026-10-14 |
+| `tailwindcss-animate` ergänzen, Animationen nur ohne „Bewegung reduzieren“ | Von shadcn-Bausteinen vorausgesetzt; Barrierefreiheit | 2026-10-14 |
+| Vercel-Vorschauen mit Zugriffsschutz bis PROJ-3 | Kein öffentlicher Zugang ohne Login | 2026-10-14 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### Überblick
+PROJ-2 ist **reines Frontend**: Es gibt keine neuen Tabellen und keine Schnittstellen. Der Rahmen bekommt die Informationen über Person, Kunde und Sync-Status über eine klar definierte „Shell-Information“. Bis PROJ-3/4/10 sind das Platzhalter, danach echte Daten, ohne dass der Rahmen umgebaut werden muss.
+
+### A) Seitenstruktur und Bausteine
+```
+Gesamte App (Sprache Deutsch, Schrift Source Serif 4, Design-Tokens)
++-- Hinweis-Meldungen (Toast) – einmal für die ganze App
++-- App-Bereich (alle Seiten nach dem Login, gemeinsamer Rahmen)
+|   +-- Seitenleiste (ab Laptop-/Tablet-Querformat-Breite)
+|   |   +-- Wortmarke „apppa."
+|   |   +-- Kundenname / Kunden-Auswahl (Platz für PROJ-4)
+|   |   +-- Navigation (aus der zentralen Navigationsliste, gefiltert)
+|   |   +-- Personenbereich: Name · Rolle + Benutzermenü (Mein Konto, Abmelden)
+|   |   +-- Sync-Status
+|   +-- Untere Leiste (Handy und Tablet hochkant)
+|   |   +-- bis zu 4 Hauptbereiche + „Mehr“
+|   |   +-- „Mehr“-Blatt (fährt von unten herein): übrige Bereiche, Kunde, Benutzermenü, Sync-Status
+|   +-- Inhaltsbereich
+|       +-- Seite „Dashboard“ (Startseite, vorerst Leerzustand)
+|       |   +-- Seitenkopf (Datum, Begrüßung nach Tageszeit, Untertitel)
+|       |   +-- Leerzustand „Hier erscheinen bald deine Buchungen."
+|       +-- Ladezustand (automatisch beim Seitenwechsel)
+|       +-- Fehlerzustand mit „Erneut versuchen"
++-- Seite „Nicht gefunden" (unbekannte Adresse oder ausgeblendeter Bereich)
+
+Wiederverwendbare Grundbausteine (für alle späteren Features)
++-- Seitenkopf: Überzeile, Überschrift, Untertitel, Platz für Hauptaktion
++-- Kennzahl-Kachel: Beschriftung, große Zahl, Unterzeile
++-- Kachel-Raster: 4 nebeneinander (Desktop), 2 bzw. 1 (Handy)
++-- Detail-Panel: von rechts, Seite abgedunkelt; am Handy bildschirmfüllend
++-- Leerzustand: Symbol, Satz, optional Aktion
+```
+
+### B) Daten (in Worten, ohne Datenbank)
+
+**Zentrale Navigationsliste**, ein Eintrag pro Bereich:
+- Kennung, Beschriftung, Icon, Adresse
+- „Fertig gebaut“ ja/nein: Nur fertige Bereiche erscheinen. Wird ein Feature fertig, wird dort nur dieser Schalter umgelegt
+- Erlaubte Rollen (Inhaber, Mitarbeiter)
+- Platz in der unteren Leiste am Handy (Hauptbereich oder unter „Mehr“)
+
+Startbelegung: Nur „Dashboard“ ist fertig. Alle anderen Bereiche aus dem Entwurf sind angelegt, aber ausgeblendet. „Zahlungen“ und „Auswertungen“ sind nur für Inhaber freigegeben; die endgültige Zuordnung kommt mit PROJ-4.
+
+**Shell-Information**, die der Rahmen braucht:
+- Person: Anzeigename, Rolle
+- Kunde: Name des aktiven Kunden, ob weitere Kunden zur Auswahl stehen
+- Sync-Status: Zahl der Verbindungen, Zustand (synchron / Problem)
+
+In PROJ-2 sind das feste Platzhalter, z. B. „Kunde wird mit dem Login geladen“. PROJ-3, PROJ-4 und PROJ-10 liefern später die echten Werte.
+
+**Texte:** Alle Beschriftungen stehen in einer deutschen Textdatei, nicht verstreut im Code. Eine englische Datei kann später daneben gelegt werden (PROJ-23).
+
+Gespeichert wird nichts, weder im Browser noch in der Datenbank.
+
+### C) Technische Entscheidungen (begründet)
+
+**Ein gemeinsamer Rahmen für alle App-Seiten.** Next.js erlaubt, Seiten zu einem Bereich zusammenzufassen, der denselben Rahmen teilt. Jedes spätere Feature legt nur seine Seite in diesen Bereich und bekommt Seitenleiste, untere Leiste, Lade- und Fehlerzustände automatisch. Login-Seiten (PROJ-3) liegen später außerhalb und zeigen den Rahmen nicht.
+
+**Umschalten zwischen Handy und Desktop nur über Bildschirmbreite (CSS).** Seitenleiste und untere Leiste werden je nach Breite ein- oder ausgeblendet, ohne JavaScript-Abfrage. Dadurch flackert beim Laden nichts, und das Drehen des Tablets wechselt sofort ohne Neuladen. Die Schwelle liegt bei 1024 px: Tablet hochkant (768 px) zeigt die untere Leiste, Tablet quer und Laptop die Seitenleiste.
+
+**Fertige Bausteine von shadcn/ui statt Eigenbau** (Projektregel). Sie bringen Tastaturbedienung, Fokusführung und Screenreader-Beschriftungen nach WCAG mit:
+- Seitenleiste: der vorhandene shadcn-Baustein „Sidebar“, fest ausgeklappt, im Aussehen an den Entwurf angepasst
+- Detail-Panel und „Mehr“-Blatt: „Sheet“ (von rechts bzw. von unten); schließt mit Esc und Klick außerhalb und gibt den Fokus zurück
+- Benutzermenü und Kunden-Auswahl: „Dropdown Menu“
+- Hinweis-Meldungen: „Sonner“ (vorhanden; die ältere „Toast“-Variante wird nicht verwendet)
+- Ladezustand: „Skeleton“; lange Namen: „Tooltip“
+- Kennzahl-Kachel und Seitenkopf: schlichte eigene Bausteine aus den Design-Tokens, weil shadcn dafür nichts Passendes hat
+
+**Design-Tokens an zentraler Stelle.** Die Broadsheet-Farben werden auf die Farbvariablen von shadcn/ui gelegt (Hintergrund, Text, Primärfarbe = `accent-700` wie im Entwurf, Rahmen, Fokus) und zusätzlich als vollständige Farbrampen bereitgestellt. Damit sehen auch alle shadcn-Bausteine automatisch nach Broadsheet aus. Ein dunkler Modus wäre später nur ein zweiter Satz Werte. Die vorhandenen Standardwerte (slate) und der dunkle Satz der Vorlage werden entfernt.
+
+**Schrift über Next.js selbst ausliefern.** „Source Serif 4“ wird beim Bauen mitgeliefert statt live von Google geladen. Das ist schneller, verhindert Layout-Sprünge (automatisch passende Ersatzschrift) und ist DSGVO-freundlich: Beim Seitenaufruf geht keine Verbindung zu Google.
+
+**Icons „Phosphor“ (Duotone) wie im Entwurf.** Sie werden einzeln eingebunden, es landet nur, was genutzt wird. Die vorhandenen Lucide-Icons bleiben für die internen Symbole der shadcn-Bausteine.
+
+**Sprache und Formate mit next-intl.** Das ist die verbreitete Lösung für mehrsprachige Next.js-Apps. Sie verwaltet die Textdatei und formatiert Datum, Zahl und Euro einheitlich österreichisch (de-AT). Es gibt kein Sprachkürzel in der Adresse, solange es nur Deutsch gibt. Zeitzone ist immer Europe/Vienna. Die Server bei Vercel laufen in UTC, ohne diese Festlegung stimmten Datum und Begrüßung um Mitternacht oder am Morgen nicht.
+
+**Ausgeblendete Bereiche sind auch per Adresse nicht erreichbar.** Jede Seite prüft gegen die zentrale Navigationsliste und zeigt sonst „Nicht gefunden“. So erreicht auch niemand über einen alten Link eine halbfertige Seite.
+
+**Bewegung reduzieren.** Animationen (Panel, Blatt, Meldungen) laufen nur, wenn das Gerät nicht „Bewegung reduzieren“ eingestellt hat.
+
+**Aufräumen der Vorlage.** Die Startseite der Vorlage (Next.js-Logo, Geist-Schrift), der englische Seitentitel und `lang="en"` werden ersetzt. Der Browser-Tab zeigt „<Seite> · apppa“.
+
+**Kein öffentlicher Zugang vor PROJ-3.** Vorschauen bei Vercel werden über den Vercel-Zugriffsschutz nur für angemeldete Team-Mitglieder geöffnet. Eine Produktionsfreigabe gibt es erst mit dem Login.
+
+### D) Abhängigkeiten (Pakete)
+- `@phosphor-icons/react`: Icon-Sammlung aus dem Entwurf
+- `next-intl`: deutsche Texte an einem Ort, Datums-, Zahl- und Euro-Formate, mehrsprachig vorbereitet
+- `tailwindcss-animate`: Ein- und Ausblend-Animationen, die die shadcn-Bausteine Sheet, Dropdown und Tooltip voraussetzen (fehlt bisher)
+- `@axe-core/playwright` (nur Entwicklung): automatische Barrierefreiheits-Prüfung in den E2E-Tests
+- Bereits vorhanden: shadcn/ui-Bausteine (Sidebar, Sheet, Dropdown Menu, Sonner, Skeleton, Tooltip), Tailwind CSS, `next/font`
+
+### E) Prüfung (für /qa)
+- Unit-Tests: Filterung der Navigationsliste (fertig/Rolle/Handy-Platz), Begrüßung nach Tageszeit in Europe/Vienna, Datums- und Euro-Format
+- E2E-Tests (Playwright) in 375, 768 und 1440 px: Seitenleiste bzw. untere Leiste, „Mehr“, kein waagrechtes Scrollen, Detail-Panel mit Esc und Fokus-Rückgabe, 404 für unbekannte und ausgeblendete Adressen, Tastaturbedienung
+- Automatische Barrierefreiheits-Prüfung (Kontraste, Beschriftungen) mit axe in den E2E-Tests
+- Optischer Abgleich mit `docs/design/app-entwurf.html` und den Screenshots
 
 ## QA Test Results
 _To be added by /qa_
