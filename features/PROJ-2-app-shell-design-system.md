@@ -293,7 +293,8 @@ _Stand 2026-10-14 (/frontend)_
 - **Tausenderpunkt immer** (Entscheidung des Nutzers, 2026-10-14): Alle Zahlen laufen über `src/lib/format.ts`. `formatNumber()` und `formatPercent()` nutzen intern de-DE, `formatCurrency()` nutzt de-AT. So gilt „1.179,80“, „1.235 %“ und „€ 17.480“. Grund: `de-AT` trennt einfache Zahlen, Prozent und Einheiten sonst mit schmalem Leerzeichen („1 179,80“). Datum bleibt `de-AT` („Jänner“). In ICU-Texten wird statt `#` die vorformatierte Zahl `{value}` eingesetzt (z. B. Sync-Status)
 - Die Rollenbezeichnung ist vorerst „Inhaber“ bzw. „Mitarbeiter“; der Entwurf zeigt „Inhaberin“. Gendergerechte Bezeichnung mit PROJ-4 klären
 - Rahmenlinien (`neutral-300`) sind dekorativ und haben nur 1,3:1 Kontrast. Für Eingabefelder (ab PROJ-3) braucht es mindestens 3:1
-- Sichtprüfung im Browser und E2E-Tests stehen aus: Der Download von Playwright-Chromium wurde in dieser Umgebung abgebrochen (`npx playwright install chromium` einmal selbst ausführen)
+- Playwright nutzt das installierte Google Chrome (`channel: 'chrome'`, Projekte desktop 1440, tablet 768, mobile 375 px); der Download von Playwright-Chromium blieb beim Entpacken hängen und wird nicht mehr gebraucht. Mobile Safari (WebKit) ist als Testgerät entfallen
+- Sichtprüfung 2026-10-14 in Chrome: Seitenleiste ab 1024 px, untere Leiste bei 768/375 px, kein waagrechtes Scrollen, „Mehr“-Blatt funktioniert, `/buchungen` liefert 404, Tab-Titel „Dashboard · apppa“. Behoben: Beim Öffnen von „Mehr“ sprang der Tooltip des Kundennamens auf (Name war fokussierbar)
 - Build-Hinweis: Next.js findet eine zweite `package-lock.json` im übergeordneten Ordner `/Users/jjj/Documents/apppa/` und warnt wegen des Projektstamms
 
 ## QA Test Results
