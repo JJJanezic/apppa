@@ -3,10 +3,13 @@ import { BottomNav } from '@/components/shell/bottom-nav'
 import { ShellProvider } from '@/components/shell/shell-context'
 import { Wordmark } from '@/components/shell/wordmark'
 import { SidebarProvider } from '@/components/ui/sidebar'
+import { requireAppUser } from '@/lib/auth/session'
 import { getShellInfo } from '@/lib/shell'
 
-// Gemeinsamer Rahmen aller App-Seiten: Seitenleiste ab 1024 px, darunter die untere Leiste
+// Gemeinsamer Rahmen aller App-Seiten: Seitenleiste ab 1024 px, darunter die untere Leiste.
+// Prüft die Sitzung auf dem Server (zweite Ebene nach src/proxy.ts) und die Pflicht-2FA des Admins.
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
+  await requireAppUser()
   const shell = await getShellInfo()
 
   return (

@@ -23,11 +23,18 @@ export function FormError({ error, retryAfterMinutes }: FormErrorProps) {
   )
 }
 
-// Netzwerkfehler beim Aufruf einer Server-Aktion als einheitliches Ergebnis
+// Netzwerkfehler beim Aufruf einer Server-Aktion als einheitliches Ergebnis.
+// Abgelaufene Sitzung: zur Anmeldung mit Hinweis, danach zurück auf diese Seite.
 export async function callAction<T>(fn: () => Promise<ActionResult<T>>): Promise<ActionResult<T>> {
+  let result: ActionResult<T>
   try {
-    return await fn()
+    result = await fn()
   } catch {
     return { ok: false, error: 'network' }
   }
+  if (!result.ok && result.error === 'sessionExpired') {
+    const next = encodeURIComponent(`${window.location.pathname}${window.location.search}`)
+    window.location.href = `/anmelden?grund=sitzung-abgelaufen&next=${next}`
+  }
+  return result
 }

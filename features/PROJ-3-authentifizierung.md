@@ -130,9 +130,9 @@
 ## Open Questions
 - [x] Eigener Mailversand → Brevo, wird mit PROJ-3 eingerichtet (domainunabhängig, Wechsel per Konfiguration) (geklärt 2026-10-15)
 - [x] Sperre nach Fehlversuchen → eigene Zählung je Konto, Supabase kann nur pro IP begrenzen (geklärt 2026-10-15)
-- [ ] Runbook-Anleitung „2FA-Notfall-Reset für den Admin“ ergänzen (/backend)
+- [x] Runbook-Anleitung „2FA-Notfall-Reset für den Admin“ → `docs/runbooks/supabase.md` Abschnitt 9 (erledigt 2026-10-15)
 - [x] Gültigkeit der Mail-Links → 24 h für Einladung und Reset (Supabase kennt nur eine gemeinsame Dauer, max. 24 h) (geklärt 2026-10-15)
-- [ ] Absender-Domain für Brevo festlegen (z. B. `janezic.at` oder eine eigene Produkt-Domain); ein späterer Wechsel ist vorgesehen
+- [x] Absender-Adresse für Brevo → `no-reply@janezic.at` (geklärt 2026-10-15). Ein späterer Wechsel ist vorgesehen: Code und `config.toml` sind domainunabhängig, die Adresse kommt beim `config push` als Umgebungsvariable (Runbook Abschnitt 8)
 
 ## Decision Log
 
@@ -275,6 +275,40 @@ _Stand 2026-10-15 (/frontend)_
 **Tests**: `src/lib/validation/auth.test.ts` (26). `npm test` 132/132, E2E PROJ-2 57/57, `tsc` und Build fehlerfrei. Sichtprüfung in Chrome (1440 und 375 px): alle Seiten ohne waagrechtes Scrollen, Titel „<Seite> · apppa“
 
 **Offen für /backend**: alle Server-Aktionen, `getAccountInfo()` und `getShellInfo()` mit echten Daten, Zugangsschutz (Proxy + Rahmen), Sitzungsgrenzen, Fehlversuchs-Tabelle, Pflicht-2FA-Weiterleitung, `/auth/confirm` → `/bestaetigen`, Brevo + deutsche Mail-Vorlagen, Runbook
+
+## Implementation Notes (Backend)
+_Stand 2026-10-15 (/backend)_
+
+**Datenbank** (eingespielt in „apppa“): `20261015120000_login_failures.sql`: Tabelle `public.login_failures` (Konto nur als HMAC-Hash der E-Mail, Art `password|mfa`, Zeitpunkt). RLS an, keine Rechte für `anon`/`authenticated`, nur `service_role`; tägliche Löschung > 24 h per pg_cron (`purge-login-failures`). `20261015120100_login_failures_deny_policy.sql`: ausdrückliche restriktive „Kein Zugriff“-Policy (Advisor 0008). Typen neu erzeugt.
+
+**Server-Bausteine** (`src/lib/auth/`):
+- `lockout-rules.ts` (reine Regel: 5 Fehlversuche in 15 min → 15 min ab dem letzten) + `lockout.ts` (Hash, lesen/schreiben/löschen über Secret Key). Passwort- und Code-Fehlversuche zählen gemeinsam je Konto. Fällt die Tabelle aus, bleibt die Anmeldung möglich (Supabase-IP-Grenze greift weiter)
+- `session-limits.ts`: **ein** signiertes httpOnly-Cookie `apppa-sitzung` (Konto, Beginn, letzte Aktivität, HMAC). Abweichung vom Entwurf (zwei Cookies), gleiche Wirkung. Fehlendes, manipuliertes oder fremdes Cookie = abgelaufen. Aktivität wird höchstens einmal pro Minute fortgeschrieben
+- `session.ts`: `getSessionUser()` (getClaims + Profil, einmal pro Anfrage), `pendingMfaStep()` (Admin ohne aal2 → `/2fa` bzw. `/2fa/einrichten`), `requireAppUser()`, Start/Ende der Sitzungsgrenzen
+- `mfa.ts`: Code prüfen (alle bestätigten Geräte, mit Sperre) und Gerät anlegen (räumt unbestätigte Geräte auf). Bewusst keine Server-Aktionen, damit sie nicht ohne Berechtigungsprüfung aufrufbar sind
+- HMAC-Schlüssel werden aus `SUPABASE_SECRET_KEY` abgeleitet, also **keine neue Umgebungsvariable**. Ein Schlüsselwechsel meldet alle ab
+
+**Zugangsschutz** (3 Ebenen): `src/lib/supabase/proxy.ts` prüft die Sitzungsgrenzen (abgelaufen → abmelden, `/anmelden?grund=sitzung-abgelaufen&next=…`), leitet ohne Sitzung zur Anmeldung (mit Rücksprung) und Angemeldete von `/anmelden` zum Dashboard. Öffentlich sind nur `/anmelden`, `/passwort-vergessen`, `/bestaetigen`, `/auth/confirm`. Server-Aktionen und `/api/*` leitet der Proxy nicht um. Dazu kommt der App-Rahmen `(app)/layout.tsx` mit `requireAppUser()` (inkl. Pflicht-2FA des Admins), als dritte Ebene RLS. `/2fa`, `/2fa/einrichten` und `/passwort-neu` prüfen serverseitig, ob der Schritt passt (Admin mit Gerät muss vor dem neuen Passwort den Code bestätigen, da Supabase sonst aal2 verlangt)
+
+**Server-Aktionen** (alle umgesetzt, Eingaben serverseitig mit denselben Zod-Schemas geprüft):
+- `signIn`: Sperre → Supabase → bei Fehler Fehlversuch zählen, neutrale Meldung; Erfolg: Zähler löschen, Sitzungsgrenzen starten, Admin → `/2fa?next=…` bzw. `/2fa/einrichten`
+- `requestPasswordReset`: immer neutral; eigener Client ohne PKCE, damit der Link auch in einem anderen Browser funktioniert
+- `confirmEmailLink`: erst per Knopf, meldet eine andere angemeldete Person vorher ab
+- `completeInvite`, `setNewPassword` (danach andere Sitzungen beenden), `verifyMfa`, `startMfaEnrollment` (nur Admin ohne Gerät), `confirmMfaEnrollment`, `signOut`
+- Konto: `updateDisplayName`, `changePassword` (aktuelles Passwort mit separatem Client ohne Cookies prüfen; Fehler zählt zur Sperre; danach andere Sitzungen beenden), `signOutEverywhere` (global), `startAddMfaDevice`/`confirmAddMfaDevice`/`removeMfaDevice` (nur Admin mit aal2; letztes Gerät gesperrt)
+- Neue Fehlercodes `sessionExpired` (→ `callAction` leitet zur Anmeldung mit Rücksprung) und `weakPassword` (Datenleck-Prüfung in Produktion)
+
+**Daten für Oberfläche**: `getShellInfo()` liefert Anzeigename und Vorname, `getAccountInfo()` E-Mail, Name, Admin-Kennzeichen und bestätigte 2FA-Geräte (über getUser, nicht aus dem Cookie)
+
+**`/auth/confirm`** löst nicht mehr ein, sondern leitet nur auf `/bestaetigen` weiter (nur `invite`/`recovery`, ohne `next`)
+
+**Mails**: Vorlagen `invite.html`, `recovery.html` (Links auf `/bestaetigen`, Du-Form wie die App) und neu `password_changed.html`. `config.toml`: Brevo-SMTP (`smtp-relay.brevo.com:587`), Absender/Login/Schlüssel nur als `env(SUPABASE_AUTH_SMTP_SENDER|USER|PASS)`, Vorlagen aktiv, Linkdauer 24 h (`otp_expiry = 86400`), `email_sent = 30`/h. **Noch nicht übertragen**: `config push` führt der Betreiber mit den Brevo-Daten aus (Runbook Abschnitt 8)
+
+**Runbook** (`docs/runbooks/supabase.md`): 8 Brevo einrichten + Domain wechseln, 9 2FA-Notfall-Reset, 10 Anmelde-Sperre; Produktion: Supabase-Sitzungsgrenzen (Pro) zusätzlich setzen
+
+**Tests**: Unit `lockout-rules.test.ts` (5), `session-limits.test.ts` (9), `auth/confirm/route.test.ts` (neu, 8). Integration gegen „apppa“ `supabase/tests/auth-flows.integration.test.ts`: Sperre mit echter Tabelle, Tabelle für App-Rollen gesperrt, Link-Aufruf löst nicht ein und Klick nur einmal, Einladungslink, „andere abmelden“ nach Passwortänderung. `npm test` 152/152, `tsc` und Build fehlerfrei, Security-Advisor nur „Leaked Password Protection“ (Pro-Tarif, Runbook Produktion). Rauchtest: `/`, `/konto`, `/2fa`, `/einladung/abschliessen` ohne Sitzung → `/anmelden?next=…`; `/auth/confirm?…&next=//evil.com` → `/bestaetigen` ohne `next`
+
+**Hinweise für /qa**: Die E2E-Tests aus PROJ-2 brauchen jetzt eine Anmeldung (Test-Fixture mit Testnutzer anlegen). `npm run lint` ist im Projekt nicht lauffähig (`next lint` gibt es in Next 16 nicht mehr, keine `eslint.config`), das ist ein bestehender Mangel und nicht Teil von PROJ-3
 
 ## QA Test Results
 _To be added by /qa_

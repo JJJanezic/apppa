@@ -53,6 +53,27 @@ export type Database = {
         }
         Relationships: []
       }
+      login_failures: {
+        Row: {
+          account_hash: string
+          created_at: string
+          id: number
+          kind: string
+        }
+        Insert: {
+          account_hash: string
+          created_at?: string
+          id?: never
+          kind: string
+        }
+        Update: {
+          account_hash?: string
+          created_at?: string
+          id?: never
+          kind?: string
+        }
+        Relationships: []
+      }
       memberships: {
         Row: {
           created_at: string

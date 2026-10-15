@@ -1,5 +1,13 @@
-<h2>Passwort zurücksetzen</h2>
-<p>Hallo,</p>
-<p>Für Ihr apppa-Konto wurde das Zurücksetzen des Passworts angefordert. Klicken Sie auf den folgenden Link, um ein neues Passwort festzulegen:</p>
-<p><a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery&next=/">Neues Passwort festlegen</a></p>
-<p>Falls Sie das nicht angefordert haben, können Sie diese E-Mail ignorieren. Ihr Passwort bleibt unverändert.</p>
+<!-- PROJ-3: Passwort zurücksetzen. Der Link öffnet nur die Bestätigungsseite; eingelöst wird erst per Knopf dort. -->
+<div style="font-family: Arial, Helvetica, sans-serif; font-size: 15px; line-height: 1.55; color: #201e1d; max-width: 560px;">
+  <p style="font-size: 22px; font-weight: bold; margin: 0 0 24px;">apppa.</p>
+  <h2 style="font-size: 20px; margin: 0 0 16px;">Neues Passwort festlegen</h2>
+  <p>Hallo,</p>
+  <p>für dein apppa-Konto wurde ein neues Passwort angefordert. Öffne den folgenden Link, um es festzulegen:</p>
+  <p style="margin: 24px 0;">
+    <a href="{{ .SiteURL }}/bestaetigen?token_hash={{ .TokenHash }}&type=recovery"
+       style="background: #006786; color: #ffffff; padding: 12px 20px; border-radius: 4px; text-decoration: none; display: inline-block;">Neues Passwort festlegen</a>
+  </p>
+  <p>Der Link ist 24 Stunden gültig und funktioniert einmal. Danach kannst du auf der Anmeldeseite unter „Passwort vergessen?“ einen neuen anfordern.</p>
+  <p style="color: #605d5d; font-size: 13px;">Du hast nichts angefordert? Dann kannst du diese E-Mail ignorieren – dein Passwort bleibt unverändert.</p>
+</div>

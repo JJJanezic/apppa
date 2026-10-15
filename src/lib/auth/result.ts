@@ -8,6 +8,8 @@ export type AuthErrorCode =
   | 'wrongCurrentPassword'
   | 'codeInvalid'
   | 'lastFactor'
+  | 'weakPassword'
+  | 'sessionExpired'
   | 'network'
   | 'notImplemented'
   | 'unknown'

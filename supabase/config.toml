@@ -198,7 +198,8 @@ password_requirements = "lower_upper_letters_digits"
 
 [auth.rate_limit]
 # Number of emails that can be sent per hour. Requires auth.email.smtp to be enabled.
-email_sent = 2
+# PROJ-3: mit Brevo (Gratis-Tarif bis 300 Mails/Tag) für Einladungen und Resets ausreichend
+email_sent = 30
 # Number of SMS messages that can be sent per hour. Requires auth.sms to be enabled.
 sms_sent = 30
 # Number of anonymous sign-ins that can be made per hour per IP address. Requires enable_anonymous_sign_ins = true.
@@ -233,33 +234,33 @@ max_frequency = "1m0s"
 # Number of characters used in the email OTP.
 otp_length = 8
 # Number of seconds before the email OTP expires (defaults to 1 hour).
-otp_expiry = 3600
+# PROJ-3: Einladungs- und Reset-Links 24 h gültig (Supabase-Maximum, eine Dauer für beide)
+otp_expiry = 86400
 
-# Use a production-ready SMTP server
-# [auth.email.smtp]
-# enabled = true
-# host = "smtp.sendgrid.net"
-# port = 587
-# user = "apikey"
-# pass = "env(SENDGRID_API_KEY)"
-# admin_email = "admin@email.com"
-# sender_name = "Admin"
+# PROJ-3: Eigener Mailversand über Brevo – domainunabhängig. Absender und Zugangsdaten stehen nur in
+# Umgebungsvariablen beim `supabase config push` (nie im Repository). Domain-Wechsel: docs/runbooks/supabase.md
+[auth.email.smtp]
+enabled = true
+host = "smtp-relay.brevo.com"
+port = 587
+user = "env(SUPABASE_AUTH_SMTP_USER)"
+pass = "env(SUPABASE_AUTH_SMTP_PASS)"
+admin_email = "env(SUPABASE_AUTH_SMTP_SENDER)"
+sender_name = "apppa"
 
-# Deutsche Vorlagen (supabase/templates/). Im Gratis-Tarif mit dem Supabase-Mailversand nicht
-# übertragbar – aktivieren, sobald ein eigener SMTP-Dienst eingerichtet ist (siehe Runbook).
-# [auth.email.template.invite]
-# subject = "Einladung zu apppa"
-# content_path = "./supabase/templates/invite.html"
-#
-# [auth.email.template.recovery]
-# subject = "Passwort zurücksetzen"
-# content_path = "./supabase/templates/recovery.html"
+# Deutsche Vorlagen (supabase/templates/). Links führen auf /bestaetigen; eingelöst wird erst per Knopf.
+[auth.email.template.invite]
+subject = "Einladung zu apppa"
+content_path = "./supabase/templates/invite.html"
 
-# Uncomment to customize notification email template
-# [auth.email.notification.password_changed]
-# enabled = true
-# subject = "Your password has been changed"
-# content_path = "./supabase/templates/password_changed_notification.html"
+[auth.email.template.recovery]
+subject = "Neues Passwort für apppa"
+content_path = "./supabase/templates/recovery.html"
+
+[auth.email.notification.password_changed]
+enabled = true
+subject = "Dein apppa-Passwort wurde geändert"
+content_path = "./supabase/templates/password_changed.html"
 
 [auth.sms]
 # Allow/disallow new user signups via SMS to your project.

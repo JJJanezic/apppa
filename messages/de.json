@@ -146,6 +146,8 @@
       "wrongCurrentPassword": "Das aktuelle Passwort ist falsch.",
       "codeInvalid": "Der Code ist falsch oder abgelaufen.",
       "lastFactor": "Das letzte Gerät kann nicht entfernt werden. Füge zuerst ein anderes Gerät hinzu.",
+      "weakPassword": "Dieses Passwort ist nicht sicher genug, z. B. weil es aus bekannten Datenlecks stammt. Bitte wähle ein anderes.",
+      "sessionExpired": "Deine Sitzung ist abgelaufen. Bitte melde dich erneut an.",
       "network": "Keine Verbindung. Bitte prüfe deine Internetverbindung und versuche es erneut.",
       "notImplemented": "Diese Funktion wird gerade eingerichtet.",
       "unknown": "Etwas ist schiefgelaufen. Bitte versuche es erneut."
