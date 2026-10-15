@@ -1,24 +1,31 @@
 'use client'
 
 import { CaretUpDown, SignOut, UserCircle } from '@phosphor-icons/react'
+import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 
+import { signOut } from '@/app/(auth)/actions'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { useShell } from '@/components/shell/shell-context'
 
-// Name · Rolle mit Benutzermenü. „Mein Konto“ und „Abmelden“ werden mit PROJ-3 aktiv.
+// Name · Rolle mit Benutzermenü: „Mein Konto“ und „Abmelden“ (PROJ-3)
 export function UserMenu({ side = 'top' }: { side?: 'top' | 'bottom' }) {
   const t = useTranslations('shell')
   const tRoles = useTranslations('roles')
   const { person } = useShell()
   const label = `${person.name ?? t('personPlaceholder')} · ${tRoles(person.role)}`
+
+  async function handleSignOut() {
+    await signOut().catch(() => undefined)
+    // Vollständiger Seitenwechsel: keine App-Daten im Verlauf/Zwischenspeicher
+    window.location.href = '/anmelden?grund=abgemeldet'
+  }
 
   return (
     <DropdownMenu>
@@ -30,13 +37,14 @@ export function UserMenu({ side = 'top' }: { side?: 'top' | 'bottom' }) {
         <CaretUpDown size={14} aria-hidden="true" className="shrink-0" />
       </DropdownMenuTrigger>
       <DropdownMenuContent side={side} align="start" className="w-56">
-        <DropdownMenuLabel className="font-normal text-ds-neutral-700">{t('comingWithLogin')}</DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem disabled>
-          <UserCircle size={18} weight="duotone" aria-hidden="true" />
-          {t('myAccount')}
+        <DropdownMenuItem asChild className="min-h-11">
+          <Link href="/konto">
+            <UserCircle size={18} weight="duotone" aria-hidden="true" />
+            {t('myAccount')}
+          </Link>
         </DropdownMenuItem>
-        <DropdownMenuItem disabled>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={handleSignOut} className="min-h-11">
           <SignOut size={18} weight="duotone" aria-hidden="true" />
           {t('signOut')}
         </DropdownMenuItem>

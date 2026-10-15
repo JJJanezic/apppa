@@ -1,6 +1,6 @@
 # PROJ-3: Authentifizierung
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-10-15
 **Last Updated:** 2026-10-15
 
@@ -254,6 +254,27 @@ Gemeinsame Bausteine
 - Unit-Tests: Sperrlogik (Zählen, Ablauf nach 15 min), Sitzungsgrenzen (30 Tage, 8 h), Formularprüfung, Vorname aus Anzeigename
 - Integrationstests gegen „apppa“: Einladung (Link aufrufen löst nicht ein, Klick schon), Passwort-Reset, Sperre, Admin ohne 2FA bekommt keine Admin-Rechte, andere Sitzungen nach Passwortänderung beendet
 - E2E (Playwright, Chrome): Anmelden/Abmelden, Rücksprung nach Login, Mein Konto, Barrierefreiheit (axe), Handy-Breite
+
+## Implementation Notes (Frontend)
+_Stand 2026-10-15 (/frontend)_
+
+**Seiten** (`src/app/(auth)/`, eigener schlichter Rahmen ohne App-Navigation): `/anmelden` (mit Hinweis `?grund=abgemeldet|sitzung-abgelaufen` und Rücksprung `?next=`), `/passwort-vergessen`, `/bestaetigen` (Knopf löst den Link erst beim Klick ein; ungültig/fehlend → Meldung, bei Reset „Neuen Link anfordern“), `/einladung/abschliessen`, `/passwort-neu`, `/2fa` (mit „Mit einem anderen Konto anmelden“), `/2fa/einrichten`. Im App-Rahmen: `/konto` („Mein Konto“)
+
+**Bausteine** (`src/components/auth/`): `auth-card`, `password-input` (anzeigen/verbergen, 44-px-Knopf), `password-rules` (Regeln vorab sichtbar, erfüllte markiert, für Screenreader „erfüllt/fehlt“), `new-password-fields`, `form-error` (Alert mit `role="alert"`, `callAction` fängt Netzwerkfehler ab), `otp-input` (shadcn Input OTP, `autocomplete="one-time-code"`), `otp-form`, `mfa-enrollment` (QR-Code von Supabase, Schlüssel mit Kopier-Knopf, erster Code), `confirm-link`, Formulare für Login, Passwort vergessen, Einladung, neues Passwort, 2FA. Konto (`src/components/account/`): `display-name-form`, `change-password-form`, `sign-out-everywhere` (Bestätigungsdialog), `mfa-devices` (nur Admin; Entfernen beim letzten Gerät gesperrt; „Gerät hinzufügen“ im Detail-Panel)
+
+**Logik**: `src/lib/validation/auth.ts` (Zod-Schemas für Browser und Server, Passwortregel aus PROJ-1, E-Mail-Normalisierung, `firstNameOf()`), `src/lib/auth/result.ts` (einheitliches Ergebnis mit neutralen Fehlercodes), `src/lib/account.ts` (Platzhalter für Kontodaten)
+
+**Server-Aktionen als Schnittstelle**: `src/app/(auth)/actions.ts` und `src/app/(app)/konto/actions.ts` mit festgelegten Signaturen; liefern bis /backend `notImplemented` („Diese Funktion wird gerade eingerichtet.“)
+
+**App-Rahmen**: Benutzermenü mit aktivem „Mein Konto“ (Link) und „Abmelden“ (Server-Aktion, danach Vollständiger Seitenwechsel auf `/anmelden?grund=abgemeldet`)
+
+**Design**: Eingabefeld-Rahmen auf `neutral-600` (3,9:1 auf Papier, vorher 1,3:1) für WCAG 1.4.11; alle Bedienelemente mind. 44 px; Texte in `messages/de.json` (`auth`, `account`)
+
+**Neu**: shadcn `input-otp` (Paket `input-otp`)
+
+**Tests**: `src/lib/validation/auth.test.ts` (26). `npm test` 132/132, E2E PROJ-2 57/57, `tsc` und Build fehlerfrei. Sichtprüfung in Chrome (1440 und 375 px): alle Seiten ohne waagrechtes Scrollen, Titel „<Seite> · apppa“
+
+**Offen für /backend**: alle Server-Aktionen, `getAccountInfo()` und `getShellInfo()` mit echten Daten, Zugangsschutz (Proxy + Rahmen), Sitzungsgrenzen, Fehlversuchs-Tabelle, Pflicht-2FA-Weiterleitung, `/auth/confirm` → `/bestaetigen`, Brevo + deutsche Mail-Vorlagen, Runbook
 
 ## QA Test Results
 _To be added by /qa_

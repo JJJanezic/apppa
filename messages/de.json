@@ -28,7 +28,6 @@
     "userMenu": "Benutzermenü",
     "myAccount": "Mein Konto",
     "signOut": "Abmelden",
-    "comingWithLogin": "Folgt mit dem Login",
     "sync": "{count, plural, =0 {Noch keine Verbindungen} one {{value} Verbindung synchron} other {{value} Verbindungen synchron}}",
     "syncProblem": "{count, plural, one {{value} Verbindung mit Problem} other {{value} Verbindungen mit Problem}}"
   },
@@ -52,5 +51,136 @@
     "text": "Die Seite konnte nicht geladen werden. Bitte versuche es noch einmal.",
     "notFoundTitle": "Seite nicht gefunden",
     "notFoundText": "Diese Seite gibt es nicht oder sie ist für dich nicht verfügbar."
+  },
+  "auth": {
+    "layoutLabel": "Anmeldung",
+    "email": "E-Mail-Adresse",
+    "password": "Passwort",
+    "passwordNew": "Neues Passwort",
+    "passwordRepeat": "Passwort wiederholen",
+    "passwordCurrent": "Aktuelles Passwort",
+    "displayName": "Anzeigename",
+    "displayNameHint": "So erscheinst du in der App, z. B. „Johanna Pichler“.",
+    "showPassword": "Passwort anzeigen",
+    "hidePassword": "Passwort verbergen",
+    "rulesTitle": "Das Passwort braucht:",
+    "rules": {
+      "minLength": "mindestens 10 Zeichen",
+      "lower": "einen Kleinbuchstaben",
+      "upper": "einen Großbuchstaben",
+      "digit": "eine Ziffer"
+    },
+    "ruleMet": "erfüllt",
+    "ruleMissing": "fehlt",
+    "login": {
+      "title": "Anmelden",
+      "submit": "Anmelden",
+      "forgot": "Passwort vergessen?",
+      "loggedOut": "Du wurdest abgemeldet.",
+      "sessionExpired": "Deine Sitzung ist abgelaufen. Bitte melde dich erneut an."
+    },
+    "forgot": {
+      "title": "Passwort vergessen",
+      "intro": "Gib die E-Mail-Adresse deines Kontos ein. Wir schicken dir einen Link zum Festlegen eines neuen Passworts.",
+      "submit": "Link senden",
+      "sent": "Falls ein Konto mit dieser Adresse existiert, haben wir dir eine E-Mail geschickt.",
+      "sentHint": "Der Link ist 24 Stunden gültig. Schau auch im Spam-Ordner nach.",
+      "back": "Zurück zur Anmeldung"
+    },
+    "confirm": {
+      "inviteTitle": "Einladung annehmen",
+      "inviteText": "Du wurdest zu apppa eingeladen. Nimm die Einladung an, um deinen Namen und dein Passwort festzulegen.",
+      "inviteSubmit": "Einladung annehmen",
+      "recoveryTitle": "Neues Passwort festlegen",
+      "recoveryText": "Bestätige, dass du ein neues Passwort festlegen möchtest.",
+      "recoverySubmit": "Neues Passwort festlegen",
+      "invalidTitle": "Dieser Link ist nicht mehr gültig",
+      "invalidInvite": "Der Link ist abgelaufen oder wurde schon benutzt. Bitte lass dir von der Person, die dich eingeladen hat, eine neue Einladung schicken.",
+      "invalidRecovery": "Der Link ist abgelaufen oder wurde schon benutzt. Fordere einfach einen neuen an.",
+      "requestNew": "Neuen Link anfordern",
+      "signedOutOther": "Die bisherige Anmeldung in diesem Browser wurde beendet."
+    },
+    "invite": {
+      "title": "Willkommen bei apppa",
+      "intro": "Lege deinen Namen und dein Passwort fest.",
+      "submit": "Konto einrichten"
+    },
+    "newPassword": {
+      "title": "Neues Passwort",
+      "intro": "Wähle ein neues Passwort. Danach wirst du auf deinen anderen Geräten abgemeldet.",
+      "submit": "Passwort speichern"
+    },
+    "mfa": {
+      "title": "Bestätigungscode",
+      "intro": "Gib den 6-stelligen Code aus deiner Authenticator-App ein.",
+      "code": "Code",
+      "submit": "Bestätigen",
+      "clockHint": "Code wird nicht angenommen? Prüfe, ob die Uhrzeit deines Handys automatisch eingestellt ist.",
+      "switchAccount": "Mit einem anderen Konto anmelden"
+    },
+    "mfaSetup": {
+      "title": "Zwei-Faktor-Anmeldung einrichten",
+      "intro": "Als Betreiber-Admin brauchst du einen zweiten Faktor. Scanne den QR-Code mit einer Authenticator-App (z. B. Google Authenticator, Microsoft Authenticator oder 1Password).",
+      "qrAlt": "QR-Code für die Authenticator-App",
+      "secretLabel": "Kein Scan möglich? Diesen Schlüssel eingeben:",
+      "copy": "Schlüssel kopieren",
+      "copied": "Schlüssel kopiert",
+      "step2": "Gib danach den ersten Code aus der App ein.",
+      "submit": "Einrichten",
+      "loading": "QR-Code wird erstellt …"
+    },
+    "validation": {
+      "emailRequired": "Bitte gib deine E-Mail-Adresse ein.",
+      "emailInvalid": "Bitte gib eine gültige E-Mail-Adresse ein.",
+      "passwordRequired": "Bitte gib dein Passwort ein.",
+      "passwordRules": "Das Passwort erfüllt noch nicht alle Regeln.",
+      "passwordMismatch": "Die beiden Passwörter stimmen nicht überein.",
+      "nameRequired": "Bitte gib einen Namen ein.",
+      "nameTooLong": "Der Name darf höchstens 200 Zeichen lang sein.",
+      "codeInvalid": "Bitte gib den 6-stelligen Code ein."
+    },
+    "errors": {
+      "invalidCredentials": "E-Mail-Adresse oder Passwort ist falsch.",
+      "locked": "Zu viele Fehlversuche. Bitte versuche es in {minutes} Minuten erneut.",
+      "linkInvalid": "Dieser Link ist nicht mehr gültig.",
+      "wrongCurrentPassword": "Das aktuelle Passwort ist falsch.",
+      "codeInvalid": "Der Code ist falsch oder abgelaufen.",
+      "lastFactor": "Das letzte Gerät kann nicht entfernt werden. Füge zuerst ein anderes Gerät hinzu.",
+      "network": "Keine Verbindung. Bitte prüfe deine Internetverbindung und versuche es erneut.",
+      "notImplemented": "Diese Funktion wird gerade eingerichtet.",
+      "unknown": "Etwas ist schiefgelaufen. Bitte versuche es erneut."
+    }
+  },
+  "account": {
+    "title": "Mein Konto",
+    "lead": "Deine Anmeldedaten und Sicherheitseinstellungen.",
+    "profileTitle": "Profil",
+    "emailLabel": "E-Mail-Adresse",
+    "emailHint": "Die E-Mail-Adresse ändert bei Bedarf der Betreiber.",
+    "saveName": "Namen speichern",
+    "nameSaved": "Name gespeichert.",
+    "passwordTitle": "Passwort ändern",
+    "passwordIntro": "Nach dem Ändern wirst du auf allen anderen Geräten abgemeldet.",
+    "savePassword": "Passwort ändern",
+    "passwordSaved": "Passwort geändert. Andere Geräte wurden abgemeldet.",
+    "sessionsTitle": "Auf allen Geräten abmelden",
+    "sessionsIntro": "Zum Beispiel, wenn du ein Handy verloren hast. Du wirst auch hier abgemeldet.",
+    "sessionsButton": "Überall abmelden",
+    "sessionsConfirmTitle": "Auf allen Geräten abmelden?",
+    "sessionsConfirmText": "Alle Anmeldungen werden beendet, auch diese. Du musst dich danach neu anmelden.",
+    "sessionsConfirm": "Überall abmelden",
+    "cancel": "Abbrechen",
+    "mfaTitle": "Zwei-Faktor-Anmeldung",
+    "mfaIntro": "Geräte mit deiner Authenticator-App. Ein zweites Gerät schützt dich, falls du eines verlierst.",
+    "mfaDevice": "Gerät",
+    "mfaAddedOn": "eingerichtet am {date}",
+    "mfaAdd": "Gerät hinzufügen",
+    "mfaRemove": "Entfernen",
+    "mfaRemoveConfirmTitle": "Gerät entfernen?",
+    "mfaRemoveConfirmText": "Mit diesem Gerät kannst du dich danach nicht mehr anmelden.",
+    "mfaRemoved": "Gerät entfernt.",
+    "mfaAdded": "Gerät hinzugefügt.",
+    "mfaLastHint": "Das einzige Gerät kann nicht entfernt werden.",
+    "mfaAddTitle": "Weiteres Gerät hinzufügen"
   }
 }

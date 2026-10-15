@@ -67,7 +67,8 @@
     --destructive: 331.7 87.8% 35.5%;
     --destructive-foreground: 0 0% 100%;
     --border: 0 4.8% 83.5%;
-    --input: 0 4.8% 83.5%;
+    /* Eingabefelder: neutral-600, damit der Rahmen 3:1 Kontrast erreicht (WCAG 1.4.11) */
+    --input: 0 1.6% 48.6%;
     --ring: 193.6 100% 34.5%;
     --radius: 4px;
     --chart-1: 193.9 100% 26.3%;
