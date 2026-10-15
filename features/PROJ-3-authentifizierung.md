@@ -1,6 +1,6 @@
 # PROJ-3: Authentifizierung
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-10-15
 **Last Updated:** 2026-10-15
 
@@ -30,6 +30,7 @@
 - **Sitzung**: angemeldet bleiben bis zum Abmelden, höchstens 30 Tage; nach 8 Stunden ohne Nutzung neu anmelden
 - **Schutz vor Durchprobieren**: neutrale Fehlermeldungen; nach 5 Fehlversuchen in 15 Minuten wird das Konto für 15 Minuten gesperrt
 - **App-Rahmen mit echten Daten**: Name der angemeldeten Person statt Platzhalter; „Mein Konto“ und „Abmelden“ werden aktiv
+- **Eigener Mailversand (Brevo)**: deutsche Einladungs- und Reset-Mails von der eigenen Absender-Domain; Domain später austauschbar (behebt BUG-2 aus PROJ-1)
 - **Design**: Anmelde-, Einladungs- und Passwortseiten schlicht im Broadsheet-Stil: Papierhintergrund, Wortmarke „apppa.“ mittig, schmales Formular, ohne App-Rahmen; am Handy volle Breite
 
 ## Out of Scope
@@ -40,7 +41,6 @@
 - 2FA für Inhaber und Mitarbeiter (weder Pflicht noch freiwillig)
 - „Angemeldet bleiben“-Häkchen
 - Anmeldung mit Google/Microsoft, Magic Link, Passkeys
-- Deutsche Einladungs- und Reset-Mails: hängen am eigenen Mailversand (BUG-2 aus PROJ-1). Bis dahin englische Supabase-Mails
 - Wiederherstellungscodes für die 2FA (Ersatz: zweites Gerät oder Notfall-Reset per Runbook)
 - Konto löschen durch die Person selbst
 - Admin-Bereich selbst: PROJ-5
@@ -71,6 +71,8 @@
 - [ ] Angenommen das Passwort erfüllt die Regeln nicht oder die beiden Eingaben stimmen nicht überein, wenn die Person speichert, dann erscheint eine konkrete Meldung; die Passwortregeln sind schon vor der Eingabe sichtbar
 - [ ] Angenommen der Anzeigename ist leer oder länger als 200 Zeichen, wenn die Person speichert, dann erscheint eine Meldung am Feld
 - [ ] Angenommen der Einladungslink ist abgelaufen oder schon benutzt, wenn die Person ihn öffnet oder den Knopf wählt, dann erscheint die Meldung, dass der Link nicht mehr gültig ist, mit dem Hinweis, sich vom Einladenden einen neuen Link schicken zu lassen
+
+- [ ] Angenommen eine Einladung oder ein Passwort-Reset wird ausgelöst, wenn die Mail ankommt, dann ist sie deutsch, kommt von der eigenen Absender-Domain und ihr Link führt auf die Bestätigungsseite der App
 
 ### Passwort vergessen und zurücksetzen
 - [ ] Angenommen eine Person wählt „Passwort vergessen?“, wenn sie ihre E-Mail-Adresse eingibt und absendet, dann erscheint immer „Falls ein Konto mit dieser Adresse existiert, haben wir dir eine E-Mail geschickt.“, egal ob das Konto existiert
@@ -126,10 +128,11 @@
 - Performance: Anmeldeseite in unter 2 Sekunden nutzbar (4G)
 
 ## Open Questions
-- [ ] Deutsche Mail-Vorlagen hängen am eigenen Mailversand (BUG-2 aus PROJ-1, Empfehlung Brevo): vor dem Pilotstart klären
-- [ ] Lässt sich die Sperre nach 5 Fehlversuchen mit den Bordmitteln von Supabase umsetzen, oder braucht es eine eigene Zählung? (/architecture)
+- [x] Eigener Mailversand → Brevo, wird mit PROJ-3 eingerichtet (domainunabhängig, Wechsel per Konfiguration) (geklärt 2026-10-15)
+- [x] Sperre nach Fehlversuchen → eigene Zählung je Konto, Supabase kann nur pro IP begrenzen (geklärt 2026-10-15)
 - [ ] Runbook-Anleitung „2FA-Notfall-Reset für den Admin“ ergänzen (/backend)
-- [ ] Gültigkeitsdauer von Einladungs- und Reset-Links festlegen (Vorschlag: Einladung 7 Tage, Reset 1 Stunde); abhängig von den Supabase-Einstellungen
+- [x] Gültigkeit der Mail-Links → 24 h für Einladung und Reset (Supabase kennt nur eine gemeinsame Dauer, max. 24 h) (geklärt 2026-10-15)
+- [ ] Absender-Domain für Brevo festlegen (z. B. `janezic.at` oder eine eigene Produkt-Domain); ein späterer Wechsel ist vorgesehen
 
 ## Decision Log
 
@@ -151,12 +154,106 @@
 <!-- Added by /architecture -->
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Supabase Auth für Konten, Passwörter, Mail-Links und 2FA; App ergänzt nur Lücken | Bewährt, schon in PROJ-1 eingerichtet; kein Eigenbau sicherheitskritischer Teile | 2026-10-15 |
+| Eigener Mailversand Brevo; Absender/Domain nur in Supabase-Einstellungen | Voraussetzung für eigene Vorlagen (Bestätigungsseite, deutsche Mails); Domain-Wechsel ohne Code-Änderung | 2026-10-15 |
+| Mail-Links führen auf `/bestaetigen`; eingelöst wird erst per Knopf (Formular-Absendung) | Linkscanner rufen nur auf, drücken keine Knöpfe (BUG-3 PROJ-1) | 2026-10-15 |
+| Anmelde-Aktionen als Server Actions | Fehlversuche zählen, neutrale Meldungen, Passwortmanager-tauglich | 2026-10-15 |
+| Eigene Tabelle für Fehlversuche (E-Mail nur als Hash, nur Server), Sperre 5/15 min, Löschung nach 24 h | Supabase begrenzt nur pro IP, nicht pro Konto; Datensparsamkeit | 2026-10-15 |
+| Sitzungsgrenzen (30 Tage, 8 h) über zwei geschützte Cookies in `src/proxy.ts`; in Produktion zusätzlich Supabase-Einstellungen | Supabase-Sitzungsbegrenzung nur im Pro-Tarif; Entwicklung läuft im Gratis-Tarif | 2026-10-15 |
+| Zugangsschutz in Proxy + App-Rahmen (Server) + RLS | Mehrere Ebenen; ein Fehler an einer Stelle öffnet keine Daten | 2026-10-15 |
+| Admin-2FA über Sitzungsstufe aal2; ohne Gerät Pflicht-Einrichtung, sonst Code-Abfrage | Setzt die PROJ-1-Regel durch; zweites Gerät als zweiter TOTP-Faktor | 2026-10-15 |
+| Aktuelles Passwort serverseitig prüfen, danach andere Sitzungen beenden | Supabase verlangt es nicht selbst; Schutz bei übernommener Sitzung | 2026-10-15 |
+| Gültigkeit Einladungs- und Reset-Links 24 h | Supabase hat nur eine gemeinsame Dauer, max. 24 h | 2026-10-15 |
+| shadcn Input OTP für die Code-Eingabe | Barrierefrei, Einfügen aus Zwischenablage; Projektregel shadcn zuerst | 2026-10-15 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### Überblick
+PROJ-3 braucht **Frontend und Backend**. Die Anmeldung selbst übernimmt Supabase Auth (Konten, Passwörter, Mail-Links, 2FA per Authenticator-App). Die App ergänzt, was Supabase nicht von sich aus kann: die Bestätigungsseite vor dem Einlösen von Mail-Links, die Sperre nach Fehlversuchen, die Sitzungsgrenzen auf jedem Tarif und die Pflicht-2FA für den Admin. Alle Anmelde-Schritte laufen auf dem Server, damit Fehlversuche gezählt und Regeln durchgesetzt werden können.
+
+### A) Seiten und Bausteine
+```
+Anmelde-Bereich (eigener schlichter Rahmen: Papierhintergrund, Wortmarke „apppa.“, schmales Formular)
++-- /anmelden                 E-Mail, Passwort (mit „anzeigen“), „Anmelden“, Link „Passwort vergessen?“
++-- /passwort-vergessen       E-Mail → neutrale Bestätigung
++-- /bestaetigen              Bestätigungsseite für Mail-Links: Knopf „Einladung annehmen“ bzw. „Neues Passwort festlegen“
+|                             (erst der Klick löst den Link ein; abgelaufene Links → Meldung + „Neuen Link anfordern“)
++-- /einladung/abschliessen   Anzeigename + Passwort (zweimal), Passwortregeln sichtbar
++-- /passwort-neu             neues Passwort (zweimal)
++-- /2fa                      6-stelliger Code nach dem Passwort (nur Admin)
++-- /2fa/einrichten           Pflicht-Einrichtung für den Admin: QR-Code + Schlüssel zum Abtippen + erster Code
+
+App-Bereich (Rahmen aus PROJ-2, nur angemeldet)
++-- /konto „Mein Konto“
+|   +-- E-Mail (nur Anzeige), Anzeigename ändern
+|   +-- Passwort ändern (aktuelles + neues zweimal)
+|   +-- „Auf allen Geräten abmelden“ (mit Bestätigungsdialog)
+|   +-- nur Admin: 2FA-Geräte (Liste, „Gerät hinzufügen“, „Entfernen“, letztes Gerät gesperrt)
++-- Benutzermenü: „Mein Konto“ und „Abmelden“ werden aktiv
++-- Seitenleiste / „Mehr“: echter Anzeigename; Dashboard: „Guten Morgen, <Vorname>.“
+
+Gemeinsame Bausteine
++-- Passwortfeld mit „anzeigen/verbergen“ und sichtbaren Regeln
++-- 6-stellige Code-Eingabe (shadcn „Input OTP“)
++-- Formulare mit shadcn Form/Input/Button/Label, Prüfung mit Zod (schon installiert)
+```
+
+### B) Daten (in Worten)
+
+**Konten, Passwörter, Sitzungen und 2FA-Geräte** verwaltet Supabase Auth. Der Anzeigename steht im Profil aus PROJ-1 (darf von der Person selbst geändert werden).
+
+**Neu: Anmeldeversuche** (nur für den Server lesbar, für keine App-Rolle sichtbar)
+- Kennung des Kontos: die E-Mail-Adresse nur als nicht umkehrbarer Hashwert (keine Klartext-Adressen von Nicht-Kunden in der Datenbank)
+- Art des Versuchs: Passwort oder 2FA-Code
+- Zeitpunkt
+- Nur Fehlversuche werden gespeichert. Ein erfolgreicher Login löscht die Fehlversuche des Kontos
+- Regel: 5 Fehlversuche in 15 Minuten → 15 Minuten gesperrt (auch für richtige Passwörter)
+- Einträge älter als 24 Stunden löscht der tägliche Zeitplaner (wie beim Änderungsprotokoll)
+
+**Sitzungsgrenzen:** Zwei geschützte, nur vom Server lesbare Cookies merken sich den Beginn der Sitzung und die letzte Aktivität. Die Vorschaltung (`src/proxy.ts`) prüft sie bei jedem Seitenaufruf: älter als 30 Tage oder 8 Stunden ohne Aktivität → abmelden und zur Anmeldeseite.
+
+### C) Technische Entscheidungen (begründet)
+
+**Eigener Mailversand über Brevo, domainunabhängig eingerichtet.** Nur mit eigenem Mailversand erlaubt Supabase eigene Mail-Vorlagen. Erst damit zeigen die Links auf unsere Bestätigungsseite statt auf eine Supabase-Adresse, die schon beim Aufruf einlöst (Linkscanner, BUG-3), und erst damit sind die Mails deutsch (BUG-2). Absender-Adresse, Absender-Name und Zugangsdaten stehen ausschließlich in den Supabase-Einstellungen (Zugangsdaten als geheime Variable, nie im Code). Die Vorlagen verwenden nur die Platzhalter für die App-Adresse. **Ein späterer Domain-Wechsel** ist damit reine Konfiguration: neue Domain bei Brevo bestätigen (DNS), Absender in Supabase ändern, App-Adresse und erlaubte Weiterleitungen anpassen. Das Runbook bekommt dafür eine Schritt-für-Schritt-Anleitung.
+
+**Mail-Links: Aufruf zeigt nur, Klick löst ein.** Die Links aus Einladungs- und Reset-Mails führen auf die Bestätigungsseite und tragen den Einmal-Schlüssel nur mit. Eingelöst wird er erst, wenn die Person den Knopf drückt (Formular-Absendung). Linkscanner rufen Seiten nur auf, sie drücken keine Knöpfe. Die bisherige Route `/auth/confirm` leitet dafür nur noch weiter; die geprüfte Absicherung gegen fremde Weiterleitungsziele (BUG-1/9) wird wiederverwendet.
+
+**Alle Anmelde-Aktionen auf dem Server (Server Actions).** Anmelden, Code prüfen, Passwort ändern usw. laufen als Server-Aktionen. Nur so kann die App Fehlversuche zählen, bevor Supabase gefragt wird, und Meldungen bewusst neutral halten. Die Formulare funktionieren dadurch auch mit Passwortmanagern.
+
+**Sperre nach Fehlversuchen selbst zählen.** Supabase begrenzt Anmeldungen nur pro IP-Adresse, nicht pro Konto. Die App zählt deshalb selbst je Konto (Tabelle oben). Gilt für Passwort und 2FA-Code.
+
+**Sitzungsgrenzen in der App statt nur bei Supabase.** Die Sitzungsbegrenzung von Supabase („timebox“, „inactivity timeout“) gibt es nur im Pro-Tarif. Die Entwicklung läuft im Gratis-Tarif. Deshalb prüft die App die Grenzen selbst über die zwei Cookies; in der Produktion (Pro) werden zusätzlich die Supabase-Einstellungen gesetzt (doppelte Absicherung).
+
+**Zugangsschutz doppelt.** Die Vorschaltung leitet nicht angemeldete Aufrufe zur Anmeldeseite (mit Rücksprung-Adresse, nur innerhalb der App). Zusätzlich prüft der App-Rahmen auf dem Server noch einmal die Sitzung, bevor er Daten lädt. Die Datenbank-Regeln aus PROJ-1 sind die dritte Ebene.
+
+**Pflicht-2FA für den Admin über die Sitzungsstufe.** Nach dem Passwort prüft der Server: Ist die Person Admin? Hat sie schon ein Gerät? Ohne Gerät → `/2fa/einrichten`, mit Gerät → `/2fa`. Andere Seiten sind bis dahin gesperrt. Erst die bestätigte Sitzung (aal2) gibt die Admin-Rechte aus PROJ-1 frei. Zweites Gerät = zweiter Authenticator-Faktor bei Supabase. Das letzte Gerät lässt sich in der App nicht entfernen.
+
+**Passwort ändern mit Prüfung des aktuellen Passworts.** Supabase verlangt das alte Passwort nicht von sich aus. Die Server-Aktion prüft es zuerst (zählt bei Fehlern zur Sperre) und beendet nach dem Ändern alle anderen Sitzungen; ebenso nach einem Passwort-Reset.
+
+**Gültigkeit der Mail-Links: 24 Stunden für beide.** Supabase kennt nur eine gemeinsame Gültigkeitsdauer für Einladungs- und Reset-Links (höchstens 24 Stunden). Der Vorschlag „Einladung 7 Tage“ ist damit nicht möglich. Läuft eine Einladung ab, schickt der Einladende einfach eine neue (PROJ-4/5).
+
+**Einladung bei schon angemeldeter anderer Person:** Beim Einlösen wird die bisherige Sitzung beendet, mit Hinweis.
+
+**Texte deutsch in `messages/de.json`, Formulare mit react-hook-form + Zod** (beides vorhanden). Weiterleitungen nach dem Login nutzen `safeRedirectPath` aus PROJ-1.
+
+### D) Abhängigkeiten (Pakete)
+- shadcn-Baustein **Input OTP** (`npx shadcn add input-otp`, bringt das Paket `input-otp` mit): 6-stellige Code-Eingabe, barrierefrei, mit Einfügen aus der Zwischenablage
+- Sonst nichts Neues: Supabase-Pakete, Zod, react-hook-form, shadcn Form/Input/Button/Dialog sind vorhanden. Der QR-Code für die 2FA kommt fertig von Supabase
+
+### E) Einrichtung außerhalb des Codes (Runbook, mit dem Nutzer)
+1. Brevo-Konto anlegen, Absender-Domain bestätigen (DNS-Einträge SPF, DKIM, DMARC)
+2. SMTP-Zugang von Brevo in Supabase hinterlegen; Absender z. B. `no-reply@<domain>`, Name „apppa“
+3. Deutsche Vorlagen für Einladung, Passwort-Reset und Passwort-geändert-Hinweis aktivieren (Links auf `/bestaetigen`)
+4. Gültigkeit der Links 24 h; Mail-Grenzen anpassen
+5. Anleitung „Domain wechseln“ und „2FA-Notfall-Reset für den Admin“
+
+### F) Prüfung (für /qa)
+- Unit-Tests: Sperrlogik (Zählen, Ablauf nach 15 min), Sitzungsgrenzen (30 Tage, 8 h), Formularprüfung, Vorname aus Anzeigename
+- Integrationstests gegen „apppa“: Einladung (Link aufrufen löst nicht ein, Klick schon), Passwort-Reset, Sperre, Admin ohne 2FA bekommt keine Admin-Rechte, andere Sitzungen nach Passwortänderung beendet
+- E2E (Playwright, Chrome): Anmelden/Abmelden, Rücksprung nach Login, Mein Konto, Barrierefreiheit (axe), Handy-Breite
 
 ## QA Test Results
 _To be added by /qa_
