@@ -132,7 +132,7 @@
 - [x] Sperre nach Fehlversuchen → eigene Zählung je Konto, Supabase kann nur pro IP begrenzen (geklärt 2026-10-15)
 - [x] Runbook-Anleitung „2FA-Notfall-Reset für den Admin“ → `docs/runbooks/supabase.md` Abschnitt 9 (erledigt 2026-10-15)
 - [x] Gültigkeit der Mail-Links → 24 h für Einladung und Reset (Supabase kennt nur eine gemeinsame Dauer, max. 24 h) (geklärt 2026-10-15)
-- [x] Absender-Adresse für Brevo → `no-reply@janezic.at` (geklärt 2026-10-15). Ein späterer Wechsel ist vorgesehen: Code und `config.toml` sind domainunabhängig, die Adresse kommt beim `config push` als Umgebungsvariable (Runbook Abschnitt 8)
+- [x] Absender-Adresse für Brevo → `no-reply@apppa.at` (eigene Produkt-Domain `apppa.at`, geklärt 2026-10-17; zuvor `janezic.at` erwogen, dort nicht eingerichtet). Ein späterer Wechsel ist vorgesehen: Code und `config.toml` sind domainunabhängig, die Adresse kommt beim `config push` als Umgebungsvariable (Runbook Abschnitt 8)
 
 ## Decision Log
 
@@ -149,6 +149,7 @@
 | Nach Passwortänderung/-reset werden andere Sitzungen beendet | Wer sein Passwort ändert, will meist fremden Zugriff beenden | 2026-10-15 |
 | Anmeldeseiten schlicht im Broadsheet-Stil, ohne Druck-Effekt | Kein Entwurf vorhanden; schlicht ist schnell umsetzbar und passt zum Design | 2026-10-15 |
 | Begrüßung mit Vorname = erstes Wort des Anzeigenamens | Kein eigenes Vornamensfeld nötig; passt zum Entwurf („Guten Morgen, Johanna.“) | 2026-10-15 |
+| Mail-Absender `no-reply@apppa.at` (Name „apppa“) | Eigene Produkt-Domain statt persönlicher Domain; trennt App-Mails von der privaten/beruflichen Mail | 2026-10-17 |
 
 ### Technical Decisions
 <!-- Added by /architecture -->

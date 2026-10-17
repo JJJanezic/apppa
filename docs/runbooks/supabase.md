@@ -99,11 +99,11 @@ Supabase verschickt Einladungen, Passwort-Reset-Mails und den Hinweis „Passwor
 **Einrichten bzw. Einstellungen übertragen:**
 
 1. Brevo → *Senders, Domains & Dedicated IPs → Domains*: Absender-Domain hinzufügen, die angezeigten DNS-Einträge (Brevo-Code, DKIM, DMARC) beim Domain-Anbieter eintragen, „Authenticate“ wählen.
-2. Brevo → *Senders*: Absender anlegen, derzeit `no-reply@janezic.at`, Name „apppa“.
+2. Brevo → *Senders*: Absender anlegen, derzeit `no-reply@apppa.at` (Domain `apppa.at`), Name „apppa“.
 3. Brevo → *SMTP & API → SMTP*: SMTP-Login ablesen (Form `…@smtp-brevo.com`) und einen SMTP-Schlüssel erzeugen.
 4. Im Terminal (Ordner `apppa/apppa`). Mit einem führenden Leerzeichen landet der Befehl nicht im Shell-Verlauf:
    ```bash
-    SUPABASE_AUTH_SMTP_SENDER='no-reply@janezic.at' \
+    SUPABASE_AUTH_SMTP_SENDER='no-reply@apppa.at' \
     SUPABASE_AUTH_SMTP_USER='<login>@smtp-brevo.com' \
     SUPABASE_AUTH_SMTP_PASS='<SMTP-Schlüssel>' \
     npx supabase config push
