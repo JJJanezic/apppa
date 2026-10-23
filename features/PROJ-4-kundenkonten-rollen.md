@@ -1,6 +1,6 @@
 # PROJ-4: Kundenkonten & Rollen
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-10-23
 **Last Updated:** 2026-10-23
 
@@ -114,8 +114,9 @@
 - Barrierefreiheit WCAG 2.1 AA, Handy 375 px
 
 ## Open Questions
-- [ ] Welcher Anbieter verschickt die Hinweis-Mail an bestehende Konten (Brevo direkt, da Supabase nur Auth-Mails kennt)? → /architecture
-- [ ] Obergrenze für Einladungen pro Kunde und Stunde (Vorschlag: 20) → /architecture
+- [x] Hinweis-Mail an bestehende Konten → direkt über die Brevo-Schnittstelle, neuer API-Schlüssel (geklärt 2026-10-23)
+- [x] Obergrenze → 20 Einladungen pro Kunde und Stunde (geklärt 2026-10-23)
+- [x] Geänderte Datenbank-Regeln für Mitgliedschaften (Änderung an RLS aus PROJ-1) vom Nutzer freigegeben (2026-10-23)
 - [ ] Mail-Zustellung an M365-Empfänger (Quarantäne bei neuer Domain `apppa.at`) vor dem Pilotstart klären (offen aus PROJ-3)
 
 ## Decision Log
@@ -138,6 +139,14 @@
 <!-- Added by /architecture -->
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Einladungen als eigene Datensätze (je Kunde, Zustand offen/angenommen/abgelehnt/zurückgezogen, eine offene pro Adresse) | Anzeige, erneut senden, zurückziehen und Zustimmung bestehender Konten nur so möglich | 2026-10-23 |
+| Mitgliedschaften entstehen nur durch Annehmen einer Einladung (oder durch den Betreiber); direktes Hinzufügen durch Inhaber in der Datenbank gesperrt | Zustimmung technisch erzwungen, nicht nur in der Oberfläche | 2026-10-23 |
+| Datenbank-Regeln: Inhaber ändern/entfernen nur Mitarbeiter; Selbst-Austritt/-Herabstufung erlaubt; „mindestens ein Inhaber“ bleibt | Setzt die Produktentscheidung „Inhaber voreinander geschützt“ durch | 2026-10-23 |
+| Neue Personen: Supabase-Einladung (Brevo-SMTP, Vorlage mit Kundenname); Zurückziehen löscht ungenutzte Login-Konten | Nutzt den geprüften Ablauf aus PROJ-3; alte Links laufen ins Leere | 2026-10-23 |
+| Bestehende Konten: Hinweis-Mail direkt über die Brevo-Schnittstelle (neuer geheimer API-Schlüssel), Annehmen in der App | Supabase verschickt keine eigenen Hinweis-Mails; kein Einmal-Link nötig | 2026-10-23 |
+| Gewählter Kunde per Cookie je Gerät, auf dem Server gegen die Mitgliedschaften geprüft | Gerätebezogen wie gewünscht, keine Tabelle; Rechte prüft weiter die Datenbank | 2026-10-23 |
+| Höchstens 20 Einladungen pro Kunde und Stunde | Schutz vor Missbrauch des Mailversands über apppa | 2026-10-23 |
+| Abgeschlossene Einladungen nach 90 Tagen löschen | Datensparsamkeit (E-Mail-Adressen von Nicht-Mitgliedern) | 2026-10-23 |
 
 ### Hinweis für /architecture
 Die Datenbank-Regeln aus PROJ-1 erlauben Inhabern derzeit, **alle** Rollen zu ändern und **alle** Mitglieder zu entfernen. Für die Entscheidung „Inhaber sind voreinander geschützt“ müssen sie angepasst werden (Änderungen an RLS brauchen ausdrückliche Freigabe).
@@ -146,7 +155,88 @@ Die Datenbank-Regeln aus PROJ-1 erlauben Inhabern derzeit, **alle** Rollen zu ä
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### Überblick
+PROJ-4 braucht **Frontend und Backend**. Das Fundament aus PROJ-1 (Kunden, Mitgliedschaften, Rollen, Abschottung) bleibt. Neu kommen hinzu: offene Einladungen als eigene Datensätze, der „aktuell gewählte Kunde“ je Gerät und schärfere Datenbank-Regeln für Rollen (Inhaber voreinander geschützt, Mitgliedschaften nur nach Zustimmung). Alle Aktionen laufen als Server-Aktionen wie in PROJ-3.
+
+### A) Seiten und Bausteine
+```
+App-Rahmen (PROJ-2)
++-- Seitenleiste / „Mehr“-Blatt
+|   +-- Kundenname → bei mehreren Kunden: Auswahl (Liste mit Rolle je Kunde, aktueller markiert)
+|   +-- Name · echte Rolle („Inhaber“ / „Mitarbeiter“) beim gewählten Kunden
++-- Navigation nach Rolle des gewählten Kunden; „Einstellungen“ nur für Inhaber
+
+/einstellungen (nur Inhaber)            → leitet auf /einstellungen/team
++-- Reiter „Team“ | „Kunde“
++-- /einstellungen/team
+|   +-- Seitenkopf mit Hauptaktion „Person einladen“
+|   +-- Mitglieder (Tabelle; am Handy Karten): Name, E-Mail, Rolle, Aktionen-Menü
+|   |     Aktionen je nach Fall: „Zum Inhaber machen“, „Entfernen“ (nur Mitarbeiter),
+|   |     bei sich selbst: „Zum Mitarbeiter herabstufen“, „Team verlassen“; bei anderen Inhabern keine
+|   +-- Offene Einladungen: E-Mail, Rolle, Datum, Status offen/abgelaufen; „Erneut senden“, „Zurückziehen“
+|   +-- Leerzustand „Noch niemand eingeladen“ mit „Person einladen“
+|   +-- Detail-Panel „Person einladen“: E-Mail-Adresse, Rolle (Mitarbeiter/Inhaber), „Einladen“
+|   +-- Bestätigungsdialoge für alle folgenreichen Aktionen
++-- /einstellungen/kunde
+    +-- Kundenname (max. 200 Zeichen), „Speichern“
+
+Ohne gewählten Kunden (keine Mitgliedschaft)
++-- Dashboard zeigt „Du bist noch keinem Kunden zugeordnet“
++-- darunter: offene Einladungen an mich mit „Annehmen“ / „Ablehnen“
+
+Mit Kunden, aber offene Einladung an mich (bestehendes Konto)
++-- Hinweis-Leiste oben im Dashboard: „X hat dich zu ‚Kunde‘ eingeladen“ → „Annehmen“ / „Ablehnen“
+```
+Für Mitarbeiter gibt es `/einstellungen` nicht („Seite nicht gefunden“). Vorhandene Bausteine: Seitenkopf, Detail-Panel, Leerzustand (PROJ-2); shadcn Table, Badge, Radio-Group, Popover/Command (Kundenauswahl), Alert-Dialog, Dropdown-Menu.
+
+### B) Daten (in Worten)
+
+**Bestehend (PROJ-1), unverändert:** Kunden (Name, Status aktiv/deaktiviert), Profile, Mitgliedschaften (Person ↔ Kunde mit Rolle).
+
+**Neu: Einladungen** (gehören zu einem Kunden, Standardfelder und Änderungsprotokoll wie alle Fachdaten)
+- Kunde, E-Mail-Adresse (normalisiert: klein, ohne Leerzeichen), Rolle (Inhaber/Mitarbeiter)
+- Art: „neues Konto“ (Mail-Link, 24 h) oder „bestehendes Konto“ (in der App, 14 Tage)
+- eingeladen von, zuletzt verschickt am, gültig bis
+- Zustand: offen, angenommen, abgelehnt, zurückgezogen
+- Regel: pro Kunde und Adresse höchstens **eine** offene Einladung
+- Lesen: Inhaber des Kunden; die eingeladene Person nur ihre eigenen Einladungen (Abgleich mit ihrer Konto-Adresse)
+- Abgeschlossene Einladungen (angenommen/abgelehnt/zurückgezogen) werden nach 90 Tagen gelöscht (Zeitplaner wie in PROJ-1/3)
+
+**Neu: gewählter Kunde je Gerät:** Ein Cookie merkt sich, welcher Kunde zuletzt geöffnet war. Der Server prüft bei jedem Aufruf, ob die Person dort (noch) Mitglied ist; sonst nimmt er den alphabetisch ersten Kunden. Keine Datenbank-Tabelle nötig.
+
+**Geänderte Regeln für Mitgliedschaften** (Datenbank, betrifft PROJ-1, **Freigabe nötig**):
+- Neue Mitgliedschaften entstehen **nur** durch Annehmen einer Einladung (bzw. durch den Betreiber in PROJ-5), nicht mehr durch direktes Hinzufügen durch Inhaber. So ist die Zustimmung technisch erzwungen.
+- Inhaber dürfen **Mitarbeiter** hochstufen und entfernen, aber **keine anderen Inhaber** herabstufen oder entfernen.
+- Jede Person darf **sich selbst** entfernen oder herabstufen.
+- Die bestehende Regel „mindestens ein Inhaber“ bleibt und gilt für alle Fälle.
+
+### C) Technische Entscheidungen (begründet)
+
+**Einladungen als eigene Datensätze statt direkt als Mitgliedschaft.** Nur so lassen sich offene, abgelaufene und abgelehnte Einladungen anzeigen, erneut senden und zurückziehen, und nur so ist die Zustimmung bestehender Konten möglich.
+
+**Neue Personen: Supabase-Einladung über Brevo (wie PROJ-3).** Der Server legt das Login-Konto an und lässt Supabase die deutsche Einladungsmail schicken; die Vorlage zeigt zusätzlich Kundenname und Einladende(n). Nach „Einladung annehmen“ + Name/Passwort (PROJ-3) wird die Einladung automatisch eingelöst und die Mitgliedschaft angelegt. „Erneut senden“ schickt einen frischen Link (der alte wird ungültig). „Zurückziehen“ entfernt die Einladung; ein noch nicht genutztes Login-Konto ohne andere Einladungen wird mit gelöscht, sodass ein alter Link ins Leere führt („nicht mehr gültig“).
+
+**Bestehende Konten: Hinweis-Mail direkt über Brevo.** Supabase verschickt nur Anmelde-Mails (Einladung, Reset). Für „X hat dich zu Kunde Y eingeladen“ ruft der Server Brevo direkt auf (gleicher Absender `no-reply@apppa.at`, deutscher Text). Dafür braucht es einen **Brevo-API-Schlüssel als neue geheime Umgebungsvariable** (nur Server, in `.env.local` und Vercel). Die Mail enthält keinen Einmal-Link, nur den Hinweis, sich anzumelden; angenommen wird in der App. Kommt die Mail nicht an, sieht die Person die Einladung trotzdem beim nächsten Anmelden.
+
+**Annehmen/Ablehnen als geprüfte Server-Aktion.** Beim Annehmen prüft der Server: Einladung offen, nicht abgelaufen, Adresse passt zum angemeldeten Konto, Kunde aktiv. Erst dann entsteht die Mitgliedschaft (in einem Schritt mit dem Abschluss der Einladung, damit nichts doppelt passiert).
+
+**Gewählter Kunde per Cookie, geprüft auf dem Server.** Einfach, gerätebezogen wie gewünscht, ohne Datenbank. Die Rechte prüft weiterhin die Datenbank pro Kunde (RLS aus PROJ-1); das Cookie entscheidet nur, *welcher* Kunde angezeigt wird, nie, *ob* jemand darf.
+
+**Rolle im App-Rahmen aus der Mitgliedschaft beim gewählten Kunden.** Ersetzt den Platzhalter aus PROJ-2; Navigation und Seiten-Zugang (`/einstellungen` nur Inhaber) richten sich danach, zusätzlich zur Prüfung in der Datenbank.
+
+**Missbrauchsschutz:** höchstens 20 Einladungen pro Kunde und Stunde (gezählt an den Einladungs-Datensätzen); darüber neutrale Meldung. Dazu greifen die Mail-Grenzen von Supabase/Brevo.
+
+**Zurückziehen während des Annehmens / gleichzeitige Einladungen:** Die Regel „eine offene Einladung pro Kunde und Adresse“ und das Annehmen in einem Schritt verhindern Doppelungen; wer zu spät kommt, bekommt „nicht mehr gültig“.
+
+**Tests:** Integrationstests gegen „apppa“ für die neuen Datenbank-Regeln (Inhaber kann anderen Inhaber nicht entfernen, Mitarbeiter kann nichts am Team ändern, direktes Hinzufügen ohne Einladung verweigert, Einladung nur von der eingeladenen Adresse annehmbar, letzter Inhaber), E2E für Einladen, Annehmen, Rollen, Kundenwechsel in allen drei Breiten.
+
+### D) Abhängigkeiten (Pakete)
+- Keine neuen Pakete. Brevo wird über seine Web-Schnittstelle direkt angesprochen; alle UI-Bausteine sind installiert.
+
+### E) Einrichtung außerhalb des Codes (mit dem Nutzer)
+1. Brevo → *SMTP & API → API Keys*: API-Schlüssel erzeugen, als `BREVO_API_KEY` in `.env.local` eintragen (später auch in Vercel); `.env.local.example` bekommt einen Platzhalter
+2. Einladungsvorlage in Supabase um Kundenname/Einladende(n) ergänzen → `config push` wie in PROJ-3 (Runbook Abschnitt 8)
 
 ## QA Test Results
 _To be added by /qa_
