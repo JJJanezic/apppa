@@ -99,6 +99,12 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-3 Anmeldung gegen apppa', () => {
       expect((await deviceA.auth.signOut({ scope: 'others' })).error).toBeNull()
       user.password = newPassword
 
+      // BUG-1 aus QA: Das Zugangstoken von B ist per Signatur weiter gültig (getClaims), Supabase kennt die
+      // Sitzung aber nicht mehr (getUser). Deshalb prüft src/lib/supabase/proxy.ts mit getUser.
+      const tokenB = (await deviceB.auth.getSession()).data.session!.access_token
+      expect((await deviceB.auth.getClaims(tokenB)).error).toBeNull()
+      expect((await anonClient().auth.getUser(tokenB)).error).not.toBeNull()
+
       expect((await deviceB.auth.refreshSession()).error).not.toBeNull()
       expect((await deviceA.auth.getUser()).error).toBeNull()
     }, 30_000)

@@ -18,6 +18,8 @@ const matches = (path: string, list: string[]) => list.some((p) => path === p ||
 export async function updateSession(request: NextRequest) {
   const env = getServerEnv()
   let response = NextResponse.next({ request })
+  // Hatte der Browser eine Supabase-Sitzung? (Unterscheidet „widerrufen“ von „nie angemeldet“)
+  const hadSession = request.cookies.getAll().some((c) => c.name.startsWith('sb-') && c.name.includes('-auth-token'))
 
   const supabase = createServerClient<Database>(
     env.NEXT_PUBLIC_SUPABASE_URL,
@@ -36,16 +38,27 @@ export async function updateSession(request: NextRequest) {
     }
   )
 
-  // Nichts zwischen createServerClient und getClaims ausführen, sonst können Sitzungen verloren gehen.
-  const { data } = await supabase.auth.getClaims()
-  let userId = data?.claims?.sub ?? null
+  // Nichts zwischen createServerClient und getUser ausführen, sonst können Sitzungen verloren gehen.
+  // getUser statt getClaims (BUG-1 aus QA): Nur die Nachfrage bei Supabase erkennt widerrufene Sitzungen
+  // („Überall abmelden“, Passwortänderung). Supabase löscht dann die Sitzungs-Cookies (Anfrage und Antwort),
+  // sodass auch Server-Seiten und -Aktionen dieser Anfrage niemanden mehr angemeldet sehen.
+  // Ohne Sitzungs-Cookie entsteht keine Netzwerkanfrage.
+  const { data } = await supabase.auth.getUser()
+  let userId = data.user?.id ?? null
 
   const path = request.nextUrl.pathname
-  // Server-Aktionen nicht umleiten: Sie melden eine abgelaufene Sitzung selbst („sessionExpired“)
-  const isAction = request.headers.has('next-action')
+  // Server-Aktionen nicht umleiten: Sie melden eine abgelaufene Sitzung selbst („sessionExpired“).
+  // Nur POST zählt als Aktion – ein GET mit gefälschtem Header wird normal behandelt (BUG-4 aus QA).
+  const isAction = request.method === 'POST' && request.headers.has('next-action')
   // API-Routen prüfen selbst und antworten mit Statuscodes statt Weiterleitungen
   const isApi = path.startsWith('/api/')
   let expired = false
+
+  if (!userId && hadSession) {
+    // Sitzung widerrufen oder abgelaufen: Grenzen-Cookie mit entfernen, Hinweis auf der Anmeldeseite
+    response.cookies.delete(SESSION_COOKIE)
+    expired = true
+  }
 
   if (userId) {
     const check = checkSession(request.cookies.get(SESSION_COOKIE)?.value, userId, env.SUPABASE_SECRET_KEY)
