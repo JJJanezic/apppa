@@ -2,7 +2,7 @@
 
 ## Status: In Progress
 **Created:** 2026-10-15
-**Last Updated:** 2026-10-15
+**Last Updated:** 2026-10-23
 
 ## Dependencies
 - Requires: PROJ-1 (Supabase Infrastructure Setup): Login-Konten, Einladung nur per Mail, Passwortregel (mind. 10 Zeichen, a-z/A-Z/0-9), 2FA-Pflicht für den Admin, Admin-Kennzeichen, Route `/auth/confirm` mit Schutz vor Open Redirect
@@ -311,8 +311,152 @@ _Stand 2026-10-15 (/backend)_
 
 **Hinweise für /qa**: Die E2E-Tests aus PROJ-2 brauchen jetzt eine Anmeldung (Test-Fixture mit Testnutzer anlegen). `npm run lint` ist im Projekt nicht lauffähig (`next lint` gibt es in Next 16 nicht mehr, keine `eslint.config`), das ist ein bestehender Mangel und nicht Teil von PROJ-3
 
+**Bugfixes nach QA (2026-10-23, /backend)**
+- **BUG-1 behoben:** `src/lib/supabase/proxy.ts` prüft die Sitzung mit `getUser()` statt `getClaims()`. Nur die Nachfrage bei Supabase erkennt widerrufene Sitzungen (nach „Überall abmelden“, Passwortänderung, Reset). Supabase löscht dann die Sitzungs-Cookies für Anfrage und Antwort; die Person landet auf `/anmelden?…&grund=sitzung-abgelaufen`. Kosten: eine Anfrage an Supabase pro Seitenaufruf mit Sitzung (ohne Sitzung keine). Server-Seiten und -Aktionen nutzen weiter `getClaims()`, weil der Proxy dieselbe Anfrage schon geprüft hat
+- **BUG-3 behoben:** Sicherheitsheader in `next.config.ts` für alle Pfade: `X-Frame-Options: DENY`, `Content-Security-Policy: frame-ancestors 'none'`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: origin-when-cross-origin`, `Strict-Transport-Security` (2 Jahre, includeSubDomains), `Permissions-Policy` (Kamera, Mikrofon, Standort aus)
+- **BUG-4 behoben:** Der Proxy nimmt nur `POST` mit `next-action` von der Weiterleitung aus
+- **BUG-2** (Hinweis „bisherige Anmeldung beendet“) ist Oberfläche → `/frontend`
+- Tests: `src/lib/supabase/proxy.test.ts` (6, u. a. widerrufene Sitzung, gefälschter Header), `src/lib/security-headers.test.ts` (6), Integrationstest weist nach, dass ein widerrufenes Token per Signatur gültig bleibt, Supabase es aber ablehnt. `npm test` 164/164. E2E Desktop: alle Anmelde-, Sitzungs-, Einladungs-, Reset-, Konto-, 2FA- und Design-Tests grün außer BUG-2; zwei Tests mussten wegen der Supabase-Grenze pro IP (30 Link-Bestätigungen in 5 Minuten, durch viele Testläufe hintereinander) wiederholt werden
+
 ## QA Test Results
-_To be added by /qa_
+
+**Tested:** 2026-10-23
+**App URL:** http://localhost:3000 (Dev-Server) gegen Supabase „apppa“
+**Tester:** QA Engineer (AI)
+**Browser:** Google Chrome (Playwright, `channel: 'chrome'`) in 1440, 768 und 375 px. Firefox und Safari nicht getestet (kein Browser-Download in dieser Umgebung, wie PROJ-2)
+
+**Automatische Tests**
+- `npm test`: 152/152 grün (Unit + Integration gegen „apppa“)
+- `npm run test:e2e`: 102 grün, **4 rot** (= BUG-1 dreifach, BUG-2), 73 übersprungen (Abläufe laufen nur im Projekt „desktop“, um die Supabase-Grenzen pro IP zu schonen)
+- Neu: `tests/PROJ-3-authentifizierung.spec.ts`. Testnutzer `test-e2e-*@example.com` werden pro Test angelegt und gelöscht; Mail-Links kommen aus `admin.generateLink`, es werden keine Mails verschickt. Sitzungen für Tests, die nicht das Login prüfen, werden per Cookie gesetzt (`tests/support/supabase.ts`)
+- PROJ-2-E2E angepasst: Seit PROJ-3 ist Anmeldung Pflicht. Ein Setup-Projekt meldet einen gemeinsamen Testnutzer an (`tests/auth.setup.ts`, Löschung in `tests/auth.teardown.ts`), erwartet werden jetzt Name und Begrüßung „…, Erika.“. Alle PROJ-2-Tests grün in allen drei Breiten
+
+### Acceptance Criteria Status
+
+#### Anmelden
+- [x] Richtige Daten → Dashboard (E2E)
+- [x] Falsches Passwort und unbekanntes Konto → dieselbe Meldung, E-Mail bleibt stehen, Passwort wird geleert (E2E)
+- [x] Leere Felder/ungültige Adresse → Hinweis am Feld, keine Server-Anfrage (E2E)
+- [x] 5 Fehlversuche → Sperre „in 15 Minuten“, auch mit richtigem Passwort (E2E + Integration)
+- [x] Ohne Anmeldung → `/anmelden?next=…`, danach zurück zur Seite (E2E)
+- [x] Angemeldet auf `/anmelden` → Dashboard (E2E)
+- [x] Doppelklick → genau eine Anfrage (E2E)
+
+#### Sitzung und Abmelden
+- [x] Abmelden → Anmeldeseite mit Hinweis; Zurück zeigt keine App-Daten (E2E)
+- [x] 8 h ohne Aktivität → neu anmelden mit Hinweis, danach zurück zur Seite (E2E)
+- [x] 30 Tage → neu anmelden (Unit-Test `session-limits.test.ts`; im Browser nicht ohne Uhr-Manipulation prüfbar)
+- [ ] **BUG-1:** „Auf allen Geräten abmelden“ beendet das andere Gerät nicht sofort (bis zu 1 h weiter angemeldet)
+
+#### Einladung annehmen
+- [x] Link zeigt Seite mit Knopf, noch nicht eingelöst (E2E)
+- [x] Linkscanner (GET auf `/auth/confirm` und `/bestaetigen`) verbraucht den Link nicht (E2E + Integration)
+- [x] Name + Passwort → aktiv, angemeldet, Dashboard mit „…, Johanna.“ (E2E)
+- [x] Passwortregel/Wiederholung → konkrete Meldung, Regeln vorab sichtbar (E2E)
+- [x] Name leer → Meldung; > 200 Zeichen lassen sich nicht eingeben (maxLength), Server prüft zusätzlich (E2E)
+- [x] Benutzter Link → „nicht mehr gültig“ mit Hinweis auf neue Einladung (E2E)
+- [ ] **Offen (nicht prüfbar):** Mail deutsch, eigener Absender, Link auf Bestätigungsseite. Brevo meldet für Einladung (an `jjj@rechtundco.at`) und Reset (an `joachim@janezic.at`) „zugestellt“, beide Mails hängen in der Quarantäne des Empfänger-Mailservers. Vorlagen-Inhalt per Code-Review geprüft
+
+#### Passwort vergessen und zurücksetzen
+- [x] Immer dieselbe neutrale Bestätigung (E2E, unbekannte Adresse, dreimal hintereinander)
+- [x] Link zeigt zuerst „Neues Passwort festlegen“, erst der Klick löst ein (E2E)
+- [ ] **BUG-1:** Neues Passwort → Dashboard funktioniert, aber andere Sitzungen bleiben bis zu 1 h aktiv
+- [x] Abgelaufener/benutzter Link → Meldung mit „Neuen Link anfordern“ (E2E)
+- [x] Sehr viele Anforderungen → Meldung bleibt neutral (E2E); Mail-Grenze greift bei Supabase (1 Mail/min je Adresse, 30/h), per Konfiguration geprüft
+
+#### Mein Konto
+- [x] E-Mail (nicht änderbar), Anzeigename, Passwort, „Auf allen Geräten abmelden“; keine 2FA-Verwaltung für Nicht-Admins (E2E)
+- [x] Neuer Name sofort in der Seitenleiste + Bestätigung (E2E)
+- [x] Falsches aktuelles Passwort → abgelehnt (E2E)
+- [ ] **BUG-1:** Neues Passwort ist aktiv (E2E), aber andere Sitzungen bleiben bis zu 1 h aktiv
+
+#### 2FA für den Betreiber-Admin
+- [x] Admin ohne Gerät → Pflicht-Einrichtung (QR-Code + Schlüssel + erster Code), andere Seiten gesperrt (E2E)
+- [x] Danach Code-Abfrage nach dem Passwort, erst dann Dashboard (E2E)
+- [x] Falscher Code → Meldung; 5 Fehlversuche → Sperre (E2E)
+- [x] Zweites Gerät mit Code bestätigt, beide funktionieren (E2E: Anmeldung mit Code des zweiten Geräts)
+- [x] Letztes Gerät nicht entfernbar, mit Hinweis (E2E)
+- [x] Nicht-Admin: keine 2FA, keine 2FA-Verwaltung (E2E)
+
+#### App-Rahmen
+- [x] Anzeigename in Seitenleiste bzw. „Mehr“, „Mein Konto“ und „Abmelden“ aktiv (E2E, alle Breiten)
+- [x] Begrüßung mit Vorname (E2E, alle Breiten)
+
+#### Design und Barrierefreiheit
+- [x] Anmeldeseiten mit Wortmarke, schmalem Formular, ohne Navigation, ohne waagrechtes Scrollen (E2E, 1440/768/375)
+- [x] Felder beschriftet, Fehlermeldungen per `aria-describedby` zugeordnet und vorgelesen (`role="alert"`), Passwortmanager-Attribute (`username`, `current-password`, `new-password`, `one-time-code`); axe WCAG 2.1 AA ohne Befund auf allen Anmeldeseiten (E2E)
+- [x] Passwort anzeigen/verbergen (E2E)
+
+### Edge Cases Status
+- [x] Linkscanner: siehe oben
+- [ ] **BUG-2:** Einladung bei angemeldeter anderer Person: Die Person wird abgemeldet, aber **ohne Hinweis** (Text `auth.confirm.signedOutOther` existiert, wird nie angezeigt)
+- [x] Einladung angenommen, Browser vor Passwort geschlossen: benutzter Link → „nicht mehr gültig“ (E2E); „Passwort vergessen?“ funktioniert für das Konto (Code-Review)
+- [x] Reset-Link in anderem Browser: funktioniert (Links ohne PKCE; E2E nutzt frischen Browser)
+- [x] 2FA-Notfall-Reset: Runbook Abschnitt 9 (Code-Review)
+- [x] Falsche Handy-Uhr: Hinweis unter dem Code-Feld (E2E-Snapshot)
+- [x] Netzwerkfehler: einheitliche Meldung über `callAction` (Code-Review)
+- [x] Sitzung läuft während Formular ab: `sessionExpired` → Anmeldung mit Hinweis und Rücksprung (Code-Review; Weiterleitung selbst per E2E für Seitenaufrufe geprüft)
+- [ ] Konto gelöscht/deaktiviert: gelöscht → neutrale Meldung (wie unbekanntes Konto, E2E); deaktiviert erst mit PROJ-5 prüfbar
+- [x] Person ohne Mitgliedschaft: Anmeldung funktioniert, leere Bereiche (alle E2E-Testnutzer haben keine Mitgliedschaft)
+- [x] Rücksprung nur innerhalb der App: `//evil…`, `https://evil…`, `/\evil…` → Dashboard (E2E)
+- [x] E-Mail mit Großbuchstaben/Leerzeichen wird normalisiert (E2E)
+
+### Security Audit Results
+- [x] Zugangsschutz: alle App-Seiten ohne Sitzung → Anmeldung (Proxy), zusätzlich App-Rahmen auf dem Server
+- [ ] **BUG-1:** Widerrufene Sitzungen gelten bis zum Ablauf des Zugangstokens weiter (Prüfung nur per Signatur)
+- [x] Admin ohne Code (aal1): keine Admin-Rechte (RLS, PROJ-1-Tests), alle App-Seiten → 2FA; Konto-Aktionen für 2FA-Geräte verlangen aal2
+- [x] Sperre zählt pro Konto (Hash), auch für unbekannte Adressen; Meldungen neutral; Supabase-Grenze pro IP zusätzlich
+- [x] Mail-Links nur per Knopf; ungültiger Typ/Token → neutrale Meldung
+- [x] Open Redirect: geprüft (siehe Edge Cases)
+- [x] Sitzungs-Cookie `apppa-sitzung`: httpOnly, HMAC-signiert; fehlend/manipuliert → abgemeldet (E2E + Unit)
+- [x] Tabelle `login_failures` für App-Rollen gesperrt (Integration)
+- [x] Server-Aktionen: Hilfsfunktionen ohne Berechtigungsprüfung sind nicht exportiert (`src/lib/auth/mfa.ts`); jede Aktion prüft Sitzung bzw. Admin/aal2
+- [x] Kein geheimer Schlüssel im Browser-Code (`.next/static` durchsucht)
+- [ ] **BUG-3:** Sicherheitsheader fehlen (X-Frame-Options, X-Content-Type-Options, Referrer-Policy, HSTS) → Anmeldeseite in fremdem Frame einbettbar (Clickjacking)
+- [ ] **BUG-4:** Ein gefälschter Header `next-action` bei GET umgeht die Proxy-Weiterleitung (nicht die Prüfung im App-Rahmen)
+- Hinweis (bewusst akzeptiert): Wer eine Kundenadresse kennt, kann das Konto durch 5 Fehlversuche 15 min sperren. Folge der Sperre je Konto (Spec-Entscheidung)
+
+### Bugs Found
+
+#### BUG-1: Abgemeldete Geräte bleiben bis zu 1 Stunde angemeldet
+- **Severity:** High
+- **Steps to Reproduce:**
+  1. Mit demselben Konto in zwei Browsern anmelden (A und B)
+  2. In A: „Mein Konto“ → „Überall abmelden“ (oder Passwort ändern, oder Passwort über Reset-Link neu setzen)
+  3. In B eine App-Seite neu laden
+  4. Expected: B landet auf der Anmeldeseite
+  5. Actual: B bleibt angemeldet und sieht weiter Daten, bis sein Zugangstoken abläuft (Supabase-Standard 1 h)
+- **Ursache:** Proxy und `getSessionUser()` prüfen das Token nur per Signatur (`getClaims`). Supabase widerruft bei `signOut` nur die Sitzung bzw. das Refresh-Token; das bereits ausgestellte Zugangstoken bleibt gültig. Nachgewiesen: Nach `signOut({ scope: 'others' })` liefert `getClaims` für B weiter gültige Claims, `getUser` dagegen „Auth session missing“
+- **Betroffen:** AC „Auf allen Geräten abmelden“, „andere Sitzungen beendet“ nach Reset und nach Passwortänderung; Grundidee „Handy verloren“
+- **Priority:** Fix before deployment
+
+#### BUG-2: Kein Hinweis, wenn beim Annehmen einer Einladung eine andere Person abgemeldet wurde
+- **Severity:** Medium
+- **Steps to Reproduce:**
+  1. Als Person A anmelden
+  2. Im selben Browser einen Einladungslink für Person B öffnen und „Einladung annehmen“ wählen
+  3. Expected: Seite „Willkommen bei apppa“ mit Hinweis „Die bisherige Anmeldung in diesem Browser wurde beendet.“
+  4. Actual: A ist korrekt abgemeldet, aber ohne Hinweis. `confirmEmailLink` liefert `signedOutOther`, `confirm-link-form.tsx` wertet es nicht aus
+- **Priority:** Fix before deployment
+
+#### BUG-3: Sicherheitsheader fehlen
+- **Severity:** Medium
+- **Steps to Reproduce:** `curl -I http://localhost:3000/anmelden` → keine `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Strict-Transport-Security` (Projektregel `.claude/rules/security.md`)
+- **Folge:** Anmeldeseite lässt sich in fremde Seiten einbetten (Clickjacking)
+- **Priority:** Fix before deployment (passt auch zu `/deploy`)
+
+#### BUG-4: Proxy-Weiterleitung per gefälschtem Header umgehbar
+- **Severity:** Low
+- **Steps to Reproduce:** `curl -H 'next-action: x' http://localhost:3000/einladung/abschliessen` ohne Sitzung → 200 mit Formular statt Weiterleitung. `/` und `/konto` leiten trotzdem um (App-Rahmen), Aktionen prüfen die Sitzung selbst; es werden keine Daten sichtbar
+- **Vorschlag:** Ausnahme nur für `POST` mit `next-action`
+- **Priority:** Fix in next sprint
+
+### Summary
+- **Acceptance Criteria:** 34/38 bestanden, 3 durch BUG-1 nicht erfüllt, 1 nicht prüfbar (Mail-Zustellung, Quarantäne beim Empfänger)
+- **Bugs Found:** 4 total (0 critical, 1 high, 2 medium, 1 low)
+- **Security:** Issues found (BUG-1, BUG-3, BUG-4)
+- **Production Ready:** NO
+- **Recommendation:** BUG-1 bis BUG-3 beheben (`/backend` für BUG-1, BUG-3, BUG-4; `/frontend` für BUG-2), danach `/qa` erneut. Vor dem Pilotstart zusätzlich die Mail-Zustellung klären (Quarantäne bei M365, Domain-Ruf von `apppa.at`)
 
 ## Deployment
 _To be added by /deploy_

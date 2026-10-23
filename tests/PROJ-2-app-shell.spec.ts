@@ -13,16 +13,17 @@ test.describe('Startseite', () => {
     await expect(header.locator('p').first()).toHaveText(
       /^(Montag|Dienstag|Mittwoch|Donnerstag|Freitag|Samstag|Sonntag), \d{1,2}\. (Jänner|Februar|März|April|Mai|Juni|Juli|August|September|Oktober|November|Dezember) \d{4}$/i
     )
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText(/^Guten (Morgen|Tag|Abend)\.$/)
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(/^Guten (Morgen|Tag|Abend), Erika\.$/)
     await expect(page.getByRole('heading', { name: 'Hier erscheinen bald deine Buchungen.' })).toBeVisible()
   })
 
-  test('zeigt vor dem Login erkennbare Platzhalter für Kunde, Name und Sync-Status', async ({ page }) => {
+  // Seit PROJ-3 angemeldet (tests/auth.setup.ts): echter Name; Kunde bleibt Platzhalter bis PROJ-4
+  test('zeigt Namen der angemeldeten Person und Platzhalter für Kunde und Sync-Status', async ({ page }) => {
     await page.goto('/')
     if (!isDesktop(page)) await page.getByRole('button', { name: 'Mehr' }).click()
     const scope = isDesktop(page) ? sidebar(page) : page.getByRole('dialog')
     await expect(scope.getByText('Kunde folgt mit dem Login')).toBeVisible()
-    await expect(scope.getByRole('button', { name: /Benutzermenü: Name folgt mit dem Login/ })).toBeVisible()
+    await expect(scope.getByRole('button', { name: /Benutzermenü: Erika Testerin · Inhaber/ })).toBeVisible()
     await expect(scope.getByText('Noch keine Verbindungen')).toBeVisible()
   })
 
@@ -55,6 +56,8 @@ test.describe('Desktop-Rahmen', () => {
 
   test('Seitenleiste bleibt beim Scrollen stehen', async ({ page }) => {
     await page.goto('/')
+    // Erst nach dem Laden von React die Seite verändern, sonst baut React sie neu auf (Hydration)
+    await page.waitForLoadState('networkidle')
     await page.evaluate(() => {
       const filler = document.createElement('div')
       filler.style.height = '3000px'
