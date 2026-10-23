@@ -56,8 +56,11 @@ test.describe('Desktop-Rahmen', () => {
 
   test('Seitenleiste bleibt beim Scrollen stehen', async ({ page }) => {
     await page.goto('/')
-    // Erst nach dem Laden von React die Seite verändern, sonst baut React sie neu auf (Hydration)
-    await page.waitForLoadState('networkidle')
+    // Erst verändern, wenn React die Seite übernommen hat, sonst baut React sie neu auf (Hydration)
+    await page.waitForFunction(() => {
+      const main = document.querySelector('main')
+      return !!main && Object.keys(main).some((key) => key.startsWith('__reactFiber'))
+    })
     await page.evaluate(() => {
       const filler = document.createElement('div')
       filler.style.height = '3000px'
