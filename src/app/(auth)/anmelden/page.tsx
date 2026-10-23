@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { getTranslations } from 'next-intl/server'
 
 import { AuthCard } from '@/components/auth/auth-card'
+import { AuthNotice } from '@/components/auth/auth-notice'
 import { LoginForm } from '@/components/auth/login-form'
 import { safeRedirectPath } from '@/lib/safe-redirect'
 
@@ -22,11 +23,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Search
 
   return (
     <AuthCard title={t('title')}>
-      {notice && (
-        <p role="status" className="rounded-md bg-ds-surface px-4 py-3 text-sm">
-          {notice}
-        </p>
-      )}
+      {notice && <AuthNotice>{notice}</AuthNotice>}
       <LoginForm next={safeNext} />
     </AuthCard>
   )

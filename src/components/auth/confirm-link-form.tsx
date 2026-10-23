@@ -25,7 +25,9 @@ export function ConfirmLinkForm({ tokenHash, type, onInvalid }: ConfirmLinkFormP
     setError(null)
     const result = await callAction(() => confirmEmailLink({ tokenHash, type }))
     if (result.ok) {
-      window.location.href = result.redirectTo ?? (type === 'invite' ? '/einladung/abschliessen' : '/passwort-neu')
+      const target = result.redirectTo ?? (type === 'invite' ? '/einladung/abschliessen' : '/passwort-neu')
+      // War vorher eine andere Person angemeldet, zeigt die Folgeseite einen Hinweis (BUG-2 aus QA)
+      window.location.href = result.data?.signedOutOther ? `${target}?hinweis=abgemeldet` : target
       return
     }
     setPending(false)
