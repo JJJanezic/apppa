@@ -1,6 +1,6 @@
 # PROJ-3: Authentifizierung
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-10-15
 **Last Updated:** 2026-10-23
 
@@ -346,7 +346,7 @@ _Stand 2026-10-15 (/backend)_
 - [x] Abmelden → Anmeldeseite mit Hinweis; Zurück zeigt keine App-Daten (E2E)
 - [x] 8 h ohne Aktivität → neu anmelden mit Hinweis, danach zurück zur Seite (E2E)
 - [x] 30 Tage → neu anmelden (Unit-Test `session-limits.test.ts`; im Browser nicht ohne Uhr-Manipulation prüfbar)
-- [ ] **BUG-1:** „Auf allen Geräten abmelden“ beendet das andere Gerät nicht sofort (bis zu 1 h weiter angemeldet)
+- [x] „Auf allen Geräten abmelden“ beendet alle Sitzungen sofort (E2E; war BUG-1, behoben)
 
 #### Einladung annehmen
 - [x] Link zeigt Seite mit Knopf, noch nicht eingelöst (E2E)
@@ -355,12 +355,12 @@ _Stand 2026-10-15 (/backend)_
 - [x] Passwortregel/Wiederholung → konkrete Meldung, Regeln vorab sichtbar (E2E)
 - [x] Name leer → Meldung; > 200 Zeichen lassen sich nicht eingeben (maxLength), Server prüft zusätzlich (E2E)
 - [x] Benutzter Link → „nicht mehr gültig“ mit Hinweis auf neue Einladung (E2E)
-- [ ] **Offen (nicht prüfbar):** Mail deutsch, eigener Absender, Link auf Bestätigungsseite. Brevo meldet für Einladung (an `jjj@rechtundco.at`) und Reset (an `joachim@janezic.at`) „zugestellt“, beide Mails hängen in der Quarantäne des Empfänger-Mailservers. Vorlagen-Inhalt per Code-Review geprüft
+- [x] Mail deutsch und vom eigenen Absender: an einer echten Mail bestätigt (Hinweis „Passwort geändert“ von `apppa <no-reply@apppa.at>`, deutsch; 2026-10-23). Link auf die Bestätigungsseite: per Vorlage (`<site_url>/bestaetigen?token_hash=…&type=…`) und E2E-Aufruf derselben Adresse geprüft, an einer echten Einladungs-/Reset-Mail noch nicht gesehen → bei der ersten echten Einladung kurz kontrollieren. Zustellung: landet bei M365-Empfängern derzeit in der Quarantäne
 
 #### Passwort vergessen und zurücksetzen
 - [x] Immer dieselbe neutrale Bestätigung (E2E, unbekannte Adresse, dreimal hintereinander)
 - [x] Link zeigt zuerst „Neues Passwort festlegen“, erst der Klick löst ein (E2E)
-- [ ] **BUG-1:** Neues Passwort → Dashboard funktioniert, aber andere Sitzungen bleiben bis zu 1 h aktiv
+- [x] Neues Passwort → Dashboard, andere Sitzungen sofort beendet (E2E; war BUG-1, behoben)
 - [x] Abgelaufener/benutzter Link → Meldung mit „Neuen Link anfordern“ (E2E)
 - [x] Sehr viele Anforderungen → Meldung bleibt neutral (E2E); Mail-Grenze greift bei Supabase (1 Mail/min je Adresse, 30/h), per Konfiguration geprüft
 
@@ -368,7 +368,7 @@ _Stand 2026-10-15 (/backend)_
 - [x] E-Mail (nicht änderbar), Anzeigename, Passwort, „Auf allen Geräten abmelden“; keine 2FA-Verwaltung für Nicht-Admins (E2E)
 - [x] Neuer Name sofort in der Seitenleiste + Bestätigung (E2E)
 - [x] Falsches aktuelles Passwort → abgelehnt (E2E)
-- [ ] **BUG-1:** Neues Passwort ist aktiv (E2E), aber andere Sitzungen bleiben bis zu 1 h aktiv
+- [x] Neues Passwort aktiv, andere Sitzungen sofort beendet (E2E; war BUG-1, behoben)
 
 #### 2FA für den Betreiber-Admin
 - [x] Admin ohne Gerät → Pflicht-Einrichtung (QR-Code + Schlüssel + erster Code), andere Seiten gesperrt (E2E)
@@ -389,7 +389,7 @@ _Stand 2026-10-15 (/backend)_
 
 ### Edge Cases Status
 - [x] Linkscanner: siehe oben
-- [ ] **BUG-2:** Einladung bei angemeldeter anderer Person: Die Person wird abgemeldet, aber **ohne Hinweis** (Text `auth.confirm.signedOutOther` existiert, wird nie angezeigt)
+- [x] Einladung bei angemeldeter anderer Person: wird abgemeldet, mit Hinweis (E2E; war BUG-2, behoben)
 - [x] Einladung angenommen, Browser vor Passwort geschlossen: benutzter Link → „nicht mehr gültig“ (E2E); „Passwort vergessen?“ funktioniert für das Konto (Code-Review)
 - [x] Reset-Link in anderem Browser: funktioniert (Links ohne PKCE; E2E nutzt frischen Browser)
 - [x] 2FA-Notfall-Reset: Runbook Abschnitt 9 (Code-Review)
@@ -403,7 +403,7 @@ _Stand 2026-10-15 (/backend)_
 
 ### Security Audit Results
 - [x] Zugangsschutz: alle App-Seiten ohne Sitzung → Anmeldung (Proxy), zusätzlich App-Rahmen auf dem Server
-- [ ] **BUG-1:** Widerrufene Sitzungen gelten bis zum Ablauf des Zugangstokens weiter (Prüfung nur per Signatur)
+- [x] Widerrufene Sitzungen werden sofort abgewiesen (Proxy prüft mit `getUser`; war BUG-1, behoben)
 - [x] Admin ohne Code (aal1): keine Admin-Rechte (RLS, PROJ-1-Tests), alle App-Seiten → 2FA; Konto-Aktionen für 2FA-Geräte verlangen aal2
 - [x] Sperre zählt pro Konto (Hash), auch für unbekannte Adressen; Meldungen neutral; Supabase-Grenze pro IP zusätzlich
 - [x] Mail-Links nur per Knopf; ungültiger Typ/Token → neutrale Meldung
@@ -412,13 +412,13 @@ _Stand 2026-10-15 (/backend)_
 - [x] Tabelle `login_failures` für App-Rollen gesperrt (Integration)
 - [x] Server-Aktionen: Hilfsfunktionen ohne Berechtigungsprüfung sind nicht exportiert (`src/lib/auth/mfa.ts`); jede Aktion prüft Sitzung bzw. Admin/aal2
 - [x] Kein geheimer Schlüssel im Browser-Code (`.next/static` durchsucht)
-- [ ] **BUG-3:** Sicherheitsheader fehlen (X-Frame-Options, X-Content-Type-Options, Referrer-Policy, HSTS) → Anmeldeseite in fremdem Frame einbettbar (Clickjacking)
-- [ ] **BUG-4:** Ein gefälschter Header `next-action` bei GET umgeht die Proxy-Weiterleitung (nicht die Prüfung im App-Rahmen)
+- [x] Sicherheitsheader gesetzt (X-Frame-Options, frame-ancestors, nosniff, Referrer-Policy, HSTS, Permissions-Policy; war BUG-3, behoben)
+- [x] Gefälschter `next-action`-Header bei GET → Weiterleitung zur Anmeldung (war BUG-4, behoben)
 - Hinweis (bewusst akzeptiert): Wer eine Kundenadresse kennt, kann das Konto durch 5 Fehlversuche 15 min sperren. Folge der Sperre je Konto (Spec-Entscheidung)
 
 ### Bugs Found
 
-#### BUG-1: Abgemeldete Geräte bleiben bis zu 1 Stunde angemeldet
+#### BUG-1: Abgemeldete Geräte bleiben bis zu 1 Stunde angemeldet — ✅ behoben (Nachprüfung 2026-10-23)
 - **Severity:** High
 - **Steps to Reproduce:**
   1. Mit demselben Konto in zwei Browsern anmelden (A und B)
@@ -430,7 +430,7 @@ _Stand 2026-10-15 (/backend)_
 - **Betroffen:** AC „Auf allen Geräten abmelden“, „andere Sitzungen beendet“ nach Reset und nach Passwortänderung; Grundidee „Handy verloren“
 - **Priority:** Fix before deployment
 
-#### BUG-2: Kein Hinweis, wenn beim Annehmen einer Einladung eine andere Person abgemeldet wurde
+#### BUG-2: Kein Hinweis, wenn beim Annehmen einer Einladung eine andere Person abgemeldet wurde — ✅ behoben (Nachprüfung 2026-10-23)
 - **Severity:** Medium
 - **Steps to Reproduce:**
   1. Als Person A anmelden
@@ -439,24 +439,33 @@ _Stand 2026-10-15 (/backend)_
   4. Actual: A ist korrekt abgemeldet, aber ohne Hinweis. `confirmEmailLink` liefert `signedOutOther`, `confirm-link-form.tsx` wertet es nicht aus
 - **Priority:** Fix before deployment
 
-#### BUG-3: Sicherheitsheader fehlen
+#### BUG-3: Sicherheitsheader fehlen — ✅ behoben (Nachprüfung 2026-10-23)
 - **Severity:** Medium
 - **Steps to Reproduce:** `curl -I http://localhost:3000/anmelden` → keine `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Strict-Transport-Security` (Projektregel `.claude/rules/security.md`)
 - **Folge:** Anmeldeseite lässt sich in fremde Seiten einbetten (Clickjacking)
 - **Priority:** Fix before deployment (passt auch zu `/deploy`)
 
-#### BUG-4: Proxy-Weiterleitung per gefälschtem Header umgehbar
+#### BUG-4: Proxy-Weiterleitung per gefälschtem Header umgehbar — ✅ behoben (Nachprüfung 2026-10-23)
 - **Severity:** Low
 - **Steps to Reproduce:** `curl -H 'next-action: x' http://localhost:3000/einladung/abschliessen` ohne Sitzung → 200 mit Formular statt Weiterleitung. `/` und `/konto` leiten trotzdem um (App-Rahmen), Aktionen prüfen die Sitzung selbst; es werden keine Daten sichtbar
 - **Vorschlag:** Ausnahme nur für `POST` mit `next-action`
 - **Priority:** Fix in next sprint
 
-### Summary
-- **Acceptance Criteria:** 34/38 bestanden, 3 durch BUG-1 nicht erfüllt, 1 nicht prüfbar (Mail-Zustellung, Quarantäne beim Empfänger)
-- **Bugs Found:** 4 total (0 critical, 1 high, 2 medium, 1 low)
-- **Security:** Issues found (BUG-1, BUG-3, BUG-4)
-- **Production Ready:** NO
-- **Recommendation:** BUG-1 bis BUG-3 beheben (`/backend` für BUG-1, BUG-3, BUG-4; `/frontend` für BUG-2), danach `/qa` erneut. Vor dem Pilotstart zusätzlich die Mail-Zustellung klären (Quarantäne bei M365, Domain-Ruf von `apppa.at`)
+### Nachprüfung (Re-Test 2026-10-23)
+Nach `eed7997` (BUG-1, 3, 4), `203c281` (Testfix) und `d31bf50` (BUG-2):
+- `npm test`: 164/164 grün
+- E2E (in Paketen, Chrome): Desktop PROJ-3 40/40, PROJ-2 21/21; Tablet 25/25; Handy 24/24 (jeweils ohne die bewusst übersprungenen breitenspezifischen Tests)
+- Sicherheit am laufenden Server: alle Sicherheitsheader vorhanden; gefälschter `next-action`-Header bei GET → Weiterleitung auf allen geschützten Seiten; `?hinweis=<script>…` wird nicht ausgegeben (fester Text nur bei `abgemeldet`); erfundene Sitzungs-Cookies → `/anmelden?…&grund=sitzung-abgelaufen`
+- Supabase-Security-Advisor: nur bekannte, bewusst akzeptierte Punkte: „OTP long expiry“ (Mail-Links 24 h, Spec-Entscheidung) und „Leaked Password Protection“ (nur Pro-Tarif, im Runbook für die Produktion)
+- Hinweis Leistung: Der Proxy fragt Supabase jetzt bei jedem Seitenaufruf mit Sitzung (BUG-1-Fix); ohne Sitzung ~20 ms lokal. In Produktion Vercel-Region nahe eu-west-1 wählen (`/deploy`)
+- Hinweis Tests: Supabase begrenzt Link-Bestätigungen auf 30 pro 5 min und IP. Viele E2E-Läufe direkt hintereinander können daran scheitern; Testlauf in Paketen bzw. später wiederholen
+- Kleinigkeit (kein Bug): Muss der Admin vor dem neuen Passwort erst den 2FA-Code eingeben, geht der Hinweis „bisherige Anmeldung beendet“ auf dem Umweg über `/2fa` verloren
 
+### Summary
+- **Acceptance Criteria:** 38/38 bestanden (Mail-Link an echter Einladungs-/Reset-Mail noch zu sehen, siehe oben)
+- **Bugs Found:** 4 im ersten Durchlauf (1 high, 2 medium, 1 low), alle behoben und nachgeprüft; keine neuen
+- **Security:** Pass
+- **Production Ready:** YES
+- **Recommendation:** Freigeben. Vor dem Pilotstart die Mail-Zustellung klären (Quarantäne bei M365, Ruf der neuen Domain `apppa.at`) und den offenen Mail-Prüfpunkt abhaken
 ## Deployment
 _To be added by /deploy_
