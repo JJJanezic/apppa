@@ -1,6 +1,6 @@
 # PROJ-6: Wohnungsverwaltung
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-10-24
 **Last Updated:** 2026-10-24
 
@@ -10,14 +10,14 @@
 - Nutzt: PROJ-2 (App-Shell): Einstellungs-Reiter, Detail-Panel, Leerzustände
 - Grundlage für:
   - PROJ-8 (Buchungen: Wohnung wählen, Preisvorschlag, Personenzahl, Check-in/-out)
-  - PROJ-9 (Belegungskalender: Zeilen und Farben)
+  - PROJ-9 (Belegungskalender: eine Zeile je Wohnung, mit Gemeinde)
   - PROJ-10 (Channex: Wohnung ↔ Listing)
   - PROJ-15/16 (Abgaberegeln und -berechnung je Gemeinde)
   - PROJ-18 (Auswertungen nach Wohnung bzw. Objekt)
 
 ## User Stories
 - Als **Inhaber** möchte ich meine Objekte (z. B. „Haus Seeblick“) mit Adresse und Gemeinde anlegen, damit ich die Adresse nicht für jede Wohnung neu eingeben muss.
-- Als **Inhaber** möchte ich Wohnungen mit Name, Personenzahl, Art, Standardpreis, Check-in/-out-Zeiten, Kalenderfarbe und Notizen erfassen, damit Buchungen und Kalender diese Angaben verwenden.
+- Als **Inhaber** möchte ich Wohnungen mit Name, Personenzahl, Art, Standardpreis, Check-in/-out-Zeiten und Notizen erfassen, damit Buchungen und Kalender diese Angaben verwenden.
 - Als **Inhaber** möchte ich die Gemeinde aus einer Liste aller österreichischen Gemeinden wählen, damit die Tourismusabgabe später der richtigen Gemeinde zugeordnet wird.
 - Als **Inhaber** möchte ich eine Wohnung, die ich nicht mehr vermiete, archivieren, damit sie aus Auswahl und Kalender verschwindet, ihre Buchungen aber erhalten bleiben.
 - Als **Inhaber** möchte ich eine irrtümlich angelegte Wohnung ohne Buchungen endgültig löschen können, damit meine Liste sauber bleibt.
@@ -28,7 +28,7 @@
 - **Objekt**: Name, Adresse (Straße und Hausnummer, PLZ, Ort), Gemeinde aus der Liste der österreichischen Gemeinden. Bearbeiten wirkt auf alle Wohnungen des Objekts.
 - **Wohnung**:
   - Pflichtangaben: Objekt, Name (eindeutig innerhalb des Objekts), maximale Personenzahl.
-  - Zusatzangaben: Art (Ferienwohnung oder Dienstwohnung), Standardpreis pro Nacht in Euro, übliche Check-in- und Check-out-Zeit, Kalenderfarbe, Notiz.
+  - Zusatzangaben: Art (Ferienwohnung oder Dienstwohnung), Standardpreis pro Nacht in Euro, übliche Check-in- und Check-out-Zeit, Notiz.
 - **Anlegen einer Wohnung**: bestehendes Objekt wählen oder im selben Formular ein neues Objekt mit Adresse und Gemeinde anlegen.
 - **Gemeindeauswahl**: Suche nach Gemeindename oder PLZ; aus der eingegebenen PLZ werden passende Gemeinden vorgeschlagen.
 - **Anzeige überall**: „Objekt · Wohnung“, z. B. „Haus Seeblick · Top 1“.
@@ -55,7 +55,7 @@
 - [ ] Angenommen ein Inhaber von Kunde A, wenn er Objekte oder Wohnungen anlegt, ändert oder liest, dann betrifft das nur Kunde A; Daten anderer Kunden sind weder sichtbar noch änderbar
 
 ### Liste
-- [ ] Angenommen es gibt Wohnungen, wenn der Inhaber die Seite öffnet, dann sieht er die Wohnungen gruppiert nach Objekt (Objekte und Wohnungen alphabetisch), je Wohnung Name, Art, Personenzahl, Standardpreis und Kalenderfarbe, je Objekt Adresse und Gemeinde
+- [ ] Angenommen es gibt Wohnungen, wenn der Inhaber die Seite öffnet, dann sieht er die Wohnungen gruppiert nach Objekt (Objekte und Wohnungen alphabetisch), je Wohnung Name, Art, Personenzahl und Standardpreis, je Objekt Adresse und Gemeinde
 - [ ] Angenommen es gibt noch keine Wohnung, wenn der Inhaber die Seite öffnet, dann erscheint ein Leerzustand mit Erklärung und dem Knopf „Wohnung anlegen“
 - [ ] Angenommen es gibt archivierte Wohnungen, wenn der Inhaber „Archivierte anzeigen“ wählt, dann erscheinen sie gekennzeichnet als „archiviert“ in der Liste; sonst sind sie ausgeblendet
 - [ ] Angenommen die Seite wird auf dem Handy geöffnet, wenn sie angezeigt wird, dann sind die Wohnungen als Karten je Objekt ohne seitliches Scrollen lesbar
@@ -65,7 +65,7 @@
 - [ ] Angenommen es gibt noch kein passendes Objekt, wenn der Inhaber im Formular „Neues Objekt“ wählt und Objektname, Adresse und Gemeinde angibt, dann werden Objekt und Wohnung in einem Schritt angelegt
 - [ ] Angenommen der Kunde hat noch kein Objekt, wenn der Inhaber die erste Wohnung anlegt, dann ist „Neues Objekt“ bereits ausgewählt
 - [ ] Angenommen Pflichtangaben fehlen oder sind ungültig, wenn der Inhaber speichert, dann erscheint je Feld eine Meldung, und es wird nichts angelegt
-- [ ] Angenommen der Inhaber gibt keine Zusatzangaben ein, wenn er speichert, dann gelten Standardwerte: Art „Ferienwohnung“, Check-in 15:00, Check-out 10:00, eine noch ungenutzte Kalenderfarbe; Preis und Notiz bleiben leer
+- [ ] Angenommen der Inhaber gibt keine Zusatzangaben ein, wenn er speichert, dann gelten Standardwerte: Art „Ferienwohnung“, Check-in 15:00, Check-out 10:00; Preis und Notiz bleiben leer
 - [ ] Angenommen im Objekt gibt es bereits eine Wohnung gleichen Namens (auch archiviert, ohne Unterschied von Groß- und Kleinschreibung), wenn der Inhaber speichert, dann erscheint „In diesem Objekt gibt es schon eine Wohnung mit diesem Namen“
 - [ ] Angenommen eine Wohnung gleichen Namens existiert in einem anderen Objekt, wenn der Inhaber speichert, dann wird die Wohnung angelegt
 
@@ -117,9 +117,10 @@
 - Responsiv: Desktop, Tablet und Handy
 
 ## Open Questions
-- [ ] Quelle und Aktualisierung der Gemeindeliste: Wer spielt Änderungen von Statistik Austria ein und wie oft? Was passiert mit Objekten in zusammengelegten Gemeinden? Vorschlag: einmal jährlich per Runbook, mit Übertragung auf die Nachfolgegemeinde.
+- [x] Quelle und Aktualisierung der Gemeindeliste: Statistik Austria, jährlich per Runbook mit Migration; aufgelöste Gemeinden mit Nachfolger (siehe Tech Design D)
+- [ ] Nutzungsbedingungen der Statistik-Austria-Daten (Lizenz, Quellenangabe) vor dem Einspielen prüfen; beim Backend die aktuelle Datei herunterladen
 - [ ] Ist die Art „Dienstwohnung“ für die Ortstaxe relevant (Befreiung bei längerem Aufenthalt bzw. bei Arbeitnehmern)? Klärung in PROJ-15.
-- [ ] Kalenderfarben: feste Palette aus dem Design-System (Vorschlag: 8 Farben) statt freier Farbwahl. Klärung in /architecture bzw. /frontend.
+- [x] Kalenderfarben: entfallen. Laut Entwurf (`docs/design`) zeigt die Farbe im Kalender den Kanal (Booking.com, Airbnb, Direkt), nicht die Wohnung
 
 ## Decision Log
 
@@ -127,25 +128,142 @@
 | Decision | Rationale | Date |
 |----------|-----------|------|
 | Wohnungen unter „Einstellungen → Wohnungen“, nur für Inhaber | Stammdaten ändern sich selten; schlanke Hauptnavigation wie im Entwurf (offene Frage aus PROJ-2 damit geklärt) | 2026-10-24 |
-| Pflichtfelder plus Art, Standardpreis, Check-in/-out, Kalenderfarbe, Notiz | Werden von Buchungen (Preisvorschlag, Zeiten) und Kalender (Farbe) genutzt; ausführliche Objektdaten wertet nichts aus | 2026-10-24 |
+| Pflichtfelder plus Art, Standardpreis, Check-in/-out, Notiz | Werden von Buchungen genutzt (Preisvorschlag, Zeiten); ausführliche Objektdaten wertet nichts aus | 2026-10-24 |
+| Keine Kalenderfarbe je Wohnung (nachträglich gestrichen) | Im Entwurf (`docs/design`) codiert die Farbe der Buchungsbalken den Kanal (Booking.com Cyan, Airbnb Magenta, Direkt Dunkelgrau); eine zweite Farbbedeutung wäre nicht lesbar | 2026-10-24 |
 | Gemeinde aus hinterlegter Liste aller österreichischen Gemeinden, Suche und PLZ-Vorschlag | Eindeutige Zuordnung für die Abgaberegeln (PROJ-15); keine Schreibvarianten | 2026-10-24 |
 | Archivieren statt Löschen; endgültig löschen nur ohne Buchungen | Buchungen, Zahlungen und Abgabemeldungen müssen nachvollziehbar bleiben | 2026-10-24 |
 | Eigene Objekte mit Adresse und Gemeinde, Wohnungen darunter | Mehrere Wohnungen in einem Haus ohne Mehrfacherfassung; Gruppierung in Liste, Kalender, Auswertungen | 2026-10-24 |
 | Jede Wohnung gehört zu genau einem Objekt; Objekt kann beim Anlegen der Wohnung mit angelegt werden | Ein einheitliches Modell; für Einzelwohnungen trotzdem nur ein Formular | 2026-10-24 |
 | Wohnungsnamen eindeutig innerhalb des Objekts; Anzeige „Objekt · Wohnung“ | Gewohnte Bezeichnungen wie „Top 1“ je Haus bleiben möglich | 2026-10-24 |
 | Objekt löschen nur ohne zugeordnete Wohnungen | Keine verwaisten Wohnungen; archivierte Wohnungen brauchen weiter ihre Adresse und Gemeinde | 2026-10-24 |
-| Standardwerte: Ferienwohnung, Check-in 15:00, Check-out 10:00, ungenutzte Kalenderfarbe | Schnelles Anlegen; übliche Zeiten in Österreich | 2026-10-24 |
+| Standardwerte: Ferienwohnung, Check-in 15:00, Check-out 10:00 | Schnelles Anlegen; übliche Zeiten in Österreich | 2026-10-24 |
 | Mitarbeiter dürfen Wohnungen lesen (nicht bearbeiten), aber ohne eigene Seite | Kalender und Buchungen brauchen Wohnungsdaten | 2026-10-24 |
 
 ### Technical Decisions
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Gemeindeliste als gemeinsame, schreibgeschützte Tabelle, per Migration aus einer versionierten Datendatei geladen | Identisch in Entwicklung und Produktion; Änderungen nachvollziehbar; kein Zugriff von Kunden auf Stammdaten | 2026-10-24 |
+| Eigene PLZ-Zuordnungstabelle (viele zu viele) | Eine PLZ kann mehrere Gemeinden umfassen und umgekehrt | 2026-10-24 |
+| Vereinheitlichter Suchname je Gemeinde | Findet „St.“/„Sankt“ und Umlaut-Varianten ohne Zusatzmodul in der Datenbank | 2026-10-24 |
+| Aufgelöste Gemeinden mit „gültig bis“ und Nachfolger statt Löschen | Bestehende Zuordnungen und spätere Abgabeberichte bleiben gültig | 2026-10-24 |
+| Archivieren als Zeitpunkt „archiviert am“ statt Statusfeld | Zeigt zugleich, seit wann; leer = aktiv | 2026-10-24 |
+| Preis in Cent | Keine Rundungsfehler bei Beträgen | 2026-10-24 |
+| Löschsperre für Wohnungen mit Buchungen über den Verweis aus PROJ-8 | Regel liegt in der Datenbank und gilt ohne Zusatzlogik, sobald Buchungen existieren | 2026-10-24 |
+| Wohnung samt neuem Objekt in einem Datenbankvorgang | Kein halb angelegtes Objekt bei Fehlern | 2026-10-24 |
+| Server-Aktionen, Lesen für Mitglieder, Schreiben für Inhaber | Muster aus PROJ-1/4; Kalender und Buchungen brauchen Lesezugriff für Mitarbeiter | 2026-10-24 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### Ausgangslage (bereits vorhanden)
+- **Abschottungsmuster aus PROJ-1:** jede Fachtabelle mit Kundenkennung, Lesen für Mitglieder, Schreiben nach Rolle. Standardfelder und Änderungsprotokoll schaltet ein einziger Aufruf je Tabelle ein.
+- **Einstellungen aus PROJ-4:** Bereich nur für Inhaber, Reiter „Team“ und „Kunde“. Mitarbeiter erhalten 404 schon im App-Rahmen.
+- **Bausteine:**
+  - shadcn: Table, Badge, Sheet, Dialog, AlertDialog, Form, Input, Select, RadioGroup, Command + Popover (für die Gemeindesuche), Switch;
+  - eigene: Detail-Panel, Bestätigungsdialog, Leerzustand, Seitenkopf.
+- **Muster für Server-Aktionen und Fehlermeldungen** aus PROJ-4/5: gemeinsame Zod-Schemas im Browser und auf dem Server, Meldungen aus `messages/de.json`.
+
+### A) Seiten und Bausteine
+
+```
+Einstellungen (nur Inhaber)
++-- Reiter: Team · Kunde · Wohnungen (neu)
+
+/einstellungen/wohnungen
++-- Kopf: „Wohnungen“ + Knopf „Wohnung anlegen“ + Schalter „Archivierte anzeigen“
++-- Je Objekt ein Block
+|   +-- Kopfzeile: Objektname, Adresse, Gemeinde (Bundesland), Menü „Objekt bearbeiten / löschen“
+|   +-- Wohnungen des Objekts
+|       +-- Desktop/Tablet: Tabelle (Name, Art, Personen, Standardpreis, Check-in/-out, Status)
+|       +-- Handy: Karten
+|       +-- Klick auf eine Wohnung → Detail-Panel „Wohnung bearbeiten“
++-- Leerzustand „Noch keine Wohnung“ (mit Hinweis, falls nur archivierte existieren)
+
+Detail-Panel „Wohnung anlegen / bearbeiten“
++-- Objekt: Auswahl bestehender Objekte oder „Neues Objekt“
+|   +-- bei „Neues Objekt“: Objektname, Straße, PLZ, Ort, Gemeinde-Auswahl
++-- Name, max. Personen
++-- Art (Ferien-/Dienstwohnung), Standardpreis, Check-in, Check-out
++-- Notiz
++-- Aktionen: Speichern · Archivieren / Wiederherstellen · Endgültig löschen (mit Bestätigung)
+
+Detail-Panel „Objekt bearbeiten“
++-- Objektname, Straße, PLZ, Ort, Gemeinde-Auswahl
++-- Hinweis „Gilt für N Wohnungen“
++-- Objekt löschen (nur ohne Wohnungen)
+
+Gemeinde-Auswahl (wiederverwendbar, auch für PROJ-15)
++-- Suchfeld mit Vorschlagsliste: Gemeindename · Bundesland
++-- Zuerst die Gemeinden zur eingegebenen PLZ, dann die Treffer der Suche
+```
+
+### B) Datenmodell (in Worten)
+
+**Gemeinden** (für alle Kunden gemeinsam, nur lesbar; Pflege nur per Runbook)
+- amtliche Gemeindekennziffer (5-stellig, eindeutig), Name, Bundesland
+- Suchname (vereinheitlicht: Kleinbuchstaben, Umlaute ausgeschrieben, „St.“ = „Sankt“), damit Schreibvarianten gefunden werden
+- gültig bis (leer = aktuell). Aufgelöste Gemeinden bleiben für bestehende Zuordnungen erhalten, mit Hinweis auf die Nachfolgegemeinde.
+
+**PLZ-Zuordnung** (gemeinsam, nur lesbar): Paare aus PLZ und Gemeindekennziffer. Eine PLZ kann zu mehreren Gemeinden gehören und umgekehrt.
+
+**Objekte** (je Kunde)
+- Kunde, Name (eindeutig innerhalb des Kunden, ohne Groß-/Kleinschreibung)
+- Straße und Hausnummer, PLZ, Ort, Gemeinde (Verweis auf die Gemeindeliste)
+- Standardfelder und Änderungsprotokoll (PROJ-1)
+
+**Wohnungen** (je Kunde)
+- Kunde, Objekt, Name (eindeutig innerhalb des Objekts, ohne Groß-/Kleinschreibung)
+- max. Personen (1–50), Art (Ferienwohnung/Dienstwohnung)
+- Standardpreis pro Nacht (Betrag in Cent, leer erlaubt), Check-in- und Check-out-Zeit
+- Notiz (bis 2.000 Zeichen)
+- archiviert am (leer = aktiv)
+- Standardfelder und Änderungsprotokoll
+
+**Regeln in der Datenbank** (nicht nur in der Oberfläche):
+- Eine Wohnung und ihr Objekt gehören immer zum selben Kunden.
+- Ein Objekt lässt sich nicht löschen, solange Wohnungen darauf verweisen.
+- „Endgültig löschen nur ohne Buchungen“: Die Buchungen aus PROJ-8 verweisen auf die Wohnung mit Löschsperre. Ab dann verhindert die Datenbank selbst das Löschen. Bis dahin gibt es keine Buchungen, Löschen ist also immer möglich.
+
+### C) Rechte
+- **Objekte und Wohnungen:** Lesen für alle Mitglieder des Kunden (Kalender und Buchungen brauchen sie); Anlegen, Ändern und Löschen nur für Inhaber. Der Betreiber-Admin liest wie überall nur (PROJ-1).
+- **Gemeinden und PLZ-Zuordnung:** Lesen für alle Angemeldeten, Schreiben für niemanden über die App (nur Import per Migration bzw. Runbook).
+
+### D) Gemeindeliste: Herkunft und Pflege
+- **Quelle:** Statistik Austria, Gemeindeverzeichnis und Zuordnung „Postleitzahlen zu Gemeinden“ (offene Daten). Rund 2.100 Gemeinden und einige tausend PLZ-Zuordnungen.
+- **Einspielen:** als Datendatei im Repository, die eine Datenbank-Migration lädt. So ist die Liste in Entwicklung und späterer Produktion identisch und nachvollziehbar versioniert.
+- **Aktualisieren:** einmal jährlich (bzw. bei Gemeindereformen) per Runbook-Abschnitt mit neuer Migration. Geänderte Namen werden übernommen; aufgelöste Gemeinden erhalten „gültig bis“ und einen Nachfolger. Bestehende Objekte werden auf den Nachfolger umgehängt, mit Eintrag im Änderungsprotokoll.
+
+### E) Server und Oberfläche
+- **Server-Aktionen** (wie PROJ-4/5, kein eigenes API):
+  - Objekt anlegen bzw. ändern bzw. löschen;
+  - Wohnung anlegen (optional samt neuem Objekt in einem Zug) bzw. ändern bzw. archivieren bzw. wiederherstellen bzw. löschen.
+  - Alle prüfen Inhaber-Rolle und Eingaben; die Datenbank-Regeln greifen zusätzlich.
+- **Wohnung samt neuem Objekt anlegen:** in einem Datenbankvorgang. Schlägt die Wohnung fehl (z. B. Name doppelt), entsteht auch kein Objekt.
+- **Gemeindesuche:** ab 2 Zeichen bzw. sobald eine PLZ eingegeben ist, über eine schnelle, gefilterte Abfrage (höchstens 20 Treffer). Kein Laden der ganzen Liste in den Browser.
+- **Anzeige „Objekt · Wohnung“:** eine gemeinsame Hilfsfunktion, die auch Kalender und Buchungen (PROJ-8/9) verwenden.
+- **Keine Wohnungsfarben:** Wie im Entwurf (`docs/design`) erhält jede Wohnung im Kalender eine eigene Zeile (Name, darunter die Gemeinde). Farbe tragen nur die Buchungen, und zwar je Kanal (PROJ-9).
+
+### F) Tests
+- **Integrationstests gegen „apppa“:**
+  - Abschottung zwischen Kunden; Mitarbeiter lesen, aber schreiben nicht;
+  - Namenseindeutigkeit je Objekt bzw. Kunde;
+  - Objekt mit Wohnungen nicht löschbar;
+  - Wohnung und Objekt nur desselben Kunden;
+  - Gemeindesuche mit Schreibvarianten („St. Gilgen“/„Sankt Gilgen“, Umlaute) und PLZ mit mehreren Gemeinden;
+  - Gemeindeliste nicht beschreibbar.
+- **E2E:** Anlegen (mit neuem und bestehendem Objekt), Pflichtfelder, Standardwerte, Gemeindeauswahl über PLZ, Bearbeiten, Objektänderung mit Hinweis, Archivieren und Wiederherstellen, Löschen, 404 für Mitarbeiter, Handy-Ansicht, axe.
+- **Unit-Tests:** Suchnamen-Vereinheitlichung, Anzeige „Objekt · Wohnung“, Preis- und Zeit-Validierung.
+
+### G) Was sich an Sicherheit und Datenbank ändert (Freigabe nötig)
+- **Vier neue Tabellen mit Zugriffsregeln:**
+  - Objekte und Wohnungen: je Kunde, Lesen Mitglieder, Schreiben Inhaber;
+  - Gemeinden und PLZ-Zuordnung: Lesen alle Angemeldeten, Schreiben niemand.
+- **Bestehende Regeln bleiben unverändert.**
+
+### H) Abhängigkeiten
+- Keine neuen Pakete. Die Gemeindeauswahl nutzt die vorhandenen shadcn-Bausteine Command und Popover.
 
 ## QA Test Results
 _To be added by /qa_
