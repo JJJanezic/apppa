@@ -24,7 +24,7 @@ export function NewPasswordForm({ email }: { email?: string }) {
     setError(null)
     const result = await callAction(() => setNewPassword(values))
     if (result.ok) {
-      window.location.href = result.redirectTo ?? '/'
+      window.location.assign(result.redirectTo ?? '/')
       return
     }
     setError(result.error)

@@ -31,7 +31,7 @@ export function LoginForm({ next }: LoginFormProps) {
     const result = await callAction(() => signIn({ ...values, next }))
     if (result.ok) {
       // Vollständiger Seitenwechsel, damit die neue Sitzung überall gilt
-      window.location.href = result.redirectTo ?? '/'
+      window.location.assign(result.redirectTo ?? '/')
       return
     }
     setError({ code: result.error, minutes: result.retryAfterMinutes })

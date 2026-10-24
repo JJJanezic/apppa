@@ -36,7 +36,7 @@ export function TenantLabel() {
     const result = await callAction(() => switchTenant({ tenantId }))
     if (result.ok) {
       // Vollständiger Seitenwechsel: alle Daten des neuen Kunden frisch laden
-      window.location.href = result.redirectTo ?? '/'
+      window.location.assign(result.redirectTo ?? '/')
       return
     }
     setPending(false)
