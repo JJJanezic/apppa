@@ -1,6 +1,6 @@
 # PROJ-4: Kundenkonten & Rollen
 
-## Status: In Progress
+## Status: In Review
 **Created:** 2026-10-23
 **Last Updated:** 2026-10-23
 
@@ -282,7 +282,110 @@ _Stand 2026-10-23 (/backend)_
 **Hinweise für /qa**: Mitarbeiter sehen auf `/einstellungen/*` „Seite nicht gefunden“, der Statuscode ist aber 200 (die App-Seiten werden gestreamt); es werden keine Team-Daten ausgeliefert. Einladungen an **neue** Adressen verschicken echte Mails über Brevo – in Tests nur bestehende Testkonten einladen oder Links per `admin.generateLink` erzeugen. `BREVO_API_KEY`/`BREVO_SENDER_EMAIL` noch in `.env.local.example` ergänzen (Datei für mich gesperrt)
 
 ## QA Test Results
-_To be added by /qa_
+
+**Tested:** 2026-10-24
+**App URL:** http://localhost:3000 (Dev-Server) gegen Supabase „apppa“
+**Tester:** QA Engineer (AI)
+**Browser:** Google Chrome (Playwright) in 1440 und 375 px (Tablet über PROJ-2-Regression). Firefox und Safari nicht getestet (wie bisher)
+
+**Automatische Tests**
+- `npm test`: 189/189 grün (Unit + Integration, davon 12 PROJ-4-Datenbank-Regeln)
+- Neu: `tests/PROJ-4-kundenkonten-rollen.spec.ts` (31 Tests; Abläufe Desktop, Layout/Barrierefreiheit Desktop + Handy, Kundenwechsel im „Mehr“-Blatt). Ergebnis: **30 grün, 1 rot (= BUG-1)**
+- Mails im Test abgeschaltet: `playwright.config.ts` startet den Dev-Server mit leerem `BREVO_API_KEY`; Einladungen nur an bestehende Testkonten bzw. direkt angelegt, Links für neue Personen über `admin.generateLink` – es gehen keine Mails an Testadressen
+- Regression: PROJ-2 (Desktop + Handy) 36/36, PROJ-3 Abläufe 26/26 grün (ein Test erst im zweiten Anlauf: Supabase-Grenze 30 Bestätigungen/5 min)
+
+### Acceptance Criteria Status
+
+#### Team-Seite
+- [x] Mitglieder mit Name, E-Mail, Rolle; offene und abgelaufene Einladungen getrennt mit Status (E2E)
+- [x] Mitarbeiter: „Einstellungen“ fehlt, Team-Seite zeigt „Seite nicht gefunden“, keine Team-Daten (E2E; Statuscode siehe BUG-2)
+- [x] Nur Inhaber, keine Einladungen → Leerzustand mit „Person einladen“ (E2E)
+
+#### Einladen
+- [x] Einladen (Adresse normalisiert, Rolle wählbar) → sofort „offen“ in der Liste + Bestätigung (E2E)
+- [x] Neue Person: Einladungslink → Name + Passwort → Mitglied mit gewählter Rolle (E2E über `generateLink`). Die echte Supabase-Einladungsmail mit Kundenname wurde nicht verschickt (Testadressen); Vorlage ist übertragen (`config diff` ohne Abweichung)
+- [x] Bestehendes Konto: echte Hinweis-Mail über Brevo kam beim Nutzer an (2026-10-24); Einladung auf dem Dashboard, „Annehmen“ → Mitglied (E2E)
+- [x] Ablehnen → Einladung geschlossen, erneut einladbar (E2E + Integration)
+- [x] Leere/ungültige Adresse → Meldung am Feld, nichts angelegt (E2E)
+- [x] Schon Mitglied / schon eingeladen / eigene Adresse → Hinweis, keine doppelte Einladung (E2E)
+- [x] Erneut senden → Datum neu, Status wieder „offen“ (E2E, bestehendes Konto); frischer Link für neue Personen per Code-Review (ersetzt den Supabase-Link)
+- [x] Zurückziehen → aus der Liste; Link einer neuen Person führt zu „nicht mehr gültig“ (E2E)
+- [x] Abgelaufen-Markierung (E2E bestehendes Konto; 24-h-Grenze neuer Personen per Code + Unit-Test)
+
+#### Rollen und Mitglieder
+- [x] Mitarbeiter zum Inhaber machen (E2E + Integration)
+- [x] Mitarbeiter entfernen; entferntes Mitglied verliert beim nächsten Seitenaufruf den Zugriff (E2E)
+- [x] Andere Inhaber geschützt: keine Aktionen, Hinweis; Datenbank verweigert (E2E + Integration)
+- [ ] **BUG-1:** „Team verlassen“ funktioniert für Inhaber (E2E), **Mitarbeiter haben aber keine Möglichkeit auszutreten**
+- [x] Inhaber stuft sich selbst herab (weitere Inhaber vorhanden) → Mitarbeiter, Einstellungen weg (E2E)
+- [x] Letzter Inhaber: keine Aktionen, Hinweis; Datenbank verweigert (E2E + Integration)
+- [ ] Nicht prüfbar: Name entfernter Mitglieder in alten Einträgen – es gibt noch keine Verlaufsansicht. Die Daten bleiben erhalten (Profil wird nicht gelöscht, Änderungsprotokoll speichert die Person)
+
+#### Kunde
+- [x] Kundenname ändern → sofort in der Seitenleiste, Bestätigung (E2E)
+- [x] Leer → Meldung; > 200 Zeichen nicht eingebbar, Server prüft zusätzlich (E2E)
+
+#### Kundenwechsel
+- [x] Auswahl mit Rolle je Kunde, Wechsel → Dashboard des Kunden (E2E Desktop + „Mehr“-Blatt am Handy)
+- [x] Zuletzt gewählter Kunde bleibt nach neuer Anmeldung auf demselben Gerät (E2E)
+- [x] Ohne gemerkten Kunden alphabetisch erster (E2E)
+- [x] Rechte je Kunde: bei Mitarbeiter-Kunde keine Einstellungen (E2E)
+- [x] Eine Mitgliedschaft → kein Wechsel (E2E)
+- [x] Keine Mitgliedschaft → „Du bist noch keinem Kunden zugeordnet“ (E2E)
+
+#### App-Rahmen
+- [x] Echter Kundenname und Rolle („Mitarbeiter“/„Inhaber“) (E2E, alle Breiten über PROJ-2)
+
+#### Design und Barrierefreiheit
+- [x] Team- und Kunden-Seite bei 375 und 1440 px ohne waagrechtes Scrollen, alle Bedienelemente ≥ 44 px, axe WCAG 2.1 AA ohne Befund (E2E)
+- [x] Bestätigungsdialoge für alle folgenreichen Aktionen, per Tastatur bedienbar (E2E)
+
+### Edge Cases Status
+- [x] Mehrere Plattform-Konten: keine Annahme „ein Konto je Plattform“ (Datenmodell, Code-Review)
+- [x] Einladung an die eigene Adresse → „Du bist bereits Mitglied“ (E2E)
+- [x] Groß-/Kleinschreibung und Leerzeichen → normalisiert (E2E)
+- [x] Zwei gleichzeitige Einladungen → nur eine (Datenbank-Regel, Integration)
+- [x] Zurückziehen während des Annehmens → „nicht mehr gültig“ (Annehmen prüft den Zustand in einem Schritt; Integration)
+- [x] Entfernt während der Arbeit → nächster Seitenaufruf ohne Zugriff (E2E)
+- [x] Gemerkter Kunde nicht mehr verfügbar → nächster Kunde bzw. Hinweis (E2E „Team verlassen“)
+- [x] Deaktivierter Kunde verschwindet für Mitglieder, seine Einladungen erscheinen nicht (E2E); ein eigener Hinweis „Konto deaktiviert“ fehlt noch (folgt sinnvoll mit PROJ-5)
+- [x] Letzter Inhaber / gleichzeitiges Austreten → Datenbank-Sperre mit Mandanten-Lock (PROJ-1)
+- [x] Missbrauch: mehr als 20 Einladungen pro Stunde → neutrale Meldung (E2E)
+
+### Security Audit Results
+- [x] Rechte in der Datenbank: kein direktes Hinzufügen, Inhaber geschützt, Mitarbeiter ohne Team-Rechte, letzter Inhaber, Einladungen nur für Inhaber sichtbar (12 Integrationstests)
+- [x] Annehmen nur durch die eingeladene Adresse und nur einmal; abgelaufene/deaktivierte ausgeschlossen (Integration + E2E)
+- [x] Gefälschtes Kunden-Cookie eines fremden Kunden wird ignoriert (E2E)
+- [x] HTML im Kundennamen wird nicht ausgeführt (E2E); Hinweis-Mail maskiert Namen (Unit)
+- [x] Funktionen mit Systemrechten liegen im internen Schema; Supabase-Advisor nur die bekannten Punkte
+- [x] Server-Aktionen prüfen Sitzung, 2FA-Stufe und Inhaber-Rolle des gewählten Kunden (Code-Review); Versandfunktionen mit Systemrechten sind keine Server-Aktionen
+- [x] Kein Geheimnis im Repository: Ein versehentlich in `.env.local.example` eingetragener Brevo-Schlüssel wurde vor dem Push abgefangen und erneuert
+- [ ] **BUG-2 (Low):** Mitarbeiter bekommen auf `/einstellungen/*` die „Seite nicht gefunden“-Ansicht, aber Statuscode 200 statt 404 (gestreamte Seiten); keine Daten betroffen
+
+### Bugs Found
+
+#### BUG-1: Mitarbeiter können ein Team nicht selbst verlassen
+- **Severity:** Medium
+- **Steps to Reproduce:**
+  1. Als Mitarbeiter eines Kunden anmelden
+  2. Nach „Team verlassen“ suchen (Benutzermenü, Mein Konto, Seitenleiste)
+  3. Expected: Möglichkeit „Team verlassen“ mit Bestätigung (Akzeptanzkriterium „Mitglied (Mitarbeiter oder Inhaber) … Team verlassen“)
+  4. Actual: Die Aktion gibt es nur auf der Team-Seite, die Mitarbeiter nicht sehen dürfen. Umweg: Ein Inhaber entfernt die Person
+- **Vorschlag:** „Team verlassen“ unter „Mein Konto“ (für den gewählten Kunden) oder im Benutzermenü; Server-Aktion und Datenbank-Regel existieren bereits
+- **Priority:** Fix before deployment
+
+#### BUG-2: Statuscode 200 statt 404 für Mitarbeiter auf den Einstellungen
+- **Severity:** Low
+- **Steps to Reproduce:** Als Mitarbeiter `/einstellungen/team` aufrufen → Ansicht „Seite nicht gefunden“, Antwort aber 200 (die App-Seiten werden mit Ladeanzeige gestreamt, bevor die Rollenprüfung greift)
+- **Folge:** Keine Daten sichtbar; nur Suchmaschinen/Monitoring sähen eine „gefundene“ Seite
+- **Priority:** Nice to have
+
+### Summary
+- **Acceptance Criteria:** 29/31 bestanden, 1 Fehler (BUG-1), 1 nicht prüfbar (Verlaufsansicht fehlt noch)
+- **Bugs Found:** 2 total (0 critical, 0 high, 1 medium, 1 low)
+- **Security:** Pass
+- **Production Ready:** YES nach Regel (keine kritischen/hohen Fehler) – empfohlen wird trotzdem, BUG-1 vorher zu beheben (kleiner Eingriff, betrifft ein Akzeptanzkriterium)
+- **Recommendation:** BUG-1 mit `/frontend` beheben, dann kurze Nachprüfung
 
 ## Deployment
 _To be added by /deploy_

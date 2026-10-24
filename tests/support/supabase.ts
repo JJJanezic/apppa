@@ -154,3 +154,36 @@ export async function sessionCookies(user: { id: string; email: string }, opts: 
 export async function signInAs(page: Page, user: { id: string; email: string }, opts?: { start?: number }) {
   await page.context().addCookies(await sessionCookies(user, opts))
 }
+
+// Einladung direkt anlegen (ohne Mailversand), z. B. für Annehmen-, Ablauf- und Zurückziehen-Tests (PROJ-4)
+export async function createInvitation(opts: {
+  tenantId: string
+  email: string
+  invitedBy: string
+  role?: 'owner' | 'staff'
+  kind?: 'new_account' | 'existing_account'
+  minutes?: number
+  sentMinutesAgo?: number
+}) {
+  const now = Date.now()
+  const { data, error } = await service()
+    .from('invitations')
+    .insert({
+      tenant_id: opts.tenantId,
+      email: opts.email.toLowerCase(),
+      role: opts.role ?? 'staff',
+      kind: opts.kind ?? 'existing_account',
+      invited_by: opts.invitedBy,
+      sent_at: new Date(now - (opts.sentMinutesAgo ?? 0) * 60_000).toISOString(),
+      expires_at: new Date(now + (opts.minutes ?? 14 * 24 * 60) * 60_000).toISOString(),
+    })
+    .select('id')
+    .single()
+  if (error) throw error
+  return data.id
+}
+
+export async function membershipRole(tenantId: string, userId: string) {
+  const { data } = await service().from('memberships').select('role').eq('tenant_id', tenantId).eq('user_id', userId).maybeSingle()
+  return data?.role ?? null
+}

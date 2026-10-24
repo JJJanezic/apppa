@@ -38,9 +38,13 @@ export default defineConfig({
       use: { ...devices['iPhone 13'], ...chrome, viewport: { width: 375, height: 812 }, storageState },
     },
   ],
+  // Tests verschicken keine Hinweis-Mails über Brevo (Testadressen @example.com würden zurückprallen und
+  // den Ruf der Absender-Domain schädigen). Ein leerer Wert hat Vorrang vor .env.local.
+  // Achtung: Läuft schon ein eigener `npm run dev`, wird dieser wiederverwendet – vor den Tests beenden.
   webServer: {
     command: 'npm run dev',
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
+    env: { BREVO_API_KEY: '' },
   },
 })
