@@ -523,7 +523,8 @@
       "results": "Suchergebnisse",
       "minChars": "Mindestens 2 Zeichen eingeben.",
       "none": "Keine Gemeinde gefunden.",
-      "loading": "Suche läuft …"
+      "loading": "Suche läuft …",
+      "source": "Datenquelle: Statistik Austria — data.statistik.gv.at"
     },
     "confirm": {
       "archiveTitle": "„{name}“ archivieren?",

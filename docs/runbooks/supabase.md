@@ -174,3 +174,24 @@ delete from public.login_failures where created_at > now() - interval '30 minute
   Vorsicht: Die Liste enthält auch Konten, die nie zu einem Kunden gehörten (z. B. Testkonten). Vor dem Löschen prüfen.
 - **E-Mail-Adresse eines Kontos ändern** (offene Frage in PROJ-5, vorerst hier): Dashboard → Authentication → Users → Konto → „Change email“ bzw. per `auth.admin.updateUserById`. Das Profil (`profiles.email`) zieht automatisch nach. Die Person meldet sich danach mit der neuen Adresse an; offene Einladungen an die alte Adresse vorher zurückziehen und neu senden.
 - **Konto eines letzten Inhabers löschen** (PROJ-1 BUG-6): erst im Betreiber-Bereich einen anderen Inhaber einsetzen, oder den Kunden deaktivieren und löschen.
+
+## 13. Gemeindeliste aktualisieren (PROJ-6)
+
+Die Gemeinden (Auswahl bei Objekten, später Grundlage der Tourismusabgabe) stammen aus der Gemeindeliste von Statistik Austria (CC BY 4.0, Quellenangabe steht in der App). Einmal jährlich bzw. nach Gemeindereformen:
+
+1. Aktuelle Datei laden und ablegen:
+   ```
+   curl -o supabase/data/statistik-austria/gemliste_knz_<JAHR>.csv https://www.statistik.at/verzeichnis/reglisten/gemliste_knz.csv
+   ```
+   Kopfzeile prüfen: „Gemeindeliste sortiert nach Gemeindekennziffer, Gebietsstand <JAHR>“. README im selben Ordner anpassen.
+2. Migration erzeugen (bricht bei unerwarteten Zeilen ab):
+   ```
+   npx tsx scripts/build-municipalities.mts supabase/data/statistik-austria/gemliste_knz_<JAHR>.csv supabase/migrations/<ZEITSTEMPEL>_municipalities_<JAHR>.sql
+   ```
+3. `npx supabase db push`. Neue und umbenannte Gemeinden werden übernommen, die PLZ-Zuordnung wird ersetzt. Nicht mehr enthaltene Gemeinden erhalten „gültig bis“ und sind für neue Objekte nicht mehr wählbar.
+4. **Gemeindezusammenlegung:** Objekte, die noch auf eine aufgelöste Gemeinde zeigen, finden:
+   ```sql
+   select p.id, p.name, p.tenant_id, m.name from public.properties p
+   join public.municipalities m on m.code = p.municipality_code where m.valid_until is not null;
+   ```
+   Nachfolger in einer eigenen Migration setzen (`update public.municipalities set successor_code = '…' where code = '…'`) und die betroffenen Objekte auf die Nachfolgegemeinde umhängen (`update public.properties set municipality_code = '…' where municipality_code = '…'`). Das Änderungsprotokoll hält die Umstellung fest; ab PROJ-16 vorher prüfen, ob für den laufenden Monat schon Abgaben gemeldet sind.

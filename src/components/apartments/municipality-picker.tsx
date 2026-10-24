@@ -94,6 +94,8 @@ export function MunicipalityPicker({ id, value, onChange, postalCode, invalid, .
             )}
             {results.length > 0 && <CommandGroup heading={t('municipalityPicker.results')}>{results.map(item)}</CommandGroup>}
           </CommandList>
+          {/* Pflichtangabe der Lizenz CC BY 4.0 (supabase/data/statistik-austria/README.md) */}
+          <p className="border-t px-3 py-2 text-[12px] text-ds-neutral-700">{t('municipalityPicker.source')}</p>
         </Command>
       </PopoverContent>
     </Popover>

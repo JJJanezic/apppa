@@ -98,8 +98,11 @@ export function ApartmentPanel({ open, onOpenChange, properties, apartment, pres
   // Die Objektangaben werden nur geprüft, wenn „Neues Objekt“ gewählt ist; der Server erhält die Rohwerte
   const resolveNew = zodResolver(withNewProperty(tv), undefined, { raw: true })
   const resolveExisting = zodResolver(withExistingProperty(tv), undefined, { raw: true })
+  // Bei bestehendem Objekt die (leeren) Felder für „Neues Objekt“ nicht mitprüfen
   const resolver: Resolver<FormValues> = (values, context, options) =>
-    (values.propertyId === NEW_PROPERTY ? resolveNew : resolveExisting)(values as never, context, options as never) as never
+    values.propertyId === NEW_PROPERTY
+      ? (resolveNew(values as never, context, options as never) as never)
+      : (resolveExisting({ ...values, newProperty: undefined } as never, context, options as never) as never)
   const form = useForm<FormValues>({ resolver, defaultValues: defaults })
   const isNew = useWatch({ control: form.control, name: 'propertyId' }) === NEW_PROPERTY
   const property = properties.find((p) => p.id === (apartment?.propertyId ?? ''))

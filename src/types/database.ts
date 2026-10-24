@@ -14,6 +14,75 @@ export type Database = {
   }
   public: {
     Tables: {
+      apartments: {
+        Row: {
+          archived_at: string | null
+          check_in: string
+          check_out: string
+          created_at: string
+          created_by: string | null
+          id: string
+          kind: string
+          max_guests: number
+          name: string
+          note: string | null
+          price_cents: number | null
+          property_id: string
+          tenant_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          archived_at?: string | null
+          check_in?: string
+          check_out?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          kind?: string
+          max_guests: number
+          name: string
+          note?: string | null
+          price_cents?: number | null
+          property_id: string
+          tenant_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          archived_at?: string | null
+          check_in?: string
+          check_out?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          kind?: string
+          max_guests?: number
+          name?: string
+          note?: string | null
+          price_cents?: number | null
+          property_id?: string
+          tenant_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "apartments_property_fkey"
+            columns: ["property_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "apartments_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_log: {
         Row: {
           action: string
@@ -188,6 +257,64 @@ export type Database = {
           },
         ]
       }
+      municipalities: {
+        Row: {
+          code: string
+          name: string
+          search_key: string
+          state: string
+          successor_code: string | null
+          valid_until: string | null
+        }
+        Insert: {
+          code: string
+          name: string
+          search_key: string
+          state: string
+          successor_code?: string | null
+          valid_until?: string | null
+        }
+        Update: {
+          code?: string
+          name?: string
+          search_key?: string
+          state?: string
+          successor_code?: string | null
+          valid_until?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "municipalities_successor_code_fkey"
+            columns: ["successor_code"]
+            isOneToOne: false
+            referencedRelation: "municipalities"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
+      municipality_postal_codes: {
+        Row: {
+          municipality_code: string
+          postal_code: string
+        }
+        Insert: {
+          municipality_code: string
+          postal_code: string
+        }
+        Update: {
+          municipality_code?: string
+          postal_code?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "municipality_postal_codes_municipality_code_fkey"
+            columns: ["municipality_code"]
+            isOneToOne: false
+            referencedRelation: "municipalities"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
       operator_log: {
         Row: {
           action: string
@@ -253,6 +380,63 @@ export type Database = {
           updated_by?: string | null
         }
         Relationships: []
+      }
+      properties: {
+        Row: {
+          city: string
+          created_at: string
+          created_by: string | null
+          id: string
+          municipality_code: string
+          name: string
+          postal_code: string
+          street: string
+          tenant_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          city: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          municipality_code: string
+          name: string
+          postal_code: string
+          street: string
+          tenant_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          city?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          municipality_code?: string
+          name?: string
+          postal_code?: string
+          street?: string
+          tenant_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "properties_municipality_code_fkey"
+            columns: ["municipality_code"]
+            isOneToOne: false
+            referencedRelation: "municipalities"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "properties_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       tenants: {
         Row: {
@@ -348,6 +532,24 @@ export type Database = {
         }[]
       }
       belongs_to_deactivated_tenant: { Args: never; Returns: boolean }
+      create_apartment_with_property: {
+        Args: {
+          p_check_in: string
+          p_check_out: string
+          p_city: string
+          p_kind: string
+          p_max_guests: number
+          p_municipality_code: string
+          p_name: string
+          p_note: string
+          p_postal_code: string
+          p_price_cents: number
+          p_property_name: string
+          p_street: string
+          p_tenant_id: string
+        }
+        Returns: string
+      }
       decline_invitation: {
         Args: { p_invitation_id: string }
         Returns: undefined

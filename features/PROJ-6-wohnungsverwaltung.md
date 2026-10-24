@@ -118,7 +118,7 @@
 
 ## Open Questions
 - [x] Quelle und Aktualisierung der Gemeindeliste: Statistik Austria, jährlich per Runbook mit Migration; aufgelöste Gemeinden mit Nachfolger (siehe Tech Design D)
-- [ ] Nutzungsbedingungen der Statistik-Austria-Daten (Lizenz, Quellenangabe) vor dem Einspielen prüfen; beim Backend die aktuelle Datei herunterladen
+- [x] Nutzungsbedingungen geprüft: CC BY 4.0 (https://data.statistik.gv.at/web/?page=terms), kommerzielle Nutzung erlaubt; Quellenangabe „Datenquelle: Statistik Austria — data.statistik.gv.at“ steht in der Gemeindeauswahl
 - [ ] Ist die Art „Dienstwohnung“ für die Ortstaxe relevant (Befreiung bei längerem Aufenthalt bzw. bei Arbeitnehmern)? Klärung in PROJ-15.
 - [x] Kalenderfarben: entfallen. Laut Entwurf (`docs/design`) zeigt die Farbe im Kalender den Kanal (Booking.com, Airbnb, Direkt), nicht die Wohnung
 
@@ -309,6 +309,51 @@ Gemeinde-Auswahl (wiederverwendbar, auch für PROJ-15)
   - Liste, Panel und Gemeindeauswahl über PLZ 5340;
   - Pflichtfeld-Meldungen.
   - Ein am Handy zu breiter „hinzufügen“-Link wurde behoben, damit nichts seitlich scrollt. Die Beispieldaten sind wieder entfernt.
+
+## Implementation Notes (Backend)
+**Stand 2026-10-24.** Alles ist angeschlossen.
+
+**Migrationen** (in „apppa“ eingespielt)
+- `20261024140000_properties_apartments.sql`:
+  - Tabellen `municipalities`, `municipality_postal_codes`, `properties`, `apartments`.
+  - RLS: Gemeinden lesen alle Angemeldeten, schreiben niemand. Objekte und Wohnungen lesen Mitglieder und der Admin, schreiben nur Inhaber; Spaltenrechte verhindern das Ändern von `tenant_id`.
+  - Standardfelder und Änderungsprotokoll über `enable_tenant_table`.
+  - Eindeutigkeit ohne Groß-/Kleinschreibung: Objektname je Kunde (`properties_tenant_name_key`), Wohnungsname je Objekt (`apartments_property_name_key`).
+  - Zusammengesetzter Fremdschlüssel (Objekt, Kunde): Eine Wohnung hängt nie an einem fremden Objekt.
+    - Er ist mit NO ACTION angelegt, nicht mit RESTRICT. So schlägt das Löschen eines Objekts mit Wohnungen fehl, das Löschen eines ganzen Kunden (PROJ-5) entfernt aber Objekte und Wohnungen gemeinsam.
+  - `create_apartment_with_property(...)` ohne Systemrechte: Wohnung samt neuem Objekt in einem Vorgang, die Zugriffsregeln gelten.
+- `20261024140100_municipalities_2026.sql`:
+  - erzeugt mit `scripts/build-municipalities.mts` aus `supabase/data/statistik-austria/gemliste_knz_2026.csv` (Gebietsstand 2026);
+  - 2.092 Gemeinden (Wien je Bezirk zusammengefasst), 3.961 PLZ-Zuordnungen;
+  - wiederholbar: aktualisiert Namen und setzt „gültig bis“ für entfallene Gemeinden.
+  - Der Suchname entsteht mit derselben Funktion wie in der App (`municipalitySearchKey`).
+- `20261024140200_apartments_fk_indexes.sql`: Indizes für die Fremdschlüssel (Performance-Advisor).
+- Sicherheits-Advisor: keine neuen Hinweise.
+
+**Server**
+- `src/lib/apartments-data.ts`: Objekte mit Gemeinde und Wohnungen des gewählten Kunden; sortiert nach Name, mit Zahlen natürlich sortiert („Top 2“ vor „Top 10“).
+- `src/app/(app)/einstellungen/wohnungen/actions.ts`:
+  - Anlegen (bei neuem Objekt über die Datenbankfunktion), Ändern bzw. Verschieben, Archivieren und Wiederherstellen, Löschen, Objekt ändern bzw. löschen;
+  - Datenbankfehler werden über die Namen der Regeln in Meldungen übersetzt;
+  - neue Zuordnungen nur zu aktuellen Gemeinden. Eine bereits zugeordnete, inzwischen aufgelöste Gemeinde darf beim Bearbeiten bleiben.
+- Gemeindesuche: Treffer zur eingegebenen PLZ, Suche im Suchnamen (ab 2 Zeichen) und nach PLZ-Anfang; Namen, die mit dem Suchbegriff beginnen, zuerst; höchstens 20 Treffer.
+
+**Bugfix während des Backends:** Mit einem bestehenden Objekt ließ sich keine Wohnung speichern. Die leeren Felder für „Neues Objekt“ wurden unsichtbar mitgeprüft und blockierten das Absenden. Behoben im Formular (`apartment-panel.tsx`).
+
+**Quellenangabe:** „Datenquelle: Statistik Austria — data.statistik.gv.at“ unten in der Gemeindeauswahl (Lizenzpflicht CC BY 4.0).
+
+**Runbook:** Abschnitt 13 (Gemeindeliste jährlich aktualisieren, Gemeindezusammenlegungen).
+
+**Tests**
+- `supabase/tests/apartments.integration.test.ts` (11 Tests gegen „apppa“):
+  - Gemeindeliste vollständig, lesbar, nicht beschreibbar; Suchname „Sankt“; Wien mit allen Bezirks-PLZ; PLZ 5340 bzw. 5360;
+  - Inhaber schreibt, Mitarbeiter liest nur, anderer Kunde sieht nichts; keine Wohnung an fremdem Objekt; `tenant_id` unveränderlich;
+  - Namen eindeutig je Objekt bzw. Kunde;
+  - Objekt mit (archivierten) Wohnungen nicht löschbar;
+  - Datenbankfunktion: alles oder nichts, nicht für Mitarbeiter;
+  - Änderungsprotokoll.
+- Gesamte Vitest-Suite: 233 Tests grün.
+- Ablauf im Browser geprüft (Desktop): neues Objekt mit Gemeinde über PLZ 5360 und Suche „sankt wolf“, Anlegen mit Preis, doppelter Name, Archivieren mit Leerzustand.
 
 ## QA Test Results
 _To be added by /qa_
