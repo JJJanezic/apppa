@@ -199,10 +199,28 @@ test.describe('Gemeinde wählen', () => {
     await page.getByPlaceholder('Gemeinde oder PLZ suchen').fill('mönchhof')
     await expect(page.getByRole('option', { name: 'Mönchhof · Burgenland' })).toBeVisible()
     await page.getByPlaceholder('Gemeinde oder PLZ suchen').fill('xyzgibtsnicht')
-    // BUG-1 (QA PROJ-6): Ohne Treffer erscheint kein Hinweis, solange PLZ-Vorschläge da sind – hier nur „keine Suchergebnisse“
-    await expect(page.getByRole('group', { name: 'Suchergebnisse' })).toHaveCount(0)
+    // BUG-1 (behoben): Hinweis auch dann, wenn PLZ-Vorschläge angezeigt werden
+    await expect(page.getByText('Keine Gemeinde gefunden.')).toBeVisible()
+    await expect(page.getByRole('group', { name: 'Gemeinden zur PLZ 5360' })).toBeVisible()
     await page.keyboard.press('Escape')
     await expect(panel(page).getByRole('combobox', { name: /Gemeinde/ })).toHaveText(/Gemeinde wählen/)
+  })
+})
+
+test.describe('Gemeinde und PLZ', () => {
+  test.skip(!hasSupabaseEnv, 'keine .env.local')
+
+  test('BUG-2 (behoben): Hinweis, wenn PLZ und Gemeinde laut Gemeindeliste nicht zusammenpassen', async ({ page, users }) => {
+    desktopOnly()
+    await ownerWithTenant(page, users)
+    await openApartments(page)
+    await page.getByRole('button', { name: 'Wohnung anlegen' }).first().click()
+    await panel(page).getByLabel('PLZ').fill('5340')
+    await chooseMunicipality(page, 'Wien · Wien', 'wien')
+    const hint = panel(page).getByText('Die PLZ 5340 gehört laut Gemeindeliste nicht zur Gemeinde Wien.', { exact: false })
+    await expect(hint).toBeVisible()
+    await chooseMunicipality(page, 'St. Gilgen · Salzburg')
+    await expect(hint).toHaveCount(0)
   })
 })
 

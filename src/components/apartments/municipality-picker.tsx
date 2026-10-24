@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react'
 import { searchMunicipalities } from '@/app/(app)/einstellungen/wohnungen/actions'
 import { callAction } from '@/components/auth/form-error'
 import { Button } from '@/components/ui/button'
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
+import { Command, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import type { Municipality } from '@/lib/apartments'
 import { cn } from '@/lib/utils'
@@ -88,7 +88,12 @@ export function MunicipalityPicker({ id, value, onChange, postalCode, invalid, .
             {!loading && query.trim().length < 2 && found.byPostalCode.length === 0 && (
               <p className="px-3 py-2 text-sm text-ds-neutral-700">{t('municipalityPicker.minChars')}</p>
             )}
-            {!loading && query.trim().length >= 2 && <CommandEmpty>{t('municipalityPicker.none')}</CommandEmpty>}
+            {/* Ohne Treffer der Suche einen Hinweis zeigen – auch wenn PLZ-Vorschläge da sind (BUG-1 aus QA) */}
+            {!loading && query.trim().length >= 2 && found.results.length === 0 && (
+              <p role="status" className="px-3 py-2 text-sm text-ds-neutral-700">
+                {t('municipalityPicker.none')}
+              </p>
+            )}
             {found.byPostalCode.length > 0 && (
               <CommandGroup heading={t('municipalityPicker.byPostalCode', { postalCode })}>{found.byPostalCode.map(item)}</CommandGroup>
             )}

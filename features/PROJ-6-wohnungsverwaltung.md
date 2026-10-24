@@ -421,7 +421,7 @@ Gemeinde-Auswahl (wiederverwendbar, auch für PROJ-15)
 - [x] Viele Wohnungen: Gruppierung ohne Seiten (bis 500 Objekte geladen)
 - [x] Namen: Rand-Leerzeichen entfernt, Groß-/Kleinschreibung gleich (E2E „  Top 1  “)
 - [x] Kunde deaktiviert: kein Zugriff (Muster PROJ-1/5)
-- [ ] BUG-2 (Low): PLZ und Gemeinde werden nicht gegeneinander geprüft
+- [x] PLZ und Gemeinde passen nicht zusammen → Hinweis (BUG-2, behoben)
 
 ### Security Audit Results
 - [x] **Authentifizierung:** Seite und Aktionen nur angemeldet (Rahmen + Server-Aktionen)
@@ -450,6 +450,7 @@ Gemeinde-Auswahl (wiederverwendbar, auch für PROJ-15)
   3. Expected: Hinweis „Keine Gemeinde gefunden“ für die Suche.
   4. Actual: Es erscheinen nur die PLZ-Vorschläge, ohne Hinweis, dass die Suche nichts gefunden hat.
 - **Priority:** Nice to have
+- **Status:** Behoben 2026-10-24. Der Hinweis „Keine Gemeinde gefunden.“ erscheint, sobald die Suche nichts findet, auch neben PLZ-Vorschlägen. E2E angepasst.
 
 #### BUG-2: PLZ und gewählte Gemeinde werden nicht gegeneinander geprüft
 - **Severity:** Low
@@ -459,13 +460,17 @@ Gemeinde-Auswahl (wiederverwendbar, auch für PROJ-15)
   3. Expected: Hinweis, dass PLZ und Gemeinde nicht zusammenpassen; Speichern bleibt möglich, weil Zuordnungen Grenzfälle haben.
   4. Actual: Wird ohne Hinweis gespeichert. Eine falsche Gemeinde würde später die Abgabe der falschen Gemeinde zuordnen (PROJ-15/16).
 - **Priority:** Nice to have (vor PROJ-16 sinnvoll)
+- **Status:** Behoben 2026-10-24.
+  - Nach Wahl der Gemeinde prüft der Server (`postalCodeMatchesMunicipality`) die PLZ gegen die Gemeindeliste.
+  - Passen sie nicht zusammen, erscheint unter der Gemeinde: „Die PLZ … gehört laut Gemeindeliste nicht zur Gemeinde …“. Speichern bleibt möglich (Grenzfälle).
+  - Neuer E2E-Test.
 
 ### Summary
 - **Acceptance Criteria:** 28/28 bestanden.
-- **Bugs Found:** 2 total (0 critical, 0 high, 0 medium, 2 low).
+- **Bugs Found:** 2 total (0 critical, 0 high, 0 medium, 2 low); beide am 2026-10-24 behoben. Danach alle 13 PROJ-6-E2E-Tests (Desktop) und 169 Unit-Tests grün.
 - **Security:** keine Lücken gefunden.
 - **Production Ready:** YES.
-- **Recommendation:** Freigeben. BUG-2 vor PROJ-16 beheben, BUG-1 bei Gelegenheit.
+- **Recommendation:** Freigeben.
 
 ## Deployment
 _To be added by /deploy_

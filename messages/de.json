@@ -508,7 +508,8 @@
       "archive": "Archivieren",
       "restore": "Wiederherstellen",
       "delete": "Endgültig löschen",
-      "archivedNote": "Diese Wohnung ist archiviert. Sie steht nicht zur Auswahl für neue Buchungen und erscheint nicht im Kalender."
+      "archivedNote": "Diese Wohnung ist archiviert. Sie steht nicht zur Auswahl für neue Buchungen und erscheint nicht im Kalender.",
+      "postalCodeMismatch": "Die PLZ {postalCode} gehört laut Gemeindeliste nicht zur Gemeinde {municipality}. Bitte prüfen – die Gemeinde bestimmt später die Tourismusabgabe."
     },
     "propertyPanel": {
       "title": "Objekt bearbeiten",

@@ -290,3 +290,19 @@ export async function searchMunicipalities(values: {
 
   return { ok: true, data: { byPostalCode: postalMatches, results } }
 }
+
+// Passt die PLZ laut Gemeindeliste zur gewählten Gemeinde? Nur ein Hinweis in der Oberfläche (BUG-2 aus QA) –
+// es gibt Grenzfälle (Adressen nahe der Gemeindegrenze), daher kein Speicherverbot.
+export async function postalCodeMatchesMunicipality(values: { postalCode: string; municipalityCode: string }): Promise<Result<boolean>> {
+  if (!/^\d{4}$/.test(values?.postalCode ?? '') || !/^\d{5}$/.test(values?.municipalityCode ?? '')) return fail('unknown')
+  const guard = await requireOwner()
+  if (!guard.ok) return guard
+  const supabase = await createClient()
+  const { count, error } = await supabase
+    .from('municipality_postal_codes')
+    .select('postal_code', { count: 'exact', head: true })
+    .eq('postal_code', values.postalCode)
+    .eq('municipality_code', values.municipalityCode)
+  if (error) return dbFail(error, 'PLZ-Prüfung')
+  return { ok: true, data: (count ?? 0) > 0 }
+}
