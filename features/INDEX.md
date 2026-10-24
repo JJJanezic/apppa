@@ -19,7 +19,7 @@
 | PROJ-2 | App-Shell & Design-System | Responsives Layout, Navigation, Broadsheet-Tokens in shadcn/ui, i18n-Grundlage (Deutsch) | P0 | None | Approved | [Spec](PROJ-2-app-shell-design-system.md) | 2026-10-12 |
 | PROJ-3 | Authentifizierung | Login, Einladung annehmen, Passwort zurücksetzen, Logout | P0 | PROJ-1, PROJ-2 | Approved | [Spec](PROJ-3-authentifizierung.md) | 2026-10-12 |
 | PROJ-4 | Kundenkonten & Rollen | Mandant (Kunde), Rollen Inhaber/Mitarbeiter, Team-Mitglieder einladen | P0 | PROJ-1, PROJ-3 | Approved | [Spec](PROJ-4-kundenkonten-rollen.md) | 2026-10-12 |
-| PROJ-5 | Betreiber-Admin | Kunden anlegen, einladen, deaktivieren; Übersicht aller Mandanten | P0 | PROJ-1, PROJ-4 | Roadmap | – | 2026-10-12 |
+| PROJ-5 | Betreiber-Admin | Kunden anlegen, einladen, deaktivieren; Übersicht aller Mandanten | P0 | PROJ-1, PROJ-4 | Planned | [Spec](PROJ-5-betreiber-admin.md) | 2026-10-12 |
 | PROJ-6 | Wohnungsverwaltung | Stammdaten, Adresse, Gemeinde, Kapazität | P0 | PROJ-1, PROJ-4 | Roadmap | – | 2026-10-12 |
 | PROJ-7 | Gäste-Datenbank | Gäste-Stammdaten, Herkunftsland, Buchungsplattform, Marketing-Kanal, Dubletten zusammenführen | P0 | PROJ-1, PROJ-4 | Roadmap | – | 2026-10-12 |
 | PROJ-8 | Manuelle Buchungen | Buchungen anlegen, bearbeiten, stornieren; Konfliktprüfung; Gast verknüpfen | P0 | PROJ-1, PROJ-6, PROJ-7 | Roadmap | – | 2026-10-12 |
