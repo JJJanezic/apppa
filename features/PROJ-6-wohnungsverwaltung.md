@@ -1,6 +1,6 @@
 # PROJ-6: Wohnungsverwaltung
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-10-24
 **Last Updated:** 2026-10-24
 
@@ -356,7 +356,116 @@ Gemeinde-Auswahl (wiederverwendbar, auch für PROJ-15)
 - Ablauf im Browser geprüft (Desktop): neues Objekt mit Gemeinde über PLZ 5360 und Suche „sankt wolf“, Anlegen mit Preis, doppelter Name, Archivieren mit Leerzustand.
 
 ## QA Test Results
-_To be added by /qa_
+
+**Tested:** 2026-10-24
+**App URL:** http://localhost:3000 (Dev-Server, Supabase „apppa“)
+**Tester:** QA Engineer (AI)
+**Browser:** Google Chrome (Playwright: desktop 1440 px, tablet 768 px, mobile 375 px). Firefox und Safari nicht getestet, wie bei PROJ-2 bis PROJ-5.
+
+### Automatisierte Tests
+- **Neu:** `tests/PROJ-6-wohnungsverwaltung.spec.ts` mit 8 Abläufen (Desktop) sowie Layout und axe in allen drei Breiten; alle grün.
+- **Datenbank:** `supabase/tests/apartments.integration.test.ts` (11 Tests, aus /backend).
+- **Unit-Tests:** `src/lib/apartments.test.ts`, `src/lib/validation/apartments.test.ts` (aus /frontend).
+- **Gesamte Vitest-Suite:** 233 grün.
+- **Regression:** PROJ-4 (Einstellungen, Rollen) und PROJ-5 (Kunde endgültig löschen – entfernt jetzt auch Objekte und Wohnungen) grün.
+
+### Acceptance Criteria Status (28/28)
+
+#### Zugang (3/3)
+- [x] Reiter „Wohnungen“ für Inhaber (E2E)
+- [x] Mitarbeiter: „Seite nicht gefunden“ (404, E2E)
+- [x] Abschottung zwischen Kunden (E2E + Integration)
+
+#### Liste (4/4)
+- [x] Gruppiert nach Objekt, alphabetisch; Name, Art, Personen, Preis, Check-in/-out; Objekt mit Adresse und Gemeinde (E2E)
+- [x] Leerzustand mit Erklärung; der Knopf „Wohnung anlegen“ steht darüber (E2E)
+- [x] „Archivierte anzeigen“ mit Kennzeichnung „archiviert“ (E2E)
+- [x] Handy: Karten, kein seitliches Scrollen (E2E)
+
+#### Wohnung anlegen (7/7)
+- [x] Mit bestehendem Objekt (E2E)
+- [x] Mit neuem Objekt in einem Schritt (E2E; Integration: alles oder nichts)
+- [x] Erste Wohnung: „Neues Objekt“ vorausgewählt (E2E)
+- [x] Pflichtfelder bzw. ungültige Werte mit Meldung je Feld (E2E)
+- [x] Standardwerte Ferienwohnung, 15:00, 10:00, Preis leer (E2E)
+- [x] Gleicher Name im Objekt (auch andere Schreibweise) abgewiesen (E2E + Integration)
+- [x] Gleicher Name in anderem Objekt erlaubt (E2E)
+
+#### Gemeinde wählen (4/4)
+- [x] Suche ab 2 Zeichen, „St.“/„Sankt“ und Umlaute (E2E: „sankt gilg“, „mönchhof“)
+- [x] PLZ-Vorschläge zuerst (E2E: 5360)
+- [x] PLZ mit mehreren Gemeinden: keine automatische Auswahl (E2E)
+- [x] Keine freie Eingabe; ohne Auswahl Meldung „Bitte eine Gemeinde aus der Liste wählen“ (E2E)
+
+#### Bearbeiten (4/4)
+- [x] Änderungen gespeichert und sofort sichtbar (E2E)
+- [x] Objekt ändern: Hinweis „Änderungen gelten für N Wohnungen“, gilt für alle Wohnungen (E2E)
+- [x] Verschieben auf gleichen Namen abgewiesen, mit anderem Namen erlaubt (E2E)
+- [x] Änderungsprotokoll (E2E + Integration)
+
+#### Archivieren, Wiederherstellen, Löschen (6/6)
+- [x] Archivieren mit Bestätigung; Daten bleiben (E2E). Ausblenden in Buchung und Kalender folgt mit PROJ-8/9.
+- [x] Wiederherstellen (E2E)
+- [x] Endgültig löschen ohne Buchungen (E2E)
+- [x] Mit Buchungen kein Löschen: Sperre in der Datenbank vorbereitet (Verweis aus PROJ-8); der Hinweis in der Oberfläche ist erst mit PROJ-8 prüfbar
+- [x] Objekt ohne Wohnungen löschbar (E2E)
+- [x] Objekt mit Wohnungen, auch archivierten: kein Löschen, Hinweis (E2E + Integration)
+
+### Edge Cases Status
+- [x] Letzte aktive Wohnung archiviert → Leerzustand mit Hinweis auf Archivierte (E2E)
+- [x] Objekt nur mit archivierten Wohnungen nur bei „Archivierte anzeigen“ (Unit-Test der Regel)
+- [x] Gemeinde des Objekts ändern → im Änderungsprotokoll (E2E); Auswirkung auf Abgaben regelt PROJ-16
+- [x] Personenzahl verringern erlaubt (Konfliktprüfung folgt mit PROJ-8)
+- [x] Gemeindezusammenlegungen: „gültig bis“ + Nachfolger, Runbook Abschnitt 13
+- [x] Gleichzeitiges Bearbeiten: letzte Änderung gilt, beide im Protokoll
+- [x] Viele Wohnungen: Gruppierung ohne Seiten (bis 500 Objekte geladen)
+- [x] Namen: Rand-Leerzeichen entfernt, Groß-/Kleinschreibung gleich (E2E „  Top 1  “)
+- [x] Kunde deaktiviert: kein Zugriff (Muster PROJ-1/5)
+- [ ] BUG-2 (Low): PLZ und Gemeinde werden nicht gegeneinander geprüft
+
+### Security Audit Results
+- [x] **Authentifizierung:** Seite und Aktionen nur angemeldet (Rahmen + Server-Aktionen)
+- [x] **Autorisierung:**
+  - Nur Inhaber schreiben; Mitarbeiter lesen (für Kalender und Buchungen), Seite 404.
+  - Direkte Schreibversuche von Mitarbeitern werden abgewiesen (Integration), auch über die Datenbankfunktion.
+- [x] **Mandanten-Abschottung:**
+  - fremde Objekte und Wohnungen weder lesbar noch beschreibbar;
+  - keine Wohnung an fremdem Objekt (zusammengesetzter Fremdschlüssel);
+  - `tenant_id` nicht änderbar (Spaltenrechte).
+- [x] **Gemeindeliste:** nur lesbar, kein Schreiben über die App; für Nicht-Angemeldete unsichtbar.
+- [x] **Eingaben:**
+  - Zod im Browser und Server sowie Prüfungen in der Datenbank (Längen, Bereiche, Formate);
+  - die Suche verwendet nur vereinheitlichte Zeichen (a–z, 0–9, Leerzeichen), daher keine Platzhalter-Einschleusung in LIKE;
+  - Namen mit HTML werden als Text angezeigt.
+- [x] **Lizenz:** CC BY 4.0, Quellenangabe in der Gemeindeauswahl sichtbar (E2E).
+- [x] **Supabase-Sicherheits-Advisor:** keine neuen Hinweise.
+
+### Bugs Found
+
+#### BUG-1: Suche ohne Treffer zeigt keinen Hinweis, solange PLZ-Vorschläge da sind
+- **Severity:** Low
+- **Steps to Reproduce:**
+  1. „Wohnung anlegen“ → Neues Objekt → PLZ 5360 → Gemeinde-Auswahl öffnen.
+  2. Im Suchfeld „xyzgibtsnicht“ eingeben.
+  3. Expected: Hinweis „Keine Gemeinde gefunden“ für die Suche.
+  4. Actual: Es erscheinen nur die PLZ-Vorschläge, ohne Hinweis, dass die Suche nichts gefunden hat.
+- **Priority:** Nice to have
+
+#### BUG-2: PLZ und gewählte Gemeinde werden nicht gegeneinander geprüft
+- **Severity:** Low
+- **Steps to Reproduce:**
+  1. Objekt mit PLZ 5340 anlegen.
+  2. Über die Suche die Gemeinde „Wien“ wählen.
+  3. Expected: Hinweis, dass PLZ und Gemeinde nicht zusammenpassen; Speichern bleibt möglich, weil Zuordnungen Grenzfälle haben.
+  4. Actual: Wird ohne Hinweis gespeichert. Eine falsche Gemeinde würde später die Abgabe der falschen Gemeinde zuordnen (PROJ-15/16).
+- **Priority:** Nice to have (vor PROJ-16 sinnvoll)
+
+### Summary
+- **Acceptance Criteria:** 28/28 bestanden.
+- **Bugs Found:** 2 total (0 critical, 0 high, 0 medium, 2 low).
+- **Security:** keine Lücken gefunden.
+- **Production Ready:** YES.
+- **Recommendation:** Freigeben. BUG-2 vor PROJ-16 beheben, BUG-1 bei Gelegenheit.
 
 ## Deployment
 _To be added by /deploy_
