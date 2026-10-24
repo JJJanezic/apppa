@@ -17,12 +17,12 @@ test.describe('Startseite', () => {
     await expect(page.getByRole('heading', { name: 'Hier erscheinen bald deine Buchungen.' })).toBeVisible()
   })
 
-  // Seit PROJ-3 angemeldet (tests/auth.setup.ts): echter Name; Kunde bleibt Platzhalter bis PROJ-4
-  test('zeigt Namen der angemeldeten Person und Platzhalter für Kunde und Sync-Status', async ({ page }) => {
+  // Angemeldet als Inhaber von „Testkunde E2E“ (tests/auth.setup.ts): echter Name und Kunde (PROJ-3/4)
+  test('zeigt Namen der angemeldeten Person, Kunde und Sync-Status', async ({ page }) => {
     await page.goto('/')
     if (!isDesktop(page)) await page.getByRole('button', { name: 'Mehr' }).click()
     const scope = isDesktop(page) ? sidebar(page) : page.getByRole('dialog')
-    await expect(scope.getByText('Kunde folgt mit dem Login')).toBeVisible()
+    await expect(scope.getByText('Testkunde E2E')).toBeVisible()
     await expect(scope.getByRole('button', { name: /Benutzermenü: Erika Testerin · Inhaber/ })).toBeVisible()
     await expect(scope.getByText('Noch keine Verbindungen')).toBeVisible()
   })
@@ -96,7 +96,7 @@ test.describe('Handy und Tablet hochkant', () => {
     await page.getByRole('button', { name: 'Mehr' }).click()
     const sheet = page.getByRole('dialog', { name: 'Weitere Bereiche' })
     await expect(sheet).toBeVisible()
-    await expect(sheet.getByText('Kunde folgt mit dem Login')).toBeVisible()
+    await expect(sheet.getByText('Testkunde E2E')).toBeVisible()
     await expect(sheet.getByRole('button', { name: /Benutzermenü/ })).toBeVisible()
     await expect(sheet.getByRole('status')).toBeVisible()
     await page.keyboard.press('Escape')
@@ -134,12 +134,13 @@ test.describe('Sichtbarkeit der Navigation', () => {
   test('nicht fertige Bereiche fehlen in der Navigation', async ({ page }) => {
     await page.goto('/')
     if (!isDesktop(page)) await page.getByRole('button', { name: 'Mehr' }).click()
-    for (const name of ['Belegung', 'Buchungen', 'Gäste', 'Zahlungen', 'Auswertungen', 'Tourismusabgabe', 'Kanäle & Kalender', 'Einstellungen']) {
+    // „Einstellungen“ ist seit PROJ-4 für Inhaber sichtbar
+    for (const name of ['Belegung', 'Buchungen', 'Gäste', 'Zahlungen', 'Auswertungen', 'Tourismusabgabe', 'Kanäle & Kalender']) {
       await expect(page.getByRole('link', { name })).toHaveCount(0)
     }
   })
 
-  for (const path of ['/belegung', '/buchungen', '/gaeste', '/zahlungen', '/einstellungen']) {
+  for (const path of ['/belegung', '/buchungen', '/gaeste', '/zahlungen']) {
     test(`direkter Aufruf von ${path} zeigt „Seite nicht gefunden“`, async ({ page }) => {
       const res = await page.goto(path)
       expect(res?.status()).toBe(404)

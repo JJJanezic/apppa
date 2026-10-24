@@ -131,17 +131,28 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-1 Zugriffsregeln (RLS)', () => {
       expect(log.data).toHaveLength(0)
     })
 
+    // Seit PROJ-4 entstehen Mitgliedschaften nur durch Annehmen einer Einladung – auch Inhaber fügen niemanden
+    // direkt hinzu. Die Rechte je Mandant zeigen sich deshalb an den Einladungen.
     it('Rechte gelten je Mandant: B ist Inhaber in T2, aber nur Mitarbeiter in T1', async () => {
-      const inT2 = await b
-        .from('memberships')
-        .insert({ tenant_id: t2, user_id: userC.id, role: 'staff' })
-        .select('id')
-        .single()
+      const invite = (tenantId: string) =>
+        b
+          .from('invitations')
+          .insert({
+            tenant_id: tenantId,
+            email: `rls-${Date.now()}@example.com`,
+            role: 'staff',
+            kind: 'existing_account',
+            invited_by: userB.id,
+            expires_at: new Date(Date.now() + 60_000).toISOString(),
+          })
+          .select('id')
+          .single()
+      const inT2 = await invite(t2)
       expect(inT2.error).toBeNull()
-      await service.from('memberships').delete().eq('id', inT2.data!.id)
+      await service.from('invitations').delete().eq('id', inT2.data!.id)
 
-      const inT1 = await b.from('memberships').insert({ tenant_id: t1, user_id: userC.id, role: 'staff' })
-      expect(inT1.error).not.toBeNull()
+      expect((await invite(t1)).error).not.toBeNull()
+      expect((await b.from('memberships').insert({ tenant_id: t2, user_id: userC.id, role: 'staff' })).error).not.toBeNull()
     })
 
     it('Mitarbeiter kann Inhaber-Daten nicht ändern', async () => {

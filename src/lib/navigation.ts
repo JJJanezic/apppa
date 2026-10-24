@@ -35,7 +35,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { id: 'reports', href: '/auswertungen', roles: OWNER, ready: false, mobile: 'more' },
   { id: 'tax', href: '/tourismusabgabe', roles: OWNER, ready: false, mobile: 'more' },
   { id: 'channels', href: '/kanaele', roles: OWNER, ready: false, mobile: 'more' },
-  { id: 'settings', href: '/einstellungen', roles: OWNER, ready: false, mobile: 'more' },
+  { id: 'settings', href: '/einstellungen', roles: OWNER, ready: true, mobile: 'more' },
 ]
 
 const MAX_MOBILE_PRIMARY = 4

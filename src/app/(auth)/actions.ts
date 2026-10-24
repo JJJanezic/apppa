@@ -14,6 +14,7 @@ import {
 } from '@/lib/auth/session'
 import { getClientEnv } from '@/lib/env'
 import { safeRedirectPath } from '@/lib/safe-redirect'
+import { rememberTenant } from '@/lib/tenant'
 import { createClient } from '@/lib/supabase/server'
 import {
   completeInviteSchema,
@@ -57,6 +58,7 @@ export async function signIn(values: LoginValues & { next?: string }): Promise<A
 
   await clearFailures(hash)
   await startSessionLimits(data.user.id)
+  await redeemNewAccountInvitations(supabase)
 
   const next = safeRedirectPath(values.next, APP_ORIGIN)
   const { data: profile } = await supabase
@@ -112,6 +114,13 @@ export async function confirmEmailLink(values: {
   }
 }
 
+// Offene Einladungen „neues Konto“ für die eigene Adresse einlösen (PROJ-4). Fehler blockieren die Anmeldung nicht.
+async function redeemNewAccountInvitations(supabase: Awaited<ReturnType<typeof createClient>>): Promise<void> {
+  const { data: tenantId, error } = await supabase.rpc('accept_new_account_invitations')
+  if (error) console.error('[invite] Einladungen nicht eingelöst', error.message)
+  else if (tenantId) await rememberTenant(tenantId)
+}
+
 function passwordError(code: string | undefined): ActionResult {
   return { ok: false, error: code === 'weak_password' ? 'weakPassword' : 'unknown' }
 }
@@ -134,6 +143,8 @@ export async function completeInvite(values: CompleteInviteValues): Promise<Acti
     .eq('id', user.userId)
   if (profileError) return { ok: false, error: 'unknown' }
 
+  // Einladung(en) aus der Mail einlösen: Mitgliedschaft entsteht, Kunde wird gewählt (PROJ-4)
+  await redeemNewAccountInvitations(supabase)
   return { ok: true, redirectTo: (await pendingMfaStep(user, supabase)) ?? '/' }
 }
 

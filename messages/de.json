@@ -29,7 +29,9 @@
     "myAccount": "Mein Konto",
     "signOut": "Abmelden",
     "sync": "{count, plural, =0 {Noch keine Verbindungen} one {{value} Verbindung synchron} other {{value} Verbindungen synchron}}",
-    "syncProblem": "{count, plural, one {{value} Verbindung mit Problem} other {{value} Verbindungen mit Problem}}"
+    "syncProblem": "{count, plural, one {{value} Verbindung mit Problem} other {{value} Verbindungen mit Problem}}",
+    "switchTenantTitle": "Kunde auswählen",
+    "currentTenant": "aktuell"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -184,5 +186,110 @@
     "mfaAdded": "Gerät hinzugefügt.",
     "mfaLastHint": "Das einzige Gerät kann nicht entfernt werden.",
     "mfaAddTitle": "Weiteres Gerät hinzufügen"
+  },
+  "settings": {
+    "title": "Einstellungen",
+    "lead": "Team und Kundenkonto verwalten.",
+    "tabsLabel": "Einstellungsbereiche",
+    "team": "Team",
+    "tenant": "Kunde"
+  },
+  "team": {
+    "title": "Team",
+    "invite": "Person einladen",
+    "membersTitle": "Mitglieder",
+    "invitationsTitle": "Offene Einladungen",
+    "colName": "Name",
+    "colEmail": "E-Mail-Adresse",
+    "colRole": "Rolle",
+    "colSent": "Eingeladen am",
+    "colStatus": "Status",
+    "colActions": "Aktionen",
+    "you": "(du)",
+    "noName": "Noch kein Name",
+    "actionsFor": "Aktionen für {name}",
+    "statusOpen": "offen",
+    "statusExpired": "abgelaufen",
+    "otherOwnerHint": "Andere Inhaber kann nur der Betreiber herabstufen oder entfernen.",
+    "lastOwnerHint": "Du bist der einzige Inhaber. Bestimme zuerst einen weiteren Inhaber, um auszutreten oder dich herabzustufen.",
+    "emptyTitle": "Noch niemand eingeladen",
+    "emptyText": "Lade Mitarbeiter oder eine weitere Person als Inhaber ein. Mitarbeiter sehen Buchungen und Kalender, aber keine Zahlungen und Auswertungen.",
+    "noInvitations": "Keine offenen Einladungen.",
+    "actions": {
+      "promote": "Zum Inhaber machen",
+      "remove": "Entfernen",
+      "demoteSelf": "Zum Mitarbeiter herabstufen",
+      "leave": "Team verlassen",
+      "resend": "Erneut senden",
+      "revoke": "Zurückziehen"
+    },
+    "confirm": {
+      "promoteTitle": "{name} zum Inhaber machen?",
+      "promoteText": "Inhaber sehen alles, auch Zahlungen und Auswertungen, und verwalten das Team. Zurücknehmen kann das nur der Betreiber.",
+      "removeTitle": "{name} entfernen?",
+      "removeText": "{name} hat danach keinen Zugriff mehr auf diesen Kunden. Frühere Einträge bleiben mit dem Namen erhalten.",
+      "demoteSelfTitle": "Zum Mitarbeiter herabstufen?",
+      "demoteSelfText": "Du siehst danach keine Zahlungen, Auswertungen und Einstellungen mehr. Zurück zum Inhaber macht dich nur ein anderer Inhaber.",
+      "leaveTitle": "Team verlassen?",
+      "leaveText": "Du hast danach keinen Zugriff mehr auf diesen Kunden. Für einen erneuten Zugang brauchst du eine neue Einladung.",
+      "revokeTitle": "Einladung an {email} zurückziehen?",
+      "revokeText": "Der Link in der Einladungsmail funktioniert danach nicht mehr.",
+      "cancel": "Abbrechen"
+    },
+    "done": {
+      "invited": "Einladung an {email} verschickt. Falls sie nicht ankommt: im Spam-Ordner nachsehen lassen.",
+      "resent": "Einladung erneut verschickt.",
+      "revoked": "Einladung zurückgezogen.",
+      "promoted": "{name} ist jetzt Inhaber.",
+      "removed": "{name} wurde entfernt.",
+      "demoted": "Du bist jetzt Mitarbeiter.",
+      "left": "Du hast das Team verlassen."
+    },
+    "invitePanel": {
+      "title": "Person einladen",
+      "description": "Die Person bekommt eine E-Mail. Hat sie schon ein apppa-Konto, nimmt sie die Einladung nach dem Anmelden an.",
+      "email": "E-Mail-Adresse",
+      "role": "Rolle",
+      "roleStaff": "Mitarbeiter",
+      "roleStaffHint": "Sieht und bearbeitet Buchungen und Kalender.",
+      "roleOwner": "Inhaber",
+      "roleOwnerHint": "Sieht alles, auch Zahlungen und Auswertungen, und verwaltet das Team.",
+      "submit": "Einladen"
+    },
+    "validation": {
+      "emailRequired": "Bitte gib eine E-Mail-Adresse ein.",
+      "emailInvalid": "Bitte gib eine gültige E-Mail-Adresse ein.",
+      "roleRequired": "Bitte wähle eine Rolle.",
+      "nameRequired": "Bitte gib einen Namen ein.",
+      "nameTooLong": "Der Name darf höchstens 200 Zeichen lang sein."
+    },
+    "errors": {
+      "alreadyMember": "Diese Person gehört bereits zum Team.",
+      "alreadyInvited": "An diese Adresse gibt es schon eine offene Einladung. Du kannst sie erneut senden.",
+      "inviteSelf": "Du bist bereits Mitglied.",
+      "tooManyInvites": "Zu viele Einladungen in kurzer Zeit. Bitte versuche es später erneut.",
+      "otherOwner": "Andere Inhaber kann nur der Betreiber herabstufen oder entfernen.",
+      "lastOwner": "Jeder Kunde braucht mindestens einen Inhaber. Bestimme zuerst einen weiteren Inhaber.",
+      "invitationInvalid": "Diese Einladung ist nicht mehr gültig.",
+      "network": "Keine Verbindung. Bitte prüfe deine Internetverbindung und versuche es erneut.",
+      "sessionExpired": "Deine Sitzung ist abgelaufen. Bitte melde dich erneut an.",
+      "notImplemented": "Diese Funktion wird gerade eingerichtet.",
+      "unknown": "Etwas ist schiefgelaufen. Bitte versuche es erneut."
+    }
+  },
+  "tenant": {
+    "title": "Kunde",
+    "nameLabel": "Kundenname",
+    "nameHint": "Erscheint in der Seitenleiste und in Einladungsmails, z. B. „Pichler Ferienwohnungen“.",
+    "save": "Speichern",
+    "saved": "Kundenname gespeichert.",
+    "noTenantTitle": "Du bist noch keinem Kunden zugeordnet",
+    "noTenantText": "Sobald dich ein Vermieter einlädt oder der Betreiber dein Kundenkonto anlegt, siehst du hier deine Buchungen.",
+    "invitationsTitle": "Einladungen an dich",
+    "invitationText": "{inviter, select, none {Du wurdest} other {{inviter} hat dich}} als {role} zu „{tenant}“ eingeladen.",
+    "accept": "Annehmen",
+    "decline": "Ablehnen",
+    "accepted": "Einladung angenommen. Du bist jetzt bei „{tenant}“.",
+    "declined": "Einladung abgelehnt."
   }
 }

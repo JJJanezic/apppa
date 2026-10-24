@@ -58,7 +58,22 @@ export async function createUser(opts: { displayName?: string | null; admin?: bo
 export async function deleteUser(user: { id: string; email: string } | undefined) {
   if (!user) return
   await clearFailures(user.email)
+  // Kunden, bei denen der Testnutzer Inhaber war, mit entfernen (PROJ-4)
+  const { data } = await service().from('memberships').select('tenant_id').eq('user_id', user.id).eq('role', 'owner')
+  for (const m of data ?? []) await service().from('tenants').delete().eq('id', m.tenant_id)
   await service().auth.admin.deleteUser(user.id)
+}
+
+// Kunde anlegen und Person als Mitglied eintragen (Systemrechte; in der App nur über Einladung bzw. PROJ-5)
+export async function createTenant(name: string, members: { user: { id: string }; role: 'owner' | 'staff' }[]) {
+  const svc = service()
+  const { data, error } = await svc.from('tenants').insert({ name }).select('id').single()
+  if (error) throw error
+  for (const m of members) {
+    const { error: memberError } = await svc.from('memberships').insert({ tenant_id: data.id, user_id: m.user.id, role: m.role })
+    if (memberError) throw memberError
+  }
+  return data.id
 }
 
 // Gleicher Hash wie src/lib/auth/lockout.ts

@@ -1,9 +1,9 @@
-<!-- PROJ-3: Einladung. Der Link öffnet nur die Bestätigungsseite; eingelöst wird erst per Knopf dort. -->
+<!-- PROJ-3/4: Einladung (Kundenname und einladende Person aus den Konto-Metadaten). Der Link öffnet nur die Bestätigungsseite; eingelöst wird erst per Knopf dort. -->
 <div style="font-family: Arial, Helvetica, sans-serif; font-size: 15px; line-height: 1.55; color: #201e1d; max-width: 560px;">
   <p style="font-size: 22px; font-weight: bold; margin: 0 0 24px;">apppa.</p>
-  <h2 style="font-size: 20px; margin: 0 0 16px;">Du wurdest zu apppa eingeladen</h2>
+  <h2 style="font-size: 20px; margin: 0 0 16px;">{{ if .Data.tenant_name }}Einladung zu „{{ .Data.tenant_name }}“{{ else }}Du wurdest zu apppa eingeladen{{ end }}</h2>
   <p>Hallo,</p>
-  <p>du wurdest eingeladen, apppa zu nutzen – die Verwaltung für Ferien- und Dienstwohnungen. Öffne den folgenden Link, nimm die Einladung an und lege deinen Namen und dein Passwort fest:</p>
+  <p>{{ if .Data.invited_by_name }}{{ .Data.invited_by_name }} hat dich{{ else }}du wurdest{{ end }}{{ if .Data.tenant_name }} zu „{{ .Data.tenant_name }}“{{ end }} in apppa eingeladen – die Verwaltung für Ferien- und Dienstwohnungen. Öffne den folgenden Link, nimm die Einladung an und lege deinen Namen und dein Passwort fest:</p>
   <p style="margin: 24px 0;">
     <a href="{{ .SiteURL }}/bestaetigen?token_hash={{ .TokenHash }}&type=invite"
        style="background: #006786; color: #ffffff; padding: 12px 20px; border-radius: 4px; text-decoration: none; display: inline-block;">Einladung annehmen</a>

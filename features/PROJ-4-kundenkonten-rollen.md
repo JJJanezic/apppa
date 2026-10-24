@@ -1,6 +1,6 @@
 # PROJ-4: Kundenkonten & Rollen
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-10-23
 **Last Updated:** 2026-10-23
 
@@ -237,6 +237,49 @@ Für Mitarbeiter gibt es `/einstellungen` nicht („Seite nicht gefunden“). Vo
 ### E) Einrichtung außerhalb des Codes (mit dem Nutzer)
 1. Brevo → *SMTP & API → API Keys*: API-Schlüssel erzeugen, als `BREVO_API_KEY` in `.env.local` eintragen (später auch in Vercel); `.env.local.example` bekommt einen Platzhalter
 2. Einladungsvorlage in Supabase um Kundenname/Einladende(n) ergänzen → `config push` wie in PROJ-3 (Runbook Abschnitt 8)
+
+## Implementation Notes (Frontend)
+_Stand 2026-10-23 (/frontend)_
+
+**Seiten** (`src/app/(app)/einstellungen/`, nur Inhaber über `requireArea('settings')`; Mitarbeiter → „Seite nicht gefunden“): `/einstellungen` → `/einstellungen/team`; Layout mit Seitenkopf und Reitern „Team“ | „Kunde“ (Links, eigene Adressen). „Einstellungen“ ist in der Navigation jetzt sichtbar (`ready: true`, nur Inhaber)
+
+**Team** (`src/components/settings/`): `team-members` (ab 768 px Tabelle, darunter Karten; Rolle als Badge; Hinweis unter der Rolle, warum es keine Aktionen gibt), `member-actions` (Menü „Zum Inhaber machen“, „Entfernen“, „Zum Mitarbeiter herabstufen“, „Team verlassen“, jeweils mit Bestätigungsdialog), `invitations-list` (offen/abgelaufen, „Erneut senden“, „Zurückziehen“ mit Bestätigung), `invite-panel` (Detail-Panel: E-Mail + Rolle als Auswahl mit Erklärung), Leerzustand „Noch niemand eingeladen“. `tenant-name-form` für „Kunde“
+
+**Rechte-Regeln** `src/lib/team-rules.ts` (rein, getestet): Inhaber → Mitarbeiter hochstufen/entfernen; andere Inhaber geschützt; Selbst-Herabstufung/Austritt außer letzter Inhaber. Die Datenbank setzt dieselben Regeln mit /backend durch
+
+**Kundenwechsel**: `src/components/shell/tenant-label.tsx` mit Popover-Liste (Name + Rolle, aktueller markiert); Wechsel per Server-Aktion, danach vollständiger Seitenwechsel. `ShellInfo.tenant` hat jetzt `id` und `list` (`null` = noch nicht geladen)
+
+**Dashboard**: `src/components/tenant/my-invitations.tsx` (Einladungen an mich mit „Annehmen“/„Ablehnen“) und Hinweis „Du bist noch keinem Kunden zugeordnet“, sobald die Kundenliste leer ist
+
+**Gemeinsam**: `src/components/confirm-dialog.tsx` (Bestätigung), `src/components/settings/use-team-action.ts` (Aktion → Meldung → neu laden). `ActionResult` hat einen zweiten Typparameter für bereichseigene Fehlercodes; `FormError` kann Texte aus `team.errors` zeigen
+
+**Prüfregeln** `src/lib/validation/team.ts` (Einladen: Adresse normalisiert + Rolle; Kundenname 1–200 Zeichen). Texte in `messages/de.json` (`settings`, `team`, `tenant`)
+
+**Schnittstellen für /backend** (liefern bis dahin `notImplemented`): `src/app/(app)/einstellungen/actions.ts` (`inviteMember`, `resendInvitation`, `revokeInvitation`, `promoteMember`, `removeMember`, `demoteSelf`, `leaveTenant`, `updateTenantName`), `src/app/(app)/tenant-actions.ts` (`switchTenant`, `acceptInvitation`, `declineInvitation`). Daten: `src/lib/team.ts` (`getTeam()` liefert **Beispieldaten** mit sichtbarem Hinweis, `getMyInvitations()` leer), `getShellInfo()` Kunde/Liste noch Platzhalter
+
+**Tests**: `team-rules.test.ts` (5), `validation/team.test.ts` (4); `navigation.test.ts` und PROJ-2-E2E an die sichtbaren Einstellungen angepasst. `npm test` (Unit) 142/142, `tsc` fehlerfrei, PROJ-2-E2E Desktop + Handy grün. Sichtprüfung in Chrome (1440 und 375 px): Team-Tabelle/Karten, Einladen-Panel mit Feldmeldung, Bestätigungsdialog, Kunden-Seite
+
+**Offen für /backend**: Einladungs-Tabelle und geänderte Datenbank-Regeln (freigegeben), alle Server-Aktionen, echte Daten statt Beispieldaten, gewählter Kunde per Cookie, Rolle im Rahmen aus der Mitgliedschaft, Einladungsvorlage mit Kundenname, Hinweis-Mail über Brevo (`BREVO_API_KEY`)
+
+## Implementation Notes (Backend)
+_Stand 2026-10-23 (/backend)_
+
+**Datenbank** (eingespielt in „apppa“):
+- `20261023120000_invitations_and_membership_rules.sql`: Tabelle `public.invitations` (Kunde, E-Mail normalisiert, Rolle, Art `new_account`/`existing_account`, Zustand offen/angenommen/abgelehnt/zurückgezogen, eingeladen von, verschickt am, gültig bis; eine offene je Kunde + Adresse; Standardfelder + Änderungsprotokoll; Löschung abgeschlossener nach 90 Tagen). RLS: Inhaber lesen/anlegen/ändern, Admin liest, kein Löschen. **Mitgliedschaften (freigegeben):** kein direktes Hinzufügen mehr; Inhaber stufen nur Mitarbeiter hoch und entfernen nur Mitarbeiter; jede Person kann sich selbst herabstufen bzw. austreten; „mindestens ein Inhaber“ bleibt
+- `20261023120100_invitation_functions_private.sql`: Annehmen, Ablehnen, eigene Einladungen lesen und Einlösen nach dem Einrichten als geprüfte Funktionen im internen Schema; öffentlich nur dünne Hüllen ohne Systemrechte (Advisor 0029). Abgleich über die Adresse des angemeldeten Kontos aus der Datenbank
+- Ein PROJ-1-Integrationstest (Inhaber fügt direkt hinzu) an die neue Regel angepasst
+
+**Server**: `src/lib/tenant.ts` (gewählter Kunde per Cookie `apppa-kunde`, gegen Mitgliedschaften geprüft, sonst alphabetisch erster), `src/lib/shell.ts` (echter Kunde, Kundenliste, Rolle; ohne Kunde Rolle „staff“), `src/lib/team-data.ts` (Team, Einladungen an mich), `src/lib/team-invite.ts` (Art der Einladung, Versand, Aufräumen ungenutzter Konten; keine Server-Aktion), `src/lib/mail/brevo.ts` (Hinweis-Mail, HTML-maskiert; ohne `BREVO_API_KEY` kein Versand)
+
+**Server-Aktionen** (alle umgesetzt, Rechte zusätzlich in der Datenbank): Einladen (Rate-Limit 20/h, „schon Mitglied“, „schon eingeladen“, „du selbst“), erneut senden (frischer Link bzw. erneute Hinweis-Mail, Art wird neu bestimmt), zurückziehen (ungenutztes Login-Konto wird gelöscht → alter Link ungültig), hochstufen, entfernen, selbst herabstufen, austreten, Kundenname, Kundenwechsel, annehmen, ablehnen. Nach Anmelden bzw. Einladung-Abschließen (PROJ-3) werden offene Einladungen „neues Konto“ automatisch eingelöst
+
+**Art der Einladung**: Konto mit bestätigter Adresse → Hinweis-Mail + Annehmen in der App (14 Tage); kein Konto oder frühere Einladung nie angenommen → Supabase-Einladungsmail (24 h)
+
+**Mails**: `invite.html` nennt Kunde und einladende Person (aus den Konto-Metadaten) → **`config push` nötig** (Runbook 8). Hinweis-Mail braucht `BREVO_API_KEY` (Runbook 11) – bis dahin erscheint die Einladung nur in der App
+
+**Tests**: `supabase/tests/team.integration.test.ts` (12: kein direktes Hinzufügen, Hochstufen, Inhaber geschützt, Mitarbeiter ohne Rechte, letzter Inhaber, doppelte Einladung, Mitarbeiter sieht keine Einladungen, Annehmen nur durch Eingeladene und nur einmal, abgelaufen, Ablehnen, Einlösen nach dem Einrichten), `src/lib/mail/brevo.test.ts` (3, u. a. HTML-Maskierung), Einladungsstatus. `npm test` 146 Unit + 43 Integration grün; Advisor nur die bekannten Punkte (24-h-Links, Pro-Tarif). E2E: Testnutzer ist jetzt Inhaber von „Testkunde E2E“; PROJ-2 (Desktop + Handy) und PROJ-3 (Anmelden, Einladung) grün. Browser-Probe: einladen (bestehendes Konto), annehmen, hochstufen, Kundenwechsel, Mitarbeiter ohne Einstellungen
+
+**Hinweise für /qa**: Mitarbeiter sehen auf `/einstellungen/*` „Seite nicht gefunden“, der Statuscode ist aber 200 (die App-Seiten werden gestreamt); es werden keine Team-Daten ausgeliefert. Einladungen an **neue** Adressen verschicken echte Mails über Brevo – in Tests nur bestehende Testkonten einladen oder Links per `admin.generateLink` erzeugen. `BREVO_API_KEY`/`BREVO_SENDER_EMAIL` noch in `.env.local.example` ergänzen (Datei für mich gesperrt)
 
 ## QA Test Results
 _To be added by /qa_

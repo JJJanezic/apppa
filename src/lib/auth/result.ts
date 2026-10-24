@@ -14,6 +14,10 @@ export type AuthErrorCode =
   | 'notImplemented'
   | 'unknown'
 
-export type ActionResult<T = undefined> =
+// Fehler, die jede Server-Aktion liefern kann (Netzwerk, abgelaufene Sitzung, unbekannt)
+export type CommonErrorCode = 'network' | 'sessionExpired' | 'notImplemented' | 'unknown'
+
+// E: Fehlercodes des jeweiligen Bereichs (Standard: Anmeldung). Für Team & Kunde siehe src/lib/team.ts
+export type ActionResult<T = undefined, E extends string = AuthErrorCode> =
   | { ok: true; redirectTo?: string; data?: T }
-  | { ok: false; error: AuthErrorCode; retryAfterMinutes?: number }
+  | { ok: false; error: E | CommonErrorCode; retryAfterMinutes?: number }

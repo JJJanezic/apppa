@@ -53,6 +53,72 @@ export type Database = {
         }
         Relationships: []
       }
+      invitations: {
+        Row: {
+          closed_at: string | null
+          created_at: string
+          created_by: string | null
+          email: string
+          expires_at: string
+          id: string
+          invited_by: string | null
+          kind: string
+          role: Database["public"]["Enums"]["member_role"]
+          sent_at: string
+          status: string
+          tenant_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          closed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          email: string
+          expires_at: string
+          id?: string
+          invited_by?: string | null
+          kind: string
+          role: Database["public"]["Enums"]["member_role"]
+          sent_at?: string
+          status?: string
+          tenant_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          closed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          email?: string
+          expires_at?: string
+          id?: string
+          invited_by?: string | null
+          kind?: string
+          role?: Database["public"]["Enums"]["member_role"]
+          sent_at?: string
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invitations_invited_by_fkey"
+            columns: ["invited_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invitations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       login_failures: {
         Row: {
           account_hash: string
@@ -190,7 +256,22 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      accept_invitation: { Args: { p_invitation_id: string }; Returns: string }
+      accept_new_account_invitations: { Args: never; Returns: string }
+      decline_invitation: {
+        Args: { p_invitation_id: string }
+        Returns: undefined
+      }
+      my_open_invitations: {
+        Args: never
+        Returns: {
+          expires_at: string
+          id: string
+          invited_by_name: string
+          role: Database["public"]["Enums"]["member_role"]
+          tenant_name: string
+        }[]
+      }
     }
     Enums: {
       member_role: "owner" | "staff"

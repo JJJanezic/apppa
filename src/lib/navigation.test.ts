@@ -18,8 +18,8 @@ describe('Navigationsliste', () => {
     ])
   })
 
-  it('zeigt zu Beginn nur das Dashboard', () => {
-    expect(visibleNavItems('owner').map((i) => i.id)).toEqual(['dashboard'])
+  it('zeigt derzeit das Dashboard und für Inhaber die Einstellungen (PROJ-4)', () => {
+    expect(visibleNavItems('owner').map((i) => i.id)).toEqual(['dashboard', 'settings'])
     expect(visibleNavItems('staff').map((i) => i.id)).toEqual(['dashboard'])
   })
 

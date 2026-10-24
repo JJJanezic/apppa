@@ -7,13 +7,15 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import type { ActionResult, AuthErrorCode } from '@/lib/auth/result'
 
 interface FormErrorProps {
-  error: AuthErrorCode | null
+  error: string | null
   retryAfterMinutes?: number
+  // Bereich der Meldungstexte in messages/de.json (Standard: Anmeldung)
+  namespace?: 'auth.errors' | 'team.errors'
 }
 
 // Fehlermeldung einer Aktion über dem Formular; wird von Screenreadern sofort vorgelesen
-export function FormError({ error, retryAfterMinutes }: FormErrorProps) {
-  const t = useTranslations('auth.errors')
+export function FormError({ error, retryAfterMinutes, namespace = 'auth.errors' }: FormErrorProps) {
+  const t = useTranslations(namespace) as (key: string, values?: Record<string, number>) => string
   if (!error) return null
   return (
     <Alert variant="destructive" role="alert" className="border-ds-accent-2-700/40 bg-ds-accent-2-100 text-ds-accent-2-800">
@@ -25,8 +27,10 @@ export function FormError({ error, retryAfterMinutes }: FormErrorProps) {
 
 // Netzwerkfehler beim Aufruf einer Server-Aktion als einheitliches Ergebnis.
 // Abgelaufene Sitzung: zur Anmeldung mit Hinweis, danach zurück auf diese Seite.
-export async function callAction<T>(fn: () => Promise<ActionResult<T>>): Promise<ActionResult<T>> {
-  let result: ActionResult<T>
+export async function callAction<T, E extends string = AuthErrorCode>(
+  fn: () => Promise<ActionResult<T, E>>
+): Promise<ActionResult<T, E>> {
+  let result: ActionResult<T, E>
   try {
     result = await fn()
   } catch {

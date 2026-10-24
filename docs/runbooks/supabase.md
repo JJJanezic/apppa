@@ -146,3 +146,16 @@ Sperre vorzeitig aufheben (z. B. nach einem Anruf): Weil nur der Hash gespeicher
 ```sql
 delete from public.login_failures where created_at > now() - interval '30 minutes';
 ```
+
+## 11. Einladungen ins Team (PROJ-4)
+
+- **Neue Personen** bekommen die Supabase-Einladungsmail (Vorlage `supabase/templates/invite.html`, nennt Kunde und einladende Person). Nach einer Änderung an der Vorlage `config push` wie in Abschnitt 8.
+- **Bestehende Konten** bekommen eine Hinweis-Mail direkt über die Brevo-Schnittstelle und nehmen die Einladung auf dem Dashboard an. Dafür in `.env.local` (und später in Vercel) eintragen:
+  ```
+  BREVO_API_KEY=<API-Schlüssel aus Brevo → SMTP & API → API Keys>
+  # optional, Standard no-reply@apppa.at:
+  BREVO_SENDER_EMAIL=no-reply@apppa.at
+  ```
+  Ohne Schlüssel wird keine Hinweis-Mail verschickt; die Einladung erscheint trotzdem beim nächsten Anmelden.
+- Höchstens 20 Einladungen pro Kunde und Stunde. Abgeschlossene Einladungen löscht der Zeitplaner nach 90 Tagen (`purge-closed-invitations`).
+- Mitgliedschaften entstehen nur durch Annehmen einer Einladung (bzw. serverseitig, PROJ-5). Einen Kunden für Tests direkt anlegen: im SQL-Editor `insert into public.tenants (name) …` und `insert into public.memberships (tenant_id, user_id, role) …` (nur Entwicklung).
