@@ -185,7 +185,11 @@
     "mfaRemoved": "Gerät entfernt.",
     "mfaAdded": "Gerät hinzugefügt.",
     "mfaLastHint": "Das einzige Gerät kann nicht entfernt werden.",
-    "mfaAddTitle": "Weiteres Gerät hinzufügen"
+    "mfaAddTitle": "Weiteres Gerät hinzufügen",
+    "leaveTenantTitle": "Kunde verlassen",
+    "leaveTenantIntro": "Du bist bei „{tenant}“ als {role} eingetragen. Wenn du austrittst, hast du keinen Zugriff mehr auf diesen Kunden.",
+    "leaveTenantButton": "„{tenant}“ verlassen",
+    "leaveTenantConfirmTitle": "„{tenant}“ verlassen?"
   },
   "settings": {
     "title": "Einstellungen",

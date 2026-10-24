@@ -1,9 +1,13 @@
+import { headers } from 'next/headers'
+import { notFound } from 'next/navigation'
+
 import { AppSidebar } from '@/components/shell/app-sidebar'
 import { BottomNav } from '@/components/shell/bottom-nav'
 import { ShellProvider } from '@/components/shell/shell-context'
 import { Wordmark } from '@/components/shell/wordmark'
 import { SidebarProvider } from '@/components/ui/sidebar'
 import { requireAppUser } from '@/lib/auth/session'
+import { isActivePath, isAreaAvailable } from '@/lib/navigation'
 import { getShellInfo } from '@/lib/shell'
 
 // Gemeinsamer Rahmen aller App-Seiten: Seitenleiste ab 1024 px, darunter die untere Leiste.
@@ -11,6 +15,9 @@ import { getShellInfo } from '@/lib/shell'
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   await requireAppUser()
   const shell = await getShellInfo()
+  // Einstellungen nur für Inhaber: hier (vor dem Streaming der Seite) prüfen, damit die Antwort 404 lautet
+  const path = (await headers()).get('x-pathname') ?? ''
+  if (isActivePath('/einstellungen', path) && !isAreaAvailable('settings', shell.person.role)) notFound()
 
   return (
     <ShellProvider value={shell}>

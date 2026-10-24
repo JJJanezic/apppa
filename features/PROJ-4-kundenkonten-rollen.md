@@ -1,6 +1,6 @@
 # PROJ-4: Kundenkonten & Rollen
 
-## Status: In Review
+## Status: Approved
 **Created:** 2026-10-23
 **Last Updated:** 2026-10-23
 
@@ -316,7 +316,7 @@ _Stand 2026-10-23 (/backend)_
 - [x] Mitarbeiter zum Inhaber machen (E2E + Integration)
 - [x] Mitarbeiter entfernen; entferntes Mitglied verliert beim nächsten Seitenaufruf den Zugriff (E2E)
 - [x] Andere Inhaber geschützt: keine Aktionen, Hinweis; Datenbank verweigert (E2E + Integration)
-- [ ] **BUG-1:** „Team verlassen“ funktioniert für Inhaber (E2E), **Mitarbeiter haben aber keine Möglichkeit auszutreten**
+- [x] „Team verlassen“ für Inhaber (Team-Seite) und für alle Mitglieder unter „Mein Konto“ (E2E; war BUG-1, behoben)
 - [x] Inhaber stuft sich selbst herab (weitere Inhaber vorhanden) → Mitarbeiter, Einstellungen weg (E2E)
 - [x] Letzter Inhaber: keine Aktionen, Hinweis; Datenbank verweigert (E2E + Integration)
 - [ ] Nicht prüfbar: Name entfernter Mitglieder in alten Einträgen – es gibt noch keine Verlaufsansicht. Die Daten bleiben erhalten (Profil wird nicht gelöscht, Änderungsprotokoll speichert die Person)
@@ -360,11 +360,11 @@ _Stand 2026-10-23 (/backend)_
 - [x] Funktionen mit Systemrechten liegen im internen Schema; Supabase-Advisor nur die bekannten Punkte
 - [x] Server-Aktionen prüfen Sitzung, 2FA-Stufe und Inhaber-Rolle des gewählten Kunden (Code-Review); Versandfunktionen mit Systemrechten sind keine Server-Aktionen
 - [x] Kein Geheimnis im Repository: Ein versehentlich in `.env.local.example` eingetragener Brevo-Schlüssel wurde vor dem Push abgefangen und erneuert
-- [ ] **BUG-2 (Low):** Mitarbeiter bekommen auf `/einstellungen/*` die „Seite nicht gefunden“-Ansicht, aber Statuscode 200 statt 404 (gestreamte Seiten); keine Daten betroffen
+- [x] Mitarbeiter bekommen auf `/einstellungen/*` „Seite nicht gefunden“ mit Statuscode 404 (war BUG-2, behoben)
 
 ### Bugs Found
 
-#### BUG-1: Mitarbeiter können ein Team nicht selbst verlassen
+#### BUG-1: Mitarbeiter können ein Team nicht selbst verlassen — ✅ behoben (Nachprüfung 2026-10-24)
 - **Severity:** Medium
 - **Steps to Reproduce:**
   1. Als Mitarbeiter eines Kunden anmelden
@@ -374,18 +374,23 @@ _Stand 2026-10-23 (/backend)_
 - **Vorschlag:** „Team verlassen“ unter „Mein Konto“ (für den gewählten Kunden) oder im Benutzermenü; Server-Aktion und Datenbank-Regel existieren bereits
 - **Priority:** Fix before deployment
 
-#### BUG-2: Statuscode 200 statt 404 für Mitarbeiter auf den Einstellungen
+#### BUG-2: Statuscode 200 statt 404 für Mitarbeiter auf den Einstellungen — ✅ behoben (Nachprüfung 2026-10-24)
 - **Severity:** Low
 - **Steps to Reproduce:** Als Mitarbeiter `/einstellungen/team` aufrufen → Ansicht „Seite nicht gefunden“, Antwort aber 200 (die App-Seiten werden mit Ladeanzeige gestreamt, bevor die Rollenprüfung greift)
 - **Folge:** Keine Daten sichtbar; nur Suchmaschinen/Monitoring sähen eine „gefundene“ Seite
 - **Priority:** Nice to have
 
-### Summary
-- **Acceptance Criteria:** 29/31 bestanden, 1 Fehler (BUG-1), 1 nicht prüfbar (Verlaufsansicht fehlt noch)
-- **Bugs Found:** 2 total (0 critical, 0 high, 1 medium, 1 low)
-- **Security:** Pass
-- **Production Ready:** YES nach Regel (keine kritischen/hohen Fehler) – empfohlen wird trotzdem, BUG-1 vorher zu beheben (kleiner Eingriff, betrifft ein Akzeptanzkriterium)
-- **Recommendation:** BUG-1 mit `/frontend` beheben, dann kurze Nachprüfung
+### Fixes und Nachprüfung (2026-10-24)
+- **BUG-1:** Neuer Bereich „Kunde verlassen“ unter „Mein Konto“ (`src/components/account/leave-tenant.tsx`) für den gewählten Kunden, mit Bestätigung; für den letzten Inhaber stattdessen der Hinweis. Nutzt die bestehende Server-Aktion `leaveTenant` und die Datenbank-Regel
+- **BUG-2:** Die Vorschaltung gibt den aufgerufenen Pfad als `x-pathname` weiter (überschreibt mitgeschickte Werte); der App-Rahmen prüft `/einstellungen` vor dem Streaming → echte 404. Die Prüfung im Einstellungs-Layout bleibt zusätzlich bestehen
+- Nachprüfung: `npm test` 189/189; PROJ-4-E2E 33/33 (Desktop + Handy, inkl. neuer Tests „Mitarbeiter verlässt über Mein Konto“, „letzter Inhaber: Hinweis“, 404 auf drei Einstellungs-Adressen); Regression PROJ-2 36/36, PROJ-3 Abläufe grün
+- Hinweis Tests: Playwright mit `--global-timeout` in kleinen Paketen ausführen (lange Läufe wurden in dieser Umgebung abgebrochen)
 
+### Summary
+- **Acceptance Criteria:** 30/31 bestanden, 1 nicht prüfbar (Verlaufsansicht fehlt noch; Daten bleiben erhalten)
+- **Bugs Found:** 2 (1 medium, 1 low), beide behoben und nachgeprüft
+- **Security:** Pass
+- **Production Ready:** YES
+- **Recommendation:** Freigeben
 ## Deployment
 _To be added by /deploy_

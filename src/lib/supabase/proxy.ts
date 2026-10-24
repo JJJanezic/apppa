@@ -17,6 +17,8 @@ const matches = (path: string, list: string[]) => list.some((p) => path === p ||
 // Zweite Ebene: der App-Rahmen prüft die Sitzung auf dem Server noch einmal; dritte Ebene: RLS.
 export async function updateSession(request: NextRequest) {
   const env = getServerEnv()
+  // Aufgerufener Pfad für Server-Layouts (z. B. Rollenprüfung im App-Rahmen); überschreibt mitgeschickte Werte
+  request.headers.set('x-pathname', request.nextUrl.pathname)
   let response = NextResponse.next({ request })
   // Hatte der Browser eine Supabase-Sitzung? (Unterscheidet „widerrufen“ von „nie angemeldet“)
   const hadSession = request.cookies.getAll().some((c) => c.name.startsWith('sb-') && c.name.includes('-auth-token'))

@@ -77,9 +77,12 @@ test.describe('Team-Seite', () => {
     await signInAs(page, staff)
     await page.goto('/')
     await expect(page.getByRole('link', { name: 'Einstellungen' })).toHaveCount(0)
-    await page.goto('/einstellungen/team')
-    await expect(page.getByRole('heading', { name: 'Seite nicht gefunden' })).toBeVisible()
-    await expect(page.getByText(owner.email)).toHaveCount(0)
+    for (const path of ['/einstellungen/team', '/einstellungen/kunde', '/einstellungen']) {
+      const res = await page.goto(path)
+      expect(res?.status()).toBe(404) // BUG-2: früher 200
+      await expect(page.getByRole('heading', { name: 'Seite nicht gefunden' })).toBeVisible()
+      await expect(page.getByText(owner.email)).toHaveCount(0)
+    }
   })
 
   test('AC: nur Inhaber, keine Einladungen → Leerzustand mit „Person einladen“', async ({ page, users }) => {
@@ -323,18 +326,30 @@ test.describe('Rollen und Mitglieder', () => {
     await expect(page.getByText(/Du bist der einzige Inhaber/).first()).toBeVisible()
   })
 
-  test('AC: Mitarbeiter kann das Team selbst verlassen', async ({ page, users }) => {
+  test('AC: Mitarbeiter verlässt den Kunden selbst über „Mein Konto“ (BUG-1)', async ({ page, users }) => {
     desktopOnly()
     const owner = await users()
     const staff = await users({ displayName: 'Mia Mitarbeiterin' })
     const tenant = await createTenant('QA MA verlässt', [{ user: owner, role: 'owner' }, { user: staff, role: 'staff' }])
     await signInAs(page, staff)
-    await page.goto('/')
+    await page.goto('/konto')
     await ready(page)
-    // Erwartet: eine Möglichkeit „Team verlassen“ für Mitarbeiter (Team-Seite ist für sie gesperrt)
-    await page.getByRole('button', { name: /Benutzermenü/ }).first().click()
-    await expect(page.getByRole('menuitem', { name: 'Team verlassen' })).toBeVisible()
-    void tenant
+    await expect(page.getByText('Du bist bei „QA MA verlässt“ als Mitarbeiter eingetragen.', { exact: false })).toBeVisible()
+    await page.getByRole('button', { name: '„QA MA verlässt“ verlassen' }).click()
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Team verlassen' }).click()
+    await expect(page).toHaveURL('http://localhost:3000/')
+    await expect(page.getByRole('heading', { name: 'Du bist noch keinem Kunden zugeordnet' })).toBeVisible()
+    expect(await membershipRole(tenant, staff.id)).toBeNull()
+  })
+
+  test('Letzter Inhaber: „Mein Konto“ zeigt statt „verlassen“ den Hinweis', async ({ page, users }) => {
+    desktopOnly()
+    const owner = await users()
+    await createTenant('QA Allein', [{ user: owner, role: 'owner' }])
+    await signInAs(page, owner)
+    await page.goto('/konto')
+    await expect(page.getByRole('button', { name: '„QA Allein“ verlassen' })).toHaveCount(0)
+    await expect(page.getByText(/Du bist der einzige Inhaber/)).toBeVisible()
   })
 
   test('Entferntes Mitglied verliert den Zugriff beim nächsten Seitenaufruf', async ({ page, users }) => {
