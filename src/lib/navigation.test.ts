@@ -14,13 +14,21 @@ const item = (id: NavItem['id'], over: Partial<NavItem> = {}): NavItem => ({
 describe('Navigationsliste', () => {
   it('enthält alle Bereiche aus dem Entwurf in dessen Reihenfolge', () => {
     expect(NAV_ITEMS.map((i) => i.id)).toEqual([
-      'dashboard', 'calendar', 'bookings', 'guests', 'payments', 'reports', 'tax', 'channels', 'settings',
+      'dashboard', 'calendar', 'bookings', 'guests', 'payments', 'reports', 'tax', 'channels', 'settings', 'operator',
     ])
   })
 
   it('zeigt derzeit das Dashboard und für Inhaber die Einstellungen (PROJ-4)', () => {
     expect(visibleNavItems('owner').map((i) => i.id)).toEqual(['dashboard', 'settings'])
     expect(visibleNavItems('staff').map((i) => i.id)).toEqual(['dashboard'])
+  })
+
+  it('zeigt den Betreiber-Bereich nur dem Admin, unabhängig von der Rolle (PROJ-5)', () => {
+    expect(visibleNavItems({ role: 'staff', isAdmin: true }).map((i) => i.id)).toEqual(['dashboard', 'operator'])
+    expect(visibleNavItems({ role: 'owner', isAdmin: true }).map((i) => i.id)).toEqual(['dashboard', 'settings', 'operator'])
+    expect(visibleNavItems({ role: 'owner', isAdmin: false }).map((i) => i.id)).not.toContain('operator')
+    expect(isAreaAvailable('operator', 'owner')).toBe(false)
+    expect(isAreaAvailable('operator', { role: 'staff', isAdmin: true })).toBe(true)
   })
 
   it('blendet nicht fertige Bereiche aus', () => {
@@ -65,6 +73,7 @@ describe('Handy-Navigation', () => {
     const { primary, more } = mobileNav('owner', allReady)
     expect(primary.map((i) => i.id)).toEqual(['dashboard', 'calendar', 'bookings', 'guests'])
     expect(more.map((i) => i.id)).toEqual(['payments', 'reports', 'tax', 'channels', 'settings'])
+    expect(mobileNav({ role: 'owner', isAdmin: true }, allReady).more.map((i) => i.id)).toContain('operator')
   })
 })
 

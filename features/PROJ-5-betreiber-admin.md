@@ -1,6 +1,6 @@
 # PROJ-5: Betreiber-Admin
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-10-24
 **Last Updated:** 2026-10-24
 
@@ -255,6 +255,64 @@ Die Server-Aktionen der Seiten prüfen den Admin ebenfalls (erste Ebene) und kü
 
 ### G) Abhängigkeiten
 - Keine neuen Pakete.
+
+## Implementation Notes (Frontend)
+**Stand 2026-10-24.** Die Oberfläche ist fertig. Die Aktionen melden bis zum Backend „Diese Funktion wird gerade eingerichtet“.
+
+**Seiten**
+- `/betreiber`: Kundenliste.
+  - Suche mit Verzögerung; Begriff in der Adresse (`?q=`), Seite in `?seite=`, 50 Kunden je Seite.
+  - Tabelle ab 768 px, darunter Karten.
+  - Leerzustände „Noch kein Kunde“ und „Kein Kunde gefunden“ (mit „Suche leeren“).
+- `/betreiber/kunden/[id]`: Detailseite mit diesen Abschnitten:
+  - Status-Abzeichen (bei „Einladung offen“ mit Zusatz abgelaufen/keine Einladung);
+  - Mitglieder mit Aktionen-Menü;
+  - Einladungen mit „Inhaber einladen“;
+  - Protokoll;
+  - „Kundenkonto“ mit Deaktivieren/Reaktivieren und, nur bei deaktivierten Kunden, „Endgültig löschen“ mit Namenseingabe.
+
+**Bausteine** (`src/components/operator/`)
+- `tenant-list`, `tenant-search`, `tenant-status-badge`
+- `create-tenant-panel`: Hinweis bei gleichem Namen, danach „Trotzdem anlegen“
+- `operator-members`, `owner-invite-panel`, `operator-invitations`, `operator-log`, `tenant-danger-zone`
+
+**Wiederverwendet**
+- `InvitationsList`: hat jetzt optionale eigene Aktionen und einen Nur-Lese-Modus.
+- `useTeamAction`: hat jetzt einen wählbaren Bereich für die Fehlermeldungen (`operator.errors`).
+- `ConfirmDialog`, `DetailPanel`, `EmptyState`, `PageHeader`.
+
+**Navigation und Zugang**
+- Neuer Bereich `operator` (`/betreiber`, Symbol „Buildings“, am Handy unter „Mehr“). Er ist nur sichtbar, wenn die Person Admin ist; die Rolle beim Kunden spielt keine Rolle.
+- `visibleNavItems`, `mobileNav` und `isAreaAvailable` nehmen jetzt Rolle **oder** `{ role, isAdmin }`.
+- `ShellInfo.person.isAdmin` setzt Admin-Kennzeichen **und** eine 2FA-Sitzung voraus.
+- Der App-Rahmen antwortet für Nicht-Admins auf `/betreiber` mit 404 (wie bei den Einstellungen).
+- Ein Admin ohne eigenen Kunden wird vom Dashboard zu `/betreiber` geleitet. Im Benutzermenü steht dann „Betreiber“ statt „Mitarbeiter“, in der Seitenleiste „Kein Kunde zugeordnet“ statt des alten Platzhalters.
+- Dashboard: „Dieses Kundenkonto ist deaktiviert“, wenn die Person nur zu deaktivierten Kunden gehört.
+
+**Daten** (`src/lib/operator-data.ts`, vorläufig)
+- Liest über die bestehenden Leserechte des Admins.
+- Suche und Seiten werden im Server gefiltert.
+- „Letzte Anmeldung“ zeigt vorerst immer „noch nie“, das Protokoll ist leer.
+- `belongsToDeactivatedTenant()` liefert vorerst `false`.
+- Alle drei Punkte ersetzt das Backend durch eigene, nur für den Admin freigegebene Abfragen.
+
+**Aktionen** (`src/app/(app)/betreiber/actions.ts`)
+- Eingaben werden geprüft (Zod, gemeinsame Schemas in `src/lib/validation/operator.ts`), ebenso Admin und 2FA.
+- Die Ausführung folgt mit dem Backend.
+
+**Regeln** (`src/lib/operator.ts`, mit Unit-Tests)
+- abgeleiteter Status;
+- Aktionen je Mitglied (Mitarbeiter → befördern; Inhaber → herabstufen/entfernen, außer dem letzten);
+- Namensbestätigung beim Löschen.
+
+**Abweichung bzw. Präzisierung**
+- Bei deaktivierten Kunden sind Mitglieder und Einladungen nur ansehbar, ohne Aktionen und ohne „Inhaber einladen“, weil Einladungen dort ohnehin nicht angenommen werden können.
+- Rollen- und Einladungsfragen also vor dem Deaktivieren bzw. nach dem Reaktivieren klären.
+
+**Geprüft**
+- Typprüfung, Produktions-Build und Unit-Tests (152) sind grün.
+- PROJ-2-Shell-E2E (Desktop) ist grün.
+- Sichtprüfung als Test-Admin mit 2FA auf Desktop (1440 px) und Handy (375 px).
 
 ## QA Test Results
 _To be added by /qa_

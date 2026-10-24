@@ -18,8 +18,10 @@ import { useShell } from '@/components/shell/shell-context'
 export function UserMenu({ side = 'top' }: { side?: 'top' | 'bottom' }) {
   const t = useTranslations('shell')
   const tRoles = useTranslations('roles')
-  const { person } = useShell()
-  const label = `${person.name ?? t('personPlaceholder')} · ${tRoles(person.role)}`
+  const { person, tenant } = useShell()
+  // Ohne eigenen Kunden hat der Admin keine Kunden-Rolle: „Betreiber“ statt „Mitarbeiter“ (PROJ-5)
+  const role = !tenant.id && person.isAdmin ? t('operator') : tRoles(person.role)
+  const label = `${person.name ?? t('personPlaceholder')} · ${role}`
 
   async function handleSignOut() {
     await signOut().catch(() => undefined)

@@ -29,7 +29,7 @@ export function AppSidebar({ wordmark }: AppSidebarProps) {
   const t = useTranslations('nav')
   const pathname = usePathname()
   const { person } = useShell()
-  const items = visibleNavItems(person.role)
+  const items = visibleNavItems(person)
 
   return (
     <div className="sticky top-0 hidden h-svh shrink-0 lg:flex">

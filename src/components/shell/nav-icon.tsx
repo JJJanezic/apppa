@@ -2,6 +2,7 @@
 
 import {
   Bank,
+  Buildings,
   CalendarDots,
   ChartLineUp,
   DotsThreeOutline,
@@ -27,6 +28,7 @@ const ICONS: Record<NavItemId | 'more', Icon> = {
   tax: Bank,
   channels: PlugsConnected,
   settings: GearSix,
+  operator: Buildings,
   more: DotsThreeOutline,
 }
 

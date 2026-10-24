@@ -8,16 +8,19 @@ import { Wordmark } from '@/components/shell/wordmark'
 import { SidebarProvider } from '@/components/ui/sidebar'
 import { requireAppUser } from '@/lib/auth/session'
 import { isActivePath, isAreaAvailable } from '@/lib/navigation'
-import { getShellInfo } from '@/lib/shell'
+import { getShellInfo, viewerOf } from '@/lib/shell'
 
 // Gemeinsamer Rahmen aller App-Seiten: Seitenleiste ab 1024 px, darunter die untere Leiste.
 // Prüft die Sitzung auf dem Server (zweite Ebene nach src/proxy.ts) und die Pflicht-2FA des Admins.
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   await requireAppUser()
   const shell = await getShellInfo()
-  // Einstellungen nur für Inhaber: hier (vor dem Streaming der Seite) prüfen, damit die Antwort 404 lautet
+  // Einstellungen nur für Inhaber, Betreiber-Bereich nur für den Admin: hier (vor dem Streaming der Seite)
+  // prüfen, damit die Antwort 404 lautet
   const path = (await headers()).get('x-pathname') ?? ''
-  if (isActivePath('/einstellungen', path) && !isAreaAvailable('settings', shell.person.role)) notFound()
+  const viewer = viewerOf(shell)
+  if (isActivePath('/einstellungen', path) && !isAreaAvailable('settings', viewer)) notFound()
+  if (isActivePath('/betreiber', path) && !isAreaAvailable('operator', viewer)) notFound()
 
   return (
     <ShellProvider value={shell}>

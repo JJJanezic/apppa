@@ -7,16 +7,15 @@ import { toast } from 'sonner'
 
 import { callAction } from '@/components/auth/form-error'
 import type { ActionResult } from '@/lib/auth/result'
-import type { TeamErrorCode } from '@/lib/team'
 
-// Führt eine Team-Aktion aus: Erfolg → Hinweis-Meldung und Seite neu laden (bzw. Weiterleitung),
-// Fehler → Meldung aus „team.errors“. pending verhindert Doppelklicks.
-export function useTeamAction() {
-  const t = useTranslations('team.errors')
+// Führt eine Team- bzw. Betreiber-Aktion aus: Erfolg → Hinweis-Meldung und Seite neu laden (bzw. Weiterleitung),
+// Fehler → Meldung aus „team.errors“ bzw. „operator.errors“. pending verhindert Doppelklicks.
+export function useTeamAction(namespace: 'team.errors' | 'operator.errors' = 'team.errors') {
+  const t = useTranslations(namespace) as (key: string) => string
   const router = useRouter()
   const [pending, setPending] = useState(false)
 
-  async function run(fn: () => Promise<ActionResult<undefined, TeamErrorCode>>, successMessage: string): Promise<boolean> {
+  async function run<E extends string>(fn: () => Promise<ActionResult<unknown, E>>, successMessage: string): Promise<boolean> {
     if (pending) return false
     setPending(true)
     const result = await callAction(fn)

@@ -38,6 +38,10 @@ export const getTenantContext = cache(async (): Promise<TenantContext> => {
   return { list, active }
 })
 
+// Gehört die Person zu einem deaktivierten Kunden? (Hinweis „Kundenkonto deaktiviert“, PROJ-5)
+// Mitglieder sehen deaktivierte Kunden über RLS nicht; die Auskunft liefert das Backend über eine eigene Abfrage.
+export const belongsToDeactivatedTenant = cache(async (): Promise<boolean> => false)
+
 // Nur in Server-Aktionen aufrufen (Cookies lassen sich in Seiten nicht setzen)
 export async function rememberTenant(tenantId: string | null): Promise<void> {
   const store = await cookies()

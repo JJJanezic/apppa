@@ -8,21 +8,38 @@ import { ConfirmDialog } from '@/components/confirm-dialog'
 import { useTeamAction } from '@/components/settings/use-team-action'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import type { ActionResult } from '@/lib/auth/result'
 import type { Invitation } from '@/lib/team'
 
+type InvitationAction = (invitationId: string) => Promise<ActionResult<unknown, string>>
+
+interface InvitationsListProps {
+  invitations: Invitation[]
+  // Standard: Team-Aktionen des gewählten Kunden; der Betreiber-Bereich (PROJ-5) reicht eigene Aktionen herein
+  actions?: { resend: InvitationAction; revoke: InvitationAction; errors: 'team.errors' | 'operator.errors' }
+  // nur ansehen (z. B. deaktivierter Kunde im Betreiber-Bereich)
+  readOnly?: boolean
+}
+
+const teamActions = {
+  resend: (invitationId: string) => resendInvitation({ invitationId }),
+  revoke: (invitationId: string) => revokeInvitation({ invitationId }),
+  errors: 'team.errors' as const,
+}
+
 // Offene und abgelaufene Einladungen mit „Erneut senden“ und „Zurückziehen“
-export function InvitationsList({ invitations }: { invitations: Invitation[] }) {
+export function InvitationsList({ invitations, actions = teamActions, readOnly = false }: InvitationsListProps) {
   const t = useTranslations('team')
   const tRoles = useTranslations('roles')
   const format = useFormatter()
-  const { run, pending } = useTeamAction()
+  const { run, pending } = useTeamAction(actions.errors)
   const [revoking, setRevoking] = useState<Invitation | null>(null)
 
   if (invitations.length === 0) return <p className="text-ds-neutral-800">{t('noInvitations')}</p>
 
   async function revoke(invitation: Invitation) {
     setRevoking(null)
-    await run(() => revokeInvitation({ invitationId: invitation.id }), t('done.revoked'))
+    await run(() => actions.revoke(invitation.id), t('done.revoked'))
   }
 
   return (
@@ -43,12 +60,13 @@ export function InvitationsList({ invitations }: { invitations: Invitation[] }) 
                 </Badge>
               </span>
             </div>
+            {!readOnly && (
             <div className="flex gap-2">
               <Button
                 variant="outline"
                 className="min-h-11"
                 disabled={pending}
-                onClick={() => run(() => resendInvitation({ invitationId: invitation.id }), t('done.resent'))}
+                onClick={() => run(() => actions.resend(invitation.id), t('done.resent'))}
               >
                 {t('actions.resend')}
               </Button>
@@ -56,6 +74,7 @@ export function InvitationsList({ invitations }: { invitations: Invitation[] }) 
                 {t('actions.revoke')}
               </Button>
             </div>
+            )}
           </li>
         ))}
       </ul>

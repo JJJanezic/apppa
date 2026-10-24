@@ -24,7 +24,7 @@ export function BottomNav() {
   const t = useTranslations('nav')
   const pathname = usePathname()
   const { person } = useShell()
-  const { primary, more } = mobileNav(person.role)
+  const { primary, more } = mobileNav(person)
   const [open, setOpen] = useState(false)
   const moreActive = more.some((item) => isActivePath(item.href, pathname))
 

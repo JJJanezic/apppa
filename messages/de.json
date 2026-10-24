@@ -15,14 +15,15 @@
     "reports": "Auswertungen",
     "tax": "Tourismusabgabe",
     "channels": "Kanäle & Kalender",
-    "settings": "Einstellungen"
+    "settings": "Einstellungen",
+    "operator": "Betreiber"
   },
   "roles": {
     "owner": "Inhaber",
     "staff": "Mitarbeiter"
   },
   "shell": {
-    "tenantPlaceholder": "Kunde folgt mit dem Login",
+    "tenantPlaceholder": "Kein Kunde zugeordnet",
     "personPlaceholder": "Name folgt mit dem Login",
     "switchTenant": "Kunden wechseln",
     "userMenu": "Benutzermenü",
@@ -31,7 +32,8 @@
     "sync": "{count, plural, =0 {Noch keine Verbindungen} one {{value} Verbindung synchron} other {{value} Verbindungen synchron}}",
     "syncProblem": "{count, plural, one {{value} Verbindung mit Problem} other {{value} Verbindungen mit Problem}}",
     "switchTenantTitle": "Kunde auswählen",
-    "currentTenant": "aktuell"
+    "currentTenant": "aktuell",
+    "operator": "Betreiber"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -294,6 +296,150 @@
     "accept": "Annehmen",
     "decline": "Ablehnen",
     "accepted": "Einladung angenommen. Du bist jetzt bei „{tenant}“.",
-    "declined": "Einladung abgelehnt."
+    "declined": "Einladung abgelehnt.",
+    "deactivatedTitle": "Dieses Kundenkonto ist deaktiviert",
+    "deactivatedText": "Bitte wende dich an den Betreiber von apppa, wenn du wieder Zugriff brauchst."
+  },
+  "operator": {
+    "title": "Kunden",
+    "lead": "Alle Kundenkonten von apppa: anlegen, Inhaber betreuen, deaktivieren.",
+    "create": "Kunde anlegen",
+    "searchLabel": "Kunden suchen",
+    "searchPlaceholder": "Kundenname oder E-Mail-Adresse",
+    "count": "{count, plural, =0 {Keine Kunden} one {# Kunde} other {# Kunden}}",
+    "colName": "Kunde",
+    "colStatus": "Status",
+    "colOwner": "Inhaber",
+    "colMembers": "Mitglieder",
+    "colCreated": "Angelegt",
+    "colLastSignIn": "Letzte Anmeldung",
+    "never": "noch nie",
+    "invitedOwner": "eingeladen",
+    "noOwner": "kein Inhaber",
+    "members": "{count, plural, one {# Mitglied} other {# Mitglieder}}",
+    "lastSignIn": "Letzte Anmeldung: {date}",
+    "status": {
+      "active": "aktiv",
+      "invited": "Einladung offen",
+      "deactivated": "deaktiviert"
+    },
+    "inviteState": {
+      "open": "",
+      "expired": "Einladung abgelaufen",
+      "none": "Keine offene Einladung"
+    },
+    "emptyTitle": "Noch kein Kunde",
+    "emptyText": "Lege den ersten Kunden an. Der Inhaber bekommt sofort eine Einladung per E-Mail.",
+    "noResultsTitle": "Kein Kunde gefunden",
+    "noResultsText": "Zu „{query}“ passt kein Kundenname und keine E-Mail-Adresse.",
+    "clearSearch": "Suche leeren",
+    "pagination": "Seiten der Kundenliste",
+    "previous": "Zurück",
+    "next": "Weiter",
+    "pageOf": "Seite {page} von {pageCount}",
+    "createPanel": {
+      "title": "Kunde anlegen",
+      "description": "Der erste Inhaber bekommt sofort eine Einladung. Hat die Adresse schon ein apppa-Konto, nimmt die Person die Einladung nach dem Anmelden an.",
+      "name": "Kundenname",
+      "nameHint": "z. B. „Pichler Ferienwohnungen“. Der Inhaber kann ihn später ändern.",
+      "email": "E-Mail-Adresse des ersten Inhabers",
+      "submit": "Kunde anlegen",
+      "duplicateHint": "Es gibt bereits einen Kunden mit diesem Namen. Trotzdem anlegen?",
+      "submitDuplicate": "Trotzdem anlegen"
+    },
+    "back": "Alle Kunden",
+    "createdOn": "Angelegt am {date}",
+    "membersTitle": "Mitglieder",
+    "noMembers": "Noch niemand hat die Einladung angenommen.",
+    "invitationsTitle": "Einladungen",
+    "inviteOwner": "Inhaber einladen",
+    "invitePanel": {
+      "title": "Inhaber einladen",
+      "description": "Die Person wird Inhaber dieses Kunden. Hat sie schon ein apppa-Konto, nimmt sie die Einladung nach dem Anmelden an.",
+      "email": "E-Mail-Adresse",
+      "submit": "Einladen"
+    },
+    "staffHint": "Mitarbeiter verwalten die Inhaber des Kunden selbst.",
+    "lastOwnerHint": "Einziger Inhaber. Lade zuerst einen weiteren Inhaber ein oder befördere einen Mitarbeiter.",
+    "actionsFor": "Aktionen für {name}",
+    "actions": {
+      "promote": "Zum Inhaber machen",
+      "demote": "Zum Mitarbeiter herabstufen",
+      "remove": "Entfernen",
+      "deactivate": "Kunde deaktivieren",
+      "reactivate": "Kunde reaktivieren",
+      "delete": "Endgültig löschen"
+    },
+    "confirm": {
+      "promoteTitle": "{name} zum Inhaber machen?",
+      "promoteText": "{name} sieht danach alles, auch Zahlungen und Auswertungen, und verwaltet das Team.",
+      "demoteTitle": "{name} zum Mitarbeiter herabstufen?",
+      "demoteText": "{name} sieht danach keine Zahlungen, Auswertungen und Einstellungen mehr.",
+      "removeTitle": "{name} entfernen?",
+      "removeText": "{name} hat danach keinen Zugriff mehr auf diesen Kunden. Das Login-Konto bleibt bestehen.",
+      "deactivateTitle": "„{tenant}“ deaktivieren?",
+      "deactivateText": "Alle Mitglieder verlieren sofort den Zugriff und sehen beim Anmelden einen Hinweis. Alle Daten bleiben erhalten, du kannst den Kunden jederzeit reaktivieren.",
+      "reactivateTitle": "„{tenant}“ reaktivieren?",
+      "reactivateText": "Alle Mitglieder haben danach wieder Zugriff mit ihren bisherigen Rollen.",
+      "deleteTitle": "„{tenant}“ endgültig löschen?",
+      "deleteText": "Gelöscht werden alle Daten dieses Kunden: Mitgliedschaften, Einladungen, Änderungsprotokoll und künftig Wohnungen, Gäste, Buchungen und Zahlungen. Login-Konten, die zu keinem anderen Kunden gehören, werden ebenfalls gelöscht. Das lässt sich nicht rückgängig machen.",
+      "deleteLabel": "Zur Bestätigung den Kundennamen eintippen: {tenant}",
+      "cancel": "Abbrechen"
+    },
+    "danger": {
+      "title": "Kundenkonto",
+      "activeText": "Deaktivieren sperrt den Zugang für alle Mitglieder, ohne Daten zu löschen.",
+      "deactivatedText": "Der Kunde ist deaktiviert. Seine Mitglieder haben keinen Zugriff.",
+      "deleteHint": "Endgültig löschen ist erst möglich, wenn der Kunde deaktiviert ist."
+    },
+    "logTitle": "Protokoll",
+    "noLog": "Noch keine Betreiber-Aktionen.",
+    "log": {
+      "created": "Kunde angelegt",
+      "invited": "Inhaber eingeladen: {email}",
+      "resent": "Einladung erneut gesendet: {email}",
+      "revoked": "Einladung zurückgezogen: {email}",
+      "promoted": "Zum Inhaber gemacht: {email}",
+      "demoted": "Zum Mitarbeiter herabgestuft: {email}",
+      "removed": "Entfernt: {email}",
+      "deactivated": "Kunde deaktiviert",
+      "reactivated": "Kunde reaktiviert",
+      "deleted": "Kunde gelöscht",
+      "by": "{date} · {actor}"
+    },
+    "done": {
+      "created": "Kunde „{tenant}“ angelegt. Die Einladung an {email} ist unterwegs.",
+      "createdMailFailed": "Kunde „{tenant}“ angelegt, aber die Einladung konnte nicht verschickt werden. Bitte auf der Detailseite erneut senden.",
+      "invited": "Einladung an {email} verschickt.",
+      "promoted": "{name} ist jetzt Inhaber.",
+      "demoted": "{name} ist jetzt Mitarbeiter.",
+      "removed": "{name} wurde entfernt.",
+      "deactivated": "Kunde deaktiviert.",
+      "reactivated": "Kunde reaktiviert.",
+      "deleted": "Kunde „{tenant}“ endgültig gelöscht.",
+      "deletedAccountsLeft": "Kunde „{tenant}“ gelöscht. {count, plural, one {Ein Login-Konto konnte} other {# Login-Konten konnten}} nicht gelöscht werden (siehe Runbook)."
+    },
+    "validation": {
+      "nameRequired": "Bitte gib einen Kundennamen ein.",
+      "nameTooLong": "Der Name darf höchstens 200 Zeichen lang sein.",
+      "emailRequired": "Bitte gib eine E-Mail-Adresse ein.",
+      "emailInvalid": "Bitte gib eine gültige E-Mail-Adresse ein."
+    },
+    "errors": {
+      "duplicateName": "Es gibt bereits einen Kunden mit diesem Namen.",
+      "alreadyMember": "Diese Person gehört bereits zu diesem Kunden.",
+      "alreadyInvited": "An diese Adresse gibt es schon eine offene Einladung. Du kannst sie erneut senden.",
+      "lastOwner": "Jeder Kunde braucht mindestens einen Inhaber. Bestimme zuerst einen weiteren Inhaber.",
+      "invitationInvalid": "Diese Einladung ist nicht mehr gültig.",
+      "tenantGone": "Diesen Kunden gibt es nicht mehr.",
+      "notDeactivated": "Nur deaktivierte Kunden lassen sich endgültig löschen.",
+      "nameMismatch": "Der eingetippte Name stimmt nicht mit dem Kundennamen überein.",
+      "mailFailed": "Die Einladung konnte nicht verschickt werden. Bitte versuche es erneut.",
+      "accountsLeft": "Nicht alle Login-Konten konnten gelöscht werden.",
+      "network": "Keine Verbindung. Bitte prüfe deine Internetverbindung und versuche es erneut.",
+      "sessionExpired": "Deine Sitzung ist abgelaufen. Bitte melde dich erneut an.",
+      "notImplemented": "Diese Funktion wird gerade eingerichtet.",
+      "unknown": "Etwas ist schiefgelaufen. Bitte versuche es erneut."
+    }
   }
 }
