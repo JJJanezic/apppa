@@ -1,9 +1,31 @@
 # Runbook: Supabase (PROJ-1, PROJ-3)
 
-Entwicklung: Projekt **„apppa“** (Ref `nizgfmvjplhegoosanmu`, eu-west-1, Gratis-Tarif).
-Produktion: eigenes Projekt, vor dem Pilotstart anzulegen (siehe unten).
+## Umgebungen
 
-Alle Befehle im Ordner `apppa/apppa` ausführen. Die Supabase-CLI ist als Dev-Abhängigkeit installiert (`npx supabase …`).
+| | Entwicklung | Staging | Produktion |
+|---|---|---|---|
+| Supabase-Projekt | „apppa“ `nizgfmvjplhegoosanmu` (Gratis-Tarif) | `iikzjqjjxoznrkkixfqa` (Gratis-Tarif) | `ahclrqbhfpidxjzbpfgb` (Pro-Tarif, eigene Organisation) |
+| Git-Branch | `main` | `staging` | `production` |
+| App-Adresse | `http://localhost:3000`, Vercel-Vorschauen | `https://staging.apppa.at` | `https://app.apppa.at` |
+| Auth-Werte in `config.toml` | Grundwerte | `[remotes.staging]` | `[remotes.production]` |
+
+Alle in eu-west-1. Die CLI wendet den `[remotes.…]`-Block an, dessen `project_id` zum verlinkten Projekt passt (Ausgabe „Loading config override“). Alle anderen Einstellungen gelten für alle drei Projekte.
+
+**Ausliefern:** erst die Datenbank, dann der Code. Nur weiterschieben, nie direkt auf `staging`/`production` committen.
+
+```bash
+npx supabase link --project-ref iikzjqjjxoznrkkixfqa   # Staging
+npx supabase db push                                  # bei Änderungen an config.toml auch config push (Abschnitt 8)
+git push origin main:staging                          # Vercel baut staging.apppa.at; dort prüfen
+
+npx supabase link --project-ref ahclrqbhfpidxjzbpfgb   # Produktion
+npx supabase db push
+git push origin staging:production                    # Vercel baut app.apppa.at
+
+npx supabase link --project-ref nizgfmvjplhegoosanmu   # immer zurück auf Entwicklung
+```
+
+Alle Befehle im Hauptordner des Repositorys ausführen. Die Supabase-CLI ist als Dev-Abhängigkeit installiert (`npx supabase …`).
 
 ## 1. Einmalig: CLI verbinden
 
@@ -63,16 +85,20 @@ select private.enable_tenant_table('public.<tabelle>');  -- Standardfelder + Än
 Admin-Rechte entziehen: dieselbe Anweisung mit `false`.
 Angemeldete Nutzer können das Kennzeichen nicht ändern (Spaltenrechte + Trigger). Mit dem Secret Key ist es serverseitig möglich. Die automatischen Tests nutzen das, App-Code darf es nicht.
 
-## 5. Produktionsprojekt (vor dem Pilotstart)
+## 5. Staging- und Produktionsprojekt einrichten
 
-1. Neues Projekt anlegen: Region **eu-west-1**, Pro-Tarif
-2. `npx supabase link --project-ref <prod-ref>` → `db push` → `config push`
-3. In `supabase/config.toml` bzw. im Dashboard: `site_url` und Weiterleitungsadressen auf die Vercel-Adresse setzen; *Authentication → Policies*: Prüfung gegen geleakte Passwörter aktivieren
-4. Eigenen Mailversand einrichten (Abschnitt 8, Brevo). `site_url` muss die Produktionsadresse sein, sonst zeigen die Mail-Links auf localhost
-5. *Authentication → Sessions*: „Time-box user sessions“ 30 Tage und „Inactivity timeout“ 8 Stunden setzen (Pro-Tarif; zusätzlich zur Prüfung in der App)
-6. In Vercel (Umgebung *Production*) die drei Variablen aus `.env.local.example` mit den Werten des Produktionsprojekts setzen
-7. Ersten Admin wie in Abschnitt 4 einrichten
+Stand 2026-10-24: Beide Projekte sind angelegt, alle Migrationen eingespielt, Advisors ohne Befund. Offen sind die Schritte 4–7.
+
+1. Neues Projekt anlegen: Region **eu-west-1**, Option **„Enable automatic RLS“ ankreuzen**. Die Migration `restrict_rls_auto_enable` setzt die Funktion `public.rls_auto_enable()` voraus und bricht ohne sie ab. Vergessen: Funktion und Event-Trigger `ensure_rls` im SQL-Editor nachbauen. Die Vorlage ist die Definition in „apppa“ (`select pg_get_functiondef('public.rls_auto_enable()'::regprocedure)`). Beim Kopieren aus dem Terminal gehen `$$` verloren, deshalb über eine Datei und `pbcopy` kopieren.
+2. Neues Projekt mit Ref und Adressen als `[remotes.<name>]` in `supabase/config.toml` eintragen
+3. `npx supabase link --project-ref <ref>` → `db push` → `db advisors --linked`
+4. `config push` mit den SMTP-Variablen (Abschnitt 8). Ohne ihn bleiben die Mails englisch und die Links zeigen auf localhost
+5. Ersten Admin wie in Abschnitt 4 einrichten
+6. In Vercel die Variablen aus `.env.local.example` mit den Werten des Projekts setzen: Produktion in der Umgebung *Production*, Staging unter *Preview* nur für den Branch `staging`
+7. **Nur Produktion:** *Authentication → Policies*: Prüfung gegen geleakte Passwörter aktivieren. *Authentication → Sessions*: „Time-box user sessions“ 30 Tage und „Inactivity timeout“ 8 Stunden (Pro-Tarif; zusätzlich zur Prüfung in der App). Backups siehe Abschnitt 6
 8. Danach wieder mit der Entwicklung verbinden: `npx supabase link --project-ref nizgfmvjplhegoosanmu`
+
+**`npm test` nie gegen Staging oder Produktion laufen lassen.** Die Integrationstests legen Nutzer und Mandanten an und löschen sie wieder (Abschnitt 7).
 
 ## 6. Backups und Test-Wiederherstellung (Produktion)
 
@@ -101,7 +127,7 @@ Supabase verschickt Einladungen, Passwort-Reset-Mails und den Hinweis „Passwor
 1. Brevo → *Senders, Domains & Dedicated IPs → Domains*: Absender-Domain hinzufügen, die angezeigten DNS-Einträge (Brevo-Code, DKIM, DMARC) beim Domain-Anbieter eintragen, „Authenticate“ wählen.
 2. Brevo → *Senders*: Absender anlegen, derzeit `no-reply@apppa.at` (Domain `apppa.at`), Name „apppa“.
 3. Brevo → *SMTP & API → SMTP*: SMTP-Login ablesen (Form `…@smtp-brevo.com`) und einen SMTP-Schlüssel erzeugen.
-4. Im Terminal (Ordner `apppa/apppa`). Mit einem führenden Leerzeichen landet der Befehl nicht im Shell-Verlauf:
+4. Im Terminal (Hauptordner des Repositorys). Mit einem führenden Leerzeichen landet der Befehl nicht im Shell-Verlauf:
    ```bash
     SUPABASE_AUTH_SMTP_SENDER='no-reply@apppa.at' \
     SUPABASE_AUTH_SMTP_USER='<login>@smtp-brevo.com' \

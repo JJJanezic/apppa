@@ -233,6 +233,7 @@ Repository
 - Erlaubte Weiterleitungsadressen: localhost (Entwicklung), später die Vercel-Adresse
 
 **Umgebungen:** Lokale Entwicklung und Vercel-Vorschauen nutzen „apppa“; die Vercel-Produktion nutzt das spätere Produktionsprojekt. Getrennte Werte pro Umgebung in Vercel.
+*Ergänzt 2026-10-24:* Zusätzlich gibt es ein Staging-Projekt. Es gibt also drei Umgebungen: Entwicklung (`main`, „apppa“), Staging (`staging`, staging.apppa.at) und Produktion (`production`, app.apppa.at, Pro-Tarif in eigener Organisation). Die Auth-Adressen je Projekt stehen als `[remotes.…]` in `config.toml`. Details stehen im Runbook unter „Umgebungen“.
 
 **Erster Admin:** Er wird über die Supabase-Oberfläche zu `joachim@janezic.at` eingeladen. Danach wird das Admin-Kennzeichen einmalig per Anleitung im Runbook direkt in der Datenbank gesetzt (nicht über eine Migration, weil die Konto-ID je Umgebung verschieden ist).
 
