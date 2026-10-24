@@ -121,7 +121,7 @@
 - Sicherheit: Bis PROJ-3 nur lokal bzw. in Vercel-Vorschauen erreichbar, keine Veröffentlichung
 
 ## Open Questions
-- [ ] Wo leben „Wohnungen“ (PROJ-6) und „Marketing“ (PROJ-19)? Der Entwurf hat dafür keinen eigenen Menüpunkt. Vorschlag: Wohnungen unter „Einstellungen“, Marketing unter „Gäste“; endgültig mit /write-spec PROJ-6 bzw. PROJ-19 klären
+- [ ] Wo leben „Wohnungen“ (PROJ-6, geklärt 2026-10-24: unter „Einstellungen → Wohnungen“) und „Marketing“ (PROJ-19)? Der Entwurf hat dafür keinen eigenen Menüpunkt. Vorschlag: Wohnungen unter „Einstellungen“, Marketing unter „Gäste“; endgültig mit /write-spec PROJ-6 bzw. PROJ-19 klären
 - [ ] Welche Bereiche sieht ein Mitarbeiter genau? Laut PRD keine Zahlungen und Auswertungen; der Entwurf zeigt Mitarbeitern zudem andere Kennzahlen. Endgültige Zuordnung in PROJ-4
 - [ ] Handy-Ansicht: Optional in Claude Design nachzeichnen, bevor /frontend PROJ-2 baut; sonst gilt die hier beschriebene untere Leiste
 - [ ] Logo/Favicon: Bis auf Weiteres nur die Wortmarke; ein Favicon (z. B. „a.“) bei /frontend festlegen
