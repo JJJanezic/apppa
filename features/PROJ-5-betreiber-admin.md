@@ -1,6 +1,6 @@
 # PROJ-5: Betreiber-Admin
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-10-24
 **Last Updated:** 2026-10-24
 
@@ -130,7 +130,7 @@
 
 ## Open Questions
 - [ ] E-Mail-Adresse eines Kontos durch den Betreiber ändern (in PROJ-3 dem Betreiber zugewiesen): in PROJ-5 aufnehmen oder per Runbook (Empfehlung: vorerst Runbook, bei Bedarf in der Support-Ansicht)
-- [ ] Aufbewahrungsdauer des Löschnachweises (Empfehlung: wie Änderungsprotokoll, 2 Jahre)
+- [x] Aufbewahrungsdauer des Löschnachweises: 2 Jahre wie das Änderungsprotokoll (siehe Technical Decisions)
 - [ ] AVV-Vorlage für Kunden: Regelung zur Löschung nach Vertragsende (Frist, Bestätigung an den Kunden) – rechtlich, nicht technisch
 
 ## Decision Log
@@ -151,12 +151,110 @@
 ### Technical Decisions
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Admin-Aktionen als einzelne Datenbankfunktionen mit eigener Admin- und 2FA-Prüfung statt allgemeiner Admin-Schreibregeln | Schutz auch ohne Oberfläche; Admin bleibt ohne Schreibrechte auf Fachdaten (PROJ-1); Änderung und Protokoll in einem Zug | 2026-10-24 |
+| Server-Aktionen (kein eigenes API) für die Betreiber-Seiten | Gleiches Muster wie PROJ-3/4; Mailversand und Löschen von Login-Konten brauchen den Server | 2026-10-24 |
+| Anzeigestatus „Einladung offen“ wird abgeleitet, keine neue Spalte | Kein doppelter Zustand, der auseinanderlaufen kann | 2026-10-24 |
+| Eigenes Betreiber-Protokoll statt Mitbenutzung des Änderungsprotokolls | Muss die Löschung des Kunden überdauern, ist nur für den Admin bestimmt und enthält Aktionen ohne Datenänderung (z. B. „erneut gesendet“) | 2026-10-24 |
+| Betreiber-Protokoll 2 Jahre aufbewahrt; beim Löschen eines Kunden Personenangaben entfernt, Löschnachweis bleibt | Gleiche Frist wie das Änderungsprotokoll; DSGVO-Nachweis ohne Personendaten (beantwortet offene Frage) | 2026-10-24 |
+| Endgültiges Löschen zweistufig: Datenbank löscht Kundendaten und nennt verwaiste Konten, Server löscht diese Login-Konten | Login-Konten lassen sich nur über die Supabase-Verwaltung löschen; Fehler beim Konto-Löschen sind harmlos und nachholbar | 2026-10-24 |
+| Kundenliste mit Suche über die Adresse (Suchbegriff und Seite in der URL), 50 je Seite | Bleibt bei 200+ Kunden schnell; Suche lässt sich als Link teilen und per Zurück-Taste wiederherstellen | 2026-10-24 |
+| Letzte Anmeldung über eine nur für den Admin freigegebene Abfrage der Login-Verwaltung | Anmeldezeiten liegen nicht im öffentlichen Datenbankteil | 2026-10-24 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### Ausgangslage (bereits vorhanden)
+- **Status je Kunde** gibt es seit PROJ-1 („aktiv“ / „deaktiviert“). Alle Zugriffsregeln prüfen ihn schon: Mitglieder eines deaktivierten Kunden sehen dessen Daten nicht, können nicht einladen, und offene Einladungen lassen sich nicht annehmen. Für „Deaktivieren“ muss nur der Status umgeschaltet werden.
+- **Admin-Prüfung** gibt es ebenfalls schon in der Datenbank: Admin-Kennzeichen am Profil **und** eine mit 2FA bestätigte Sitzung. Der Admin darf bereits alles lesen, aber nichts schreiben.
+- **Schutz des letzten Inhabers** greift in der Datenbank und gilt damit auch für den Admin. Löscht man einen ganzen Kunden, lässt die Regel das zu.
+- **Einladungsablauf** aus PROJ-4 (Art der Einladung bestimmen, Einladungsmail bzw. Hinweis-Mail, unbenutzte Konten aufräumen) wird unverändert wiederverwendet.
+
+### A) Seiten und Bausteine
+
+```
+Navigation (Seitenleiste / „Mehr“ am Handy)
++-- neuer Punkt „Betreiber“ (nur Admin mit 2FA)
+
+/betreiber – Kundenliste
++-- Kopf: Titel „Kunden“ + Knopf „Kunde anlegen“
++-- Suchfeld (Name oder E-Mail, aktualisiert die Adresse → Suche lässt sich als Link teilen und merken)
++-- Liste
+|   +-- Desktop/Tablet: Tabelle (Name, Status, Inhaber, Mitglieder, angelegt, letzte Anmeldung)
+|   +-- Handy: Karten (Name, Status, Inhaber)
+|   +-- Seitenweise Anzeige (50 je Seite)
++-- Leerzustand „Noch kein Kunde“ bzw. „Kein Kunde gefunden“
++-- Seitenblatt „Kunde anlegen“ (Kundenname, E-Mail des ersten Inhabers, Namens-Hinweis bei Dublette)
+
+/betreiber/kunden/[id] – Detailseite
++-- Kopf: Kundenname, Status-Abzeichen, Zurück zur Liste
++-- Abschnitt „Mitglieder“ (Name, E-Mail, Rolle, Aktionen nur bei Inhabern/Mitarbeiter→Inhaber)
+|   +-- Hinweis beim letzten Inhaber
++-- Abschnitt „Einladungen“ (offen/abgelaufen; erneut senden, zurückziehen) + „Inhaber einladen“
++-- Abschnitt „Protokoll“ (Admin-Aktionen, neueste zuerst)
++-- Abschnitt „Gefahrenzone“
+    +-- Deaktivieren bzw. Reaktivieren (Bestätigungsdialog)
+    +-- Endgültig löschen (nur wenn deaktiviert; Dialog mit Eintippen des Namens)
+
+Bestehende Seiten, angepasst
++-- Dashboard ohne Kunde: Admin ohne Mitgliedschaft wird zu /betreiber weitergeleitet
++-- Hinweis „Kundenkonto deaktiviert“ statt „keinem Kunden zugeordnet“, wenn alle Kunden der Person deaktiviert sind
+```
+
+Wiederverwendet werden die vorhandenen shadcn-Bausteine (Table, Badge, Sheet, Dialog, AlertDialog, Input, Pagination, DropdownMenu) sowie die eigenen Bausteine Bestätigungsdialog, Seitenkopf und Leerzustand. Die Mitglieder- und Einladungslisten orientieren sich am Aufbau der Team-Seite aus PROJ-4.
+
+### B) Datenmodell (in Worten)
+
+**Keine neue Spalte am Kunden.** Der angezeigte Status ergibt sich aus Vorhandenem:
+- „deaktiviert“ = Status deaktiviert
+- „Einladung offen“ = aktiv, aber noch kein Mitglied (mit Zusatz „abgelaufen“ bzw. „keine offene Einladung“)
+- „aktiv“ = aktiv mit mindestens einem Mitglied
+
+**Neu: Betreiber-Protokoll** (eine Zeile je Admin-Aktion)
+- Zeitpunkt, ausführender Admin
+- Kunde (Kennung **und** Name zum Zeitpunkt der Aktion, damit Einträge die Löschung überdauern)
+- Aktion (angelegt, eingeladen, erneut gesendet, zurückgezogen, befördert, herabgestuft, entfernt, deaktiviert, reaktiviert, gelöscht)
+- Betroffene Person (E-Mail-Adresse), falls zutreffend
+- Nur für den Admin lesbar; niemand kann Einträge ändern oder löschen, außer der automatischen Bereinigung nach **2 Jahren** (wie das Änderungsprotokoll)
+- Beim endgültigen Löschen eines Kunden werden die Personenangaben in seinen Einträgen entfernt, der Eintrag „gelöscht“ (Kundenname, Zeitpunkt, Admin) bleibt als Nachweis
+
+**Für die Kundenliste** liefert eine Abfrage je Kunde: Name, Status, Inhaber (Name, E-Mail) bzw. eingeladene Adresse, Anzahl Mitglieder, Anlegedatum und die jüngste Anmeldung eines Mitglieds. Die Anmeldezeit liegt in der geschützten Login-Verwaltung von Supabase; die Abfrage darf sie nur für den Admin auslesen.
+
+**Für den Hinweis „deaktiviert“** gibt es eine kleine Abfrage „Gehöre ich zu einem deaktivierten Kunden?“, die nur über die eigene Person Auskunft gibt.
+
+### C) Wie Admin-Aktionen geschützt sind
+
+Jede Admin-Aktion ist eine **eigene, eng umrissene Datenbankfunktion** (z. B. „Kunde anlegen“, „Inhaber herabstufen“, „Kunde deaktivieren“). Jede prüft zuerst selbst: Admin-Kennzeichen **und** 2FA-Sitzung. Danach führt sie genau diese eine Änderung aus und schreibt den Protokolleintrag in einem Zug. Dadurch gilt:
+- Der Schutz greift auch bei direktem Aufruf ohne Oberfläche.
+- Der Admin bekommt **keine** allgemeinen Schreibrechte auf Kundendaten, die Entscheidung aus PROJ-1 bleibt bestehen.
+- Protokoll und Änderung können nicht auseinanderlaufen.
+
+Die Server-Aktionen der Seiten prüfen den Admin ebenfalls (erste Ebene) und kümmern sich um das, was die Datenbank nicht kann: Mails verschicken (Einladungsablauf aus PROJ-4) und Login-Konten löschen.
+
+**Endgültig löschen** läuft in zwei Schritten:
+1. Datenbankfunktion: prüft „deaktiviert“ und den exakt eingetippten aktuellen Namen. Dann ermittelt sie die Mitglieder, die danach zu keinem Kunden mehr gehören, keine offene Einladung haben und nicht Admin sind. Sie löscht den Kunden samt Mitgliedschaften, Einladungen und künftig allen Fachdaten (automatisch über die Verknüpfung zum Kunden) sowie seine Einträge im Änderungsprotokoll, schreibt den Löschnachweis und gibt die Liste der verwaisten Konten zurück.
+2. Server-Aktion: löscht diese Login-Konten. Schlägt das bei einem Konto fehl, bleibt es ohne Kunde bestehen (harmlos: es sieht nichts). Der Admin erhält einen Hinweis, und das Runbook beschreibt das Nachlöschen.
+
+**Kunde anlegen** legt den Kunden und die Inhaber-Einladung in einem Zug an. Danach wird die Mail verschickt. Schlägt der Versand fehl, bleiben Kunde und Einladung bestehen, und der Admin sieht „Einladung erneut senden“ (wie AC). Als einladende Person nennt die Mail den Namen des Admins.
+
+### D) Zugang und Navigation
+- Neuer Navigationspunkt „Betreiber“, der unabhängig von der Rolle beim gewählten Kunden nur für den Admin erscheint. Der App-Rahmen erfährt dafür zusätzlich „ist Admin“.
+- Der Bereich `/betreiber` prüft auf dem Server: Ohne Admin-Kennzeichen erscheint „Seite nicht gefunden“ (wie bei den Einstellungen in PROJ-4). Mit Kennzeichen, aber ohne 2FA in dieser Sitzung, geht es zur 2FA-Abfrage (aus PROJ-3).
+- Startseite: Ein Admin ohne Kunden-Mitgliedschaft wird vom Dashboard direkt zu `/betreiber` geleitet.
+
+### E) Was sich an bestehendem Verhalten ändert (Freigabe nötig, sicherheitsrelevant)
+- **Neue Admin-Datenbankfunktionen** mit Schreibwirkung auf Kunden, Mitgliedschaften und Einladungen. Sie sind ausschließlich für Admin + 2FA nutzbar. Bestehende Zugriffsregeln für Inhaber und Mitarbeiter bleiben unverändert.
+- **Neue Tabelle Betreiber-Protokoll** mit Zugriffsregeln: nur der Admin liest, niemand schreibt direkt.
+- **Neue Auskunftsfunktion** „bin ich Mitglied eines deaktivierten Kunden“ (nur über die eigene Person).
+- Login-Konten werden beim endgültigen Löschen eines Kunden serverseitig gelöscht (bisher nur beim Zurückziehen unbenutzter Einladungen).
+
+### F) Tests
+- **Integrationstests gegen „apppa“:** Jede Admin-Funktion verweigert Nicht-Admins und Admins ohne 2FA. Letzter Inhaber geschützt. Löschen nur bei deaktivierten Kunden und nur mit richtigem Namen. Verwaiste Konten werden korrekt ermittelt; Konten mit anderem Kunden und das Admin-Konto bleiben. Protokolleinträge und Löschnachweis ohne Personendaten. Deaktivierte Kunden sind für Mitglieder unsichtbar.
+- **E2E (Playwright):** Liste, Suche, Anlegen (mit vorhandenem Testkonto, damit keine Mail an Fremdadressen geht), Detailseite, Inhaber-Aktionen, Deaktivieren/Reaktivieren mit Hinweis für Mitglieder, Löschen mit Namensbestätigung, 404 für Nicht-Admins, Handy-Ansicht. Ein Test-Admin mit 2FA wird wie in PROJ-3 per TOTP angemeldet.
+
+### G) Abhängigkeiten
+- Keine neuen Pakete.
 
 ## QA Test Results
 _To be added by /qa_
