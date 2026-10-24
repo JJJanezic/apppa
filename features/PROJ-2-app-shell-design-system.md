@@ -295,7 +295,7 @@ _Stand 2026-10-14 (/frontend)_
 - Rahmenlinien (`neutral-300`) sind dekorativ und haben nur 1,3:1 Kontrast. Für Eingabefelder (ab PROJ-3) braucht es mindestens 3:1
 - Playwright nutzt das installierte Google Chrome (`channel: 'chrome'`, Projekte desktop 1440, tablet 768, mobile 375 px); der Download von Playwright-Chromium blieb beim Entpacken hängen und wird nicht mehr gebraucht. Mobile Safari (WebKit) ist als Testgerät entfallen
 - Sichtprüfung 2026-10-14 in Chrome: Seitenleiste ab 1024 px, untere Leiste bei 768/375 px, kein waagrechtes Scrollen, „Mehr“-Blatt funktioniert, `/buchungen` liefert 404, Tab-Titel „Dashboard · apppa“. Behoben: Beim Öffnen von „Mehr“ sprang der Tooltip des Kundennamens auf (Name war fokussierbar)
-- Build-Hinweis: Next.js findet eine zweite `package-lock.json` im übergeordneten Ordner `/Users/jjj/Documents/apppa/` und warnt wegen des Projektstamms
+- Build-Hinweis: Next.js findet eine zweite `package-lock.json` im übergeordneten Ordner `/Users/jjj/Documents/apppa/` und warnt wegen des Projektstamms. Erledigt am 2026-10-24: Das Projekt liegt jetzt direkt in `Documents/apppa`, die überzählige Lockfile ist entfernt
 
 **Fixes nach QA (2026-10-14, /frontend)**
 - BUG-1: Breite der Seitenleiste 236 px per `style` an `SidebarProvider` (überschreibt den Inline-Standard 16rem); der wirkungslose Eintrag in `globals.css` ist entfernt
