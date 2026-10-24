@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest'
 
-import { isActivePath, isAreaAvailable, mobileNav, NAV_ITEMS, type NavItem, visibleNavItems } from './navigation'
+import {
+  areaForPath,
+  isActivePath,
+  isAreaAvailable,
+  isPathAvailable,
+  mobileNav,
+  NAV_ITEMS,
+  type NavItem,
+  visibleNavItems,
+} from './navigation'
 
 const item = (id: NavItem['id'], over: Partial<NavItem> = {}): NavItem => ({
   id,
@@ -89,5 +98,24 @@ describe('Erreichbarkeit und aktiver Punkt', () => {
     expect(isActivePath('/buchungen', '/buchungen')).toBe(true)
     expect(isActivePath('/buchungen', '/buchungen/123')).toBe(true)
     expect(isActivePath('/buchungen', '/buchungenarchiv')).toBe(false)
+  })
+})
+
+describe('Rücksprung-Ziele nach der Anmeldung', () => {
+  it('ordnet Adressen samt Unterseiten einem Bereich zu', () => {
+    expect(areaForPath('/einstellungen/team')?.id).toBe('settings')
+    expect(areaForPath('/betreiber/kunden/123')?.id).toBe('operator')
+    expect(areaForPath('/konto')).toBeNull()
+    expect(areaForPath('/')).toBeNull()
+  })
+
+  it('gesperrte Bereiche sind kein Ziel, Seiten außerhalb der Bereiche schon', () => {
+    const admin = { role: 'staff', isAdmin: true } as const
+    expect(isPathAvailable('/einstellungen', admin)).toBe(false)
+    expect(isPathAvailable('/betreiber', admin)).toBe(true)
+    expect(isPathAvailable('/einstellungen/team', 'owner')).toBe(true)
+    expect(isPathAvailable('/betreiber', 'owner')).toBe(false)
+    expect(isPathAvailable('/buchungen', 'owner')).toBe(false)
+    expect(isPathAvailable('/konto', 'staff')).toBe(true)
   })
 })

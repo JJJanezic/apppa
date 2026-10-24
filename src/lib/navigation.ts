@@ -72,3 +72,15 @@ export function isActivePath(href: string, pathname: string): boolean {
   if (href === '/') return pathname === '/'
   return pathname === href || pathname.startsWith(`${href}/`)
 }
+
+// Zu welchem Bereich gehört eine Adresse? (Unterseiten zählen mit; „/“ allein ist das Dashboard)
+export function areaForPath(pathname: string, items: readonly NavItem[] = NAV_ITEMS): NavItem | null {
+  return items.find((item) => item.href !== '/' && isActivePath(item.href, pathname)) ?? null
+}
+
+// Darf die Person diese Adresse öffnen? Seiten außerhalb der Bereiche (z. B. /konto) immer.
+// Für den Rücksprung nach der Anmeldung: Ein gesperrter Bereich führt dann zur Startseite statt zu „Seite nicht gefunden“.
+export function isPathAvailable(pathname: string, who: Role | Viewer, items: readonly NavItem[] = NAV_ITEMS): boolean {
+  const area = areaForPath(pathname, items)
+  return !area || isAreaAvailable(area.id, who, items)
+}

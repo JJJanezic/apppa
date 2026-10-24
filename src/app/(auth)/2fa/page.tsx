@@ -5,7 +5,7 @@ import { getTranslations } from 'next-intl/server'
 import { AuthCard } from '@/components/auth/auth-card'
 import { MfaChallenge } from '@/components/auth/mfa-challenge'
 import { getSessionUser, pendingMfaStep } from '@/lib/auth/session'
-import { safeRedirectPath } from '@/lib/safe-redirect'
+import { landingPath, safeRedirectPath } from '@/lib/safe-redirect'
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations('auth.mfa')
@@ -23,7 +23,7 @@ export default async function MfaPage({ searchParams }: { searchParams: SearchPa
   const user = await getSessionUser()
   if (!user) redirect('/anmelden')
   const step = await pendingMfaStep(user)
-  if (step === null) redirect(target ?? '/')
+  if (step === null) redirect(landingPath(target ?? '/'))
   if (step === '/2fa/einrichten') redirect(step)
 
   const t = await getTranslations('auth.mfa')

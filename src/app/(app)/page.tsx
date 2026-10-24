@@ -9,7 +9,9 @@ import { PageHeader } from '@/components/page-header'
 import { MyInvitations } from '@/components/tenant/my-invitations'
 import { requireArea } from '@/lib/areas'
 import { greetingFor } from '@/lib/greeting'
-import { getShellInfo } from '@/lib/shell'
+import { isPathAvailable } from '@/lib/navigation'
+import { safeRedirectPath } from '@/lib/safe-redirect'
+import { getShellInfo, viewerOf } from '@/lib/shell'
 import { getMyInvitations } from '@/lib/team-data'
 import { belongsToDeactivatedTenant } from '@/lib/tenant'
 
@@ -21,7 +23,8 @@ export async function generateMetadata(): Promise<Metadata> {
 // Dashboard (Startseite). Inhalte folgen mit PROJ-14; bis dahin Leerzustand.
 // PROJ-4: Einladungen an mich oben; ohne Kunde der Hinweis „keinem Kunden zugeordnet“.
 // PROJ-5: Admin ohne eigenen Kunden startet im Betreiber-Bereich; nur deaktivierte Kunden → Hinweis „deaktiviert“.
-export default async function DashboardPage() {
+// ?weiter=…: Rücksprung-Ziel nach der Anmeldung – nur, wenn der Bereich für die Person erreichbar ist.
+export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ weiter?: string | string[] }> }) {
   await requireArea('dashboard')
   // Datum und Begrüßung bei jedem Aufruf neu berechnen (nicht beim Bauen einfrieren)
   await connection()
@@ -29,7 +32,11 @@ export default async function DashboardPage() {
   const t = await getTranslations('dashboard')
   const format = await getFormatter()
   const tTenant = await getTranslations('tenant')
-  const { person, tenant } = await getShellInfo()
+  const shell = await getShellInfo()
+  const { person, tenant } = shell
+  const { weiter } = await searchParams
+  const target = safeRedirectPath(Array.isArray(weiter) ? weiter[0] : weiter, 'https://app.local')
+  if (target !== '/' && isPathAvailable(new URL(target, 'https://app.local').pathname, viewerOf(shell))) redirect(target)
   const invitations = await getMyInvitations()
   const noTenant = tenant.list !== null && tenant.list.length === 0
   if (noTenant && person.isAdmin) redirect('/betreiber')

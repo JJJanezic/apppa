@@ -19,3 +19,9 @@ export function safeRedirectPath(next: string | null | undefined, origin: string
 
   return path
 }
+
+// Nach der Anmeldung nicht direkt zum Rücksprung-Ziel, sondern über das Dashboard: Erst dort sind Kunde,
+// Rolle und Admin-Status bekannt; es leitet weiter, wenn der Bereich für die Person erreichbar ist.
+export function landingPath(next: string): string {
+  return next === '/' ? '/' : `/?weiter=${encodeURIComponent(next)}`
+}

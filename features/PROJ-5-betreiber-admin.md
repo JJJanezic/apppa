@@ -367,6 +367,19 @@ Die Server-Aktionen der Seiten prüfen den Admin ebenfalls (erste Ebene) und kü
 - Gesamte Vitest-Suite: 205 Tests grün.
 - Ablauf im Browser geprüft: Anlegen mit bestehendem Testkonto, Deaktivieren, Löschen mit Namensbestätigung.
 
+## Bugfix: Rücksprung nach der Anmeldung (2026-10-24, vom Nutzer gemeldet)
+- **Fehler:** Die Anmeldeseite merkt sich das gewünschte Ziel (`?next=…`), z. B. von einem alten Tab. Nach der Anmeldung (bzw. nach der 2FA) wurde blind dorthin gesprungen. Lag das Ziel in einem Bereich, der für die Person gesperrt ist (Einstellungen ohne Inhaber-Rolle, Betreiber-Bereich ohne Admin), erschien „Seite nicht gefunden“.
+- **Behebung:**
+  - Anmeldung und 2FA leiten über das Dashboard weiter (`/?weiter=…`, `landingPath` in `src/lib/safe-redirect.ts`).
+  - Das Dashboard kennt Kunde, Rolle und Admin-Status. Es springt nur weiter, wenn der Bereich erreichbar ist (`isPathAvailable` in `src/lib/navigation.ts`); sonst zeigt es die Startseite bzw. leitet den Admin zum Betreiber-Bereich.
+  - Direkter Aufruf eines gesperrten Bereichs bleibt „Seite nicht gefunden“ (404).
+  - Der Schutz vor fremden Zielen (`safeRedirectPath`) gilt weiterhin auf beiden Stufen.
+- **Tests:**
+  - Unit-Tests für `areaForPath`, `isPathAvailable` und `landingPath`.
+  - Zwei E2E-Tests in `tests/PROJ-3-authentifizierung.spec.ts`: gesperrter Bereich → Startseite, erlaubter Bereich → Ziel.
+  - Die Erwartung nach der 2FA-Einrichtung des Admins ist jetzt `/betreiber` (PROJ-5-Verhalten).
+  - PROJ-3-Abläufe auf Desktop: 31 Tests grün.
+
 ## QA Test Results
 _To be added by /qa_
 

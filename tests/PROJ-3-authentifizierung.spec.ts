@@ -2,6 +2,7 @@ import AxeBuilder from '@axe-core/playwright'
 import { expect, type Page, test as base } from '@playwright/test'
 
 import {
+  createTenant,
   createUser,
   deleteUser,
   type E2EUser,
@@ -108,6 +109,24 @@ test.describe('Abläufe', () => {
       await login(page, user, '/anmelden?next=%2Fkonto')
       await expect(page).toHaveURL('/konto')
       await expect(page.getByRole('heading', { name: 'Mein Konto' })).toBeVisible()
+    })
+
+    test('Regression: Rücksprung in einen gesperrten Bereich → Startseite statt „Seite nicht gefunden“', async ({ page, users }) => {
+      // Person ohne Inhaber-Rolle, gemerktes Ziel /einstellungen (z. B. alter Tab)
+      const user = await users()
+      await login(page, user, '/anmelden?next=%2Feinstellungen')
+      await expect(page).toHaveURL(/\/\?weiter=/)
+      await expect(page.getByRole('heading', { name: 'Du bist noch keinem Kunden zugeordnet' })).toBeVisible()
+      // Direkter Aufruf bleibt „Seite nicht gefunden“
+      const response = await page.goto('/einstellungen')
+      expect(response?.status()).toBe(404)
+    })
+
+    test('Rücksprung in einen erlaubten Bereich führt dorthin (Inhaber → Einstellungen)', async ({ page, users }) => {
+      const user = await users()
+      await createTenant('Testkunde Rücksprung', [{ user, role: 'owner' }])
+      await login(page, user, '/anmelden?next=%2Feinstellungen%2Fteam')
+      await expect(page).toHaveURL('/einstellungen/team')
     })
 
     test('AC: Doppelklick sendet nur einen Versuch, Knopf zeigt Ladezustand', async ({ page, users }) => {
@@ -419,7 +438,8 @@ test.describe('Abläufe', () => {
       const code1 = await freshCode(secret1)
       await typeCode(page, code1)
       await page.getByRole('button', { name: 'Einrichten' }).click()
-      await expect(page).toHaveURL('http://localhost:3000/')
+      // Admin ohne eigenen Kunden startet im Betreiber-Bereich (PROJ-5)
+      await expect(page).toHaveURL('/betreiber')
 
       // Zweites Gerät unter Mein Konto
       await page.goto('/konto')

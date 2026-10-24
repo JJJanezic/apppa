@@ -13,7 +13,7 @@ import {
   startSessionLimits,
 } from '@/lib/auth/session'
 import { getClientEnv } from '@/lib/env'
-import { safeRedirectPath } from '@/lib/safe-redirect'
+import { landingPath, safeRedirectPath } from '@/lib/safe-redirect'
 import { rememberTenant } from '@/lib/tenant'
 import { createClient } from '@/lib/supabase/server'
 import {
@@ -70,7 +70,7 @@ export async function signIn(values: LoginValues & { next?: string }): Promise<A
     const hasDevice = (data.user.factors ?? []).some((f) => f.factor_type === 'totp' && f.status === 'verified')
     return { ok: true, redirectTo: hasDevice ? `/2fa?next=${encodeURIComponent(next)}` : '/2fa/einrichten' }
   }
-  return { ok: true, redirectTo: next }
+  return { ok: true, redirectTo: landingPath(next) }
 }
 
 // Reset-Mail anfordern. Antwortet immer gleich (neutral), auch wenn kein Konto existiert oder das Limit erreicht ist.
@@ -172,7 +172,7 @@ export async function verifyMfa(values: OtpValues & { next?: string }): Promise<
 
   const result = await verifyTotp(parsed.data.code, null)
   if (!result.ok) return result
-  return { ok: true, redirectTo: safeRedirectPath(values.next, APP_ORIGIN) }
+  return { ok: true, redirectTo: landingPath(safeRedirectPath(values.next, APP_ORIGIN)) }
 }
 
 // 2FA-Einrichtung starten: QR-Code (SVG-Daten-URL) und Schlüssel zum Abtippen.

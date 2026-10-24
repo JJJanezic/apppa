@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { safeRedirectPath } from './safe-redirect'
+import { landingPath, safeRedirectPath } from './safe-redirect'
 
 const origin = 'https://app.example'
 
@@ -44,5 +44,13 @@ describe('safeRedirectPath', () => {
 
   it('nutzt den angegebenen Rückfallpfad', () => {
     expect(safeRedirectPath('//evil.com', origin, '/login')).toBe('/login')
+  })
+})
+
+describe('landingPath', () => {
+  it('führt über das Dashboard, das den Bereich prüft', () => {
+    expect(landingPath('/')).toBe('/')
+    expect(landingPath('/einstellungen/team')).toBe('/?weiter=%2Feinstellungen%2Fteam')
+    expect(landingPath('/buchungen?monat=2026-10')).toBe('/?weiter=%2Fbuchungen%3Fmonat%3D2026-10')
   })
 })
