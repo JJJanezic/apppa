@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils'
 const TABS = [
   { href: '/einstellungen/team', key: 'team' },
   { href: '/einstellungen/kunde', key: 'tenant' },
+  { href: '/einstellungen/wohnungen', key: 'apartments' },
 ] as const
 
 // Reiter der Einstellungen als Links (eigene Adressen, Zurück-Taste funktioniert)

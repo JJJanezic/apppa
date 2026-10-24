@@ -1,0 +1,325 @@
+'use client'
+
+import { zodResolver } from '@hookform/resolvers/zod'
+import { useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
+import { useState } from 'react'
+import { type Resolver, useForm, useWatch } from 'react-hook-form'
+import { toast } from 'sonner'
+
+import {
+  createApartment,
+  deleteApartment,
+  setApartmentArchived,
+  updateApartment,
+} from '@/app/(app)/einstellungen/wohnungen/actions'
+import { PropertyFields } from '@/components/apartments/property-fields'
+import { callAction, FormError } from '@/components/auth/form-error'
+import { ConfirmDialog } from '@/components/confirm-dialog'
+import { DetailPanel } from '@/components/detail-panel'
+import { useTeamAction } from '@/components/settings/use-team-action'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Textarea } from '@/components/ui/textarea'
+import {
+  APARTMENT_DEFAULTS,
+  type Apartment,
+  apartmentLabel,
+  LIMITS,
+  type Municipality,
+  priceInput,
+  type Property,
+} from '@/lib/apartments'
+import { type ApartmentInput, NEW_PROPERTY, withExistingProperty, withNewProperty } from '@/lib/validation/apartments'
+
+type FormValues = {
+  propertyId: string
+  newProperty?: { name: string; street: string; postalCode: string; city: string; municipalityCode: string }
+  name: string
+  maxGuests: string
+  kind: 'holiday' | 'service'
+  price: string
+  checkIn: string
+  checkOut: string
+  note: string
+}
+
+const EMPTY_PROPERTY = { name: '', street: '', postalCode: '', city: '', municipalityCode: '' }
+
+interface ApartmentPanelProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  properties: Property[]
+  // Bearbeiten: die Wohnung; Anlegen: null (optional mit vorgewähltem Objekt)
+  apartment: Apartment | null
+  presetPropertyId?: string
+}
+
+// Detail-Panel „Wohnung anlegen / bearbeiten“ (PROJ-6). Beim Anlegen lässt sich ein neues Objekt mit Adresse und
+// Gemeinde im selben Formular erfassen; beim Bearbeiten kann die Wohnung in ein anderes Objekt verschoben werden.
+export function ApartmentPanel({ open, onOpenChange, properties, apartment, presetPropertyId }: ApartmentPanelProps) {
+  const t = useTranslations('apartments')
+  const tv = useTranslations('apartments.validation')
+  const router = useRouter()
+  const editing = apartment !== null
+  const [error, setError] = useState<string | null>(null)
+  const [municipality, setMunicipality] = useState<Municipality | null>(null)
+  const [confirming, setConfirming] = useState<'archive' | 'delete' | null>(null)
+  const { run, pending } = useTeamAction('apartments.errors')
+
+  const defaults: FormValues = apartment
+    ? {
+        propertyId: apartment.propertyId,
+        name: apartment.name,
+        maxGuests: String(apartment.maxGuests),
+        kind: apartment.kind,
+        price: priceInput(apartment.priceCents),
+        checkIn: apartment.checkIn,
+        checkOut: apartment.checkOut,
+        note: apartment.note ?? '',
+      }
+    : {
+        propertyId: presetPropertyId ?? (properties.length === 0 ? NEW_PROPERTY : ''),
+        newProperty: EMPTY_PROPERTY,
+        name: '',
+        maxGuests: '',
+        kind: APARTMENT_DEFAULTS.kind,
+        price: '',
+        checkIn: APARTMENT_DEFAULTS.checkIn,
+        checkOut: APARTMENT_DEFAULTS.checkOut,
+        note: '',
+      }
+
+  // Die Objektangaben werden nur geprüft, wenn „Neues Objekt“ gewählt ist; der Server erhält die Rohwerte
+  const resolveNew = zodResolver(withNewProperty(tv), undefined, { raw: true })
+  const resolveExisting = zodResolver(withExistingProperty(tv), undefined, { raw: true })
+  const resolver: Resolver<FormValues> = (values, context, options) =>
+    (values.propertyId === NEW_PROPERTY ? resolveNew : resolveExisting)(values as never, context, options as never) as never
+  const form = useForm<FormValues>({ resolver, defaultValues: defaults })
+  const isNew = useWatch({ control: form.control, name: 'propertyId' }) === NEW_PROPERTY
+  const property = properties.find((p) => p.id === (apartment?.propertyId ?? ''))
+  const title = apartment && property ? apartmentLabel(property.name, apartment.name) : t('panel.createTitle')
+
+  async function onSubmit(values: FormValues) {
+    setError(null)
+    const input = { ...values, newProperty: values.propertyId === NEW_PROPERTY ? values.newProperty : undefined } as ApartmentInput
+    const result = await callAction(() => (apartment ? updateApartment({ id: apartment.id, ...input }) : createApartment(input)))
+    if (!result.ok) {
+      if (result.error === 'duplicateApartmentName') form.setError('name', { message: t('errors.duplicateApartmentName') })
+      else if (result.error === 'duplicatePropertyName') form.setError('newProperty.name', { message: t('errors.duplicatePropertyName') })
+      else setError(result.error)
+      return
+    }
+    toast.success(apartment ? t('done.saved') : t('done.created', { name: values.name.trim() }))
+    onOpenChange(false)
+    router.refresh()
+  }
+
+  async function confirm(action: 'archive' | 'delete') {
+    if (!apartment) return
+    setConfirming(null)
+    const ok =
+      action === 'archive'
+        ? await run(() => setApartmentArchived({ id: apartment.id, archived: true }), t('done.archived', { name: apartment.name }))
+        : await run(() => deleteApartment({ id: apartment.id }), t('done.deleted', { name: apartment.name }))
+    if (ok) onOpenChange(false)
+  }
+
+  async function restore() {
+    if (!apartment) return
+    if (await run(() => setApartmentArchived({ id: apartment.id, archived: false }), t('done.restored', { name: apartment.name }))) {
+      onOpenChange(false)
+    }
+  }
+
+  return (
+    <DetailPanel
+      open={open}
+      onOpenChange={onOpenChange}
+      title={editing ? title : t('panel.createTitle')}
+      description={editing ? undefined : t('panel.description')}
+    >
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} noValidate className="flex flex-col gap-6">
+          <FormError error={error} namespace="apartments.errors" />
+          {apartment?.archivedAt && (
+            <Alert className="border-ds-neutral-400 bg-ds-surface">
+              <AlertDescription>{t('panel.archivedNote')}</AlertDescription>
+            </Alert>
+          )}
+
+          <FormField
+            control={form.control}
+            name="propertyId"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t('panel.property')}</FormLabel>
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <FormControl>
+                    <SelectTrigger className="min-h-11">
+                      <SelectValue placeholder={t('panel.propertyPlaceholder')} />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {properties.map((p) => (
+                      <SelectItem key={p.id} value={p.id} className="min-h-11">
+                        {p.name}
+                      </SelectItem>
+                    ))}
+                    {!editing && (
+                      <SelectItem value={NEW_PROPERTY} className="min-h-11 font-semibold">
+                        {t('panel.newProperty')}
+                      </SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {isNew && (
+            <fieldset className="flex flex-col gap-4 rounded-lg border p-4">
+              <legend className="px-1 text-sm font-semibold">{t('panel.newProperty')}</legend>
+              <PropertyFields prefix="newProperty." municipality={municipality} onMunicipality={setMunicipality} />
+            </fieldset>
+          )}
+
+          <FormField
+            control={form.control}
+            name="name"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t('panel.name')}</FormLabel>
+                <FormControl>
+                  <Input autoComplete="off" maxLength={LIMITS.nameMax} className="min-h-11" {...field} />
+                </FormControl>
+                <FormDescription>{t('panel.nameHint')}</FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="maxGuests"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t('panel.maxGuests')}</FormLabel>
+                <FormControl>
+                  <Input type="number" inputMode="numeric" min={LIMITS.guestsMin} max={LIMITS.guestsMax} className="min-h-11 w-32" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="kind"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t('panel.kind')}</FormLabel>
+                <FormControl>
+                  <RadioGroup value={field.value} onValueChange={field.onChange} className="flex flex-wrap gap-3">
+                    {(['holiday', 'service'] as const).map((kind) => (
+                      <div key={kind} className="flex min-h-11 items-center gap-2 rounded-md border px-3">
+                        <RadioGroupItem value={kind} id={`art-${kind}`} />
+                        <Label htmlFor={`art-${kind}`} className="cursor-pointer font-normal">
+                          {t(`kind.${kind}`)}
+                        </Label>
+                      </div>
+                    ))}
+                  </RadioGroup>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="price"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t('panel.price')}</FormLabel>
+                <FormControl>
+                  <Input inputMode="decimal" autoComplete="off" className="min-h-11 w-40" {...field} />
+                </FormControl>
+                <FormDescription>{t('panel.priceHint')}</FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <div className="grid grid-cols-2 gap-3">
+            {(['checkIn', 'checkOut'] as const).map((name) => (
+              <FormField
+                key={name}
+                control={form.control}
+                name={name}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t(`panel.${name}`)}</FormLabel>
+                    <FormControl>
+                      <Input type="time" className="min-h-11" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            ))}
+          </div>
+          <FormField
+            control={form.control}
+            name="note"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t('panel.note')}</FormLabel>
+                <FormControl>
+                  <Textarea rows={3} maxLength={LIMITS.noteMax} {...field} />
+                </FormControl>
+                <FormDescription>{t('panel.noteHint')}</FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <Button type="submit" disabled={form.formState.isSubmitting} aria-busy={form.formState.isSubmitting} className="min-h-11">
+            {editing ? t('panel.save') : t('panel.createSubmit')}
+          </Button>
+
+          {apartment && (
+            <div className="flex flex-wrap gap-3 border-t pt-5">
+              {apartment.archivedAt ? (
+                <Button type="button" variant="outline" className="min-h-11" disabled={pending} onClick={restore}>
+                  {t('panel.restore')}
+                </Button>
+              ) : (
+                <Button type="button" variant="outline" className="min-h-11" disabled={pending} onClick={() => setConfirming('archive')}>
+                  {t('panel.archive')}
+                </Button>
+              )}
+              <Button type="button" variant="ghost" className="min-h-11 text-ds-accent-2-700" disabled={pending} onClick={() => setConfirming('delete')}>
+                {t('panel.delete')}
+              </Button>
+            </div>
+          )}
+        </form>
+      </Form>
+
+      {apartment && confirming && (
+        <ConfirmDialog
+          open
+          onOpenChange={(next) => !next && setConfirming(null)}
+          title={t(`confirm.${confirming}Title`, { name: apartment.name })}
+          text={t(`confirm.${confirming}Text`)}
+          confirmLabel={t(confirming === 'archive' ? 'panel.archive' : 'panel.delete')}
+          cancelLabel={t('confirm.cancel')}
+          onConfirm={() => confirm(confirming)}
+        />
+      )}
+    </DetailPanel>
+  )
+}

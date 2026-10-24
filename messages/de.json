@@ -195,10 +195,11 @@
   },
   "settings": {
     "title": "Einstellungen",
-    "lead": "Team und Kundenkonto verwalten.",
+    "lead": "Team, Kundenkonto und Wohnungen verwalten.",
     "tabsLabel": "Einstellungsbereiche",
     "team": "Team",
-    "tenant": "Kunde"
+    "tenant": "Kunde",
+    "apartments": "Wohnungen"
   },
   "team": {
     "title": "Team",
@@ -441,5 +442,133 @@
       "notImplemented": "Diese Funktion wird gerade eingerichtet.",
       "unknown": "Etwas ist schiefgelaufen. Bitte versuche es erneut."
     }
+  },
+  "apartments": {
+    "title": "Wohnungen",
+    "create": "Wohnung anlegen",
+    "showArchived": "Archivierte anzeigen",
+    "emptyTitle": "Noch keine Wohnung",
+    "emptyText": "Lege deine erste Wohnung an. Adresse und Gemeinde hinterlegst du dabei für das ganze Haus (Objekt), damit weitere Wohnungen im selben Haus sie übernehmen.",
+    "emptyArchivedText": "Alle Wohnungen sind archiviert. Mit „Archivierte anzeigen“ siehst du sie wieder.",
+    "colName": "Wohnung",
+    "colKind": "Art",
+    "colGuests": "Personen",
+    "colPrice": "Preis/Nacht",
+    "colTimes": "Check-in/-out",
+    "colStatus": "Status",
+    "noPrice": "–",
+    "perNight": "{price} / Nacht",
+    "guests": "{count, plural, one {# Person} other {# Personen}}",
+    "times": "{checkIn} / {checkOut}",
+    "archived": "archiviert",
+    "kind": {
+      "holiday": "Ferienwohnung",
+      "service": "Dienstwohnung"
+    },
+    "state": {
+      "burgenland": "Burgenland",
+      "kaernten": "Kärnten",
+      "niederoesterreich": "Niederösterreich",
+      "oberoesterreich": "Oberösterreich",
+      "salzburg": "Salzburg",
+      "steiermark": "Steiermark",
+      "tirol": "Tirol",
+      "vorarlberg": "Vorarlberg",
+      "wien": "Wien"
+    },
+    "municipalityLine": "Gemeinde {name} · {state}",
+    "editProperty": "Objekt bearbeiten",
+    "openApartment": "{name} bearbeiten",
+    "panel": {
+      "createTitle": "Wohnung anlegen",
+      "editTitle": "Wohnung bearbeiten",
+      "description": "Adresse und Gemeinde gelten für das ganze Objekt (Haus). Die Wohnung selbst hat nur ihren Namen, z. B. „Top 3“.",
+      "property": "Objekt",
+      "propertyPlaceholder": "Objekt wählen",
+      "newProperty": "Neues Objekt",
+      "propertyName": "Name des Objekts",
+      "propertyNameHint": "z. B. „Haus Seeblick“",
+      "street": "Straße und Hausnummer",
+      "postalCode": "PLZ",
+      "city": "Ort",
+      "municipality": "Gemeinde",
+      "municipalityHint": "Für die Tourismusabgabe. Nach Eingabe der PLZ erscheinen passende Gemeinden zuerst.",
+      "name": "Name der Wohnung",
+      "nameHint": "Eindeutig innerhalb des Objekts, z. B. „Top 1“",
+      "maxGuests": "Maximale Personenzahl",
+      "kind": "Art",
+      "price": "Standardpreis pro Nacht (€)",
+      "priceHint": "Vorschlag beim Anlegen einer Buchung. Leer lassen, wenn es keinen gibt.",
+      "checkIn": "Check-in ab",
+      "checkOut": "Check-out bis",
+      "note": "Notiz",
+      "noteHint": "Nur intern sichtbar, z. B. Schlüsselübergabe oder Reinigungshinweise.",
+      "save": "Speichern",
+      "createSubmit": "Wohnung anlegen",
+      "archive": "Archivieren",
+      "restore": "Wiederherstellen",
+      "delete": "Endgültig löschen",
+      "archivedNote": "Diese Wohnung ist archiviert. Sie steht nicht zur Auswahl für neue Buchungen und erscheint nicht im Kalender."
+    },
+    "propertyPanel": {
+      "title": "Objekt bearbeiten",
+      "affects": "{count, plural, =0 {Diesem Objekt ist keine Wohnung zugeordnet.} one {Änderungen gelten für # Wohnung.} other {Änderungen gelten für # Wohnungen.}}",
+      "delete": "Objekt löschen",
+      "deleteBlocked": "Ein Objekt lässt sich erst löschen, wenn ihm keine Wohnung mehr zugeordnet ist (auch keine archivierte)."
+    },
+    "municipalityPicker": {
+      "placeholder": "Gemeinde wählen",
+      "search": "Gemeinde oder PLZ suchen",
+      "byPostalCode": "Gemeinden zur PLZ {postalCode}",
+      "results": "Suchergebnisse",
+      "minChars": "Mindestens 2 Zeichen eingeben.",
+      "none": "Keine Gemeinde gefunden.",
+      "loading": "Suche läuft …"
+    },
+    "confirm": {
+      "archiveTitle": "„{name}“ archivieren?",
+      "archiveText": "Die Wohnung verschwindet aus Auswahl und Kalender. Alle Daten bleiben erhalten, du kannst sie jederzeit wiederherstellen.",
+      "deleteTitle": "„{name}“ endgültig löschen?",
+      "deleteText": "Die Wohnung wird unwiderruflich entfernt. Das ist nur möglich, solange sie noch nie eine Buchung hatte.",
+      "deletePropertyTitle": "Objekt „{name}“ löschen?",
+      "deletePropertyText": "Das Objekt wird unwiderruflich entfernt.",
+      "cancel": "Abbrechen"
+    },
+    "done": {
+      "created": "„{name}“ angelegt.",
+      "saved": "Änderungen gespeichert.",
+      "propertySaved": "Objekt gespeichert.",
+      "archived": "„{name}“ archiviert.",
+      "restored": "„{name}“ wiederhergestellt.",
+      "deleted": "„{name}“ gelöscht.",
+      "propertyDeleted": "Objekt „{name}“ gelöscht."
+    },
+    "validation": {
+      "propertyRequired": "Bitte ein Objekt wählen.",
+      "propertyNameRequired": "Bitte einen Namen für das Objekt eingeben.",
+      "streetRequired": "Bitte Straße und Hausnummer eingeben.",
+      "postalCodeInvalid": "Bitte eine vierstellige PLZ eingeben.",
+      "cityRequired": "Bitte den Ort eingeben.",
+      "municipalityRequired": "Bitte eine Gemeinde aus der Liste wählen.",
+      "apartmentNameRequired": "Bitte einen Namen für die Wohnung eingeben.",
+      "guestsInvalid": "Bitte eine Zahl von 1 bis 50 eingeben.",
+      "priceInvalid": "Bitte einen Betrag bis 10.000 € eingeben, z. B. 125 oder 125,50.",
+      "timeInvalid": "Bitte eine Uhrzeit wählen.",
+      "tooLong": "Der Text ist zu lang."
+    },
+    "errors": {
+      "duplicateApartmentName": "In diesem Objekt gibt es schon eine Wohnung mit diesem Namen.",
+      "duplicatePropertyName": "Es gibt schon ein Objekt mit diesem Namen.",
+      "municipalityInvalid": "Bitte eine Gemeinde aus der Liste wählen.",
+      "propertyInUse": "Dem Objekt sind noch Wohnungen zugeordnet.",
+      "apartmentHasBookings": "Die Wohnung hat Buchungen und lässt sich nur archivieren.",
+      "notFound": "Diese Wohnung bzw. dieses Objekt gibt es nicht mehr.",
+      "network": "Keine Verbindung. Bitte prüfe deine Internetverbindung und versuche es erneut.",
+      "sessionExpired": "Deine Sitzung ist abgelaufen. Bitte melde dich erneut an.",
+      "notImplemented": "Diese Funktion wird gerade eingerichtet.",
+      "unknown": "Etwas ist schiefgelaufen. Bitte versuche es erneut."
+    },
+    "editPropertyFor": "Objekt „{name}“ bearbeiten",
+    "addToProperty": "Wohnung in „{name}“ hinzufügen"
   }
 }

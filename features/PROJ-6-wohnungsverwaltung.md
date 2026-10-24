@@ -1,6 +1,6 @@
 # PROJ-6: Wohnungsverwaltung
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-10-24
 **Last Updated:** 2026-10-24
 
@@ -264,6 +264,51 @@ Gemeinde-Auswahl (wiederverwendbar, auch für PROJ-15)
 
 ### H) Abhängigkeiten
 - Keine neuen Pakete. Die Gemeindeauswahl nutzt die vorhandenen shadcn-Bausteine Command und Popover.
+
+## Implementation Notes (Frontend)
+**Stand 2026-10-24.** Die Oberfläche ist fertig. Die Aktionen melden bis zum Backend „Diese Funktion wird gerade eingerichtet“, und die Liste ist noch leer, weil die Tabellen fehlen.
+
+**Seite und Bausteine**
+- Reiter „Wohnungen“ in den Einstellungen (`/einstellungen/wohnungen`); Einleitungstext der Einstellungen angepasst.
+- `src/components/apartments/apartments-overview.tsx`:
+  - je Objekt ein Block mit Adresse und „Gemeinde … · Bundesland“;
+  - Wohnungen als Tabelle ab 768 px, darunter als Karten;
+  - Schalter „Archivierte anzeigen“ (nur sichtbar, wenn es archivierte gibt);
+  - „Wohnung in „Objekt“ hinzufügen“ je Objekt; Stift-Knopf öffnet „Objekt bearbeiten“;
+  - Leerzustand mit eigenem Hinweis, wenn nur archivierte Wohnungen existieren.
+- `apartment-panel.tsx` (Anlegen und Bearbeiten):
+  - Objekt-Auswahl inkl. „Neues Objekt“, das ohne Objekte vorausgewählt ist;
+  - Standardwerte: Ferienwohnung, 15:00, 10:00;
+  - Archivieren (mit Bestätigung), Wiederherstellen, Endgültig löschen (mit Bestätigung);
+  - doppelte Namen erscheinen als Meldung direkt am Feld.
+- `property-panel.tsx`: Objekt bearbeiten mit Hinweis „Änderungen gelten für N Wohnungen“; „Objekt löschen“ nur ohne Wohnungen, sonst Hinweis.
+- `property-fields.tsx`: gemeinsame Objektfelder.
+- `municipality-picker.tsx`:
+  - wiederverwendbar für PROJ-15; shadcn Popover + Command;
+  - Gruppe „Gemeinden zur PLZ …“ zuerst, dann Suchtreffer;
+  - keine freie Eingabe möglich.
+
+**Regeln** (`src/lib/apartments.ts`, Unit-Tests)
+- Suchname je Gemeinde (St./Sankt, Umlaute, ß), Bundesland aus der Gemeindekennziffer;
+- Preis Euro ↔ Cent, Anzeige „Objekt · Wohnung“, Namensvergleich;
+- sichtbare Objekte bei ausgeblendeten archivierten Wohnungen.
+
+**Prüfregeln** (`src/lib/validation/apartments.ts`, Unit-Tests)
+- je ein Schema für „bestehendes Objekt“ und „Neues Objekt“;
+- Personen 1–50, Preis bis 10.000 €, Uhrzeiten, PLZ vierstellig, Gemeinde aus der Liste;
+- Server und Browser nutzen dieselben Schemas.
+
+**Vorläufig bis zum Backend**
+- `getProperties()` liefert eine leere Liste.
+- Die Aktionen in `src/app/(app)/einstellungen/wohnungen/actions.ts` prüfen Rolle und Eingaben und melden „wird eingerichtet“.
+- Die Gemeindesuche läuft über 8 Beispielgemeinden (u. a. St. Gilgen, Salzburg, Zell am See, Wien, Linz).
+
+**Geprüft**
+- Typprüfung, Lint und Unit-Tests (169) grün; PROJ-4-Einstellungstests (10) grün.
+- Sichtprüfung mit vorübergehenden Beispieldaten auf Desktop (1440 px) und Handy (375 px):
+  - Liste, Panel und Gemeindeauswahl über PLZ 5340;
+  - Pflichtfeld-Meldungen.
+  - Ein am Handy zu breiter „hinzufügen“-Link wurde behoben, damit nichts seitlich scrollt. Die Beispieldaten sind wieder entfernt.
 
 ## QA Test Results
 _To be added by /qa_
