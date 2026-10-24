@@ -129,7 +129,7 @@
 - Responsiv: Desktop, Tablet und Handy (Liste als Karten auf dem Handy)
 
 ## Open Questions
-- [ ] E-Mail-Adresse eines Kontos durch den Betreiber ändern (in PROJ-3 dem Betreiber zugewiesen): in PROJ-5 aufnehmen oder per Runbook (Empfehlung: vorerst Runbook, bei Bedarf in der Support-Ansicht)
+- [ ] E-Mail-Adresse eines Kontos durch den Betreiber ändern (in PROJ-3 dem Betreiber zugewiesen): vorerst per Runbook (Abschnitt 12); bei Bedarf später in der Support-Ansicht
 - [x] Aufbewahrungsdauer des Löschnachweises: 2 Jahre wie das Änderungsprotokoll (siehe Technical Decisions)
 - [ ] AVV-Vorlage für Kunden: Regelung zur Löschung nach Vertragsende (Frist, Bestätigung an den Kunden) – rechtlich, nicht technisch
 
@@ -313,6 +313,59 @@ Die Server-Aktionen der Seiten prüfen den Admin ebenfalls (erste Ebene) und kü
 - Typprüfung, Produktions-Build und Unit-Tests (152) sind grün.
 - PROJ-2-Shell-E2E (Desktop) ist grün.
 - Sichtprüfung als Test-Admin mit 2FA auf Desktop (1440 px) und Handy (375 px).
+
+## Implementation Notes (Backend)
+**Stand 2026-10-24.** Alle Aktionen sind angeschlossen.
+
+**Migration** `supabase/migrations/20261024120000_operator_admin.sql` (in „apppa“ eingespielt, Sicherheits-Advisor ohne neue Hinweise)
+- Tabelle `operator_log`: Kunde (Kennung + Name), Aktion, Admin (Kennung + Name), betroffene Adresse.
+  - RLS: nur `private.is_admin()` liest; keine Schreibrechte für irgendwen, auch nicht für den Secret Key.
+  - Bereinigung nach 2 Jahren (`purge-operator-log`).
+- Admin-Funktionen in `private` (SECURITY DEFINER) mit öffentlichen Hüllen ohne Systemrechte. Jede prüft zuerst `private.require_admin()` (Kennzeichen + aal2):
+  - `admin_create_tenant`
+  - `admin_invite_owner`
+  - `admin_resend_invitation`, `admin_revoke_invitation`
+  - `admin_change_member` (promote/demote/remove)
+  - `admin_set_tenant_status`
+  - `admin_delete_tenant`
+  - `admin_tenant_overview` (Suche, Seiten, Mitgliederzahl, Inhaber, offene Einladungen, letzte Anmeldung aus `auth.users`)
+- Dazu `belongs_to_deactivated_tenant()`, die nur über die eigene Person Auskunft gibt.
+- Die Art der Einladung bestimmt jetzt die Datenbank (bestätigtes Konto → Hinweis-Mail, sonst Einladungsmail), ebenso die Gültigkeit (1 bzw. 14 Tage).
+- Bei deaktivierten Kunden sind alle Aktionen außer Reaktivieren und Löschen gesperrt (Code P0016).
+- Fehlercodes: siehe Kopf der Migration. Die Server-Aktionen übersetzen sie in `operator.errors.*`.
+
+**Löschen**
+- Die Datenbank prüft „deaktiviert“ und den exakten Namen.
+- Sie ermittelt die verwaisten Konten: kein anderer Kunde, keine offene Einladung, nicht Admin.
+- Sie löscht den Kunden (Kaskade auf Mitgliedschaften, Einladungen und künftige Fachdaten), danach sein Änderungsprotokoll (auch die Einträge, die die Kaskade schreibt).
+- Sie leert `target_email` in seinen Betreiber-Protokolleinträgen und schreibt „deleted“.
+- Die Server-Aktion löscht anschließend die verwaisten Login-Konten. Fehlschläge zählt sie und meldet sie (Runbook Abschnitt 12).
+
+**Server-Aktionen** (`src/app/(app)/betreiber/actions.ts`)
+- Prüfen Admin + 2FA und rufen die Admin-Funktionen im Namen des Admins auf.
+- Mails verschicken sie mit dem bestehenden Ablauf aus PROJ-4 (`deliverInvitation`); als einladende Person steht der Name des Admins.
+- Schlägt die Einladungsmail fehl, bleibt die Einladung offen. Die Meldung verweist auf „Erneut senden“.
+- Beim Zurückziehen einer Einladung an eine neue Person wird das ungenutzte Login-Konto entfernt (wie PROJ-4).
+
+**Lesen** (`src/lib/operator-data.ts`)
+- Kundenliste über `admin_tenant_overview`; eine Seite hinter dem Ende springt zur ersten Seite.
+- Detailseite über die normalen Leserechte des Admins, Protokoll aus `operator_log` (neueste zuerst, max. 200).
+- Hinweis „deaktiviert“ im Dashboard über `belongs_to_deactivated_tenant()`.
+
+**Runbook:** neuer Abschnitt 12 (Zugang, Löschen, Nachlöschen verwaister Konten, E-Mail-Adresse eines Kontos ändern, Konto eines letzten Inhabers).
+
+**Tests**
+- `supabase/tests/operator.integration.test.ts` (10 Tests gegen „apppa“):
+  - Abweisung von Nicht-Admins und Admin ohne 2FA;
+  - Protokoll nur für Admin lesbar und nicht direkt beschreibbar;
+  - Anlegen inkl. Art der Einladung und Namens-Dublette;
+  - Suche, Inhaber, letzte Anmeldung;
+  - Einladen, erneut senden, zurückziehen;
+  - Befördern, Herabstufen, Entfernen (letzter Inhaber geschützt, Mitarbeiter nicht entfernbar);
+  - Deaktivieren und Reaktivieren inkl. Auskunft für Mitglieder;
+  - Löschen (nur deaktiviert, exakter Name, nur verwaiste Konten, Admin-Konto und Konto mit zweitem Kunden bleiben, Löschnachweis ohne Personendaten).
+- Gesamte Vitest-Suite: 205 Tests grün.
+- Ablauf im Browser geprüft: Anlegen mit bestehendem Testkonto, Deaktivieren, Löschen mit Namensbestätigung.
 
 ## QA Test Results
 _To be added by /qa_

@@ -159,3 +159,18 @@ delete from public.login_failures where created_at > now() - interval '30 minute
   Ohne Schlüssel wird keine Hinweis-Mail verschickt; die Einladung erscheint trotzdem beim nächsten Anmelden.
 - Höchstens 20 Einladungen pro Kunde und Stunde. Abgeschlossene Einladungen löscht der Zeitplaner nach 90 Tagen (`purge-closed-invitations`).
 - Mitgliedschaften entstehen nur durch Annehmen einer Einladung (bzw. serverseitig, PROJ-5). Einen Kunden für Tests direkt anlegen: im SQL-Editor `insert into public.tenants (name) …` und `insert into public.memberships (tenant_id, user_id, role) …` (nur Entwicklung).
+
+## 12. Betreiber-Bereich (PROJ-5)
+
+- **Zugang:** Menüpunkt „Betreiber“ bzw. `/betreiber`, nur für Konten mit `is_operator_admin` (Abschnitt 4) und nach der 2FA. Alle Aktionen laufen über Admin-Funktionen der Datenbank (`admin_*`); jede schreibt einen Eintrag ins Betreiber-Protokoll (`operator_log`, nur für den Admin lesbar, Bereinigung nach 2 Jahren über `purge-operator-log`).
+- **Kunde löschen:** nur deaktivierte Kunden, mit exakt eingetipptem Namen. Gelöscht werden der Kunde mit allen Daten und sein Änderungsprotokoll; im Betreiber-Protokoll bleiben die Einträge ohne E-Mail-Adressen, dazu der Löschnachweis.
+- **Meldung „Login-Konten konnten nicht gelöscht werden“:** Die Konten haben keinen Kunden mehr und sehen nichts. Nachlöschen im Dashboard unter Authentication → Users (Konto suchen → „Delete user“) oder im SQL-Editor die Kandidaten finden:
+  ```sql
+  select p.id, p.email from public.profiles p
+  where not p.is_operator_admin
+    and not exists (select 1 from public.memberships m where m.user_id = p.id)
+    and not exists (select 1 from public.invitations i where i.email = lower(p.email) and i.status = 'open');
+  ```
+  Vorsicht: Die Liste enthält auch Konten, die nie zu einem Kunden gehörten (z. B. Testkonten). Vor dem Löschen prüfen.
+- **E-Mail-Adresse eines Kontos ändern** (offene Frage in PROJ-5, vorerst hier): Dashboard → Authentication → Users → Konto → „Change email“ bzw. per `auth.admin.updateUserById`. Das Profil (`profiles.email`) zieht automatisch nach. Die Person meldet sich danach mit der neuen Adresse an; offene Einladungen an die alte Adresse vorher zurückziehen und neu senden.
+- **Konto eines letzten Inhabers löschen** (PROJ-1 BUG-6): erst im Betreiber-Bereich einen anderen Inhaber einsetzen, oder den Kunden deaktivieren und löschen.

@@ -188,6 +188,39 @@ export type Database = {
           },
         ]
       }
+      operator_log: {
+        Row: {
+          action: string
+          actor_id: string | null
+          actor_name: string | null
+          created_at: string
+          id: number
+          target_email: string | null
+          tenant_id: string
+          tenant_name: string
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          actor_name?: string | null
+          created_at?: string
+          id?: never
+          target_email?: string | null
+          tenant_id: string
+          tenant_name: string
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          actor_name?: string | null
+          created_at?: string
+          id?: never
+          target_email?: string | null
+          tenant_id?: string
+          tenant_name?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -258,6 +291,62 @@ export type Database = {
     Functions: {
       accept_invitation: { Args: { p_invitation_id: string }; Returns: string }
       accept_new_account_invitations: { Args: never; Returns: string }
+      admin_change_member: {
+        Args: { p_action: string; p_tenant_id: string; p_user_id: string }
+        Returns: undefined
+      }
+      admin_create_tenant: {
+        Args: { p_allow_duplicate?: boolean; p_email: string; p_name: string }
+        Returns: {
+          kind: string
+          tenant_id: string
+        }[]
+      }
+      admin_delete_tenant: {
+        Args: { p_confirm_name: string; p_tenant_id: string }
+        Returns: {
+          user_id: string
+        }[]
+      }
+      admin_invite_owner: {
+        Args: { p_email: string; p_tenant_id: string }
+        Returns: string
+      }
+      admin_resend_invitation: {
+        Args: { p_invitation_id: string; p_tenant_id: string }
+        Returns: {
+          email: string
+          kind: string
+          role: Database["public"]["Enums"]["member_role"]
+          tenant_name: string
+        }[]
+      }
+      admin_revoke_invitation: {
+        Args: { p_invitation_id: string; p_tenant_id: string }
+        Returns: {
+          email: string
+          kind: string
+        }[]
+      }
+      admin_set_tenant_status: {
+        Args: { p_active: boolean; p_tenant_id: string }
+        Returns: undefined
+      }
+      admin_tenant_overview: {
+        Args: { p_limit?: number; p_offset?: number; p_query?: string }
+        Returns: {
+          created_at: string
+          id: string
+          invitations: Json
+          last_sign_in_at: string
+          member_count: number
+          name: string
+          owners: Json
+          status: Database["public"]["Enums"]["tenant_status"]
+          total: number
+        }[]
+      }
+      belongs_to_deactivated_tenant: { Args: never; Returns: boolean }
       decline_invitation: {
         Args: { p_invitation_id: string }
         Returns: undefined

@@ -29,8 +29,16 @@ export function OwnerInvitePanel({ tenantId }: { tenantId: string }) {
   async function onSubmit(values: OwnerInviteValues) {
     setError(null)
     const result = await callAction(() => inviteOwner({ tenantId, ...values }))
-    if (!result.ok) {
+    if (!result.ok && result.error !== 'mailFailed') {
       setError(result.error)
+      return
+    }
+    // Einladung steht, nur die Mail fehlt: Panel schließen, Liste zeigt „Erneut senden“
+    if (!result.ok) {
+      toast.warning(t('errors.mailFailed'))
+      form.reset()
+      setOpen(false)
+      router.refresh()
       return
     }
     toast.success(t('done.invited', { email: values.email }))

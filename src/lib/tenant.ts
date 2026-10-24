@@ -39,8 +39,14 @@ export const getTenantContext = cache(async (): Promise<TenantContext> => {
 })
 
 // Gehört die Person zu einem deaktivierten Kunden? (Hinweis „Kundenkonto deaktiviert“, PROJ-5)
-// Mitglieder sehen deaktivierte Kunden über RLS nicht; die Auskunft liefert das Backend über eine eigene Abfrage.
-export const belongsToDeactivatedTenant = cache(async (): Promise<boolean> => false)
+// Mitglieder sehen deaktivierte Kunden über RLS nicht; die Datenbankfunktion gibt nur über die eigene Person Auskunft.
+export const belongsToDeactivatedTenant = cache(async (): Promise<boolean> => {
+  if (!(await getSessionUser())) return false
+  const supabase = await createClient()
+  const { data, error } = await supabase.rpc('belongs_to_deactivated_tenant')
+  if (error) console.error('[tenant] Status deaktivierter Kunden nicht lesbar', error.message)
+  return data === true
+})
 
 // Nur in Server-Aktionen aufrufen (Cookies lassen sich in Seiten nicht setzen)
 export async function rememberTenant(tenantId: string | null): Promise<void> {
