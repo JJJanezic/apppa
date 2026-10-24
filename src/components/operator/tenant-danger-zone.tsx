@@ -1,5 +1,6 @@
 'use client'
 
+import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { useState } from 'react'
 import { toast } from 'sonner'
@@ -77,6 +78,7 @@ export function TenantDangerZone({ tenantId, tenantName, deactivated }: TenantDa
 function DeleteDialog({ tenantId, tenantName, onClose }: { tenantId: string; tenantName: string; onClose: () => void }) {
   const t = useTranslations('operator')
   const tErrors = useTranslations('operator.errors') as (key: string) => string
+  const router = useRouter()
   const [typed, setTyped] = useState('')
   const [pending, setPending] = useState(false)
   const matches = deleteConfirmed(typed, tenantName)
@@ -89,12 +91,16 @@ function DeleteDialog({ tenantId, tenantName, onClose }: { tenantId: string; ten
     setPending(false)
     if (!result.ok) {
       if (result.error !== 'sessionExpired') toast.error(tErrors(result.error))
+      if (result.error === 'tenantGone') router.replace('/betreiber')
       return
     }
     const left = result.data?.accountsLeft ?? 0
-    if (left > 0) toast.warning(t('done.deletedAccountsLeft', { tenant: tenantName, count: left }))
+    // Wechsel innerhalb der App (kein Neuladen), damit die Meldung sichtbar bleibt (BUG-1 aus QA);
+    // eine Warnung zu verbliebenen Konten bleibt stehen, bis sie geschlossen wird
+    if (left > 0) toast.warning(t('done.deletedAccountsLeft', { tenant: tenantName, count: left }), { duration: Infinity })
     else toast.success(t('done.deleted', { tenant: tenantName }))
-    window.location.href = '/betreiber'
+    router.replace('/betreiber')
+    router.refresh()
   }
 
   return (

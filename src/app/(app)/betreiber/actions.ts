@@ -120,7 +120,8 @@ export async function resendOwnerInvitation(values: { tenantId: string; invitati
     .rpc('admin_resend_invitation', { p_tenant_id: values.tenantId, p_invitation_id: values.invitationId })
     .single()
   if (error || !data) {
-    refresh(values.tenantId)
+    // z. B. Person inzwischen Mitglied: Einladung wurde geschlossen → Liste aktualisieren (nicht bei gelöschtem Kunden)
+    if (error?.code !== 'P0011') refresh(values.tenantId)
     return dbFail(error ?? {}, 'Einladung nicht erneut gesendet')
   }
 
@@ -171,8 +172,8 @@ export async function changeMember(values: {
     p_user_id: values.userId,
     p_action: values.action,
   })
-  refresh(values.tenantId)
   if (error) return dbFail(error, 'Mitgliedschaft nicht geändert')
+  refresh(values.tenantId)
   return { ok: true }
 }
 
@@ -183,13 +184,14 @@ export async function setTenantActive(values: { tenantId: string; active: boolea
 
   const supabase = await createClient()
   const { error } = await supabase.rpc('admin_set_tenant_status', { p_tenant_id: values.tenantId, p_active: values.active })
-  refresh(values.tenantId)
   if (error) return dbFail(error, 'Status nicht geändert')
+  refresh(values.tenantId)
   return { ok: true }
 }
 
-// Nur deaktivierte Kunden, nur mit exakt eingetipptem Namen. Danach die verwaisten Login-Konten löschen;
-// accountsLeft: Konten, bei denen das nicht geklappt hat (Runbook „Kunde löschen“)
+// Nur deaktivierte Kunden, nur mit exakt eingetipptem Namen. Danach die verwaisten Login-Konten löschen
+// und die unbenutzten Konten offener Einladungen an neue Personen entfernen (wie beim Zurückziehen, PROJ-4);
+// accountsLeft: Konten, bei denen das Löschen nicht geklappt hat (Runbook Abschnitt 12)
 export async function deleteTenant(values: { tenantId: string; confirmName: string }): Promise<Result<{ accountsLeft: number }>> {
   if (!isId(values?.tenantId) || typeof values?.confirmName !== 'string') return fail('unknown')
   const guard = await requireAdmin()
@@ -204,7 +206,12 @@ export async function deleteTenant(values: { tenantId: string; confirmName: stri
 
   const admin = createAdminClient()
   let accountsLeft = 0
-  for (const { user_id } of data ?? []) {
+  for (const { user_id, invited_email } of data ?? []) {
+    if (invited_email) {
+      await cleanupUnusedAccount(invited_email)
+      continue
+    }
+    if (!user_id) continue
     const { error: deleteError } = await admin.auth.admin.deleteUser(user_id)
     if (deleteError) {
       accountsLeft++

@@ -8,6 +8,7 @@ import { Wordmark } from '@/components/shell/wordmark'
 import { SidebarProvider } from '@/components/ui/sidebar'
 import { requireAppUser } from '@/lib/auth/session'
 import { isActivePath, isAreaAvailable } from '@/lib/navigation'
+import { getTenantDetail } from '@/lib/operator-data'
 import { getShellInfo, viewerOf } from '@/lib/shell'
 
 // Gemeinsamer Rahmen aller App-Seiten: Seitenleiste ab 1024 px, darunter die untere Leiste.
@@ -21,6 +22,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const viewer = viewerOf(shell)
   if (isActivePath('/einstellungen', path) && !isAreaAvailable('settings', viewer)) notFound()
   if (isActivePath('/betreiber', path) && !isAreaAvailable('operator', viewer)) notFound()
+  // Detailseite eines Kunden: gibt es ihn (noch)? Sonst ebenfalls 404 statt 200 (BUG-2 aus QA PROJ-5).
+  // Die Abfrage ist pro Anfrage zwischengespeichert; die Seite nutzt dasselbe Ergebnis.
+  const tenantPath = /^\/betreiber\/kunden\/([^/]+)/.exec(path)
+  if (tenantPath) await getTenantDetail(tenantPath[1])
 
   return (
     <ShellProvider value={shell}>

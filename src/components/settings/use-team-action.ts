@@ -22,6 +22,8 @@ export function useTeamAction(namespace: 'team.errors' | 'operator.errors' = 'te
     setPending(false)
     if (!result.ok) {
       if (result.error !== 'sessionExpired') toast.error(t(result.error))
+      // Betreiber-Bereich: Kunde wurde inzwischen gelöscht → zurück zur Liste (BUG-4 aus QA PROJ-5)
+      if (result.error === 'tenantGone') router.replace('/betreiber')
       return false
     }
     toast.success(successMessage)

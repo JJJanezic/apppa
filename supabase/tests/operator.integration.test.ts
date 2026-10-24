@@ -221,6 +221,16 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-5 Betreiber-Admin', () => {
       const { data: t } = await service.from('tenants').select('name').eq('id', tenant).single()
       // Admin ist zusätzlich Mitglied: sein Konto darf nie als verwaist gelten
       await service.from('memberships').insert({ tenant_id: tenant, user_id: admin.id, role: 'staff' })
+      // Offene Einladung an eine neue Person (BUG-3 aus QA): wird gemeldet, damit ihr unbenutztes Konto wegkommt
+      const newcomer = `test-${randomUUID()}@example.com`
+      await service.from('invitations').insert({
+        tenant_id: tenant,
+        email: newcomer,
+        role: 'owner',
+        kind: 'new_account',
+        invited_by: admin.id,
+        expires_at: new Date(Date.now() + 60 * 60_000).toISOString(),
+      })
 
       const active = await adminAal2.rpc('admin_delete_tenant', { p_tenant_id: tenant, p_confirm_name: t!.name })
       expect(active.error?.code).toBe('P0012')
@@ -230,7 +240,8 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-5 Betreiber-Admin', () => {
 
       const { data: orphans, error } = await adminAal2.rpc('admin_delete_tenant', { p_tenant_id: tenant, p_confirm_name: ` ${t!.name} ` })
       expect(error).toBeNull()
-      expect(orphans!.map((o) => o.user_id).sort()).toEqual([owner.id, staff.id].sort())
+      expect(orphans!.flatMap((o) => (o.user_id ? [o.user_id] : [])).sort()).toEqual([owner.id, staff.id].sort())
+      expect(orphans!.flatMap((o) => (o.invited_email ? [o.invited_email] : []))).toEqual([newcomer])
 
       expect((await service.from('tenants').select('id').eq('id', tenant)).data).toEqual([])
       expect((await service.from('memberships').select('id').eq('tenant_id', tenant)).data).toEqual([])

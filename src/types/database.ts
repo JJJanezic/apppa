@@ -305,6 +305,7 @@ export type Database = {
       admin_delete_tenant: {
         Args: { p_confirm_name: string; p_tenant_id: string }
         Returns: {
+          invited_email: string
           user_id: string
         }[]
       }
