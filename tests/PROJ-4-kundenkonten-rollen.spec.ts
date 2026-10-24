@@ -536,7 +536,8 @@ test.describe('Edge Cases', () => {
 
     await signInAs(page, owner)
     await page.goto('/')
-    await expect(page.getByRole('heading', { name: 'Du bist noch keinem Kunden zugeordnet' })).toBeVisible()
+    // Seit PROJ-5 eigener Hinweis statt „keinem Kunden zugeordnet“
+    await expect(page.getByRole('heading', { name: 'Dieses Kundenkonto ist deaktiviert' })).toBeVisible()
 
     await page.context().clearCookies()
     await signInAs(page, guest)

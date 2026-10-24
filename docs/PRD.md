@@ -23,7 +23,7 @@ Die App wird als Mehrmandanten-SaaS betrieben: Jeder Kunde (Vermieter) hat ein e
 | Priority | Feature | Status |
 |----------|---------|--------|
 | P0 (Pilot) | Supabase-Infrastruktur, App-Shell & Design-System, Authentifizierung | Approved (PROJ-1, PROJ-2, PROJ-3) |
-| P0 (Pilot) | Kundenkonten mit Rollen (Inhaber/Mitarbeiter), Betreiber-Admin | In Progress (PROJ-4 Approved; PROJ-5 In Progress) |
+| P0 (Pilot) | Kundenkonten mit Rollen (Inhaber/Mitarbeiter), Betreiber-Admin | Approved (PROJ-4, PROJ-5) |
 | P0 (Pilot) | Wohnungsverwaltung, Gäste-Datenbank, manuelle Buchungen, Belegungskalender | Roadmap |
 | P0 (Pilot) | Channex-Anbindung: Buchungsimport von booking.com/Airbnb und Verfügbarkeitssperren | Roadmap |
 | P0 (Pilot) | Zahlungserfassung je Buchung, Dashboard | Roadmap |

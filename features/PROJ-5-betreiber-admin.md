@@ -1,6 +1,6 @@
 # PROJ-5: Betreiber-Admin
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-10-24
 **Last Updated:** 2026-10-24
 
@@ -381,7 +381,173 @@ Die Server-Aktionen der Seiten prüfen den Admin ebenfalls (erste Ebene) und kü
   - PROJ-3-Abläufe auf Desktop: 31 Tests grün.
 
 ## QA Test Results
-_To be added by /qa_
+
+**Tested:** 2026-10-24
+**App URL:** http://localhost:3000 (Dev-Server, Supabase „apppa“)
+**Tester:** QA Engineer (AI)
+**Browser:** Google Chrome (Playwright, Projekte desktop 1440 px, tablet 768 px, mobile 375 px). Firefox und Safari nicht getestet, dafür ist in Playwright kein Browser eingerichtet (wie bei PROJ-2 bis PROJ-4).
+
+### Automatisierte Tests
+- **Neu:** `tests/PROJ-5-betreiber-admin.spec.ts` mit 12 Abläufen (Desktop) sowie Layout und axe in allen drei Breiten; alle grün.
+  - Neue Testhilfe `signInAsAdmin` (`tests/support/supabase.ts`): richtet ein 2FA-Gerät ein und bestätigt die Sitzung (aal2), ohne Umweg über das Formular.
+- **Datenbank:** `supabase/tests/operator.integration.test.ts` (10 Tests, aus /backend).
+- **Gesamte Vitest-Suite:** 208 Tests grün.
+- **Regression:**
+  - PROJ-2: Shell auf Desktop, Tablet und Handy grün.
+  - PROJ-3: Anmelde-Abläufe grün, inkl. der neuen Rücksprung-Tests.
+  - PROJ-4: 34 Tests grün. Eine Erwartung wurde an PROJ-5 angepasst: Ein Mitglied eines deaktivierten Kunden sieht jetzt „Dieses Kundenkonto ist deaktiviert“ statt „keinem Kunden zugeordnet“, wie in der Spec vorgesehen.
+
+### Acceptance Criteria Status
+
+#### Zugang zum Betreiber-Bereich (6/6)
+- [x] Admin mit 2FA sieht den Menüpunkt „Betreiber“ (E2E)
+- [x] Inhaber, Mitarbeiter und Personen ohne Kunde: „Seite nicht gefunden“ (404), kein Menüpunkt (E2E)
+- [x] Admin ohne bestätigte 2FA → Code-Abfrage (E2E)
+- [x] Admin ohne Kunde → Kundenliste; im Benutzermenü steht „Betreiber“ (E2E)
+- [x] Admin mit Kunde → Dashboard, Betreiber-Bereich über das Menü (E2E)
+- [x] Direkter Aufruf der Admin-Funktionen durch Nicht-Admins wird abgewiesen (E2E + Integration)
+
+#### Kundenliste (8/8)
+- [x] Name, Status, Inhaber (Name · E-Mail), Mitglieder, Anlegedatum, letzte Anmeldung (E2E)
+- [x] Suche nach Name und E-Mail-Adresse ohne Unterschied von Groß- und Kleinschreibung (E2E)
+- [x] „Kein Kunde gefunden“ mit „Suche leeren“ (E2E)
+- [x] Leerzustand „Noch kein Kunde“: bei bestehenden Daten nicht im E2E prüfbar, im Code geprüft
+- [x] „Einladung offen“ mit eingeladener Adresse als Inhaber (E2E)
+- [x] „noch nie“ bei fehlender Anmeldung (E2E)
+- [x] Klick öffnet die Detailseite mit allen Abschnitten (E2E)
+- [x] Handy: Karten, kein seitliches Scrollen (E2E)
+
+#### Kunde anlegen (6/6)
+- [x] Anlegen → Status „Einladung offen“, Bestätigung, Detailseite (E2E)
+- [x] Neue Adresse → Einladungsmail (Art `new_account` per Integrationstest; der Mailversand selbst wurde nicht ausgelöst)
+- [x] Bestehendes Konto → Hinweis-Mail und Annehmen in der App; danach ist die Person Inhaber und der Kunde „aktiv“ (E2E)
+- [x] Leere bzw. ungültige Eingaben → Meldung am Feld (E2E)
+- [x] Gleicher Name → Hinweis, „Trotzdem anlegen“ (E2E)
+- [x] Mailversand schlägt fehl → Kunde bleibt, Hinweis auf „Erneut senden“ (im Code geprüft; nicht automatisiert, Brevo/Supabase-Mail lässt sich im Test nicht gezielt stören)
+
+#### Einladungen und Inhaber verwalten (8/8)
+- [x] Erneut senden (E2E + Integration: Frist beginnt neu)
+- [x] Zurückziehen mit Bestätigung (E2E)
+- [x] Weiteren Inhaber einladen; „bereits Mitglied“ wird abgewiesen (E2E)
+- [x] Mitarbeiter → Inhaber (E2E)
+- [x] Inhaber herabstufen bzw. entfernen bei mindestens zwei Inhabern (E2E)
+- [x] Einziger Inhaber: keine Aktionen, Hinweis (E2E)
+- [x] Mitarbeiter ohne „Entfernen“ (E2E, Menü enthält nur „Zum Inhaber machen“)
+- [x] Änderung gilt beim nächsten Aufruf (RLS; E2E Reaktivieren/Annehmen)
+
+#### Deaktivieren und Reaktivieren (6/6)
+- [x] Deaktivieren sperrt alle Mitglieder, Daten bleiben (E2E + Integration)
+- [x] Nur deaktivierter Kunde → Hinweis „Dieses Kundenkonto ist deaktiviert“ (E2E)
+- [x] Zusätzlich aktiver Kunde → landet dort, der deaktivierte fehlt im Wechsel (E2E)
+- [x] Laufende Arbeit → nächster Aufruf ohne Zugriff (RLS, Integration)
+- [x] Einladen bzw. Annehmen beim deaktivierten Kunden nicht möglich (PROJ-4-E2E + Integration P0016)
+- [x] Reaktivieren → alter Zustand mit bisherigen Rollen (E2E)
+
+#### Endgültig löschen (5/6)
+- [x] Aktiver Kunde: keine Lösch-Aktion, Hinweis (E2E)
+- [x] Bestätigung erklärt die Folgen, Knopf erst bei exaktem Namen (E2E)
+- [x] Löschen entfernt alle Daten, Kundenliste mit Bestätigung (nach Behebung von BUG-1, E2E)
+- [x] Verwaiste Login-Konten werden gelöscht, Konten mit weiterem Kunden bleiben (E2E + Integration)
+- [x] Admin-Konto bleibt (Integration)
+- [x] Falscher Name → Knopf gesperrt (E2E)
+
+#### Protokoll (2/2)
+- [x] Aktionen mit Zeitpunkt, Admin und betroffener Person, neueste zuerst (E2E + Integration)
+- [x] Löschnachweis bleibt ohne Personendaten (Integration)
+
+### Edge Cases Status
+- [x] Erster Inhaber ist schon Mitglied bei einem anderen Kunden: normaler Ablauf für bestehende Konten (E2E Anlegen)
+- [x] Adresse des Admins selbst: wie jede andere Adresse (Code + Integration „Admin-Konto bleibt“)
+- [x] Abgelaufene bzw. fehlende Einladung → Zusatz „Einladung abgelaufen“ / „Keine offene Einladung“ (Unit-Test der Regeln)
+- [x] Letzter Inhaber geschützt; Wechsel über Befördern + Entfernen (E2E)
+- [x] PROJ-1 BUG-6 (Konto eines letzten Inhabers): über Inhaberwechsel bzw. Löschen lösbar (Runbook Abschnitt 12)
+- [x] Zwei Browserfenster, Kunde im einen gelöscht → Aktion im anderen meldet „Diesen Kunden gibt es nicht mehr“ und zeigt die Liste (nach Behebung von BUG-4, E2E)
+- [x] Inhaber ändert den Namen während des Löschens: Ein deaktivierter Kunde lässt sich nicht umbenennen, ein veralteter Name wird von der Datenbank abgewiesen
+- [x] Offene Einladungen eines deaktivierten Kunden: bleiben bestehen, nicht annehmbar (PROJ-4-E2E)
+- [x] „Passwort vergessen“ bei deaktiviertem Kunden: unverändert möglich, danach der Hinweis
+- [x] Viele Kunden: Suche und Seiten in der Datenbank (50 je Seite). Seitenwechsel nicht per E2E geprüft (bräuchte über 50 Kunden), Begrenzung per Integrationstest
+- [x] Gelöschter Kunde mit offener Einladung an eine neue Person → deren unbenutztes Login-Konto wird entfernt (nach Behebung von BUG-3, E2E + Integration)
+- [x] Mail in Quarantäne: „Einladung offen“ + „Erneut senden“
+
+### Security Audit Results
+- [x] **Authentifizierung:** `/betreiber` ohne Anmeldung → Anmeldeseite; ohne 2FA → Code-Abfrage
+- [x] **Autorisierung:**
+  - Nicht-Admins bekommen auf Seiten 404 und von den Admin-Funktionen den Code 42501.
+  - Den Admin ohne aal2 weisen alle Admin-Funktionen ab (Integration).
+  - Das Betreiber-Protokoll ist für Nicht-Admins leer und für niemanden direkt beschreibbar.
+- [x] **Rechteausweitung:** Der Admin hat weiterhin keine allgemeinen Schreibrechte auf Kundendaten (rls-Test aus PROJ-1 grün). Die Admin-Funktionen ändern nur Kunde, Inhaber-Mitgliedschaften und Einladungen.
+- [x] **Auskunft über andere:** `belongs_to_deactivated_tenant` liefert nur die eigene Person; die Liste mit Anmeldezeiten gibt es nur für den Admin.
+- [x] **Eingaben:**
+  - Zod im Browser und Server, Prüfungen in der Datenbank (Name 1–200 Zeichen, E-Mail-Format).
+  - Suche ohne Muster-Einschleusung (`strpos` statt `LIKE`).
+  - Kundenname mit HTML wird von React als Text angezeigt.
+- [x] **Löschen:** nur deaktiviert und mit exaktem Namen, auch bei direktem Aufruf (Integration).
+- [x] **Rücksprung nach der Anmeldung:** nur App-interne Ziele, gesperrte Bereiche führen zur Startseite (Bugfix von heute, E2E).
+- [x] **Geheimnisse:** keine Schlüssel im Browser; die Server-Aktionen verwenden den Secret Key nur zum Löschen von Login-Konten.
+- [x] **Mengenbegrenzung:** Die Admin-Aktionen haben keine eigene Grenze; vertretbar, da nur der Admin mit 2FA sie nutzt.
+- [x] **Supabase-Sicherheits-Advisor:** keine neuen Hinweise.
+
+### Bugs Found
+
+#### BUG-1: Nach dem endgültigen Löschen fehlt die Bestätigung (auch die Warnung zu verbliebenen Login-Konten)
+- **Severity:** Medium
+- **Steps to Reproduce:**
+  1. Deaktivierten Kunden öffnen → „Endgültig löschen“ → Namen eintippen → bestätigen.
+  2. Expected (AC): Kundenliste mit Bestätigung „Kunde … endgültig gelöscht.“, bei Problemen die Warnung „… Login-Konten konnten nicht gelöscht werden (siehe Runbook)“.
+  3. Actual: Die Kundenliste erscheint ohne Meldung. `window.location.href` lädt die Seite neu und verwirft die Meldung. Besonders kritisch ist die verlorene Warnung: Verbliebene Konten blieben unbemerkt.
+- **Priority:** Fix before deployment
+- **Status:** Behoben 2026-10-24. Wechsel zur Liste innerhalb der App (`router.replace` statt Neuladen); die Warnung zu verbliebenen Konten bleibt stehen, bis sie geschlossen wird. E2E prüft die Bestätigung.
+
+#### BUG-2: Nicht (mehr) vorhandener Kunde: Status 200 statt 404, doppelte Hauptregion
+- **Severity:** Low
+- **Steps to Reproduce:**
+  1. Als Admin `/betreiber/kunden/<id eines gelöschten Kunden>` aufrufen.
+  2. Expected: Status 404.
+  3. Actual: Die Seite zeigt „Seite nicht gefunden“, antwortet aber mit 200. Grund: Die Prüfung läuft erst in der Seite, nach dem Start des Streamings. Die 404-Seite steckt zudem in einer zweiten `<main>`-Region innerhalb des App-Rahmens.
+- **Priority:** Nice to have
+- **Status:** Behoben 2026-10-24.
+  - Der App-Rahmen prüft `/betreiber/kunden/<id>` schon vor dem Streaming (Abfrage pro Anfrage zwischengespeichert) und antwortet mit 404.
+  - Neue 404-Ansicht `src/app/(app)/not-found.tsx` ohne eigenes `<main>`.
+  - E2E prüft Status und genau eine Hauptregion.
+
+#### BUG-3: Gelöschter Kunde mit offener Einladung an eine neue Person hinterlässt deren Login-Konto
+- **Severity:** Medium (Datenschutz)
+- **Steps to Reproduce:**
+  1. Kunde anlegen mit einer Adresse ohne apppa-Konto. Supabase legt beim Versand ein unbestätigtes Login-Konto an.
+  2. Kunden deaktivieren und löschen, bevor die Einladung angenommen wurde.
+  3. Expected: Auch das unbenutzte Konto der Einladung wird entfernt, wie beim Zurückziehen (PROJ-4). Der Mail-Link führt ins Leere.
+  4. Actual: Nur Mitglieder werden als verwaist erkannt. Das unbestätigte Konto (E-Mail-Adresse) bleibt in der Login-Verwaltung. Der Link in der Einladungsmail funktioniert weiter und erzeugt ein Konto ohne Kunde.
+- **Priority:** Fix before deployment
+- **Status:** Behoben 2026-10-24.
+  - Migration `20261024130000_operator_delete_invitees.sql`: `admin_delete_tenant` meldet zusätzlich die Adressen offener Einladungen an neue Personen.
+  - Die Server-Aktion entfernt deren unbenutzte Konten mit `cleanupUnusedAccount`, wie beim Zurückziehen (nur unbestätigt, ohne Mitgliedschaft und ohne andere offene Einladung).
+  - Geprüft per Integrationstest und E2E.
+
+#### BUG-4: Aktion auf einen inzwischen gelöschten Kunden führt zu „Seite nicht gefunden“ statt zur Liste
+- **Severity:** Low
+- **Steps to Reproduce:**
+  1. Detailseite in zwei Fenstern öffnen.
+  2. Im ersten Fenster löschen, im zweiten eine Aktion auslösen (z. B. „Kunde reaktivieren“).
+  3. Expected (Edge Case): Meldung „Diesen Kunden gibt es nicht mehr“ und Kundenliste.
+  4. Actual: Die Meldung erscheint, danach lädt die Seite neu und zeigt „Seite nicht gefunden“.
+- **Priority:** Nice to have
+- **Status:** Behoben 2026-10-24.
+  - Bei „Kunde nicht mehr vorhanden“ führt die Aktion zurück zur Kundenliste.
+  - Die Server-Aktionen laden die Detailseite nur noch nach Erfolg neu, damit kein „Seite nicht gefunden“ dazwischenkommt.
+  - E2E-Test ergänzt.
+
+### Summary
+- **Acceptance Criteria:** 42/42 bestanden (nach den Behebungen).
+- **Bugs Found:** 4 total (0 critical, 0 high, 2 medium, 2 low); alle am 2026-10-24 behoben.
+- **Nach den Behebungen erneut geprüft:**
+  - PROJ-5-E2E: 14 Tests Desktop, Layout in drei Breiten.
+  - Datenbanktests: 10.
+  - Vitest gesamt: 208.
+  - 404-Regressionen aus PROJ-2 und PROJ-4.
+  - Produktions-Build grün.
+- **Security:** keine Lücken gefunden. BUG-3 ist ein Datenschutz-Rest (unbenutztes Konto bleibt), kein Zugriffsproblem.
+- **Production Ready:** YES (keine Critical/High-Bugs).
+- **Recommendation:** Bereit für `/deploy`.
 
 ## Deployment
 _To be added by /deploy_

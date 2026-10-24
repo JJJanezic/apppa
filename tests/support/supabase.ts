@@ -126,7 +126,7 @@ export async function typeCode(page: Page, code: string) {
 
 // Sitzung ohne Login-Formular (schont die Supabase-Grenze „Anmeldungen pro IP“): Einmal-Link erzeugen,
 // mit dem SSR-Client einlösen und dessen Cookies samt Sitzungsgrenzen-Cookie in den Browser übernehmen.
-export async function sessionCookies(user: { id: string; email: string }, opts: { start?: number } = {}) {
+export async function sessionCookies(user: { id: string; email: string }, opts: { start?: number; enrollTotp?: boolean } = {}) {
   const jar = new Map<string, string>()
   const client = createServerClient<Database>(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!, {
     cookies: {
@@ -138,6 +138,14 @@ export async function sessionCookies(user: { id: string; email: string }, opts: 
   if (error) throw error
   const verified = await client.auth.verifyOtp({ type: 'magiclink', token_hash: data.properties.hashed_token })
   if (verified.error) throw verified.error
+  // Admin (PROJ-5): 2FA-Gerät einrichten und die Sitzung damit bestätigen (aal2). Ein Code je Gerät –
+  // derselbe Code wird nicht zweimal verwendet.
+  if (opts.enrollTotp) {
+    const { data: factor, error: enrollError } = await client.auth.mfa.enroll({ factorType: 'totp', friendlyName: 'e2e' })
+    if (enrollError) throw enrollError
+    const mfa = await client.auth.mfa.challengeAndVerify({ factorId: factor.id, code: totp(factor.totp.secret) })
+    if (mfa.error) throw mfa.error
+  }
 
   // start: Beginn der Sitzung bzw. letzte Aktivität (älter als 8 h = abgelaufen; 30-Tage-Grenze: Unit-Test)
   const limits = startSession(user.id, process.env.SUPABASE_SECRET_KEY!, opts.start ?? Date.now())
@@ -151,7 +159,7 @@ export async function sessionCookies(user: { id: string; email: string }, opts: 
   }))
 }
 
-export async function signInAs(page: Page, user: { id: string; email: string }, opts?: { start?: number }) {
+export async function signInAs(page: Page, user: { id: string; email: string }, opts?: { start?: number; enrollTotp?: boolean }) {
   await page.context().addCookies(await sessionCookies(user, opts))
 }
 
@@ -186,4 +194,9 @@ export async function createInvitation(opts: {
 export async function membershipRole(tenantId: string, userId: string) {
   const { data } = await service().from('memberships').select('role').eq('tenant_id', tenantId).eq('user_id', userId).maybeSingle()
   return data?.role ?? null
+}
+
+// Betreiber-Admin anmelden, mit 2FA bestätigter Sitzung (PROJ-5). Nur einmal je Admin aufrufen (richtet das Gerät ein).
+export async function signInAsAdmin(page: Page, admin: { id: string; email: string }) {
+  await signInAs(page, admin, { enrollTotp: true })
 }
