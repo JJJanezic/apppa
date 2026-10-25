@@ -386,7 +386,7 @@ _Stand 2026-10-23 (/backend)_
 - Nachprüfung: `npm test` 189/189; PROJ-4-E2E 33/33 (Desktop + Handy, inkl. neuer Tests „Mitarbeiter verlässt über Mein Konto“, „letzter Inhaber: Hinweis“, 404 auf drei Einstellungs-Adressen); Regression PROJ-2 36/36, PROJ-3 Abläufe grün
 - Hinweis Tests: Playwright mit `--global-timeout` in kleinen Paketen ausführen (lange Läufe wurden in dieser Umgebung abgebrochen)
 
-#### BUG-3: Kundenwechsel zeigt in Firefox kurz „Da ist etwas schiefgelaufen“ (gemeldet in Production) — behoben auf `main`, Nachprüfung in Firefox offen
+#### BUG-3: Kundenwechsel zeigt in Firefox kurz „Da ist etwas schiefgelaufen“ (gemeldet in Production) — ✅ behoben und ausgeliefert (2026-10-25, Tag `v1.2.1`)
 - **Severity:** Low (der Wechsel gelingt, die Fehlerseite ist nur kurz zu sehen)
 - **Steps to Reproduce:** In Firefox (macOS) als Person mit zwei Kunden auf dem Dashboard oben links den Kunden wechseln; Chrome ist nicht betroffen
 - **Ursache:**
@@ -401,11 +401,11 @@ _Stand 2026-10-23 (/backend)_
 - **Tests:**
   - Neu: „Sicherheit: /kunde-wechseln wählt keinen fremden Kunden und lehnt fremde Herkunft ab“.
   - PROJ-4-Kundenwechsel (Desktop und Handy) grün, Vitest 326/326, Build grün.
-  - Firefox ist in Playwright hier nicht installiert; die Nachprüfung in Firefox steht aus.
+  - Firefox ist in Playwright hier nicht installiert. Die Nachprüfung in Firefox hat der Nutzer in Production gemacht: Der Wechsel lädt direkt den neuen Kunden, ohne Fehlerseite.
 
 ### Summary
 - **Acceptance Criteria:** 30/31 bestanden, 1 nicht prüfbar (Verlaufsansicht fehlt noch; Daten bleiben erhalten)
-- **Bugs Found:** 2 (1 medium, 1 low), beide behoben und nachgeprüft
+- **Bugs Found:** 3 (1 medium, 2 low), alle behoben und nachgeprüft
 - **Security:** Pass
 - **Production Ready:** YES
 - **Recommendation:** Freigeben
@@ -415,3 +415,5 @@ _Stand 2026-10-25 (/deploy, erstes Release über Staging, Tag `v1.0.0`)_
 - **Staging:** https://staging.apppa.at (Vercel `apppa-staging`, Supabase `iikzjqjjxoznrkkixfqa`). Freigegeben nach Prüfung von Anmeldung mit 2FA, Betreiber-Bereich, Einladung, Team und Wohnungen
 - **Production:** https://app.apppa.at (Vercel `apppa`, Supabase `ahclrqbhfpidxjzbpfgb`), Commit `cedd560`, 2026-10-25
 - **Migrationen:** alle 13 bis `20261024140200_apartments_fk_indexes.sql` in Staging und Production eingespielt (2026-10-24), Advisors ohne Befund. Im Release selbst gab es keine neuen
+
+**Nachlieferung 2026-10-25 (Tag `v1.2.1`):** Fix BUG-3 (Kundenwechsel ohne Fehlerseite in Firefox). Commit `6bd410f`, über Staging nach Production (https://app.apppa.at) ausgeliefert. Keine Migrationen.
