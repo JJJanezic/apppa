@@ -1,6 +1,7 @@
 import 'server-only'
 
 import { accountHash, clearFailures, getLockState, recordFailure } from '@/lib/auth/lockout'
+import { mfaIssuer } from '@/lib/auth/mfa-issuer'
 import type { ActionResult } from '@/lib/auth/result'
 import { getSessionUser } from '@/lib/auth/session'
 import { createClient } from '@/lib/supabase/server'
@@ -54,7 +55,7 @@ export async function enrollTotp(): Promise<ActionResult<Enrollment>> {
   const { data, error } = await supabase.auth.mfa.enroll({
     factorType: 'totp',
     friendlyName: `apppa ${new Date().toISOString()}`,
-    issuer: 'apppa',
+    issuer: mfaIssuer(process.env.NEXT_PUBLIC_SUPABASE_URL),
   })
   if (error || !data) return { ok: false, error: 'unknown' }
   return { ok: true, data: { factorId: data.id, qrCode: data.totp.qr_code, secret: data.totp.secret } }
