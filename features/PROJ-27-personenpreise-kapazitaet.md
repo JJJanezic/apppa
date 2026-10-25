@@ -1,6 +1,6 @@
 # PROJ-27: Personenpreise und Kapazität nach Erwachsenen
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-10-25
 **Last Updated:** 2026-10-25
 
@@ -370,3 +370,12 @@ Keine neuen Pakete.
 - **Security:** Pass
 - **Production Ready:** YES
 - **Recommendation:** Deploy
+
+## Deployment
+_Stand 2026-10-25 (/deploy, Tag `v1.3.0`)_
+
+- **Staging:** https://staging.apppa.at (Vercel `apppa-staging`, Supabase `iikzjqjjxoznrkkixfqa`), vom Nutzer anhand der Checkliste geprüft und freigegeben
+- **Production:** https://app.apppa.at (Vercel `apppa`, Supabase `ahclrqbhfpidxjzbpfgb`), Commit `a3a750e`, 2026-10-25; vom Nutzer geprüft (Build „Ready“, Anmeldung, Wohnung und bestehende Buchung unverändert)
+- **Migrationen** in Staging und Production eingespielt: `20261026150000_person_prices_capacity.sql`, `20261026150100_person_prices_grant.sql`, `20261026150200_person_prices_qa_fixes.sql`
+- **Advisors:** kein Befund zur Datenbank. Es bleiben nur die bekannten Auth-Hinweise: in Staging Gültigkeit der Mail-Links und die dort nicht eingeschaltete Passwort-Leak-Prüfung, in Production nur die Gültigkeit der Mail-Links.
+- Keine neuen Umgebungsvariablen, kein `config push`.
