@@ -1,6 +1,6 @@
 # PROJ-8: Manuelle Buchungen
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-10-26
 **Last Updated:** 2026-10-26
 
@@ -230,12 +230,253 @@ Der Betreiber-Admin liest wie überall nur (PROJ-1).
 <!-- Added by /architecture -->
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Eine Tabelle für Buchungen, Optionen und Sperren mit „Art“ | Alle belegen Zeiträume; Konfliktprüfung, Liste, Kalender (PROJ-9) und Channex-Sperren (PROJ-12) brauchen sie gemeinsam | 2026-10-26 |
+| Beträge und Zusatzkosten in eigenen, nur für Inhaber lesbaren Tabellen | Zugriffsregeln wirken je Zeile, nicht je Spalte; nur so sind Preise für Mitarbeiter auch in der Datenbank unsichtbar | 2026-10-26 |
+| Schreiben über geschützte Datenbank-Funktionen statt direkt in die Tabellen | Warnung mit Inhaber-Übersteuerung, Preisvorschlag für Mitarbeiter, neuer Gast + Buchung und Nummernvergabe müssen gemeinsam und unumgehbar geprüft werden | 2026-10-26 |
+| Konfliktprüfung in der Speicherfunktion mit Reservierung der Wohnung statt starrer Datenbanksperre | Eine starre Sperre ließe kein Übersteuern durch Inhaber zu; die Reservierung verhindert, dass zwei gleichzeitige Speichervorgänge die Prüfung umgehen | 2026-10-26 |
+| Zustand (aktiv/verfallen/storniert) und „überschneidet sich“ berechnet statt gespeichert | Optionen verfallen pünktlich ohne nächtlichen Job; keine veralteten Kennzeichen | 2026-10-26 |
+| Zeiträume als Anreise/Abreise-Datum, Abreisetag nicht belegt | Wechseltag ohne Sonderlogik; passt zu Nächte-Zählung und Ortstaxe | 2026-10-26 |
+| Nummernkreis je Kunde und Jahr in eigener Tabelle | Lückenlos und sicher bei gleichzeitigem Anlegen; Nummer bleibt unverändert | 2026-10-26 |
+| Beträge in Cent, Endbetrag nie gespeichert | Keine Rundungsfehler; Endbetrag kann nicht von den Positionen abweichen | 2026-10-26 |
+| Kinder als Liste ihrer Alter an der Buchung, Mitreisende als eigene Tabelle | Ortstaxe braucht das Alter auch ohne Namen; Mitreisende werden später für PROJ-26 erweitert und beim Anonymisieren entfernt | 2026-10-26 |
+| Löschsperre über Verweise von Buchung auf Wohnung und Gast | Setzt die vorbereiteten Regeln aus PROJ-6/7 ohne Zusatzlogik durch | 2026-10-26 |
+| Eingebaute Datumsfelder, keine Kalender-Bibliothek | Wie im Entwurf und PROJ-7; kein zusätzliches Paket; Kalender folgt in PROJ-9 | 2026-10-26 |
+| Standardpreis/Reinigungsgebühr der Wohnung bleiben technisch für Mitarbeiter lesbar | Listenpreise, wie seit PROJ-6; geschützt werden die vereinbarten Beträge je Buchung | 2026-10-26 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### Ausgangslage (bereits vorhanden)
+- **Abschottungsmuster aus PROJ-1:** Kundenkennung je Tabelle, Lesen für Mitglieder und Betreiber-Admin (2FA), Schreiben nach Rolle, Standardfelder und Änderungsprotokoll per Aufruf je Tabelle.
+- **Wohnungen (PROJ-6):** Personenzahl, Standardpreis je Nacht, Check-in/-out-Zeiten, „archiviert am“. Die Anzeige „Objekt · Wohnung“ gibt es als gemeinsame Hilfsfunktion.
+- **Gäste (PROJ-7):** Gastsuche, Gast-Formular, Dublettenprüfung, die Funktionen „Zusammenführen“ und „Löschen/Anonymisieren“ mit vorbereiteten Stellen für Buchungen. Die Gästeliste liefert bereits die Spalten „Aufenthalte“ und „letzter Aufenthalt“, derzeit leer.
+- **Navigation:** „Buchungen“ (`/buchungen`) ist seit PROJ-2 angelegt und noch „in Vorbereitung“. Auf dem Handy liegt der Punkt in der unteren Leiste.
+- **Bausteine:** Seitenkopf, Leerzustand, Detail-Panel (seitliches Formular), Bestätigungsdialog. Dazu die shadcn-Bausteine Table, Input, Select, Radio Group, Checkbox, Badge, Alert, Alert Dialog, Tabs, Popover und Command.
+- **Muster für Server-Aktionen:** gemeinsame Prüfregeln für Browser und Server, Meldungen aus `messages/de.json`, kein eigenes API. Zeitzone und Formate fest auf Europe/Vienna bzw. de-AT.
+
+### A) Seiten und Bausteine
+
+```
+/buchungen  (alle Mitglieder)
++-- Kopf: „Buchungen“ + Knöpfe „Neue Buchung“ · „Neue Sperre“
++-- Monatsleiste: ‹ Oktober 2026 › · „Heute“
++-- Suchfeld (Gast, Buchungsnummer; sucht über alle Monate)
++-- Filter: Wohnung · Art (Buchung, Option, Sperre) · Zustand (aktiv, storniert, verfallen)
++-- Liste
+|   +-- Desktop/Tablet: Tabelle (Nr., Anreise–Abreise, Nächte, Gast/Sperrgrund, Wohnung, Personen, Art/Zustand, Betrag nur Inhaber)
+|   +-- Handy: Karten mit denselben Angaben
+|   +-- Kennzeichen: „Option bis …“, „verfallen“, „storniert“, „überschneidet sich“, „Preis prüfen“ (nur Inhaber)
++-- Leerzustände: keine Wohnung (Link zu Wohnungen) · keine Buchungen · nichts gefunden
+
+/buchungen/[id]  Buchungs-Detail (alle Mitglieder)
++-- Kopf: Nummer, Gast, Wohnung, Art und Zustand
++-- Abschnitt Aufenthalt: Anreise/Abreise mit Zeiten, Nächte, Personen (Erwachsene, Kinder mit Alter)
++-- Abschnitt Gast: Name, Herkunft, Link zur Gast-Detailseite
++-- Abschnitt Mitreisende: Liste + „Mitreisende bearbeiten“
++-- Abschnitt Preis (nur Inhaber): Übernachtungen, Zusatzkosten-Positionen, Endbetrag, ggf. Stornogebühr, Hinweis „Preis prüfen“
++-- Abschnitt Option: Ablaufdatum, „Bestätigen“, „Verlängern“
++-- Abschnitt Storno: Grund, Gebühr, wer und wann
++-- Aktionen: Bearbeiten · Option bestätigen · Stornieren (nur Inhaber)
+
+Detail-Panel „Neue Buchung / Buchung bearbeiten“
++-- Art: Buchung | Option (bei Option: Ablaufdatum)
++-- Wohnung (nur aktive; beim Bearbeiten bleibt eine inzwischen archivierte sichtbar)
++-- Anreise, Abreise (Datumsfelder), Anzeige Nächte; Check-in/-out-Zeiten (vorbelegt)
++-- Gast: Suche (Baustein aus PROJ-7) oder „Neuer Gast“ → Gast-Felder (Baustein aus PROJ-7)
++-- Personen: Erwachsene (≥ 1) · Kinder: „Kind hinzufügen“ → je ein Altersfeld
++-- Preis (nur Inhaber): Übernachtungspreis mit Vorschlag · Zusatzkosten-Positionen · Endbetrag
++-- Notiz
++-- Warnbereich: Überschneidung (mit welcher Buchung/Sperre) · Überbelegung
+|   +-- Inhaber: Häkchen „Trotzdem speichern“ · Mitarbeiter: Speichern gesperrt
++-- Dublettenhinweis für den neuen Gast (wie PROJ-7)
+
+Detail-Panel „Neue Sperre / Sperre bearbeiten“
++-- Wohnung, von, bis, Grund (Eigennutzung, Renovierung, Sonstiges), Notiz
++-- derselbe Warnbereich · „Sperre löschen“ (nur Inhaber)
+
+Detail-Panel „Mitreisende bearbeiten“
++-- je Person Vorname, Nachname, Geburtsdatum · höchstens Personen minus 1
+
+Dialog „Stornieren“ (nur Inhaber): Grund (optional), Stornogebühr (optional), Bestätigung
+
+Ergänzungen bestehender Seiten
++-- Wohnung bearbeiten (PROJ-6): Feld „Reinigungsgebühr“; Archivieren-Dialog nennt künftige Buchungen;
+|   Hinweis bei Personenzahl unter künftigen Buchungen
++-- Gast-Detail (PROJ-7): Abschnitt Aufenthalte mit Anzahl, letztem/nächstem und Liste der Buchungen
++-- Gästeliste (PROJ-7): Spalten Aufenthalte/letzter Aufenthalt befüllt, Sortierung danach
+```
+
+### B) Datenmodell (in Worten)
+
+**Buchungen** (eine Tabelle für Buchungen, Optionen und Sperren, je Kunde)
+- Kunde, Wohnung
+- Art: Buchung, Option oder Sperre
+- Kanal: „Direkt“ (PROJ-11 ergänzt später booking.com und Airbnb)
+- Buchungsnummer: Jahr + laufende Nummer (leer bei Sperren), je Kunde eindeutig
+- Anreise, Abreise (Datum; Abreise nach Anreise, 1–365 Nächte), Check-in-, Check-out-Zeit
+- Hauptgast (Pflicht bei Buchung und Option, leer bei Sperren)
+- Erwachsene (mindestens 1), Alter der Kinder (Liste von Zahlen 0–17); die Personenzahl ergibt sich daraus
+- Sperrgrund (Eigennutzung, Renovierung, Sonstiges), nur bei Sperren
+- Ablaufdatum, nur bei Optionen
+- Storniert am, storniert von, Stornogrund
+- „Überschneidung bestätigt von/am“: wer trotz Warnung gespeichert hat
+- „Preis prüfen“: gesetzt, wenn ein Mitarbeiter Zeitraum oder Wohnung geändert hat; der Inhaber löscht es durch Speichern des Preises
+- Notiz (max. 2.000 Zeichen)
+- Standardfelder und Änderungsprotokoll (PROJ-1)
+
+**Buchungsbeträge** (nur für Inhaber lesbar, eine Zeile je Buchung oder Option)
+- Buchung, Übernachtungspreis, Stornogebühr (in Cent)
+
+**Zusatzkosten-Positionen** (nur für Inhaber lesbar)
+- Buchung, Bezeichnung (max. 100 Zeichen), Betrag (nicht negativ), Reihenfolge
+
+**Mitreisende** (für alle Mitglieder lesbar)
+- Buchung, Vorname, Nachname, Geburtsdatum
+
+**Nummernkreis** (intern): je Kunde und Jahr die zuletzt vergebene Nummer
+
+**Wohnungen** (Ergänzung): Reinigungsgebühr (optional, in Cent)
+
+**Zustand wird berechnet, nicht gespeichert:**
+- storniert: „storniert am“ ist gesetzt
+- verfallen: Option, deren Ablaufdatum vor dem heutigen Tag (Wien) liegt
+- sonst aktiv. Nur aktive Einträge belegen ihren Zeitraum.
+- Damit verfallen Optionen ohne nächtlichen Job pünktlich, und es gibt keinen gespeicherten Zustand, der veralten kann.
+
+**Regeln in der Datenbank:**
+- Gast Pflicht bei Buchung und Option, verboten bei Sperre; Sperrgrund nur bei Sperren; Ablaufdatum nur bei Optionen
+- Wohnung und Gast verweisen mit Löschsperre. Damit greifen die Regeln aus PROJ-6 („Endgültig löschen“ nur ohne Buchungen) und PROJ-7 („mit Buchungen nur anonymisieren“) ohne Zusatzlogik.
+- Buchungen und Optionen werden nie gelöscht, nur storniert. Sperren darf nur der Inhaber löschen.
+- Wohnung, Gast und Buchung gehören immer zum selben Kunden.
+
+### C) Rechte
+| Aktion | Inhaber | Mitarbeiter | Betreiber-Admin (2FA) |
+|---|---|---|---|
+| Buchungen, Sperren, Mitreisende lesen | ✓ | ✓ | ✓ lesend |
+| Beträge und Zusatzkosten lesen | ✓ | – | ✓ lesend |
+| Buchung/Option anlegen, ändern, bestätigen (inkl. neuer Gast) | ✓ | ✓ | – |
+| Beträge und Zusatzkosten setzen | ✓ | – (Vorschlag automatisch) | – |
+| Trotz Warnung speichern | ✓ | – | – |
+| Stornieren | ✓ | – | – |
+| Sperre anlegen/ändern | ✓ | ✓ | – |
+| Sperre löschen | ✓ | – | – |
+| Mitreisende bearbeiten | ✓ | ✓ | – |
+
+- **Preise sind für Mitarbeiter auch in der Datenbank unsichtbar:** Beträge stehen deshalb in eigenen Tabellen, die nur Inhaber lesen dürfen, und nicht als Spalten der Buchung. Die Seiten fragen die Beträge nur für Inhaber ab.
+- **Speichern läuft über eine geschützte Datenbank-Funktion** („Buchung speichern“), nicht über direktes Schreiben in die Tabellen. Sie prüft die Rolle selbst und erledigt in einem Vorgang (alles oder nichts):
+  1. Rechte und Pflichtangaben prüfen;
+  2. die Wohnung für die Dauer des Vorgangs reservieren, damit zwei gleichzeitige Speichervorgänge für dieselbe Wohnung nacheinander laufen;
+  3. Überschneidungen und Kapazität prüfen und sie bei fehlender Bestätigung als Warnungen zurückgeben, ohne zu speichern. Eine Bestätigung zählt nur, wenn der Nutzer Inhaber ist;
+  4. bei Bedarf den neuen Gast anlegen (auch für Mitarbeiter, Entscheidung PROJ-7);
+  5. die Nummer vergeben, die Buchung schreiben und den Preis schreiben: vom Inhaber wie eingegeben, für Mitarbeiter-Buchungen als Vorschlag (Standardpreis × Nächte plus Reinigungsgebühr). Ändert ein Mitarbeiter eine bestehende Buchung, bleibt der Preis unverändert und „Preis prüfen“ wird bei Bedarf gesetzt.
+- **Eigene geschützte Funktionen** gibt es für Stornieren (nur Inhaber), Option bestätigen (mit erneuter Prüfung) und Mitreisende speichern.
+- **Lesen** läuft wie bisher direkt über die Tabellen mit Zugriffsregeln.
+
+### D) Konflikt- und Kapazitätsprüfung
+- **Überschneidung:** dieselbe Wohnung, aktive Einträge und Zeiträume, die sich schneiden. Ein Abreisetag am Anreisetag der nächsten Buchung zählt nicht. Die bearbeitete Buchung selbst zählt nicht.
+- **Kapazität:** Erwachsene + Kinder gegen die Personenzahl der Wohnung.
+- **Vorschau im Formular:** Sobald Wohnung und Zeitraum stehen, fragt das Formular die Prüfung ab und zeigt die Warnung schon vor dem Speichern. Verbindlich ist die Prüfung beim Speichern in der Datenbank. Hat sich inzwischen etwas geändert, erscheint die Warnung dann.
+- **Kennzeichen „überschneidet sich“:** Es wird bei Anzeige berechnet, nicht gespeichert. So verschwindet es, sobald die andere Buchung storniert wird.
+- **Schnelle Abfrage:** ein Index auf Wohnung und Zeitraum, damit Prüfung, Monatsliste und später der Kalender (PROJ-9) bei vielen Buchungen schnell bleiben.
+
+### E) Buchungsnummer
+- Format „JJJJ-NNNN“ (ab 10.000 einfach fünfstellig), Jahr = Anreisejahr beim Anlegen.
+- Vergeben von der Funktion „Buchung speichern“ über den Nummernkreis je Kunde und Jahr. Das ist sicher bei gleichzeitigem Anlegen, ohne Lücken durch abgebrochene Vorgänge.
+- Die Nummer ändert sich nie, auch nicht, wenn sich die Anreise ändert oder die Option bestätigt wird.
+
+### F) Preis
+- **Vorschlag:** Standardpreis der Wohnung × Nächte, dazu die Reinigungsgebühr als Position „Reinigung“. Er wird im Formular berechnet (Inhaber) bzw. in der Datenbank (Mitarbeiter).
+- **Hat der Inhaber den Preis von Hand geändert,** zeigt das Formular bei einem neuen Zeitraum „Neuer Vorschlag: € … übernehmen“, statt den Preis zu überschreiben.
+- **Beträge** werden in Cent gespeichert (keine Rundungsfehler) und als Euro im österreichischen Format angezeigt.
+- **Der Endbetrag** wird immer berechnet (Übernachtungen + Positionen) und nie gespeichert. Die Stornogebühr wird getrennt geführt. PROJ-13 und PROJ-18 lesen beides.
+
+### G) Liste und Suche
+- **Monatsliste:** alle Einträge, deren Zeitraum den Monat berührt, sortiert nach Anreise. Monat, Filter und Suchbegriff stehen in der Adresse (teilbar, „Zurück“ funktioniert).
+- **Ohne Zustandsfilter:** stornierte und verfallene Einträge sind ausgeblendet.
+- **Suche:** über den vereinheitlichten Gastnamen (Suchtext aus PROJ-7) und die Buchungsnummer, über alle Monate, neueste zuerst, höchstens 50 Treffer.
+- **Datenmenge:** Ein Monat hat bei Pilotkunden höchstens einige hundert Einträge und wird ohne Blättern vollständig geladen.
+
+### H) Anschluss an PROJ-6 und PROJ-7
+- **Zusammenführen (PROJ-7):** Die Funktion hängt zusätzlich alle Buchungen des entfernten Gastes auf den verbleibenden um.
+- **Löschen/Anonymisieren (PROJ-7):**
+  - Ob ein Gast „Buchungen hat“, wird aus den Buchungen ermittelt, auch aus stornierten.
+  - Beim Anonymisieren werden zusätzlich die Mitreisenden aller Buchungen dieses Gastes entfernt, und deren Altwerte im Änderungsprotokoll bereinigt.
+  - Anzahl und Alter der Personen bleiben für Ortstaxe und Statistik.
+- **Gästeliste und Gast-Detail (PROJ-7):**
+  - Aufenthalte zählen aktive Buchungen, ohne Optionen.
+  - Letzter Aufenthalt ist die jüngste Anreise bis heute, nächster Aufenthalt die früheste Anreise danach.
+  - Alles wird aus den Buchungen berechnet, wie in PROJ-7 entschieden.
+- **Anonymisierte Gäste** sind in der Gastsuche für neue Buchungen nicht wählbar.
+- **Wohnungen (PROJ-6):**
+  - neues Feld Reinigungsgebühr;
+  - Archivieren und Senken der Personenzahl zeigen die Zahl betroffener künftiger Buchungen (nur Hinweis);
+  - „Endgültig löschen“ ist gesperrt, sobald es Buchungen oder Sperren gibt.
+
+### I) Gleichzeitiges Bearbeiten
+- **Wie bei Gästen (PROJ-7):** Das Formular merkt sich „zuletzt geändert am“. Hat jemand anderer inzwischen gespeichert, erscheint „Diese Buchung wurde inzwischen geändert“ mit „Aktuelle Fassung laden“, und die Eingaben bleiben stehen.
+- **Option verfällt, während das Formular offen ist:** Es gilt der Zustand beim Speichern. Eine verfallene Option wird nur über „Bestätigen“ mit erneuter Prüfung wieder zur Buchung.
+
+### J) Schnittstelle zu späteren Features
+- **PROJ-9 Kalender:** liest dieselben Buchungen pro Zeitraum. Die Farbe richtet sich nach dem Kanal, Sperren sind schraffiert (Entwurf).
+- **PROJ-11 Import:** schreibt Buchungen mit Kanal booking.com/Airbnb in dieselbe Tabelle. Die Konfliktprüfung meldet dann Überschneidungen mit Direktbuchungen.
+- **PROJ-12:** sendet aktive Buchungen, Optionen und Sperren als Sperren an Channex. Der offene Punkt zu übersteuerten Überschneidungen wird dort geklärt.
+- **PROJ-13 Zahlungen:** knüpfen an die Buchung an und lesen Endbetrag und Stornogebühr.
+- **PROJ-16 Ortstaxe:** liest Nächte, Erwachsene und Alter der Kinder.
+- **PROJ-26 Gästeblatt:** ergänzt Felder bei den Mitreisenden, ohne bestehende zu ändern.
+
+### K) Tests
+- **Integrationstests gegen „apppa-dev“:**
+  - Abschottung zwischen Kunden;
+  - Mitarbeiter lesen keine Beträge und können sie nicht schreiben;
+  - Buchungen von Mitarbeitern erhalten den Preisvorschlag;
+  - Mitarbeiter können weder stornieren noch Sperren löschen noch Warnungen übersteuern;
+  - Überschneidung: Wechseltag erlaubt, stornierte und verfallene Einträge zählen nicht;
+  - Kapazität;
+  - Nummernvergabe fortlaufend je Jahr, auch bei gleichzeitigem Anlegen;
+  - neuer Gast und Buchung entstehen alles oder nichts;
+  - Option verfällt und lässt sich bestätigen;
+  - Stornieren mit Gebühr;
+  - Zusammenführen hängt Buchungen um;
+  - Anonymisieren entfernt Mitreisende;
+  - Löschsperre für Wohnung und Gast;
+  - Schutz vor Überschreiben bei gleichzeitiger Änderung.
+- **E2E:**
+  - Leerzustände;
+  - Buchung mit bestehendem bzw. neuem Gast;
+  - Preisvorschlag mit Reinigung und Zusatzkosten;
+  - Konfliktwarnung (Inhaber übersteuert, Mitarbeiter blockiert);
+  - Option anlegen, bestätigen, verfallen;
+  - Stornieren;
+  - Sperre anlegen und löschen;
+  - Mitreisende nachtragen;
+  - Monatsblättern, Filter und Suche;
+  - Mitarbeiter ohne Beträge;
+  - Handy-Ansicht;
+  - axe;
+  - Aufenthalte im Gast-Detail.
+- **Unit-Tests:**
+  - Nächte und Überschneidungslogik (Wechseltag);
+  - Preisvorschlag;
+  - Zustand (aktiv, verfallen, storniert);
+  - Format der Buchungsnummer;
+  - Prüfregeln (Zeitraum, Personen, Kinderalter, Positionen, Ablaufdatum).
+
+### L) Was sich an Sicherheit und Datenbank ändert (Freigabe nötig)
+- **Fünf neue Tabellen mit Zugriffsregeln:**
+  - Buchungen und Mitreisende: lesen alle Mitglieder;
+  - Buchungsbeträge und Zusatzkosten: lesen nur Inhaber;
+  - Nummernkreis: nur intern.
+- **Schreiben** nur über geschützte Funktionen, die die Rolle selbst prüfen: Speichern, Stornieren, Bestätigen, Mitreisende. Einzige Ausnahme ist „Sperre löschen“, direkt erlaubt nur für Inhaber.
+- **Geänderte Funktionen aus PROJ-7:** Zusammenführen, Löschen/Anonymisieren und die Gästeliste.
+- **Neues Feld bei den Wohnungen:** Reinigungsgebühr. Die bestehenden Regeln für Wohnungen bleiben.
+- **Hinweis:** Standardpreis und Reinigungsgebühr der Wohnung bleiben für Mitarbeiter technisch lesbar, wie seit PROJ-6 beim Standardpreis. Die Oberfläche zeigt sie ihnen nicht. Geschützt sind die Beträge der einzelnen Buchungen.
+
+### M) Abhängigkeiten
+- **Keine neuen Pakete.**
+  - Datumsfelder sind die eingebauten Datumsfelder des Browsers, wie im Entwurf und beim Geburtsdatum in PROJ-7. Auf dem Handy öffnen sie die gewohnte Datumsauswahl.
+  - Die Kalenderdarstellung kommt erst mit PROJ-9.
 
 ## QA Test Results
 _To be added by /qa_
