@@ -23,7 +23,7 @@ Re-read the runbook before starting. If refs, projects or domains differ from th
 
 ## Hard Rules
 - **Never** `npx vercel --prod`, `vercel deploy` or any manual Vercel deploy. Releases happen only by fast-forwarding Git branches.
-- **Never** commit directly on `staging` or `production`. Only `git push origin main:staging` and `git push origin staging:production`.
+- **Never** commit directly on `staging` or `production`. Only `git push origin main:staging` and `git push origin origin/staging:production` (after `git fetch`; the local `staging` branch is not kept up to date and may be stale).
 - **Never** run `npm test`, `npm run test:e2e` or integration tests against staging or production. `.env.local` stays on Dev.
 - **Never** promote to production without explicit user approval after the staging check.
 - Migrations cannot be rolled back automatically. A migration that breaks staging stops the release.
@@ -54,7 +54,7 @@ Only if migrations or config changed (otherwise skip to 3).
 npx supabase link --project-ref iikzjqjjxoznrkkixfqa
 npx supabase migration list            # show pending migrations to the user
 npx supabase db push
-npx supabase db advisors --linked      # must be empty; otherwise stop and report
+npx supabase db advisors --linked      # must be empty except the known auth hints (runbook section 2); otherwise stop and report
 ```
 If `config.toml` or `supabase/templates/` changed: `npx supabase config diff`, then ask the user to run `config push` with the three SMTP variables themselves (runbook section 8). Check that the CLI prints `Loading config override: [remotes.staging]`.
 
@@ -85,7 +85,7 @@ npx supabase db advisors --linked
 
 ### 6. Production: Code
 ```bash
-git push origin staging:production
+git fetch && git push origin origin/staging:production
 npx supabase link --project-ref nizgfmvjplhegoosanmu   # back to Dev
 ```
 - Vercel project `apppa` builds Production. User confirms **Ready**.

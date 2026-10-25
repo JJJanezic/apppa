@@ -1,6 +1,6 @@
 # PROJ-8: Manuelle Buchungen
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-10-26
 **Last Updated:** 2026-10-26
 
@@ -797,4 +797,12 @@ Ergänzungen bestehender Seiten
 - **Recommendation:** Deploy
 
 ## Deployment
-_To be added by /deploy_
+_Stand 2026-10-25 (/deploy, Tag `v1.2.0`)_
+
+- **Staging:** https://staging.apppa.at (Vercel `apppa-staging`, Supabase `iikzjqjjxoznrkkixfqa`), vom Nutzer anhand der Checkliste geprüft und freigegeben
+- **Production:** https://app.apppa.at (Vercel `apppa`, Supabase `ahclrqbhfpidxjzbpfgb`), Commit `b8d8ddc`, 2026-10-25
+- **Migrationen** in Staging und Production eingespielt: `20261026130000_bookings.sql`, `20261026140000_bookings_qa_fixes.sql`
+- **Advisors:** kein Befund zur Datenbank. Es bleiben nur die bekannten Auth-Hinweise: in Staging Gültigkeit der Mail-Links und Passwort-Leak-Prüfung, in Production nur die Gültigkeit der Mail-Links.
+- **Beim Ausliefern aufgefallen:**
+  - Der lokale Branch `staging` war veraltet, deshalb wurde der Push nach `production` abgelehnt. Ausgeliefert wurde `origin/staging` als Fast-Forward; Befehl in Runbook, Deploy-Skill und Git-Regel angepasst.
+  - `apppa-staging` baute bei jedem Push auch Previews ohne Variablen, die scheiterten. Abhilfe „Ignored Build Step → Only build production“, im Runbook (Abschnitt 5) dokumentiert.

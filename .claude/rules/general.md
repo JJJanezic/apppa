@@ -27,7 +27,7 @@ Before starting ANY work, check if the project has been initialized:
 - Check existing features before creating new ones: `ls features/ | grep PROJ-`
 - Check existing components before building: `git ls-files src/components/`
 - Check existing APIs before building: `git ls-files src/app/api/`
-- Commit only on `main`. `staging` and `production` are never committed to directly; they are only fast-forwarded by `/deploy` (`git push origin main:staging`, `git push origin staging:production`)
+- Commit only on `main`. `staging` and `production` are never committed to directly; they are only fast-forwarded by `/deploy` (`git push origin main:staging`, `git push origin origin/staging:production` after `git fetch`)
 - Development work (code, migrations, tests) touches the Dev environment only. Environments: `docs/runbooks/supabase.md`, section „Umgebungen“
 
 ## Human-in-the-Loop

@@ -21,10 +21,12 @@ git push origin main:staging                          # Vercel-Projekt apppa-sta
 
 npx supabase link --project-ref ahclrqbhfpidxjzbpfgb   # Produktion
 npx supabase db push
-git push origin staging:production                    # Vercel-Projekt apppa baut app.apppa.at
+git fetch && git push origin origin/staging:production   # Vercel-Projekt apppa baut app.apppa.at
 
 npx supabase link --project-ref nizgfmvjplhegoosanmu   # immer zurück auf Entwicklung
 ```
+
+Für Produktion immer `origin/staging` weiterschieben, nicht den lokalen Branch `staging`: Der lokale Branch wird beim Ausliefern nicht mitgeführt und kann veraltet sein. Dann lehnt GitHub den Push als „non-fast-forward“ ab (so geschehen beim Release von PROJ-8). Nie mit `--force` beheben.
 
 Alle Befehle im Hauptordner des Repositorys ausführen. Die Supabase-CLI ist als Dev-Abhängigkeit installiert (`npx supabase …`).
 
@@ -46,7 +48,11 @@ npm run db:types            # src/types/database.ts neu erzeugen
 npx supabase migration list # lokal und remote müssen übereinstimmen
 ```
 
-Danach `npx supabase db advisors --linked` ausführen: Das Ergebnis muss leer sein.
+Danach `npx supabase db advisors --linked` ausführen: Das Ergebnis muss leer sein. Bekannt und akzeptiert (Stand 2026-10-25), beides Auth-Einstellungen und nicht die Datenbank:
+- `auth_otp_long_expiry` in allen Projekten. Mail-Links gelten bewusst 24 Stunden (`otp_expiry = 86400`).
+- `auth_leaked_password_protection` in Dev und Staging. Die Prüfung gibt es nur im Pro-Tarif und ist deshalb nur in Produktion eingeschaltet (Abschnitt 5, Punkt 7).
+
+Jeder andere Hinweis stoppt das Ausliefern.
 
 Hinweise zu `config push`:
 - `[auth.email] enable_signup` muss `true` bleiben, sonst ist der E-Mail-Login komplett abgeschaltet. Die Registrierung sperrt `[auth] enable_signup = false`.
@@ -95,7 +101,7 @@ Stand 2026-10-24: Beide Projekte sind angelegt, alle Migrationen eingespielt, Ad
 3. `npx supabase link --project-ref <ref>` → `db push` → `db advisors --linked`
 4. `config push` mit den SMTP-Variablen (Abschnitt 8). Ohne ihn bleiben die Mails englisch und die Links zeigen auf localhost
 5. Ersten Admin wie in Abschnitt 4 einrichten
-6. In Vercel die Variablen aus `.env.local.example` mit den Werten des Projekts setzen: Produktion im Vercel-Projekt `apppa` unter *Production*, Staging im eigenen Vercel-Projekt `apppa-staging` unter *Production* (Produktions-Branch `staging`). Dev-Werte in `apppa` unter *Preview*. Grund: Der Gratis-Tarif erlaubt keine Variablen je Branch
+6. In Vercel die Variablen aus `.env.local.example` mit den Werten des Projekts setzen: Produktion im Vercel-Projekt `apppa` unter *Production*, Staging im eigenen Vercel-Projekt `apppa-staging` unter *Production* (Produktions-Branch `staging`). Dev-Werte in `apppa` unter *Preview*. Grund: Der Gratis-Tarif erlaubt keine Variablen je Branch. In `apppa-staging` unter *Settings → Build and Deployment → Ignored Build Step* „Only build production“ wählen. Sonst baut das Projekt bei jedem Push auch Previews ohne Variablen, und die scheitern
 7. **Nur Produktion:** *Authentication → Sign In / Providers → Email*: „Prevent use of leaked passwords“ einschalten. `config.toml` kennt diese Einstellung nicht, deshalb nach jedem `config push` in Produktion prüfen, ob sie noch an ist. *Database → Settings*: „Enforce SSL“ einschalten. *Authentication → Sessions*: „Time-box user sessions“ 30 Tage und „Inactivity timeout“ 8 Stunden (Pro-Tarif; zusätzlich zur Prüfung in der App). Backups siehe Abschnitt 6
 8. Danach wieder mit der Entwicklung verbinden: `npx supabase link --project-ref nizgfmvjplhegoosanmu`
 
