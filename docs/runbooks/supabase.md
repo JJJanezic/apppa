@@ -7,6 +7,7 @@
 | Supabase-Projekt | „apppa-dev“ `nizgfmvjplhegoosanmu` (Gratis-Tarif) | `iikzjqjjxoznrkkixfqa` (Gratis-Tarif) | `ahclrqbhfpidxjzbpfgb` (Pro-Tarif, eigene Organisation) |
 | Git-Branch | `main` | `staging` | `production` |
 | App-Adresse | `http://localhost:3000`, Vercel-Vorschauen | `https://staging.apppa.at` | `https://app.apppa.at` |
+| Vercel-Projekt | `apppa`, Umgebung Preview | `apppa-staging`, Umgebung Production | `apppa`, Umgebung Production |
 | Auth-Werte in `config.toml` | Grundwerte | `[remotes.staging]` | `[remotes.production]` |
 
 Alle in eu-west-1. Die CLI wendet den `[remotes.…]`-Block an, dessen `project_id` zum verlinkten Projekt passt (Ausgabe „Loading config override“). Alle anderen Einstellungen gelten für alle drei Projekte.
@@ -16,11 +17,11 @@ Alle in eu-west-1. Die CLI wendet den `[remotes.…]`-Block an, dessen `project_
 ```bash
 npx supabase link --project-ref iikzjqjjxoznrkkixfqa   # Staging
 npx supabase db push                                  # bei Änderungen an config.toml auch config push (Abschnitt 8)
-git push origin main:staging                          # Vercel baut staging.apppa.at; dort prüfen
+git push origin main:staging                          # Vercel-Projekt apppa-staging baut staging.apppa.at; dort prüfen
 
 npx supabase link --project-ref ahclrqbhfpidxjzbpfgb   # Produktion
 npx supabase db push
-git push origin staging:production                    # Vercel baut app.apppa.at
+git push origin staging:production                    # Vercel-Projekt apppa baut app.apppa.at
 
 npx supabase link --project-ref nizgfmvjplhegoosanmu   # immer zurück auf Entwicklung
 ```
@@ -94,7 +95,7 @@ Stand 2026-10-24: Beide Projekte sind angelegt, alle Migrationen eingespielt, Ad
 3. `npx supabase link --project-ref <ref>` → `db push` → `db advisors --linked`
 4. `config push` mit den SMTP-Variablen (Abschnitt 8). Ohne ihn bleiben die Mails englisch und die Links zeigen auf localhost
 5. Ersten Admin wie in Abschnitt 4 einrichten
-6. In Vercel die Variablen aus `.env.local.example` mit den Werten des Projekts setzen: Produktion in der Umgebung *Production*, Staging unter *Preview* nur für den Branch `staging`
+6. In Vercel die Variablen aus `.env.local.example` mit den Werten des Projekts setzen: Produktion im Vercel-Projekt `apppa` unter *Production*, Staging im eigenen Vercel-Projekt `apppa-staging` unter *Production* (Produktions-Branch `staging`). Dev-Werte in `apppa` unter *Preview*. Grund: Der Gratis-Tarif erlaubt keine Variablen je Branch
 7. **Nur Produktion:** *Authentication → Policies*: Prüfung gegen geleakte Passwörter aktivieren. *Authentication → Sessions*: „Time-box user sessions“ 30 Tage und „Inactivity timeout“ 8 Stunden (Pro-Tarif; zusätzlich zur Prüfung in der App). Backups siehe Abschnitt 6
 8. Danach wieder mit der Entwicklung verbinden: `npx supabase link --project-ref nizgfmvjplhegoosanmu`
 
