@@ -336,8 +336,8 @@ _Stand 2026-10-14 (/backend)_
 
 #### Admin-Einrichtung & Backups
 - [ ] Teilweise (Stand 2026-10-14): `joachim@janezic.at` ist in „apppa-dev“ eingeladen und als Admin gekennzeichnet (Runbook 4.1 und 4.3). Ausstehend: Einladung annehmen, Passwort setzen und 2FA einrichten. Das geht erst mit PROJ-3; die Einladungsmail kam nicht an (laut Supabase-Protokoll versendet)
-- [ ] Ausstehend: Tägliche Backups, erst mit dem Produktionsprojekt prüfbar (vor dem Pilotstart)
-- [ ] Ausstehend: Test-Wiederherstellung, erst mit dem Produktionsprojekt prüfbar (vor dem Pilotstart)
+- [x] Tägliche Backups: Das erste automatische Backup in `apppa-prod` ist vorhanden (geprüft 2026-10-26)
+- [x] Test-Wiederherstellung durchgeführt, laut Nutzer erfolgreich (2026-10-26)
 
 ### Edge Cases Status
 - [x] Person wird aus dem Mandanten entfernt, während sie angemeldet ist: Die Rechte werden bei jeder Abfrage neu geprüft, der nächste Zugriff liefert nichts mehr (Design + RLS-Tests)
