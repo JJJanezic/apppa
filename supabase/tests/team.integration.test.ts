@@ -1,6 +1,6 @@
 // @vitest-environment node
 //
-// PROJ-4: Datenbank-Regeln für Team und Einladungen gegen „apppa“ (übersprungen ohne .env.local)
+// PROJ-4: Datenbank-Regeln für Team und Einladungen gegen „apppa-dev“ (übersprungen ohne .env.local)
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { type Client, createTestUser, hasSupabaseEnv, serviceClient, signIn, type TestUser } from './helpers'

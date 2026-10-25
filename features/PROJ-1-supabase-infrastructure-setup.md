@@ -43,7 +43,7 @@
 **Format:** Angenommen [Vorbedingung] / Wenn [Aktion] / Dann [Ergebnis]
 
 ### Umgebungen & Anbindung
-- [ ] Angenommen die Umgebungsvariablen sind gesetzt, wenn die App startet, dann verbindet sie sich ohne Fehler mit dem Entwicklungsprojekt „apppa“
+- [ ] Angenommen die Umgebungsvariablen sind gesetzt, wenn die App startet, dann verbindet sie sich ohne Fehler mit dem Entwicklungsprojekt „apppa-dev“
 - [ ] Angenommen eine Umgebungsvariable fehlt, wenn die App startet oder gebaut wird, dann erscheint eine klare Fehlermeldung, welche Variable fehlt
 - [ ] Angenommen eine Datenbankänderung wird vorgenommen, wenn sie in die Entwicklung eingespielt wird, dann ist sie als nachvollziehbare Migration im Repository abgelegt und lässt sich identisch in die Produktion übernehmen
 - [ ] Angenommen der Code liegt im Repository, wenn jemand ihn durchsucht, dann enthält er keine geheimen Schlüssel (nur in `.env.local` bzw. Vercel)
@@ -108,7 +108,7 @@
 | Decision | Rationale | Date |
 |----------|-----------|------|
 | PROJ-1 umfasst nur das Fundament; Fachtabellen entstehen mit ihren Features | Jedes Feature bleibt einzeln test- und auslieferbar; keine vorweggenommenen Entscheidungen | 2026-10-13 |
-| „apppa“ = Entwicklung; eigenes Produktionsprojekt vor dem Pilot | Echte Gästedaten nie in der Testumgebung; im Gratis-Tarif möglich | 2026-10-13 |
+| „apppa-dev“ = Entwicklung; eigenes Produktionsprojekt vor dem Pilot | Echte Gästedaten nie in der Testumgebung; im Gratis-Tarif möglich | 2026-10-13 |
 | E-Mail + Passwort, nur per Einladung; 2FA Pflicht für Admin | Passt zum Admin-Onboarding; der Admin hat Zugriff auf alle Mandanten | 2026-10-13 |
 | Vorerst Supabase-Test-Mailversand | Schneller Start; eigener Dienst vor dem Pilot | 2026-10-13 |
 | Eine Person kann Mitglied mehrerer Mandanten sein | Realistisch (mehrere Firmen, geteilte Mitarbeiter); späteres Nachrüsten wäre ein großer Umbau | 2026-10-13 |
@@ -232,8 +232,8 @@ Repository
 - Deutsche Vorlagen für Einladungs- und Passwort-Reset-Mails
 - Erlaubte Weiterleitungsadressen: localhost (Entwicklung), später die Vercel-Adresse
 
-**Umgebungen:** Lokale Entwicklung und Vercel-Vorschauen nutzen „apppa“; die Vercel-Produktion nutzt das spätere Produktionsprojekt. Getrennte Werte pro Umgebung in Vercel.
-*Ergänzt 2026-10-24:* Zusätzlich gibt es ein Staging-Projekt. Es gibt also drei Umgebungen: Entwicklung (`main`, „apppa“), Staging (`staging`, staging.apppa.at) und Produktion (`production`, app.apppa.at, Pro-Tarif in eigener Organisation). Die Auth-Adressen je Projekt stehen als `[remotes.…]` in `config.toml`. Details stehen im Runbook unter „Umgebungen“.
+**Umgebungen:** Lokale Entwicklung und Vercel-Vorschauen nutzen „apppa-dev“; die Vercel-Produktion nutzt das spätere Produktionsprojekt. Getrennte Werte pro Umgebung in Vercel.
+*Ergänzt 2026-10-24:* Zusätzlich gibt es ein Staging-Projekt. Es gibt also drei Umgebungen: Entwicklung (`main`, „apppa-dev“), Staging (`staging`, staging.apppa.at) und Produktion (`production`, app.apppa.at, Pro-Tarif in eigener Organisation). Die Auth-Adressen je Projekt stehen als `[remotes.…]` in `config.toml`. Details stehen im Runbook unter „Umgebungen“.
 
 **Erster Admin:** Er wird über die Supabase-Oberfläche zu `joachim@janezic.at` eingeladen. Danach wird das Admin-Kennzeichen einmalig per Anleitung im Runbook direkt in der Datenbank gesetzt (nicht über eine Migration, weil die Konto-ID je Umgebung verschieden ist).
 
@@ -261,15 +261,15 @@ _Stand 2026-10-14 (/backend)_
 - `20261014120100_audit_log.sql`: `audit_log` mit Trigger `private.audit_row()`; `private.enable_tenant_table(tabelle)` als Ein-Befehl-Muster für Fachtabellen; `private.purge_audit_personal_data()` für DSGVO-Löschungen; Schreibrechte für alle Rollen entzogen, auch für `service_role`
 - `20261014120200_audit_retention.sql`: pg_cron-Job `purge-audit-log`, täglich, löscht Einträge älter als 2 Jahre
 - `20261014130000_restrict_rls_auto_enable.sql`: behebt die zwei Advisor-Warnungen zur Supabase-eigenen Event-Trigger-Funktion `public.rls_auto_enable()`
-- In „apppa“ eingespielt; `migration list` lokal = remote; Security- und Performance-Advisors ohne Befund
+- In „apppa-dev“ eingespielt; `migration list` lokal = remote; Security- und Performance-Advisors ohne Befund
 
-**Auth** (`supabase/config.toml`, per `config push` in „apppa“ übernommen): Registrierung aus (geprüft: `signUp` wird abgelehnt), Passwort mind. 10 Zeichen mit a-z/A-Z/0-9, TOTP aktiv
+**Auth** (`supabase/config.toml`, per `config push` in „apppa-dev“ übernommen): Registrierung aus (geprüft: `signUp` wird abgelehnt), Passwort mind. 10 Zeichen mit a-z/A-Z/0-9, TOTP aktiv
 - **Offen – deutsche Mail-Vorlagen:** Die Vorlagen liegen in `supabase/templates/`, Supabase lehnt sie im Gratis-Tarif mit dem eingebauten Mailversand aber ab. Sie sind in `config.toml` auskommentiert und werden aktiviert, sobald ein eigener SMTP-Dienst eingerichtet ist (Open Question Brevo). Bis dahin sind Einladungs- und Reset-Mails englisch. Das Akzeptanzkriterium „Mail auf Deutsch“ ist damit noch nicht erfüllt.
 - Stolperfalle: `[auth.email] enable_signup = false` schaltet den E-Mail-Login komplett ab. Die Registrierung sperrt allein `[auth] enable_signup = false`.
 
 **App**: `src/lib/env.ts` (Zod-Prüfung mit klarer Fehlermeldung), `src/lib/supabase/{client,server,admin,proxy}.ts`, `src/proxy.ts` (Next 16, Sitzungs-Auffrischung), `src/types/database.ts`, `.env.local.example`. Der Platzhalter `src/lib/supabase.ts` wurde entfernt.
 
-**Tests**: `src/lib/env.test.ts` (4) und `supabase/tests/rls.integration.test.ts` (19) gegen „apppa“: alle 23 grün (2026-10-14). Die RLS-Tests werden übersprungen, wenn `SUPABASE_SECRET_KEY` fehlt.
+**Tests**: `src/lib/env.test.ts` (4) und `supabase/tests/rls.integration.test.ts` (19) gegen „apppa-dev“: alle 23 grün (2026-10-14). Die RLS-Tests werden übersprungen, wenn `SUPABASE_SECRET_KEY` fehlt.
 
 **Runbook**: `docs/runbooks/supabase.md` (CLI, erster Admin, Produktion, Backup-Test, Muster für Fachtabellen)
 
@@ -286,13 +286,13 @@ _Stand 2026-10-14 (/backend)_
 **Abweichungen / Ergänzungen zum Tech Design**
 - Zusätzlich `src/app/auth/confirm/route.ts`: bestätigt die Links aus Einladungs- und Reset-Mails (`token_hash`). Ohne diese Route wären die Mail-Links nicht funktionsfähig. Die Oberflächen folgen in PROJ-3.
 - Das Admin-Kennzeichen ist für angemeldete Nutzer gesperrt, mit dem Secret Key (`service_role`) aber setzbar. Die Tests brauchen das; App-Code darf es nicht nutzen.
-- Protokolleinträge der Test-Mandanten bleiben nach Testläufen in „apppa“ stehen, weil das Protokoll nicht löschbar ist.
+- Protokolleinträge der Test-Mandanten bleiben nach Testläufen in „apppa-dev“ stehen, weil das Protokoll nicht löschbar ist.
 - Mandanten werden auch über `tenants` selbst protokolliert (Mandanten-ID = eigene ID), Mitgliedschaften ebenfalls.
 
 ## QA Test Results
 
 **Tested:** 2026-10-14 (erster Durchlauf), 2026-10-14 (Nachprüfung BUG-1), 2026-10-14 (Nachprüfung BUG-9)
-**Umgebung:** Entwicklungsprojekt „apppa“ (`nizgfmvjplhegoosanmu`) + Code-Review der Migrationen und von `src/`
+**Umgebung:** Entwicklungsprojekt „apppa-dev“ (`nizgfmvjplhegoosanmu`) + Code-Review der Migrationen und von `src/`
 **Tester:** QA Engineer (AI)
 
 **Hinweis zum Umfang:** PROJ-1 hat keine Oberfläche. Browser-, Responsive- und Playwright-E2E-Tests entfallen. Geprüft wurde über die automatischen Integrationstests gegen die Datenbank, die Supabase-Advisors, direkte Datenbankabfragen und ein Code-Review aus Angreifersicht.
@@ -304,9 +304,9 @@ _Stand 2026-10-14 (/backend)_
 ### Acceptance Criteria Status
 
 #### Umgebungen & Anbindung
-- [x] Verbindung zu „apppa“ mit gesetzten Variablen (alle Integrationstests laufen gegen „apppa“)
+- [x] Verbindung zu „apppa-dev“ mit gesetzten Variablen (alle Integrationstests laufen gegen „apppa-dev“)
 - [ ] BUG-5 (Low): Eine fehlende Variable wird nicht beim Start oder Build gemeldet, sondern erst beim ersten Seitenaufruf bzw. beim ersten Zugriff. Die Meldung selbst ist klar und nennt die Variable (Unit-Tests grün)
-- [x] Datenbankänderungen liegen als 4 Migrationen in `supabase/migrations/` und sind in „apppa“ eingespielt
+- [x] Datenbankänderungen liegen als 4 Migrationen in `supabase/migrations/` und sind in „apppa-dev“ eingespielt
 - [x] Keine Geheimnisse im Repository (Suche in allen versionierten Dateien und im Git-Verlauf von `.env.local.example`; nur Platzhalter)
 
 #### Mandanten & Abschottung
@@ -335,7 +335,7 @@ _Stand 2026-10-14 (/backend)_
 - [x] Protokolleinträge kann niemand ändern oder löschen, auch nicht mit dem Secret Key
 
 #### Admin-Einrichtung & Backups
-- [ ] Teilweise (Stand 2026-10-14): `joachim@janezic.at` ist in „apppa“ eingeladen und als Admin gekennzeichnet (Runbook 4.1 und 4.3). Ausstehend: Einladung annehmen, Passwort setzen und 2FA einrichten. Das geht erst mit PROJ-3; die Einladungsmail kam nicht an (laut Supabase-Protokoll versendet)
+- [ ] Teilweise (Stand 2026-10-14): `joachim@janezic.at` ist in „apppa-dev“ eingeladen und als Admin gekennzeichnet (Runbook 4.1 und 4.3). Ausstehend: Einladung annehmen, Passwort setzen und 2FA einrichten. Das geht erst mit PROJ-3; die Einladungsmail kam nicht an (laut Supabase-Protokoll versendet)
 - [ ] Ausstehend: Tägliche Backups, erst mit dem Produktionsprojekt prüfbar (vor dem Pilotstart)
 - [ ] Ausstehend: Test-Wiederherstellung, erst mit dem Produktionsprojekt prüfbar (vor dem Pilotstart)
 
@@ -429,13 +429,13 @@ _Stand 2026-10-14 (/backend)_
 - **Details:** `next.config.ts` setzt keine der in `.claude/rules/security.md` geforderten Header (X-Frame-Options, X-Content-Type-Options, Referrer-Policy, HSTS)
 - **Priority:** Fix before deployment (in /deploy)
 
-#### BUG-8: Testläufe hinterlassen Protokolleinträge in „apppa“
+#### BUG-8: Testläufe hinterlassen Protokolleinträge in „apppa-dev“
 - **Severity:** Low
 - **Details:** Jeder Testlauf lässt etwa 29 Einträge im Änderungsprotokoll zurück (aktuell 58), weil das Protokoll nicht löschbar ist. Das betrifft nur die Entwicklung; die Bereinigung greift erst nach 2 Jahren
 - **Priority:** Nice to have
 
 #### Hinweise (keine Bugs)
-1. Der erste Admin ist in „apppa“ eingeladen und gekennzeichnet; Passwort und 2FA folgen mit PROJ-3. Die Einladungsmail an `joachim@janezic.at` kam nicht an, obwohl Supabase sie laut Protokoll versendet hat (Spam/Quarantäne prüfen; dauerhafte Lösung: eigener Mailversand, siehe BUG-2).
+1. Der erste Admin ist in „apppa-dev“ eingeladen und gekennzeichnet; Passwort und 2FA folgen mit PROJ-3. Die Einladungsmail an `joachim@janezic.at` kam nicht an, obwohl Supabase sie laut Protokoll versendet hat (Spam/Quarantäne prüfen; dauerhafte Lösung: eigener Mailversand, siehe BUG-2).
 2. `private.purge_audit_personal_data()` ist nicht über die API erreichbar. PROJ-7 braucht dafür einen serverseitigen Aufruf (z. B. eine öffentliche Funktion, die nur der Secret Key ausführen darf).
 
 ### Nachprüfung BUG-1 (2026-10-14)

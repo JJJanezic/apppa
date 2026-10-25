@@ -1,6 +1,6 @@
 // @vitest-environment node
 //
-// PROJ-6: Objekte, Wohnungen und Gemeindeliste gegen „apppa“ (übersprungen ohne .env.local)
+// PROJ-6: Objekte, Wohnungen und Gemeindeliste gegen „apppa-dev“ (übersprungen ohne .env.local)
 import { randomUUID } from 'node:crypto'
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'

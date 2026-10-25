@@ -423,7 +423,7 @@ enabled = true
 
 # Staging und Production: Abweichungen je Supabase-Projekt. Die CLI wendet einen Block an,
 # wenn das verlinkte Projekt dieselbe project_id hat; alles andere gilt wie oben.
-# Dev („apppa“, nizgfmvjplhegoosanmu) nutzt die Werte oben (localhost).
+# Dev („apppa-dev“, nizgfmvjplhegoosanmu) nutzt die Werte oben (localhost).
 [remotes.staging]
 project_id = "iikzjqjjxoznrkkixfqa"
 

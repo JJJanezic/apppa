@@ -246,7 +246,7 @@ Gemeinde-Auswahl (wiederverwendbar, auch für PROJ-15)
 - **Keine Wohnungsfarben:** Wie im Entwurf (`docs/design`) erhält jede Wohnung im Kalender eine eigene Zeile (Name, darunter die Gemeinde). Farbe tragen nur die Buchungen, und zwar je Kanal (PROJ-9).
 
 ### F) Tests
-- **Integrationstests gegen „apppa“:**
+- **Integrationstests gegen „apppa-dev“:**
   - Abschottung zwischen Kunden; Mitarbeiter lesen, aber schreiben nicht;
   - Namenseindeutigkeit je Objekt bzw. Kunde;
   - Objekt mit Wohnungen nicht löschbar;
@@ -313,7 +313,7 @@ Gemeinde-Auswahl (wiederverwendbar, auch für PROJ-15)
 ## Implementation Notes (Backend)
 **Stand 2026-10-24.** Alles ist angeschlossen.
 
-**Migrationen** (in „apppa“ eingespielt)
+**Migrationen** (in „apppa-dev“ eingespielt)
 - `20261024140000_properties_apartments.sql`:
   - Tabellen `municipalities`, `municipality_postal_codes`, `properties`, `apartments`.
   - RLS: Gemeinden lesen alle Angemeldeten, schreiben niemand. Objekte und Wohnungen lesen Mitglieder und der Admin, schreiben nur Inhaber; Spaltenrechte verhindern das Ändern von `tenant_id`.
@@ -345,7 +345,7 @@ Gemeinde-Auswahl (wiederverwendbar, auch für PROJ-15)
 **Runbook:** Abschnitt 13 (Gemeindeliste jährlich aktualisieren, Gemeindezusammenlegungen).
 
 **Tests**
-- `supabase/tests/apartments.integration.test.ts` (11 Tests gegen „apppa“):
+- `supabase/tests/apartments.integration.test.ts` (11 Tests gegen „apppa-dev“):
   - Gemeindeliste vollständig, lesbar, nicht beschreibbar; Suchname „Sankt“; Wien mit allen Bezirks-PLZ; PLZ 5340 bzw. 5360;
   - Inhaber schreibt, Mitarbeiter liest nur, anderer Kunde sieht nichts; keine Wohnung an fremdem Objekt; `tenant_id` unveränderlich;
   - Namen eindeutig je Objekt bzw. Kunde;
@@ -358,7 +358,7 @@ Gemeinde-Auswahl (wiederverwendbar, auch für PROJ-15)
 ## QA Test Results
 
 **Tested:** 2026-10-24
-**App URL:** http://localhost:3000 (Dev-Server, Supabase „apppa“)
+**App URL:** http://localhost:3000 (Dev-Server, Supabase „apppa-dev“)
 **Tester:** QA Engineer (AI)
 **Browser:** Google Chrome (Playwright: desktop 1440 px, tablet 768 px, mobile 375 px). Firefox und Safari nicht getestet, wie bei PROJ-2 bis PROJ-5.
 

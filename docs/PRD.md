@@ -43,7 +43,7 @@ Details, Abhängigkeiten und Bau-Reihenfolge: siehe `features/INDEX.md`.
 ## Constraints
 - **Team:** Ein Entwickler mit Claude Code
 - **Zeitrahmen:** Pilotstand (ohne Statistik und Marketing) nach ca. 3 Monaten mit 2–3 Pilotkunden; MVP komplett nach ca. 4–5 Monaten
-- **Technik:** Next.js + Supabase (Projekt „apppa“, Region eu-west-1) + Vercel
+- **Technik:** Next.js + Supabase (Projekt „apppa-dev“, Region eu-west-1) + Vercel
 - **Plattform-Anbindung:** Ausschließlich über den Channel Manager Channex.io (White-Label). booking.com und Airbnb geben ihre APIs nur an zertifizierte Partner frei. Channex wird pro Wohnung abgerechnet
 - **Kosten:** Laufende Kosten niedrig halten (Einstiegstarife bei Supabase/Vercel)
 - **Onboarding & Abrechnung:** Der Betreiber legt Kunden an und lädt sie per E-Mail ein; abgerechnet wird außerhalb der App per Rechnung

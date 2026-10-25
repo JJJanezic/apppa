@@ -229,7 +229,7 @@ Für Mitarbeiter gibt es `/einstellungen` nicht („Seite nicht gefunden“). Vo
 
 **Zurückziehen während des Annehmens / gleichzeitige Einladungen:** Die Regel „eine offene Einladung pro Kunde und Adresse“ und das Annehmen in einem Schritt verhindern Doppelungen; wer zu spät kommt, bekommt „nicht mehr gültig“.
 
-**Tests:** Integrationstests gegen „apppa“ für die neuen Datenbank-Regeln (Inhaber kann anderen Inhaber nicht entfernen, Mitarbeiter kann nichts am Team ändern, direktes Hinzufügen ohne Einladung verweigert, Einladung nur von der eingeladenen Adresse annehmbar, letzter Inhaber), E2E für Einladen, Annehmen, Rollen, Kundenwechsel in allen drei Breiten.
+**Tests:** Integrationstests gegen „apppa-dev“ für die neuen Datenbank-Regeln (Inhaber kann anderen Inhaber nicht entfernen, Mitarbeiter kann nichts am Team ändern, direktes Hinzufügen ohne Einladung verweigert, Einladung nur von der eingeladenen Adresse annehmbar, letzter Inhaber), E2E für Einladen, Annehmen, Rollen, Kundenwechsel in allen drei Breiten.
 
 ### D) Abhängigkeiten (Pakete)
 - Keine neuen Pakete. Brevo wird über seine Web-Schnittstelle direkt angesprochen; alle UI-Bausteine sind installiert.
@@ -264,7 +264,7 @@ _Stand 2026-10-23 (/frontend)_
 ## Implementation Notes (Backend)
 _Stand 2026-10-23 (/backend)_
 
-**Datenbank** (eingespielt in „apppa“):
+**Datenbank** (eingespielt in „apppa-dev“):
 - `20261023120000_invitations_and_membership_rules.sql`: Tabelle `public.invitations` (Kunde, E-Mail normalisiert, Rolle, Art `new_account`/`existing_account`, Zustand offen/angenommen/abgelehnt/zurückgezogen, eingeladen von, verschickt am, gültig bis; eine offene je Kunde + Adresse; Standardfelder + Änderungsprotokoll; Löschung abgeschlossener nach 90 Tagen). RLS: Inhaber lesen/anlegen/ändern, Admin liest, kein Löschen. **Mitgliedschaften (freigegeben):** kein direktes Hinzufügen mehr; Inhaber stufen nur Mitarbeiter hoch und entfernen nur Mitarbeiter; jede Person kann sich selbst herabstufen bzw. austreten; „mindestens ein Inhaber“ bleibt
 - `20261023120100_invitation_functions_private.sql`: Annehmen, Ablehnen, eigene Einladungen lesen und Einlösen nach dem Einrichten als geprüfte Funktionen im internen Schema; öffentlich nur dünne Hüllen ohne Systemrechte (Advisor 0029). Abgleich über die Adresse des angemeldeten Kontos aus der Datenbank
 - Ein PROJ-1-Integrationstest (Inhaber fügt direkt hinzu) an die neue Regel angepasst
@@ -284,7 +284,7 @@ _Stand 2026-10-23 (/backend)_
 ## QA Test Results
 
 **Tested:** 2026-10-24
-**App URL:** http://localhost:3000 (Dev-Server) gegen Supabase „apppa“
+**App URL:** http://localhost:3000 (Dev-Server) gegen Supabase „apppa-dev“
 **Tester:** QA Engineer (AI)
 **Browser:** Google Chrome (Playwright) in 1440 und 375 px (Tablet über PROJ-2-Regression). Firefox und Safari nicht getestet (wie bisher)
 

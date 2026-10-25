@@ -4,7 +4,7 @@
 
 | | Entwicklung | Staging | Produktion |
 |---|---|---|---|
-| Supabase-Projekt | „apppa“ `nizgfmvjplhegoosanmu` (Gratis-Tarif) | `iikzjqjjxoznrkkixfqa` (Gratis-Tarif) | `ahclrqbhfpidxjzbpfgb` (Pro-Tarif, eigene Organisation) |
+| Supabase-Projekt | „apppa-dev“ `nizgfmvjplhegoosanmu` (Gratis-Tarif) | `iikzjqjjxoznrkkixfqa` (Gratis-Tarif) | `ahclrqbhfpidxjzbpfgb` (Pro-Tarif, eigene Organisation) |
 | Git-Branch | `main` | `staging` | `production` |
 | App-Adresse | `http://localhost:3000`, Vercel-Vorschauen | `https://staging.apppa.at` | `https://app.apppa.at` |
 | Auth-Werte in `config.toml` | Grundwerte | `[remotes.staging]` | `[remotes.production]` |
@@ -89,7 +89,7 @@ Angemeldete Nutzer können das Kennzeichen nicht ändern (Spaltenrechte + Trigge
 
 Stand 2026-10-24: Beide Projekte sind angelegt, alle Migrationen eingespielt, Advisors ohne Befund. Offen sind die Schritte 4–7.
 
-1. Neues Projekt anlegen: Region **eu-west-1**, Option **„Enable automatic RLS“ ankreuzen**. Die Migration `restrict_rls_auto_enable` setzt die Funktion `public.rls_auto_enable()` voraus und bricht ohne sie ab. Vergessen: Funktion und Event-Trigger `ensure_rls` im SQL-Editor nachbauen. Die Vorlage ist die Definition in „apppa“ (`select pg_get_functiondef('public.rls_auto_enable()'::regprocedure)`). Beim Kopieren aus dem Terminal gehen `$$` verloren, deshalb über eine Datei und `pbcopy` kopieren.
+1. Neues Projekt anlegen: Region **eu-west-1**, Option **„Enable automatic RLS“ ankreuzen**. Die Migration `restrict_rls_auto_enable` setzt die Funktion `public.rls_auto_enable()` voraus und bricht ohne sie ab. Vergessen: Funktion und Event-Trigger `ensure_rls` im SQL-Editor nachbauen. Die Vorlage ist die Definition in „apppa-dev“ (`select pg_get_functiondef('public.rls_auto_enable()'::regprocedure)`). Beim Kopieren aus dem Terminal gehen `$$` verloren, deshalb über eine Datei und `pbcopy` kopieren.
 2. Neues Projekt mit Ref und Adressen als `[remotes.<name>]` in `supabase/config.toml` eintragen
 3. `npx supabase link --project-ref <ref>` → `db push` → `db advisors --linked`
 4. `config push` mit den SMTP-Variablen (Abschnitt 8). Ohne ihn bleiben die Mails englisch und die Links zeigen auf localhost
@@ -107,7 +107,7 @@ Stand 2026-10-24: Beide Projekte sind angelegt, alle Migrationen eingespielt, Ad
 
 ## 7. Automatische Tests
 
-`npm test` führt die Integrationstests (`supabase/tests/*.integration.test.ts`: RLS, Auth-Konfiguration, Anmelde-Sperre, Mail-Links) gegen „apppa“ aus, wenn `.env.local` alle drei Variablen enthält. Sonst werden sie übersprungen.
+`npm test` führt die Integrationstests (`supabase/tests/*.integration.test.ts`: RLS, Auth-Konfiguration, Anmelde-Sperre, Mail-Links) gegen „apppa-dev“ aus, wenn `.env.local` alle drei Variablen enthält. Sonst werden sie übersprungen.
 Die Tests legen `test-*@example.com`-Nutzer und zwei Test-Mandanten an und löschen sie wieder. Ihre Protokolleinträge bleiben stehen, weil das Protokoll nicht löschbar ist.
 
 ## 8. Mailversand über Brevo (PROJ-3)

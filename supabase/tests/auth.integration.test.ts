@@ -1,6 +1,6 @@
 // @vitest-environment node
 //
-// QA PROJ-1: prüft die Auth-Konfiguration von „apppa“ (Registrierung gesperrt, Passwortregel).
+// QA PROJ-1: prüft die Auth-Konfiguration von „apppa-dev“ (Registrierung gesperrt, Passwortregel).
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import {

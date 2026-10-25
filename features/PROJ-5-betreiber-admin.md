@@ -250,7 +250,7 @@ Die Server-Aktionen der Seiten prüfen den Admin ebenfalls (erste Ebene) und kü
 - Login-Konten werden beim endgültigen Löschen eines Kunden serverseitig gelöscht (bisher nur beim Zurückziehen unbenutzter Einladungen).
 
 ### F) Tests
-- **Integrationstests gegen „apppa“:** Jede Admin-Funktion verweigert Nicht-Admins und Admins ohne 2FA. Letzter Inhaber geschützt. Löschen nur bei deaktivierten Kunden und nur mit richtigem Namen. Verwaiste Konten werden korrekt ermittelt; Konten mit anderem Kunden und das Admin-Konto bleiben. Protokolleinträge und Löschnachweis ohne Personendaten. Deaktivierte Kunden sind für Mitglieder unsichtbar.
+- **Integrationstests gegen „apppa-dev“:** Jede Admin-Funktion verweigert Nicht-Admins und Admins ohne 2FA. Letzter Inhaber geschützt. Löschen nur bei deaktivierten Kunden und nur mit richtigem Namen. Verwaiste Konten werden korrekt ermittelt; Konten mit anderem Kunden und das Admin-Konto bleiben. Protokolleinträge und Löschnachweis ohne Personendaten. Deaktivierte Kunden sind für Mitglieder unsichtbar.
 - **E2E (Playwright):** Liste, Suche, Anlegen (mit vorhandenem Testkonto, damit keine Mail an Fremdadressen geht), Detailseite, Inhaber-Aktionen, Deaktivieren/Reaktivieren mit Hinweis für Mitglieder, Löschen mit Namensbestätigung, 404 für Nicht-Admins, Handy-Ansicht. Ein Test-Admin mit 2FA wird wie in PROJ-3 per TOTP angemeldet.
 
 ### G) Abhängigkeiten
@@ -317,7 +317,7 @@ Die Server-Aktionen der Seiten prüfen den Admin ebenfalls (erste Ebene) und kü
 ## Implementation Notes (Backend)
 **Stand 2026-10-24.** Alle Aktionen sind angeschlossen.
 
-**Migration** `supabase/migrations/20261024120000_operator_admin.sql` (in „apppa“ eingespielt, Sicherheits-Advisor ohne neue Hinweise)
+**Migration** `supabase/migrations/20261024120000_operator_admin.sql` (in „apppa-dev“ eingespielt, Sicherheits-Advisor ohne neue Hinweise)
 - Tabelle `operator_log`: Kunde (Kennung + Name), Aktion, Admin (Kennung + Name), betroffene Adresse.
   - RLS: nur `private.is_admin()` liest; keine Schreibrechte für irgendwen, auch nicht für den Secret Key.
   - Bereinigung nach 2 Jahren (`purge-operator-log`).
@@ -355,7 +355,7 @@ Die Server-Aktionen der Seiten prüfen den Admin ebenfalls (erste Ebene) und kü
 **Runbook:** neuer Abschnitt 12 (Zugang, Löschen, Nachlöschen verwaister Konten, E-Mail-Adresse eines Kontos ändern, Konto eines letzten Inhabers).
 
 **Tests**
-- `supabase/tests/operator.integration.test.ts` (10 Tests gegen „apppa“):
+- `supabase/tests/operator.integration.test.ts` (10 Tests gegen „apppa-dev“):
   - Abweisung von Nicht-Admins und Admin ohne 2FA;
   - Protokoll nur für Admin lesbar und nicht direkt beschreibbar;
   - Anlegen inkl. Art der Einladung und Namens-Dublette;
@@ -383,7 +383,7 @@ Die Server-Aktionen der Seiten prüfen den Admin ebenfalls (erste Ebene) und kü
 ## QA Test Results
 
 **Tested:** 2026-10-24
-**App URL:** http://localhost:3000 (Dev-Server, Supabase „apppa“)
+**App URL:** http://localhost:3000 (Dev-Server, Supabase „apppa-dev“)
 **Tester:** QA Engineer (AI)
 **Browser:** Google Chrome (Playwright, Projekte desktop 1440 px, tablet 768 px, mobile 375 px). Firefox und Safari nicht getestet, dafür ist in Playwright kein Browser eingerichtet (wie bei PROJ-2 bis PROJ-4).
 

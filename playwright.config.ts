@@ -17,7 +17,7 @@ export default defineConfig({
     locale: 'de-AT',
     timezoneId: 'Europe/Vienna',
   },
-  // „setup“ legt einen Testnutzer in „apppa“ an und meldet ihn an (tests/auth.setup.ts); die Projekte starten
+  // „setup“ legt einen Testnutzer in „apppa-dev“ an und meldet ihn an (tests/auth.setup.ts); die Projekte starten
   // damit angemeldet. Tests ohne Anmeldung setzen storageState selbst zurück. „teardown“ löscht den Nutzer.
   projects: [
     { name: 'setup', testMatch: /auth\.setup\.ts/, use: { ...chrome }, teardown: 'teardown' },

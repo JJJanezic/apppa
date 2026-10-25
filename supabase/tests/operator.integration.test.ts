@@ -1,6 +1,6 @@
 // @vitest-environment node
 //
-// PROJ-5: Admin-Funktionen des Betreibers gegen „apppa“ (übersprungen ohne .env.local)
+// PROJ-5: Admin-Funktionen des Betreibers gegen „apppa-dev“ (übersprungen ohne .env.local)
 import { randomUUID } from 'node:crypto'
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'

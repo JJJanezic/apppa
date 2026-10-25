@@ -1,6 +1,6 @@
 // @vitest-environment node
 //
-// PROJ-3: Anmelde-Sperre, Mail-Links und Sitzungen gegen „apppa“ (übersprungen ohne .env.local)
+// PROJ-3: Anmelde-Sperre, Mail-Links und Sitzungen gegen „apppa-dev“ (übersprungen ohne .env.local)
 import { randomUUID } from 'node:crypto'
 
 import { NextRequest } from 'next/server'

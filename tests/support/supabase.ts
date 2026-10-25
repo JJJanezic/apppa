@@ -7,7 +7,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { SESSION_COOKIE, startSession } from '../../src/lib/auth/session-limits'
 import type { Database } from '../../src/types/database'
 
-// Testnutzer für die E2E-Tests in „apppa“. Adressen test-e2e-*@example.com; Mails werden nie verschickt
+// Testnutzer für die E2E-Tests in „apppa-dev“. Adressen test-e2e-*@example.com; Mails werden nie verschickt
 // (Links kommen aus admin.generateLink), damit Brevo nicht an Wegwerf-Adressen zustellt.
 
 try {

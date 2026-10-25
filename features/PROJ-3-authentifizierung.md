@@ -253,7 +253,7 @@ Gemeinsame Bausteine
 
 ### F) Prüfung (für /qa)
 - Unit-Tests: Sperrlogik (Zählen, Ablauf nach 15 min), Sitzungsgrenzen (30 Tage, 8 h), Formularprüfung, Vorname aus Anzeigename
-- Integrationstests gegen „apppa“: Einladung (Link aufrufen löst nicht ein, Klick schon), Passwort-Reset, Sperre, Admin ohne 2FA bekommt keine Admin-Rechte, andere Sitzungen nach Passwortänderung beendet
+- Integrationstests gegen „apppa-dev“: Einladung (Link aufrufen löst nicht ein, Klick schon), Passwort-Reset, Sperre, Admin ohne 2FA bekommt keine Admin-Rechte, andere Sitzungen nach Passwortänderung beendet
 - E2E (Playwright, Chrome): Anmelden/Abmelden, Rücksprung nach Login, Mein Konto, Barrierefreiheit (axe), Handy-Breite
 
 ## Implementation Notes (Frontend)
@@ -280,7 +280,7 @@ _Stand 2026-10-15 (/frontend)_
 ## Implementation Notes (Backend)
 _Stand 2026-10-15 (/backend)_
 
-**Datenbank** (eingespielt in „apppa“): `20261015120000_login_failures.sql`: Tabelle `public.login_failures` (Konto nur als HMAC-Hash der E-Mail, Art `password|mfa`, Zeitpunkt). RLS an, keine Rechte für `anon`/`authenticated`, nur `service_role`; tägliche Löschung > 24 h per pg_cron (`purge-login-failures`). `20261015120100_login_failures_deny_policy.sql`: ausdrückliche restriktive „Kein Zugriff“-Policy (Advisor 0008). Typen neu erzeugt.
+**Datenbank** (eingespielt in „apppa-dev“): `20261015120000_login_failures.sql`: Tabelle `public.login_failures` (Konto nur als HMAC-Hash der E-Mail, Art `password|mfa`, Zeitpunkt). RLS an, keine Rechte für `anon`/`authenticated`, nur `service_role`; tägliche Löschung > 24 h per pg_cron (`purge-login-failures`). `20261015120100_login_failures_deny_policy.sql`: ausdrückliche restriktive „Kein Zugriff“-Policy (Advisor 0008). Typen neu erzeugt.
 
 **Server-Bausteine** (`src/lib/auth/`):
 - `lockout-rules.ts` (reine Regel: 5 Fehlversuche in 15 min → 15 min ab dem letzten) + `lockout.ts` (Hash, lesen/schreiben/löschen über Secret Key). Passwort- und Code-Fehlversuche zählen gemeinsam je Konto. Fällt die Tabelle aus, bleibt die Anmeldung möglich (Supabase-IP-Grenze greift weiter)
@@ -308,7 +308,7 @@ _Stand 2026-10-15 (/backend)_
 
 **Runbook** (`docs/runbooks/supabase.md`): 8 Brevo einrichten + Domain wechseln, 9 2FA-Notfall-Reset, 10 Anmelde-Sperre; Produktion: Supabase-Sitzungsgrenzen (Pro) zusätzlich setzen
 
-**Tests**: Unit `lockout-rules.test.ts` (5), `session-limits.test.ts` (9), `auth/confirm/route.test.ts` (neu, 8). Integration gegen „apppa“ `supabase/tests/auth-flows.integration.test.ts`: Sperre mit echter Tabelle, Tabelle für App-Rollen gesperrt, Link-Aufruf löst nicht ein und Klick nur einmal, Einladungslink, „andere abmelden“ nach Passwortänderung. `npm test` 152/152, `tsc` und Build fehlerfrei, Security-Advisor nur „Leaked Password Protection“ (Pro-Tarif, Runbook Produktion). Rauchtest: `/`, `/konto`, `/2fa`, `/einladung/abschliessen` ohne Sitzung → `/anmelden?next=…`; `/auth/confirm?…&next=//evil.com` → `/bestaetigen` ohne `next`
+**Tests**: Unit `lockout-rules.test.ts` (5), `session-limits.test.ts` (9), `auth/confirm/route.test.ts` (neu, 8). Integration gegen „apppa-dev“ `supabase/tests/auth-flows.integration.test.ts`: Sperre mit echter Tabelle, Tabelle für App-Rollen gesperrt, Link-Aufruf löst nicht ein und Klick nur einmal, Einladungslink, „andere abmelden“ nach Passwortänderung. `npm test` 152/152, `tsc` und Build fehlerfrei, Security-Advisor nur „Leaked Password Protection“ (Pro-Tarif, Runbook Produktion). Rauchtest: `/`, `/konto`, `/2fa`, `/einladung/abschliessen` ohne Sitzung → `/anmelden?next=…`; `/auth/confirm?…&next=//evil.com` → `/bestaetigen` ohne `next`
 
 **Hinweise für /qa**: Die E2E-Tests aus PROJ-2 brauchen jetzt eine Anmeldung (Test-Fixture mit Testnutzer anlegen). `npm run lint` ist im Projekt nicht lauffähig (`next lint` gibt es in Next 16 nicht mehr, keine `eslint.config`), das ist ein bestehender Mangel und nicht Teil von PROJ-3
 
@@ -322,12 +322,12 @@ _Stand 2026-10-15 (/backend)_
 ## QA Test Results
 
 **Tested:** 2026-10-23
-**App URL:** http://localhost:3000 (Dev-Server) gegen Supabase „apppa“
+**App URL:** http://localhost:3000 (Dev-Server) gegen Supabase „apppa-dev“
 **Tester:** QA Engineer (AI)
 **Browser:** Google Chrome (Playwright, `channel: 'chrome'`) in 1440, 768 und 375 px. Firefox und Safari nicht getestet (kein Browser-Download in dieser Umgebung, wie PROJ-2)
 
 **Automatische Tests**
-- `npm test`: 152/152 grün (Unit + Integration gegen „apppa“)
+- `npm test`: 152/152 grün (Unit + Integration gegen „apppa-dev“)
 - `npm run test:e2e`: 102 grün, **4 rot** (= BUG-1 dreifach, BUG-2), 73 übersprungen (Abläufe laufen nur im Projekt „desktop“, um die Supabase-Grenzen pro IP zu schonen)
 - Neu: `tests/PROJ-3-authentifizierung.spec.ts`. Testnutzer `test-e2e-*@example.com` werden pro Test angelegt und gelöscht; Mail-Links kommen aus `admin.generateLink`, es werden keine Mails verschickt. Sitzungen für Tests, die nicht das Login prüfen, werden per Cookie gesetzt (`tests/support/supabase.ts`)
 - PROJ-2-E2E angepasst: Seit PROJ-3 ist Anmeldung Pflicht. Ein Setup-Projekt meldet einen gemeinsamen Testnutzer an (`tests/auth.setup.ts`, Löschung in `tests/auth.teardown.ts`), erwartet werden jetzt Name und Begrüßung „…, Erika.“. Alle PROJ-2-Tests grün in allen drei Breiten

@@ -1,6 +1,6 @@
 // @vitest-environment node
 //
-// Prüft die Zugriffsregeln aus PROJ-1 direkt gegen das Entwicklungsprojekt „apppa“.
+// Prüft die Zugriffsregeln aus PROJ-1 direkt gegen das Entwicklungsprojekt „apppa-dev“.
 // Legt Testnutzer (test-*@example.com) und zwei Test-Mandanten an und räumt danach auf.
 // Protokolleinträge der Test-Mandanten bleiben bewusst stehen: das Protokoll kann niemand löschen
 // (nur die Bereinigung nach 2 Jahren).
