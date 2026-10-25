@@ -225,6 +225,7 @@ Keine neuen Pakete.
     - Erwachsene fließen in die Prüfung ein;
     - Mitarbeiter-Vorschlag nach Preisart;
     - „Preis prüfen“ bei Personenänderungen, nur bei Personenpreisen.
+- `20261026150200_person_prices_qa_fixes.sql` (QA BUG-2): Vorschlag in `bigint`, über € 1.000.000 kein Vorschlag.
 - `20261026150100_person_prices_grant.sql`: Ausführungsrecht der Prüffunktion für `service_role`. Die Prüfregel läuft mit den Rechten der schreibenden Rolle; ohne das Recht scheitern Systemvorgänge und Tests.
 - Bestehende Wohnungen und Buchungen bleiben unverändert (Preisart „Wohnung“, keine Erwachsenen-Grenze).
 
@@ -368,4 +369,4 @@ Keine neuen Pakete.
 - **Nach den Fixes:** Unit + Integration 249/249 (src/lib + Buchungen), E2E PROJ-27 desktop 9/9 sowie tablet/mobile grün, PROJ-8 „Preis prüfen“ grün, Lint und Build grün
 - **Security:** Pass
 - **Production Ready:** YES
-- **Recommendation:** Deploy (die beiden Low-Bugs können vorher oder später behoben werden)
+- **Recommendation:** Deploy
