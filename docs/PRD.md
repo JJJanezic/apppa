@@ -24,10 +24,11 @@ Die App wird als Mehrmandanten-SaaS betrieben: Jeder Kunde (Vermieter) hat ein e
 |----------|---------|--------|
 | P0 (Pilot) | Supabase-Infrastruktur, App-Shell & Design-System, Authentifizierung | Deployed (PROJ-1, PROJ-2, PROJ-3) |
 | P0 (Pilot) | Kundenkonten mit Rollen (Inhaber/Mitarbeiter), Betreiber-Admin | Deployed (PROJ-4, PROJ-5) |
-| P0 (Pilot) | Wohnungsverwaltung, Gäste-Datenbank, manuelle Buchungen, Belegungskalender | In Arbeit (PROJ-6 Deployed) |
+| P0 (Pilot) | Wohnungsverwaltung, Gäste-Datenbank, manuelle Buchungen, Belegungskalender | In Arbeit (PROJ-6 Deployed, PROJ-7 Planned) |
 | P0 (Pilot) | Channex-Anbindung: Buchungsimport von booking.com/Airbnb und Verfügbarkeitssperren | Roadmap |
 | P0 (Pilot) | Zahlungserfassung je Buchung, Dashboard | Roadmap |
 | P0 (Pilot) | Tourismusabgabe: Regeln je Gemeinde, Berechnung und Monatsbericht | Roadmap |
+| P0 (Pilot) | Gästeblatt (Meldewesen) | Roadmap (PROJ-26) |
 | P0 (Pilot) | Kalender-Abo-Link für Outlook/M365 und Google Calendar | Roadmap |
 | P0 (MVP-Abschluss) | Statistische Auswertungen (Auslastung, Umsatz, Gästeherkunft, Kanäle) | Roadmap |
 | P0 (MVP-Abschluss) | Marketing: DSGVO-Einwilligung, Segmente, CSV-Export | Roadmap |

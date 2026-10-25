@@ -21,8 +21,8 @@
 | PROJ-4 | Kundenkonten & Rollen | Mandant (Kunde), Rollen Inhaber/Mitarbeiter, Team-Mitglieder einladen | P0 | PROJ-1, PROJ-3 | Deployed | [Spec](PROJ-4-kundenkonten-rollen.md) | 2026-10-12 |
 | PROJ-5 | Betreiber-Admin | Kunden anlegen, einladen, deaktivieren; Übersicht aller Mandanten | P0 | PROJ-1, PROJ-4 | Deployed | [Spec](PROJ-5-betreiber-admin.md) | 2026-10-12 |
 | PROJ-6 | Wohnungsverwaltung | Objekte und Wohnungen: Stammdaten, Adresse, Gemeinde, Kapazität | P0 | PROJ-1, PROJ-4 | Deployed | [Spec](PROJ-6-wohnungsverwaltung.md) | 2026-10-12 |
-| PROJ-7 | Gäste-Datenbank | Gäste-Stammdaten, Herkunftsland, Buchungsplattform, Marketing-Kanal, Dubletten zusammenführen | P0 | PROJ-1, PROJ-4 | Roadmap | – | 2026-10-12 |
-| PROJ-8 | Manuelle Buchungen | Buchungen anlegen, bearbeiten, stornieren; Konfliktprüfung; Gast verknüpfen | P0 | PROJ-1, PROJ-6, PROJ-7 | Roadmap | – | 2026-10-12 |
+| PROJ-7 | Gäste-Datenbank | Hauptgäste mit Kontakt, Herkunftsland, Firma, Marketing-Quelle; Dubletten zusammenführen; Löschen/Anonymisieren | P0 | PROJ-1, PROJ-4 | Planned | [Spec](PROJ-7-gaeste-datenbank.md) | 2026-10-12 |
+| PROJ-8 | Manuelle Buchungen | Buchungen anlegen, bearbeiten, stornieren; Konfliktprüfung; Gast verknüpfen; Mitreisende je Buchung | P0 | PROJ-1, PROJ-6, PROJ-7 | Roadmap | – | 2026-10-12 |
 | PROJ-9 | Belegungskalender | Monats-/Wochenansicht der Belegung aller Wohnungen | P0 | PROJ-1, PROJ-8 | Roadmap | – | 2026-10-12 |
 | PROJ-10 | Channex-Verbindung | Channex-Konto je Kunde, Wohnungen mit Listings verknüpfen, Verbindungsstatus | P0 | PROJ-1, PROJ-6 | Roadmap | – | 2026-10-12 |
 | PROJ-11 | Buchungsimport aus Channex | Neue, geänderte und stornierte Buchungen von booking.com/Airbnb übernehmen, inkl. Gast | P0 | PROJ-1, PROJ-7, PROJ-8, PROJ-10 | Roadmap | – | 2026-10-12 |
@@ -40,12 +40,13 @@
 | PROJ-23 | Englische Oberfläche | Übersetzung der App ins Englische | P2 | PROJ-2 | Roadmap | – | 2026-10-12 |
 | PROJ-24 | Online-Zahlung Direktbuchungen | Zahlungslink für Gäste (z. B. Stripe) | P2 | PROJ-13 | Roadmap | – | 2026-10-12 |
 | PROJ-25 | Bankabgleich | Kontoauszüge importieren, Zahlungen automatisch Buchungen zuordnen | P2 | PROJ-13 | Roadmap | – | 2026-10-12 |
+| PROJ-26 | Gästeblatt (Meldewesen) | Gesetzliche Gästemeldung je Aufenthalt mit Hauptgast und Mitreisenden | P0 | PROJ-1, PROJ-6, PROJ-7, PROJ-8 | Roadmap | – | 2026-10-26 |
 
 <!-- Add features above this line -->
 
 ## Build Order
-1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11 → 12 → 13 → 14 → 15 → 16 → 17 (**Pilotstand**, ca. 3 Monate) → 18 → 19 (**MVP komplett**, ca. 4–5 Monate) → P2 nach Bedarf.
+1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11 → 12 → 13 → 14 → 15 → 16 → 26 → 17 (**Pilotstand**, ca. 3 Monate) → 18 → 19 (**MVP komplett**, ca. 4–5 Monate) → P2 nach Bedarf.
 
 Den Channex-Block (PROJ-10 bis PROJ-12) früh angehen: Er ist das größte Risiko (Testzugang, Webhooks, Abläufe mit den Plattformen).
 
-## Next Available ID: PROJ-26
+## Next Available ID: PROJ-27
