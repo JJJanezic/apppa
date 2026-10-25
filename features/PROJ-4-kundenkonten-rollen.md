@@ -386,6 +386,23 @@ _Stand 2026-10-23 (/backend)_
 - Nachprüfung: `npm test` 189/189; PROJ-4-E2E 33/33 (Desktop + Handy, inkl. neuer Tests „Mitarbeiter verlässt über Mein Konto“, „letzter Inhaber: Hinweis“, 404 auf drei Einstellungs-Adressen); Regression PROJ-2 36/36, PROJ-3 Abläufe grün
 - Hinweis Tests: Playwright mit `--global-timeout` in kleinen Paketen ausführen (lange Läufe wurden in dieser Umgebung abgebrochen)
 
+#### BUG-3: Kundenwechsel zeigt in Firefox kurz „Da ist etwas schiefgelaufen“ (gemeldet in Production) — behoben auf `main`, Nachprüfung in Firefox offen
+- **Severity:** Low (der Wechsel gelingt, die Fehlerseite ist nur kurz zu sehen)
+- **Steps to Reproduce:** In Firefox (macOS) als Person mit zwei Kunden auf dem Dashboard oben links den Kunden wechseln; Chrome ist nicht betroffen
+- **Ursache:**
+  - Die Server-Aktion `switchTenant` setzte das Kunden-Cookie. Next.js rendert daraufhin die aktuelle Seite neu und schickt sie hinterher.
+  - Gleichzeitig startete `window.location.assign('/')` den Seitenwechsel.
+  - Firefox bricht die noch laufende Antwort mit einem Fehler ab, und React zeigt bis zum Laden der neuen Seite die Fehlerseite.
+- **Behebung (2026-10-25):**
+  - Der Wechsel ist jetzt ein normales Formular (POST an den Route-Handler `src/app/kunde-wechseln/route.ts`): Mitgliedschaft prüfen, Cookie setzen, Weiterleitung 303 auf `/`. Das ist ein echter Seitenwechsel ohne parallele Anfrage.
+  - Die Server-Aktion `switchTenant` ist entfernt.
+  - Schutz: Fremde Herkunft → 403; die Sitzungs-Cookies sind SameSite=Lax; nur eigene Kunden sind wählbar.
+  - Verworfen: `redirect('/')` in der Server-Aktion. Der App-Rahmen prüft Detailseiten anhand von `x-pathname`, der bei Aktionen noch die alte Seite nennt. Außerdem blieben „Mehr“-Blatt und Auswahl offen.
+- **Tests:**
+  - Neu: „Sicherheit: /kunde-wechseln wählt keinen fremden Kunden und lehnt fremde Herkunft ab“.
+  - PROJ-4-Kundenwechsel (Desktop und Handy) grün, Vitest 326/326, Build grün.
+  - Firefox ist in Playwright hier nicht installiert; die Nachprüfung in Firefox steht aus.
+
 ### Summary
 - **Acceptance Criteria:** 30/31 bestanden, 1 nicht prüfbar (Verlaufsansicht fehlt noch; Daten bleiben erhalten)
 - **Bugs Found:** 2 (1 medium, 1 low), beide behoben und nachgeprüft

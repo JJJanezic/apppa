@@ -428,6 +428,33 @@ test.describe('Kunde und Kundenwechsel', () => {
     await expect(page.getByText('QA Fremder')).toHaveCount(0)
   })
 
+  test('Sicherheit: /kunde-wechseln wählt keinen fremden Kunden und lehnt fremde Herkunft ab', async ({ page, users }) => {
+    desktopOnly()
+    const person = await users()
+    const stranger = await users()
+    await createTenant('QA Eigener', [{ user: person, role: 'owner' }])
+    const second = await createTenant('QA Zweiter', [{ user: person, role: 'owner' }])
+    const foreign = await createTenant('QA Fremder', [{ user: stranger, role: 'owner' }])
+    await signInAs(page, person)
+    const cookie = async () => (await page.context().cookies()).find((c) => c.name === 'apppa-kunde')?.value
+
+    const own = await page.request.post('/kunde-wechseln', { form: { tenantId: second }, maxRedirects: 0 })
+    expect(own.status()).toBe(303)
+    expect(await cookie()).toBe(second)
+
+    const strangers = await page.request.post('/kunde-wechseln', { form: { tenantId: foreign }, maxRedirects: 0 })
+    expect(strangers.status()).toBe(303)
+    expect(await cookie()).toBe(second)
+
+    const forged = await page.request.post('/kunde-wechseln', {
+      form: { tenantId: foreign },
+      headers: { origin: 'https://boese.example' },
+      maxRedirects: 0,
+    })
+    expect(forged.status()).toBe(403)
+    expect(await cookie()).toBe(second)
+  })
+
   test('Sicherheit: HTML im Kundennamen wird nicht ausgeführt', async ({ page, users }) => {
     desktopOnly()
     const owner = await users()

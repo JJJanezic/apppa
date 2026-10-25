@@ -3,10 +3,7 @@
 import { CaretUpDown, Check } from '@phosphor-icons/react'
 import { useTranslations } from 'next-intl'
 import { useState } from 'react'
-import { toast } from 'sonner'
 
-import { switchTenant } from '@/app/(app)/tenant-actions'
-import { callAction } from '@/components/auth/form-error'
 import { TruncatedText } from '@/components/shell/truncated-text'
 import { useShell } from '@/components/shell/shell-context'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -16,7 +13,6 @@ import { cn } from '@/lib/utils'
 export function TenantLabel() {
   const t = useTranslations('shell')
   const tRoles = useTranslations('roles')
-  const tErrors = useTranslations('team.errors')
   const { tenant } = useShell()
   const [open, setOpen] = useState(false)
   const [pending, setPending] = useState(false)
@@ -25,22 +21,6 @@ export function TenantLabel() {
 
   if (!tenant.hasOthers || list.length < 2) {
     return <TruncatedText text={name} className="text-[13px] text-ds-neutral-700" />
-  }
-
-  async function choose(tenantId: string) {
-    if (tenantId === tenant.id) {
-      setOpen(false)
-      return
-    }
-    setPending(true)
-    const result = await callAction(() => switchTenant({ tenantId }))
-    if (result.ok) {
-      // Vollständiger Seitenwechsel: alle Daten des neuen Kunden frisch laden
-      window.location.assign(result.redirectTo ?? '/')
-      return
-    }
-    setPending(false)
-    if (result.error !== 'sessionExpired') toast.error(tErrors(result.error))
   }
 
   return (
@@ -59,22 +39,26 @@ export function TenantLabel() {
             const current = entry.id === tenant.id
             return (
               <li key={entry.id}>
-                <button
-                  type="button"
-                  disabled={pending}
-                  aria-current={current ? 'true' : undefined}
-                  onClick={() => choose(entry.id)}
-                  className={cn(
-                    'flex min-h-11 w-full items-center gap-2 rounded-md px-3 py-2 text-left hover:bg-ds-surface',
-                    current && 'font-semibold'
-                  )}
-                >
-                  <span className="flex min-w-0 flex-1 flex-col">
-                    <span className="truncate">{entry.name}</span>
-                    <span className="text-[13px] font-normal text-ds-neutral-700">{tRoles(entry.role)}</span>
-                  </span>
-                  {current && <Check size={16} weight="bold" aria-label={t('currentTenant')} className="text-ds-accent-700" />}
-                </button>
+                {/* Echter Seitenwechsel über /kunde-wechseln (Begründung dort); der aktuelle Kunde schließt nur die Liste */}
+                <form method="post" action="/kunde-wechseln" onSubmit={() => setPending(true)}>
+                  <input type="hidden" name="tenantId" value={entry.id} />
+                  <button
+                    type={current ? 'button' : 'submit'}
+                    disabled={pending}
+                    aria-current={current ? 'true' : undefined}
+                    onClick={current ? () => setOpen(false) : undefined}
+                    className={cn(
+                      'flex min-h-11 w-full items-center gap-2 rounded-md px-3 py-2 text-left hover:bg-ds-surface',
+                      current && 'font-semibold'
+                    )}
+                  >
+                    <span className="flex min-w-0 flex-1 flex-col">
+                      <span className="truncate">{entry.name}</span>
+                      <span className="text-[13px] font-normal text-ds-neutral-700">{tRoles(entry.role)}</span>
+                    </span>
+                    {current && <Check size={16} weight="bold" aria-label={t('currentTenant')} className="text-ds-accent-700" />}
+                  </button>
+                </form>
               </li>
             )
           })}

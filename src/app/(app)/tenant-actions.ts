@@ -6,7 +6,7 @@ import type { ActionResult } from '@/lib/auth/result'
 import { getSessionUser, pendingMfaStep } from '@/lib/auth/session'
 import { createClient } from '@/lib/supabase/server'
 import type { TeamErrorCode } from '@/lib/team'
-import { getTenantContext, rememberTenant } from '@/lib/tenant'
+import { rememberTenant } from '@/lib/tenant'
 
 // Kundenwechsel und Einladungen an die angemeldete Person (PROJ-4)
 
@@ -15,15 +15,6 @@ type Result = ActionResult<undefined, TeamErrorCode>
 async function signedIn(): Promise<boolean> {
   const user = await getSessionUser()
   return Boolean(user && !(await pendingMfaStep(user)))
-}
-
-// Gewählten Kunden für dieses Gerät merken – nur Kunden, bei denen die Person Mitglied ist
-export async function switchTenant(values: { tenantId: string }): Promise<Result> {
-  if (!(await signedIn())) return { ok: false, error: 'sessionExpired' }
-  const { list } = await getTenantContext()
-  if (typeof values?.tenantId !== 'string' || !list.some((t) => t.id === values.tenantId)) return { ok: false, error: 'unknown' }
-  await rememberTenant(values.tenantId)
-  return { ok: true, redirectTo: '/' }
 }
 
 // Einladung (bestehendes Konto) annehmen: Mitgliedschaft entsteht in der Datenbank, der Kunde wird gewählt
