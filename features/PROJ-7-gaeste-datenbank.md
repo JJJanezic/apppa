@@ -1,6 +1,6 @@
 # PROJ-7: Gäste-Datenbank
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-10-26
 **Last Updated:** 2026-10-26
 
@@ -171,12 +171,173 @@ Der Betreiber-Admin sieht Gästedaten von Kunden nicht über diese Bereiche. Gä
 ### Technical Decisions
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Daten in Supabase, je Kunde abgeschottet (Muster PROJ-1) | Gästedaten sind geteilte Teamdaten und müssen geräteübergreifend und sicher getrennt sein | 2026-10-26 |
+| Betreiber-Admin darf Gäste lesen wie alle Kundendaten (ohne eigene Oberfläche) | Vom Nutzer entschieden; einheitliche Regel und einfacher Support | 2026-10-26 |
+| Mitarbeiter legen Gäste nur gemeinsam mit einer Buchung an (ein Datenbankvorgang in PROJ-8) | Setzt „Mitarbeiter nur sehen, Anlegen beim Buchen“ in der Datenbank durch; es entstehen keine Gäste ohne Buchung durch Mitarbeiter | 2026-10-26 |
+| Zusammenführen und Löschen/Anonymisieren als geschützte Datenbank-Funktionen | Mehrere Schritte müssen gemeinsam gelingen oder gemeinsam scheitern; Rolle wird in der Datenbank geprüft | 2026-10-26 |
+| Anonymisieren entfernt Altwerte über die vorhandene Protokoll-Bereinigung aus PROJ-1 | Spec verlangt ein Protokoll ohne personenbezogene Altwerte; die Funktion existiert bereits für DSGVO-Löschungen | 2026-10-26 |
+| Vereinheitlichter Suchtext, von der Datenbank gepflegt | Suche und Dublettenvergleich ohne Groß-/Kleinschreibung und Akzente; schnell auch bei Tausenden Gästen; gleiche Idee wie der Gemeinde-Suchname aus PROJ-6 | 2026-10-26 |
+| Suche, Filter, Sortierung und Blättern in der Datenbank, Zustand in der Adresse | Browser lädt nur 50 Einträge; Links sind teilbar, „Zurück“ funktioniert | 2026-10-26 |
+| Länder als internationaler Code, Namen über die eingebaute Sprachfunktion | Keine eigene Länderliste pflegen, kein Paket; englische Oberfläche (PROJ-23) gratis | 2026-10-26 |
+| Aufenthalte und Plattformen berechnet, nicht am Gast gespeichert | Keine doppelt gepflegten Zahlen, die auseinanderlaufen könnten | 2026-10-26 |
+| Schutz vor Überschreiben über „zuletzt geändert am“ | Einfach, nutzt das vorhandene Standardfeld; reicht für kleine Teams | 2026-10-26 |
+| Plattform-Relay-Adressen zählen nicht als gleiche E-Mail | Sie wechseln je Buchung und würden falsche bzw. fehlende Vorschläge erzeugen | 2026-10-26 |
+| Abgelehnte Dubletten-Paare werden gespeichert | Damit „Kein Doppeleintrag“ dauerhaft wirkt | 2026-10-26 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### Ausgangslage (bereits vorhanden)
+- **Abschottungsmuster aus PROJ-1:** Jede Fachtabelle hat eine Kundenkennung. Lesen dürfen die Mitglieder des Kunden und der Betreiber-Admin mit 2FA, Schreiben richtet sich nach der Rolle. Standardfelder (angelegt/geändert von/am) und das Änderungsprotokoll schaltet ein Aufruf je Tabelle ein.
+- **Änderungsprotokoll:** Es speichert alte und neue Werte. Es gibt schon eine geschützte Funktion, die personenbezogene Altwerte eines Datensatzes aus dem Protokoll entfernt (PROJ-1, für DSGVO-Löschungen gedacht). Einträge werden nach 2 Jahren automatisch gelöscht.
+- **Navigation:** Der Punkt „Gäste“ (`/gaeste`) ist seit PROJ-2 angelegt und noch als „in Vorbereitung“ markiert. Auf dem Handy liegt er in der unteren Leiste.
+- **Bausteine:** Seitenkopf, Leerzustand, Detail-Panel und Bestätigungsdialog; dazu die shadcn-Bausteine Table, Input, Select, Command und Popover, Sheet, Dialog, AlertDialog, Badge, Pagination und Tabs.
+- **Muster für Server-Aktionen** aus PROJ-4 bis 6: gemeinsame Prüfregeln (Zod) für Browser und Server, Meldungen aus `messages/de.json`, kein eigenes API.
+
+### A) Seiten und Bausteine
+
+```
+/gaeste  (alle Mitglieder)
++-- Kopf: „Gäste“ + Knopf „Gast anlegen“ (nur Inhaber) + Link „Mögliche Dubletten (N)“ (nur Inhaber, nur wenn N > 0)
++-- Suchfeld (Name, Firma, E-Mail, Telefon) + Filter Herkunftsland + Filter Marketing-Quelle
++-- Liste
+|   +-- Desktop/Tablet: Tabelle (Name mit Firma, Herkunft, Aufenthalte, letzter Aufenthalt), Sortierung per Spaltenkopf
+|   +-- Handy: Karten (Name, Firma, Herkunft, letzter Aufenthalt)
+|   +-- Blättern zu je 50 Einträgen
++-- Leerzustand (Inhaber: mit „Gast anlegen“; Mitarbeiter: Hinweis auf Buchungen)
++-- „Keine Gäste gefunden“ mit „Suche zurücksetzen“
+
+/gaeste/[id]  Gast-Detail (alle Mitglieder)
++-- Kopf: Name, Firma, Herkunft; Kennzeichen „Anonymisiert“ falls zutreffend
++-- Abschnitt Kontakt (E-Mail, Telefon, Sprache), je mit Kennzeichen „von Plattform übernommen“
++-- Abschnitt Adresse, Abschnitt Firma, Marketing-Quelle, Geburtsdatum, Notiz
++-- Abschnitt Aufenthalte: Anzahl, letzter/nächster, Plattformen (bis PROJ-8: „Noch keine Aufenthalte“)
++-- Aktionen (nur Inhaber): Bearbeiten · Mit anderem Gast zusammenführen · Gast löschen
+
+Detail-Panel „Gast anlegen / bearbeiten“ (nur Inhaber)
++-- Nachname*, Vorname, Herkunftsland* (Länderauswahl mit Suche, häufige Länder oben, keine Vorauswahl)
++-- E-Mail, Telefon, Sprache, Geburtsdatum
++-- Adresse (Straße, PLZ, Ort, Land)
++-- Marketing-Quelle: Auswahl der Standardwerte oder „Eigene Angabe“ → Textfeld
++-- Firma (aufklappbar): Firmenname, UID-Nummer, Rechnungsadresse
++-- Notiz
++-- Hinweis „Möglicher Doppeleintrag“ beim Speichern → „Bestehenden Gast öffnen“ / „Trotzdem anlegen“
+
+Gast-Formular als wiederverwendbarer Baustein
++-- dieselben Felder, eingebettet im Buchungsformular von PROJ-8 (dort auch für Mitarbeiter)
+
+/gaeste/dubletten  Mögliche Dubletten (nur Inhaber)
++-- Liste der Paare mit Grund (gleiche E-Mail / gleiche Telefonnummer / gleicher Name)
++-- je Paar: „Zusammenführen“ · „Kein Doppeleintrag“
+
+Dialog „Gäste zusammenführen“ (nur Inhaber)
++-- zwei Spalten (Gast A | Gast B), je Angabe eine Auswahl, welcher Wert bleibt
++-- Vorschau des Ergebnisses, Hinweis „nicht rückgängig zu machen“, Bestätigung
++-- Einstieg auch aus dem Gast-Detail: anderen Gast per Suche wählen
+
+Bestätigungsdialog „Gast löschen“
++-- ohne Buchungen: „Endgültig löschen“
++-- mit Buchungen: Erklärung „wird anonymisiert“ + was entfernt wird und was bleibt
+```
+
+### B) Datenmodell (in Worten)
+
+**Gäste** (je Kunde)
+- Kunde
+- Nachname (Pflicht), Vorname
+- Herkunftsland (Pflicht), gespeichert als zweistelliger internationaler Ländercode (z. B. AT, DE)
+- E-Mail, Telefon, Sprache (Sprachcode)
+- Adresse: Straße, PLZ, Ort, Land der Adresse (Ländercode)
+- Geburtsdatum
+- Marketing-Quelle: entweder einer der Standardwerte oder „eigene Angabe“ mit Freitext (max. 100 Zeichen)
+- Firma: Firmenname, UID-Nummer, Rechnungsadresse (ein Textfeld)
+- Notiz (max. 2.000 Zeichen)
+- Herkunft der Kontaktdaten: je für E-Mail und Telefon „direkt“ oder „Plattform“ (PROJ-7 setzt immer „direkt“; PROJ-11 setzt „Plattform“)
+- anonymisiert am (leer = normal)
+- **Suchtext** (von der Datenbank selbst gepflegt): Name, Firma, E-Mail und Telefon in vereinheitlichter Form (Kleinbuchstaben, ohne Akzente, Telefon nur Ziffern). Darüber laufen Suche und Dublettenvergleich
+- Standardfelder und Änderungsprotokoll (PROJ-1)
+
+**Abgelehnte Dubletten-Vorschläge** (je Kunde)
+- Kunde, Gast A, Gast B (als Paar, Reihenfolge egal), abgelehnt von/am
+- verschwindet automatisch, wenn einer der beiden Gäste gelöscht oder zusammengeführt wird
+
+**Aufenthalte, letzter/nächster Aufenthalt, Plattformen** werden nicht am Gast gespeichert. Sie werden aus den Buchungen (PROJ-8) berechnet. Bis dahin sind sie leer.
+
+**Regeln in der Datenbank** (nicht nur in der Oberfläche):
+- Nachname und Herkunftsland dürfen nicht leer sein; das Geburtsdatum liegt nicht in der Zukunft; Längenbegrenzungen wie in der Spec
+- Ein anonymisierter Gast kann nicht mehr bearbeitet oder zusammengeführt werden
+- Zusammenführen nur innerhalb desselben Kunden und nicht mit sich selbst
+- Ab PROJ-8: Buchungen verweisen auf den Gast mit Löschsperre. Ein Gast mit Buchungen kann dann nur anonymisiert, nicht gelöscht werden
+
+### C) Rechte
+| Aktion | Inhaber | Mitarbeiter | Betreiber-Admin (2FA) |
+|---|---|---|---|
+| Gäste lesen | ✓ | ✓ | ✓ lesend, wie überall (PROJ-1), aber ohne eigene Oberfläche |
+| Gast anlegen | ✓ | nur über das Buchungsformular (PROJ-8) | – |
+| Gast ändern | ✓ | – | – |
+| Zusammenführen, Löschen, Anonymisieren | ✓ | – | – |
+| Dubletten-Vorschläge sehen bzw. ablehnen | ✓ | – | – |
+
+- „Mitarbeiter nur beim Buchen anlegen“ wird so umgesetzt: Das direkte Anlegen in der Tabelle ist nur Inhabern erlaubt. Für Mitarbeiter legt die Buchungsaktion aus PROJ-8 den Gast in demselben Datenbankvorgang wie die Buchung an. Ein Gast ohne Buchung kann so von Mitarbeitern nicht entstehen.
+- Zusammenführen und Anonymisieren laufen über eigene geschützte Datenbank-Funktionen, die die Inhaber-Rolle selbst prüfen und jeden Schritt in einem Vorgang erledigen (alles oder nichts).
+
+### D) Suche, Filter und Dubletten
+- **Suche:** über den vereinheitlichten Suchtext, „enthält“-Suche, Groß-/Kleinschreibung und Akzente egal. Die Datenbank filtert und blättert; der Browser lädt immer nur die aktuelle Seite (50 Einträge). Suchbegriff, Filter, Sortierung und Seite stehen in der Adresse (teilbar, „Zurück“ funktioniert).
+- **Filter Marketing-Quelle:** Standardwerte, „Eigene Angabe“ (alle Freitexte) und „Keine Angabe“.
+- **Sortierung:** Name (Nachname, Vorname) oder letzter Aufenthalt (ab PROJ-8; bis dahin nur Name).
+- **Dubletten-Vorschläge:** Die Datenbank sucht Paare desselben Kunden mit gleicher E-Mail (ohne Groß-/Kleinschreibung), gleicher Telefonnummer (nur Ziffern verglichen) oder gleichem Vor- und Nachnamen (vereinheitlicht). Anonymisierte Gäste und abgelehnte Paare sind ausgenommen. Die Zahl erscheint als Link im Kopf der Gästeliste.
+- **Warnung beim Anlegen:** dieselbe Prüfung für den neuen Gast vor dem Speichern. „Trotzdem anlegen“ speichert ohne erneute Warnung.
+- **Plattform-Adressen von booking.com/Airbnb** (Relay-Adressen) gelten nicht als „gleiche E-Mail“, weil sie je Buchung wechseln können. Erkannt werden sie an ihrer Domain. Die Liste der Domains liegt an einer Stelle im Code.
+
+### E) Zusammenführen
+- Der Inhaber wählt je Angabe den Wert von Gast A oder B. Die Kennzeichnung „von Plattform übernommen“ wandert mit dem gewählten Wert.
+- In einem Datenbankvorgang: verbleibenden Gast mit den gewählten Werten aktualisieren; ab PROJ-8 alle Buchungen des anderen Gastes umhängen; abgelehnte Vorschläge des anderen Gastes entfernen; anderen Gast löschen.
+- Das Änderungsprotokoll hält beides fest: die Änderung am verbleibenden Gast und das Löschen des anderen. Ein zusätzlicher Eintrag „zusammengeführt mit …“ verknüpft beide.
+
+### F) Löschen und Anonymisieren
+- **Ohne Buchungen:** Gast endgültig löschen. Die Altwerte im Änderungsprotokoll werden über die vorhandene Funktion aus PROJ-1 entfernt. Es bleibt nur der Vermerk „Gast gelöscht“ mit Person und Zeitpunkt.
+- **Mit Buchungen:** In einem Vorgang werden Nachname auf „Gelöschter Gast“ gesetzt, Vorname, Kontakt, Adresse, Sprache, Geburtsdatum, Firma, Marketing-Quelle und Notiz geleert, „anonymisiert am“ gesetzt und die Altwerte dieses Gastes im Änderungsprotokoll entfernt. Herkunftsland und Buchungen bleiben.
+- **Später:** Daten, die andere Features am Gast oder an der Buchung speichern (z. B. Gästeblatt PROJ-26), müssen beim Anonymisieren mit bedacht werden. Die Anonymisierungsfunktion ist dafür der zentrale Ort.
+
+### G) Gleichzeitiges Bearbeiten
+- Das Formular merkt sich beim Öffnen den Stand „zuletzt geändert am“. Beim Speichern wird nur gespeichert, wenn der Gast seitdem nicht geändert wurde. Sonst erscheint „Dieser Gast wurde inzwischen geändert“ mit „Aktuelle Fassung laden“. Die eigenen Eingaben gehen dabei nicht unbemerkt verloren, sondern bleiben bis zum Neuladen im Formular.
+
+### H) Länder, Sprachen, Marketing-Quellen
+- **Länder:** gespeichert als internationaler Code. Die deutschen Namen liefert der Browser bzw. Server selbst (eingebaute Sprachfunktion von JavaScript), ohne eigene Länderliste oder Paket. Die häufigen Länder (Österreich, Deutschland, Schweiz, Italien, Niederlande, Ungarn, Tschechien, Slowenien, Vereinigtes Königreich, USA) stehen oben. Die Liste der Codes liegt an einer Stelle im Code und ist für die englische Oberfläche (PROJ-23) schon vorbereitet.
+- **Sprachen:** kurze feste Liste (Deutsch, Englisch, Italienisch, Französisch, Niederländisch, Ungarisch, Tschechisch, Slowenisch, Kroatisch, Polnisch, Spanisch), Namen ebenfalls über die eingebaute Sprachfunktion.
+- **Marketing-Quellen:** Standardwerte als feste Liste im Code (übersetzbar), dazu „Eigene Angabe“.
+
+### I) Schnittstelle zu späteren Features
+- **PROJ-8 (Buchungen):** nutzt den Gast-Formular-Baustein, die Gastsuche (Auswahl eines bestehenden Gastes) und die Dublettenwarnung. Der Gast und die Buchung entstehen in einem Vorgang.
+- **PROJ-11 (Import):** legt Gäste mit Kontakt-Herkunft „Plattform“ an bzw. ordnet über die Dublettenprüfung bestehende Gäste zu.
+- **PROJ-18/19:** lesen Herkunftsland, Marketing-Quelle und die Kontakt-Herkunft.
+- **PROJ-26 (Gästeblatt):** kann zusätzliche Pflichtangaben am Hauptgast verlangen (siehe Open Questions). Die Felder werden dann ergänzt, ohne bestehende zu ändern.
+
+### J) Tests
+- **Integrationstests gegen „apppa-dev“:**
+  - Abschottung zwischen Kunden;
+  - Mitarbeiter lesen, legen aber nicht direkt an und ändern nicht;
+  - Pflichtfelder und Längen;
+  - Suche mit Akzenten;
+  - Dubletten-Paare (E-Mail, Telefon, Name; abgelehnte und anonymisierte ausgenommen; Plattform-Adressen ignoriert);
+  - Zusammenführen (nur Inhaber, nur gleicher Kunde, nicht mit sich selbst, alles-oder-nichts);
+  - Löschen bzw. Anonymisieren inkl. bereinigtem Änderungsprotokoll;
+  - Schutz vor Überschreiben bei gleichzeitiger Änderung.
+- **E2E:** Leerzustände (Inhaber/Mitarbeiter), Anlegen mit Pflichtfeldern, Dublettenwarnung, Bearbeiten, Firma, eigene Marketing-Quelle, Suche und Filter, Blättern, Zusammenführen mit Feldwahl, „Kein Doppeleintrag“, Löschen und Anonymisieren, Mitarbeiter ohne Aktionen, Handy-Ansicht, axe.
+- **Unit-Tests:** Vereinheitlichung von Suchtext und Telefon, Erkennung von Plattform-Adressen, Länder- und Sprachnamen, Prüfregeln (E-Mail, Geburtsdatum, Längen, Marketing-Quelle).
+
+### K) Was sich an Sicherheit und Datenbank ändert (Freigabe nötig)
+- **Zwei neue Tabellen mit Zugriffsregeln:**
+  - Gäste: je Kunde; Lesen Mitglieder und Betreiber-Admin; direktes Anlegen und Ändern nur Inhaber; Löschen nur über die Funktion „Löschen/Anonymisieren“;
+  - abgelehnte Dubletten-Vorschläge: je Kunde; Lesen und Schreiben nur Inhaber.
+- **Drei neue geschützte Datenbank-Funktionen:** Dubletten suchen, Zusammenführen, Löschen/Anonymisieren. Sie prüfen die Rolle selbst.
+- **Neue Nutzung der Protokoll-Bereinigung aus PROJ-1:** bisher nur für den Server mit dem geheimen Schlüssel. Sie wird künftig auch von der Funktion „Löschen/Anonymisieren“ genutzt, und zwar nur für den betroffenen Gast.
+- **Bestehende Regeln bleiben unverändert.**
+
+### L) Abhängigkeiten
+- Keine neuen Pakete. Länder- und Sprachnamen kommen aus der eingebauten Sprachfunktion von JavaScript; Auswahl mit Suche über die vorhandenen shadcn-Bausteine Command und Popover.
 
 ## QA Test Results
 _To be added by /qa_
