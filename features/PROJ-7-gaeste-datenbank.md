@@ -1,6 +1,6 @@
 # PROJ-7: Gäste-Datenbank
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-10-26
 **Last Updated:** 2026-10-26
 
@@ -511,4 +511,9 @@ Bestätigungsdialog „Gast löschen“
 
 
 ## Deployment
-_To be added by /deploy_
+_Stand 2026-10-26 (/deploy, Tag `v1.1.0`)_
+
+- **Staging:** https://staging.apppa.at (Vercel `apppa-staging`, Supabase `iikzjqjjxoznrkkixfqa`), vom Nutzer geprüft und freigegeben
+- **Production:** https://app.apppa.at (Vercel `apppa`, Supabase `ahclrqbhfpidxjzbpfgb`), Commit `f5d8c1c`, 2026-10-26
+- **Migrationen** in Staging und Production eingespielt: `20261026120000_guests.sql`, `20261026120100_guests_search_words.sql`. Advisors ohne Befund zur Datenbank (nur der bekannte Auth-Hinweis zur Gültigkeit der Mail-Links)
+- **Im selben Release:** Fix PROJ-5 BUG-5 (Einladung an einen Betreiber-Admin ohne Kunden annehmbar)

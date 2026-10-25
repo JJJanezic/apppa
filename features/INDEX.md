@@ -21,7 +21,7 @@
 | PROJ-4 | Kundenkonten & Rollen | Mandant (Kunde), Rollen Inhaber/Mitarbeiter, Team-Mitglieder einladen | P0 | PROJ-1, PROJ-3 | Deployed | [Spec](PROJ-4-kundenkonten-rollen.md) | 2026-10-12 |
 | PROJ-5 | Betreiber-Admin | Kunden anlegen, einladen, deaktivieren; Übersicht aller Mandanten | P0 | PROJ-1, PROJ-4 | Deployed | [Spec](PROJ-5-betreiber-admin.md) | 2026-10-12 |
 | PROJ-6 | Wohnungsverwaltung | Objekte und Wohnungen: Stammdaten, Adresse, Gemeinde, Kapazität | P0 | PROJ-1, PROJ-4 | Deployed | [Spec](PROJ-6-wohnungsverwaltung.md) | 2026-10-12 |
-| PROJ-7 | Gäste-Datenbank | Hauptgäste mit Kontakt, Herkunftsland, Firma, Marketing-Quelle; Dubletten zusammenführen; Löschen/Anonymisieren | P0 | PROJ-1, PROJ-4 | Approved | [Spec](PROJ-7-gaeste-datenbank.md) | 2026-10-12 |
+| PROJ-7 | Gäste-Datenbank | Hauptgäste mit Kontakt, Herkunftsland, Firma, Marketing-Quelle; Dubletten zusammenführen; Löschen/Anonymisieren | P0 | PROJ-1, PROJ-4 | Deployed | [Spec](PROJ-7-gaeste-datenbank.md) | 2026-10-12 |
 | PROJ-8 | Manuelle Buchungen | Buchungen anlegen, bearbeiten, stornieren; Konfliktprüfung; Gast verknüpfen; Mitreisende je Buchung | P0 | PROJ-1, PROJ-6, PROJ-7 | Roadmap | – | 2026-10-12 |
 | PROJ-9 | Belegungskalender | Monats-/Wochenansicht der Belegung aller Wohnungen | P0 | PROJ-1, PROJ-8 | Roadmap | – | 2026-10-12 |
 | PROJ-10 | Channex-Verbindung | Channex-Konto je Kunde, Wohnungen mit Listings verknüpfen, Verbindungsstatus | P0 | PROJ-1, PROJ-6 | Roadmap | – | 2026-10-12 |

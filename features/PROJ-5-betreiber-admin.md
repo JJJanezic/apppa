@@ -543,7 +543,7 @@ Die Server-Aktionen der Seiten prüfen den Admin ebenfalls (erste Ebene) und kü
   2. Hinweis-Mail öffnen, „Zu apppa“ bzw. Dashboard aufrufen.
   3. Expected: Kasten „Einladung annehmen / ablehnen“ auf dem Dashboard.
   4. Actual: Das Dashboard leitet sofort in den Betreiber-Bereich weiter; der Kunde bleibt auf „Einladung offen“.
-- **Status:** Behoben 2026-10-26. Die Weiterleitung greift nur noch, wenn keine Einladung an den Admin offen ist (`src/app/(app)/page.tsx`). E2E PROJ-5 (16) grün.
+- **Status:** Behoben 2026-10-26. Die Weiterleitung greift nur noch, wenn keine Einladung an den Admin offen ist (`src/app/(app)/page.tsx`). E2E PROJ-5 (16) grün. Ausgeliefert nach Staging und Production am 2026-10-26 (Tag `v1.1.0`).
 
 ### Summary
 - **Acceptance Criteria:** 42/42 bestanden (nach den Behebungen).
