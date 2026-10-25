@@ -8,6 +8,7 @@ import { Wordmark } from '@/components/shell/wordmark'
 import { SidebarProvider } from '@/components/ui/sidebar'
 import { requireAppUser } from '@/lib/auth/session'
 import { isActivePath, isAreaAvailable } from '@/lib/navigation'
+import { getBooking } from '@/lib/bookings-data'
 import { getGuest } from '@/lib/guests-data'
 import { getTenantDetail } from '@/lib/operator-data'
 import { getShellInfo, viewerOf } from '@/lib/shell'
@@ -34,6 +35,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     const guestPath = /^\/gaeste\/([^/]+)/.exec(path)
     if (guestPath && isAreaAvailable('guests', viewer)) await getGuest(guestPath[1])
   }
+  // Buchungen (PROJ-8): Detailseite nur für bestehende Einträge des Kunden – sonst 404
+  const bookingPath = /^\/buchungen\/([^/]+)/.exec(path)
+  if (bookingPath && isAreaAvailable('bookings', viewer)) await getBooking(bookingPath[1])
 
   return (
     <ShellProvider value={shell}>

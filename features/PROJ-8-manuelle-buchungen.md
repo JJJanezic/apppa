@@ -1,6 +1,6 @@
 # PROJ-8: Manuelle Buchungen
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-10-26
 **Last Updated:** 2026-10-26
 
@@ -477,6 +477,44 @@ Ergänzungen bestehender Seiten
 - **Keine neuen Pakete.**
   - Datumsfelder sind die eingebauten Datumsfelder des Browsers, wie im Entwurf und beim Geburtsdatum in PROJ-7. Auf dem Handy öffnen sie die gewohnte Datumsauswahl.
   - Die Kalenderdarstellung kommt erst mit PROJ-9.
+
+## Implementation Notes (Frontend)
+**Stand 2026-10-26.** Die Oberfläche ist fertig. Schreibende Aktionen prüfen Rolle und Eingaben und melden bis zum Backend „Diese Funktion wird gerade eingerichtet“. In der Entwicklung (`npm run dev`) zeigen Liste und Detail sieben Beispieleinträge auf den echten Wohnungen und Gästen des Kunden (Buchung mit Kind und Mitreisendem, Option, verfallene Option, Sperre mit Überschneidung, stornierte und vergangene Buchung); im Build bzw. in Staging und Production ist die Liste leer.
+
+**Seiten** (`src/app/(app)/buchungen/`)
+- `page.tsx`: Monatsliste. Ohne Kunde der Hinweis „keinem Kunden zugeordnet“; ohne Wohnung der Leerzustand mit Link zu den Wohnungen (Inhaber); ohne Buchungen der Leerzustand mit „Neue Buchung“ und „Neue Sperre“; „Keine Einträge gefunden“ mit „Suche und Filter zurücksetzen“ (bleibt im Monat)
+- `[id]/page.tsx`: Detail mit Aufenthalt (Zeiten, Nächte, Personen, Kinderalter, Kanal, Notiz), Hauptgast (Link zur Gast-Detailseite), Mitreisenden, Preis (nur Inhaber: Übernachtungen, Positionen, Endbetrag, Stornogebühr, Hinweis „Preis prüfen“), Hinweisen zu verfallener Option, Storno und Überschneidung (mit Links zu den anderen Einträgen)
+- **Navigation:** „Buchungen“ ist freigeschaltet (`ready: true`)
+- **App-Rahmen:** liefert 404 für unbekannte Buchungen schon vor dem Streaming (Muster aus PROJ-5/7)
+
+**Bausteine** (`src/components/bookings/`)
+- `booking-filters.tsx`: Monatsleiste (‹ Monat › · „Heute“, ausgeblendet während einer Suche), Suche (300 ms Verzögerung) über alle Monate, Filter Wohnung, Art, Zustand („Nur aktive“ als Standard); alles in der Adresse (`?monat`, `wohnung`, `art`, `zustand`, `q`)
+- `booking-list.tsx`: Tabelle ab 768 px, darunter Karten; Beträge nur für Inhaber
+- `booking-badges.tsx`: Art, Zustand, „Option bis …“, „überschneidet sich“, „Preis prüfen“
+- `booking-panel.tsx`: Neue Buchung bzw. Option / bearbeiten. Wohnung (nur aktive; die bisherige bleibt beim Bearbeiten sichtbar), Zeiten aus der Wohnung, Gast suchen (`GuestPicker`) oder neu anlegen (`GuestFields` in einem eigenen Formular ohne eigenes `<form>`), Dublettenhinweis mit „Bestehenden Gast verwenden“ bzw. „Trotzdem anlegen“, Erwachsene und Kinder mit Alter, Preis mit Vorschlag (Standardpreis × Nächte; nach Handänderung nur als „Neuen Vorschlag übernehmen“), Zusatzkosten mit Vorschlägen (Reinigung, Haustier, Frühstück, Parkplatz), Endbetrag, Notiz. Mitarbeiter sehen statt des Preises einen Hinweis
+- `use-booking-warnings.ts` + `booking-warnings.tsx`: Vorschau der Konflikt- und Kapazitätsprüfung, sobald Wohnung und Zeitraum stehen. Inhaber setzen „Trotzdem speichern“ (gilt nur für die gezeigten Warnungen), für Mitarbeiter ist Speichern gesperrt
+- `block-panel.tsx`: Sperre anlegen/bearbeiten (Wohnung, von, bis = frei ab, Grund, Notiz; bei „Sonstiges“ Pflicht), dieselbe Warnung, „Sperre löschen“ nur für Inhaber
+- `companions-panel.tsx`: Mitreisende (Vor-, Nachname, Geburtsdatum optional), höchstens Personen minus 1; Nachname des Hauptgastes vorbelegt
+- `cancel-dialog.tsx`: Stornieren mit optionalem Grund und Stornogebühr (nur Inhaber)
+- `booking-actions.tsx`: Bearbeiten, Option bestätigen (auch verfallene), Mitreisende, Stornieren; nicht mehr aktive Einträge nur „Notiz bearbeiten“ (Inhaber bei stornierten zusätzlich Stornogebühr)
+- `new-booking-buttons.tsx`: „Neue Buchung“ und „Neue Sperre“
+
+**Regeln** (`src/lib/bookings.ts`, Unit-Tests): Nächte, Wechseltag-Überschneidung, Konflikte (nur aktive Einträge derselben Wohnung), Zustand (storniert / verfallen / aktiv, Datum in Wien), Kapazität, Preisvorschlag, Endbetrag, Beträge mit Komma und Tausenderpunkt, Buchungsnummer, Monate, Filter aus der Adresse.
+
+**Prüfregeln** (`src/lib/validation/bookings.ts`, Unit-Tests): Zeitraum (Abreise nach Anreise, höchstens 365 Nächte, Anreise höchstens 3 Jahre voraus, Vergangenheit erlaubt), Gast, Erwachsene 1–50, Kinderalter 0–17, Option mit Ablaufdatum ab heute, Übernachtungspreis Pflicht nur für Inhaber, Positionen, Sperrgrund, Mitreisende, Storno.
+
+**Vorläufig bis zum Backend**
+- `src/lib/bookings-data.ts`: Wohnungen echt aus der Datenbank (Reinigungsgebühr noch leer); Buchungen sind Beispiele (nur in der Entwicklung)
+- `src/app/(app)/buchungen/actions.ts`: Speichern, Sperre speichern/löschen, Stornieren, Bestätigen, Mitreisende, Notiz → „wird eingerichtet“; die Warnungs-Vorschau arbeitet auf den Beispielen
+- **Für /backend offen:**
+  - Feld „Reinigungsgebühr“ im Wohnungsformular (PROJ-6);
+  - Hinweise beim Archivieren und Senken der Personenzahl;
+  - Aufenthalte und Buchungsliste im Gast-Detail und in der Gästeliste (PROJ-7);
+  - Dublettenprüfung für Mitarbeiter: `checkGuestDuplicates` ist bisher nur für Inhaber erlaubt; Mitarbeiter sehen im Buchungsformular deshalb noch keine Dublettenwarnung.
+
+**Geprüft**
+- Typprüfung, Lint, Build grün; Unit-Tests 309/309 (davon 30 neu)
+- Im Browser (Desktop 1440 px, Handy 375 px) als Inhaber und als Mitarbeiter: Liste mit Monatsleiste und Karten, Detail mit Preis (Inhaber) bzw. ohne Preis und ohne „Stornieren“ (Mitarbeiter), Formular mit Preisvorschlag, Kinderalter und Kapazitätswarnung inkl. „Trotzdem speichern“
 
 ## QA Test Results
 _To be added by /qa_

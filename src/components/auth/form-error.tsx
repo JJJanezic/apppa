@@ -10,7 +10,7 @@ interface FormErrorProps {
   error: string | null
   retryAfterMinutes?: number
   // Bereich der Meldungstexte in messages/de.json (Standard: Anmeldung)
-  namespace?: 'auth.errors' | 'team.errors' | 'operator.errors' | 'apartments.errors' | 'guests.errors'
+  namespace?: 'auth.errors' | 'team.errors' | 'operator.errors' | 'apartments.errors' | 'guests.errors' | 'bookings.errors'
 }
 
 // Fehlermeldung einer Aktion über dem Formular; wird von Screenreadern sofort vorgelesen
