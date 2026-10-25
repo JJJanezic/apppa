@@ -999,7 +999,8 @@
       "cancel": "Abbrechen",
       "overrideTitle": "Trotzdem bestätigen?",
       "overrideText": "Der Zeitraum überschneidet sich inzwischen mit einem anderen Eintrag oder die Wohnung ist überbelegt. Als Inhaber kannst du die Option trotzdem bestätigen.",
-      "overrideConfirm": "Trotzdem bestätigen"
+      "overrideConfirm": "Trotzdem bestätigen",
+      "staffBlocked": "Der Zeitraum überschneidet sich inzwischen mit einem anderen Eintrag oder die Wohnung ist überbelegt. Bitte den Inhaber fragen."
     },
     "stale": {
       "text": "Diese Buchung wurde inzwischen von jemand anderem geändert. Deine Eingaben bleiben stehen.",
@@ -1045,6 +1046,7 @@
       "tooManyPersons": "Höchstens 50 Personen.",
       "optionUntilRequired": "Bitte das Ablaufdatum der Option eingeben.",
       "optionUntilPast": "Das Ablaufdatum darf nicht in der Vergangenheit liegen.",
+      "optionUntilTooFar": "Das Ablaufdatum darf höchstens 3 Jahre in der Zukunft liegen.",
       "nightsPriceRequired": "Bitte den Übernachtungspreis eingeben.",
       "amountInvalid": "Bitte einen Betrag wie 125 oder 125,50 eingeben.",
       "amountRequired": "Bitte einen Betrag eingeben.",

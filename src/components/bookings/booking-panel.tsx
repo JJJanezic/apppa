@@ -57,7 +57,8 @@ interface BookingPanelProps {
 
 const euro = (cents: number) => formatCurrency(cents / 100, { cents: cents % 100 !== 0 })
 
-function initialValues(booking: Booking | null, apartments: BookableApartment[], today: string): BookingInput {
+// Neue Buchung: Inhaber erhalten die Reinigungsgebühr der Wohnung als Position (cleaningLabel), Mitarbeiter keine Beträge
+function initialValues(booking: Booking | null, apartments: BookableApartment[], today: string, cleaningLabel: string | null): BookingInput {
   if (booking) {
     return {
       kind: booking.kind === 'option' ? 'option' : 'booking',
@@ -91,7 +92,8 @@ function initialValues(booking: Booking | null, apartments: BookableApartment[],
     children: [],
     optionUntil: addDays(today, LIMITS.optionDefaultDays),
     nightsPrice: '',
-    charges: [],
+    // Einzige aktive Wohnung ist vorausgewählt: ihre Reinigungsgebühr gleich eintragen (wie beim Wählen)
+    charges: cleaningLabel && only && only.cleaningFeeCents !== null ? [{ label: cleaningLabel, amount: amountInput(only.cleaningFeeCents) }] : [],
     note: '',
   }
 }
@@ -117,7 +119,7 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
 
   const form = useForm<BookingInput>({
     resolver: zodResolver(bookingSchema(tv, { owner, today }), undefined, { raw: true }),
-    defaultValues: initialValues(booking, apartments, today),
+    defaultValues: initialValues(booking, apartments, today, owner ? t('chargeSuggestions.cleaning') : null),
   })
   const guestForm = useForm<GuestInput>({
     resolver: zodResolver(guestSchema(tgv), undefined, { raw: true }),

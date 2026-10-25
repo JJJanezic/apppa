@@ -17,7 +17,12 @@ import {
 
 type T = (key: string) => string
 
-const time = (t: T) => z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, t('timeInvalid'))
+// Uhrzeit optional (Spec: vorbelegt aus der Wohnung, je Buchung änderbar); leer → null
+const time = (t: T) =>
+  z
+    .string()
+    .refine((v) => v === '' || /^([01]\d|2[0-3]):[0-5]\d$/.test(v), t('timeInvalid'))
+    .transform((v) => v || null)
 const date = (t: T, requiredKey: string) => z.string().refine((v) => v !== '', t(requiredKey)).refine((v) => v === '' || isIsoDate(v), t('dateInvalid'))
 const note = (t: T) =>
   z
@@ -90,6 +95,8 @@ export const bookingSchema = (t: T, { owner, today = todayIso() }: { owner: bool
       if (v.kind === 'option') {
         if (!isIsoDate(v.optionUntil)) ctx.addIssue({ code: 'custom', path: ['optionUntil'], message: t('optionUntilRequired') })
         else if (v.optionUntil < today) ctx.addIssue({ code: 'custom', path: ['optionUntil'], message: t('optionUntilPast') })
+        else if (v.optionUntil > addDays(today, 365 * LIMITS.yearsAhead + 1))
+          ctx.addIssue({ code: 'custom', path: ['optionUntil'], message: t('optionUntilTooFar') })
       }
       // Preise setzen nur Inhaber; Mitarbeiter-Buchungen erhalten den Vorschlag (Tech Design C)
       if (owner) {

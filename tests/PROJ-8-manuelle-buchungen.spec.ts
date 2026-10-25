@@ -252,9 +252,8 @@ test.describe('Buchung anlegen (Inhaber)', () => {
     await expect(page.getByText(money('555,50'))).toBeVisible() // 480 + 60 + 15,50
   })
 
-  test('BUG-1: Bei nur einer aktiven Wohnung wird deren Reinigungsgebühr nicht eingetragen', async ({ page, users }) => {
+  test('BUG-1 (behoben): Bei nur einer aktiven Wohnung ist deren Reinigungsgebühr eingetragen', async ({ page, users }) => {
     desktopOnly()
-    test.fail(true, 'BUG-1: vorausgewählte einzige Wohnung trägt die Reinigungsgebühr nicht ein')
     const { tenantId } = await setup(page, users)
     const propertyId = await addProperty(tenantId)
     await addApartment(tenantId, propertyId, 'Top 1')
@@ -368,6 +367,24 @@ test.describe('Mitarbeiter', () => {
     await page.getByRole('button', { name: 'Bearbeiten', exact: true }).click()
     await expect(panel(page).getByRole('button', { name: 'Sperre speichern' })).toBeVisible()
     await expect(panel(page).getByRole('button', { name: 'Sperre löschen' })).toHaveCount(0)
+  })
+})
+
+test.describe('Mitarbeiter bestätigt Option', () => {
+  test('BUG-3 (behoben): belegter Zeitraum beim Bestätigen zeigt Hinweis auf den Inhaber statt „Trotzdem speichern“', async ({ page, users }) => {
+    desktopOnly()
+    const { tenantId } = await setup(page, users, 'staff')
+    const { top1 } = await withApartments(tenantId)
+    const guest = await addGuest(tenantId, { last_name: 'Huber', first_name: 'Anna' })
+    const option = await addBooking(tenantId, top1, { kind: 'option', guestId: guest, arrival: FUTURE, departure: day(3, FUTURE), optionUntil: day(-1) })
+    await addBooking(tenantId, top1, { guestId: guest, arrival: day(1, FUTURE), departure: day(4, FUTURE) })
+    await openBooking(page, option.id)
+    await page.getByRole('button', { name: 'Option bestätigen' }).click()
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Bestätigen' }).click()
+    await expect(page.getByText(/Bitte den Inhaber fragen\./)).toBeVisible()
+    await expect(page.getByText(/Trotzdem speichern/)).toHaveCount(0)
+    const { data } = await service().from('bookings').select('kind').eq('id', option.id).single()
+    expect(data?.kind).toBe('option')
   })
 })
 
@@ -596,9 +613,8 @@ test.describe('Bearbeiten und Mitreisende', () => {
 })
 
 test.describe('Bearbeiten ohne Uhrzeiten', () => {
-  test('BUG-2: Buchung ohne Check-in/-out-Zeit lässt sich nicht speichern, obwohl die Zeiten optional sind', async ({ page, users }) => {
+  test('BUG-2 (behoben): Buchung ohne Check-in/-out-Zeit lässt sich speichern', async ({ page, users }) => {
     desktopOnly()
-    test.fail(true, 'BUG-2: Formular verlangt Check-in/-out-Zeit')
     const { tenantId } = await setup(page, users)
     const { top1 } = await withApartments(tenantId)
     const guest = await addGuest(tenantId, { last_name: 'Huber', first_name: 'Anna' })

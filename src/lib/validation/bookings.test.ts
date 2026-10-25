@@ -73,6 +73,13 @@ describe('Buchung', () => {
     expect(messages({ ...valid, kind: 'option', optionUntil: '' })).toContain('optionUntil:optionUntilRequired')
     expect(messages({ ...valid, kind: 'option', optionUntil: '2026-10-25' })).toContain('optionUntil:optionUntilPast')
     expect(messages({ ...valid, kind: 'option', optionUntil: TODAY })).toEqual([])
+    expect(messages({ ...valid, kind: 'option', optionUntil: '2029-12-01' })).toContain('optionUntil:optionUntilTooFar')
+  })
+
+  it('Check-in- und Check-out-Zeit sind optional, aber im Format hh:mm (BUG-2)', () => {
+    const result = bookingSchema(t, { owner: true, today: TODAY }).parse({ ...valid, checkIn: '', checkOut: '' })
+    expect(result).toMatchObject({ checkIn: null, checkOut: null })
+    expect(messages({ ...valid, checkIn: '25:00' })).toContain('checkIn:timeInvalid')
   })
 
   it('prüft Beträge und Zusatzkosten nur für Inhaber', () => {

@@ -46,7 +46,9 @@ export function BookingActions({ booking, apartments, owner, today }: BookingAct
     if (!result.ok) {
       // Überschneidung oder Überbelegung: Inhaber dürfen bewusst trotzdem bestätigen
       if (result.error === 'warnings') setDialog('confirmOverride')
-      else if (result.error !== 'sessionExpired') toast.error(te(result.error === 'ownerOnly' ? 'warnings' : result.error))
+      // Mitarbeiter dürfen nicht übersteuern: Hinweis statt „Trotzdem speichern“
+      else if (result.error === 'ownerOnly') toast.error(t('confirmOption.staffBlocked'))
+      else if (result.error !== 'sessionExpired') toast.error(te(result.error))
       return
     }
     toast.success(t('done.confirmed'))

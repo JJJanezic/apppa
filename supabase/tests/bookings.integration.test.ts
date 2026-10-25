@@ -286,6 +286,38 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-8 Manuelle Buchungen', () => {
     })
   })
 
+  describe('Regeln auch bei direktem Aufruf (QA BUG-2, BUG-4)', () => {
+    it('Anreise und Ablaufdatum höchstens 3 Jahre voraus, keine leeren Kinderalter, kein Geburtsdatum in der Zukunft', async () => {
+      const apt = await apartment(tenantA, 'Regeln')
+      const g = await guest(tenantA, 'Regelgast')
+      const far = new Date(Date.now() + 4 * 365 * 86_400_000).toISOString().slice(0, 10)
+      const farEnd = new Date(Date.now() + (4 * 365 + 2) * 86_400_000).toISOString().slice(0, 10)
+      expect((await save(ownerA, bookingInput(tenantA, apt, g, far, farEnd))).error?.code).toBe('P0807')
+      const block = await staffA.rpc('save_block', {
+        p_input: { tenant_id: tenantA, apartment_id: apt, arrival: far, departure: farEnd, block_reason: 'renovation', note: null } as Json,
+      })
+      expect(block.error?.code).toBe('P0807')
+      expect((await save(staffA, bookingInput(tenantA, apt, g, '2027-05-01', '2027-05-03', { kind: 'option', option_until: far }))).error?.code).toBe('P0807')
+      expect((await save(ownerA, bookingInput(tenantA, apt, g, '2027-05-01', '2027-05-03', { child_ages: [4, null] }))).error?.code).toBe('23514')
+
+      const id = savedId(await save(ownerA, bookingInput(tenantA, apt, g, '2027-05-01', '2027-05-03', { adults: 2 })))
+      const b = await row(id)
+      const future = [{ first_name: 'Zukunft', last_name: 'Kind', birth_date: far }]
+      expect((await staffA.rpc('save_companions', { p_booking_id: id, p_updated_at: b.updated_at, p_companions: future as Json })).error?.code).toBe('P0807')
+    })
+
+    it('Check-in-/Check-out-Zeit beim Ändern optional; beim Anlegen ohne Angabe die Zeiten der Wohnung', async () => {
+      const apt = await apartment(tenantA, 'Zeiten')
+      const g = await guest(tenantA, 'Zeitgast')
+      const id = savedId(await save(staffA, bookingInput(tenantA, apt, g, '2027-06-01', '2027-06-03', { check_in: null, check_out: null })))
+      const created = await row(id)
+      expect([created.check_in, created.check_out]).toEqual(['15:00:00', '10:00:00'])
+      savedId(await save(staffA, { ...bookingInput(tenantA, apt, g, '2027-06-01', '2027-06-03', { check_in: null, check_out: null }), id, updated_at: created.updated_at }))
+      const changed = await row(id)
+      expect([changed.check_in, changed.check_out]).toEqual([null, null])
+    })
+  })
+
   describe('Gäste (PROJ-7) mit Buchungen', () => {
     it('Zusammenführen hängt Buchungen um; Löschen anonymisiert und entfernt Mitreisende; Gästeliste zählt Aufenthalte', async () => {
       const apt = await apartment(tenantA, 'Gäste')

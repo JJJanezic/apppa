@@ -1,6 +1,6 @@
 # PROJ-8: Manuelle Buchungen
 
-## Status: In Review
+## Status: Approved
 **Created:** 2026-10-26
 **Last Updated:** 2026-10-26
 
@@ -622,8 +622,8 @@ Ergänzungen bestehender Seiten
 - [x] Suche nach Gast (ohne Akzente) und Buchungsnummer über alle Monate
 - [x] Handy: Karten statt Tabelle, kein seitliches Scrollen
 
-#### Buchung anlegen (12/13)
-- [ ] BUG-1: Check-in/-out-Zeiten und Reinigungsgebühr werden beim Wählen einer Wohnung übernommen. Hat der Kunde nur **eine** aktive Wohnung, ist sie vorausgewählt, die Reinigungsgebühr fehlt dann aber.
+#### Buchung anlegen (13/13)
+- [x] BUG-1 (behoben): Check-in/-out-Zeiten und Reinigungsgebühr werden beim Wählen einer Wohnung übernommen. Hat der Kunde nur **eine** aktive Wohnung, ist sie vorausgewählt, die Reinigungsgebühr fehlt dann aber.
 - [x] „Die Abreise muss nach der Anreise liegen“
 - [x] Übernachtungspreis = Standardpreis × Nächte, Endbetrag berechnet
 - [x] Nach Handänderung: neuer Zeitraum ändert den Preis nicht, „Neuen Vorschlag … übernehmen“ wird angeboten
@@ -700,7 +700,7 @@ Ergänzungen bestehender Seiten
 - [x] Gast zusammengeführt/anonymisiert während Bearbeitung: Stand-Prüfung greift; anonymisierter Gast in der Gastsuche nicht wählbar
 - [x] Mitarbeiter wechselt Wohnung: Preis bleibt, „Preis prüfen“
 - [x] Netzwerkfehler: Meldung, Eingaben bleiben; Gast und Buchung in einem Vorgang
-- [ ] BUG-2: Check-in/-out-Zeit ist laut Spec optional, das Formular verlangt sie aber
+- [x] BUG-2 (behoben): Check-in/-out-Zeit ist laut Spec optional; das Formular verlangte sie
 
 ### Security Audit Results
 - [x] Ohne Anmeldung kein Zugriff (App-Rahmen wie bisher); fremde Buchung per Adresse → 404
@@ -711,12 +711,12 @@ Ergänzungen bestehender Seiten
 - [x] Suche: Suchbegriff wird vor der Abfrage auf Buchstaben, Ziffern, Leerzeichen und Bindestrich bereinigt (kein Einschleusen in den PostgREST-Filter, keine LIKE-Platzhalter)
 - [x] XSS: Notizen, Gründe und Namen werden von React als Text ausgegeben
 - [x] Keine Geheimnisse in Client-Code oder Antworten; Admin liest Beträge nur lesend (wie geplant)
-- [ ] BUG-4 (Low): Einige Regeln prüft nur die App, nicht die Datenbank. Wer die Funktionen direkt über die API aufruft (nur eigene Kundendaten), kann sie umgehen.
-- [ ] BUG-5 (Low): Theoretische Verklemmung bei gleichzeitigem Bearbeiten und Bestätigen derselben Option
+- [x] BUG-4 (Low, behoben): Einige Regeln prüft nur die App, nicht die Datenbank. Wer die Funktionen direkt über die API aufruft (nur eigene Kundendaten), kann sie umgehen.
+- [x] BUG-5 (Low, behoben): Theoretische Verklemmung bei gleichzeitigem Bearbeiten und Bestätigen derselben Option
 
 ### Bugs Found
 
-#### BUG-1: Reinigungsgebühr fehlt, wenn nur eine Wohnung aktiv ist
+#### BUG-1: Reinigungsgebühr fehlt, wenn nur eine Wohnung aktiv ist (behoben)
 - **Severity:** Medium
 - **Steps to Reproduce:**
   1. Als Inhaber eines Kunden mit genau einer aktiven Wohnung (Reinigungsgebühr € 60) „Neue Buchung“ öffnen
@@ -726,7 +726,7 @@ Ergänzungen bestehender Seiten
 - **Test:** `BUG-1: Bei nur einer aktiven Wohnung …` (`test.fail`)
 - **Priority:** Fix before deployment (betrifft Kunden mit einer Wohnung bei jeder Inhaber-Buchung)
 
-#### BUG-2: Check-in/-out-Zeit im Formular Pflicht
+#### BUG-2: Check-in/-out-Zeit im Formular Pflicht (behoben)
 - **Severity:** Low
 - **Steps to Reproduce:**
   1. Buchung ohne Check-in/-out-Zeit (z. B. künftig aus dem Import) bearbeiten oder im Formular die Uhrzeit leeren
@@ -737,7 +737,7 @@ Ergänzungen bestehender Seiten
 - **Test:** `BUG-2: Buchung ohne Check-in/-out-Zeit …` (`test.fail`)
 - **Priority:** Fix in next sprint (spätestens mit PROJ-11)
 
-#### BUG-3: Irreführende Meldung für Mitarbeiter beim Bestätigen einer überschneidenden Option
+#### BUG-3: Irreführende Meldung für Mitarbeiter beim Bestätigen einer überschneidenden Option (behoben)
 - **Severity:** Low
 - **Steps to Reproduce:**
   1. Verfallene Option, deren Zeitraum inzwischen belegt ist
@@ -747,7 +747,7 @@ Ergänzungen bestehender Seiten
 - **Ursache:** `booking-actions.tsx` zeigt bei `ownerOnly` die Meldung `warnings`
 - **Priority:** Nice to have
 
-#### BUG-4: Einige Regeln nur in der App, nicht in der Datenbank
+#### BUG-4: Einige Regeln nur in der App, nicht in der Datenbank (behoben)
 - **Severity:** Low
 - **Details:** Bei direktem Aufruf von `save_booking` bzw. `save_companions` über die API (nur mit eigener Anmeldung, nur eigene Kundendaten) werden nicht geprüft:
   - Anreise höchstens 3 Jahre voraus;
@@ -757,7 +757,7 @@ Ergänzungen bestehender Seiten
 - **Folge:** Keine Sicherheitslücke (keine fremden Daten, keine Rollenumgehung), nur unplausible Daten im eigenen Kunden
 - **Priority:** Nice to have (z. B. `array_position(child_ages, null) is null` als Regel ergänzen)
 
-#### BUG-5: Mögliche Verklemmung zwischen Bearbeiten und Bestätigen derselben Option
+#### BUG-5: Mögliche Verklemmung zwischen Bearbeiten und Bestätigen derselben Option (behoben)
 - **Severity:** Low
 - **Details:**
   - `save_booking` (Bearbeiten) sperrt erst die Buchungszeile, dann die Wohnung.
@@ -767,12 +767,34 @@ Ergänzungen bestehender Seiten
 
 **Beobachtung (kein Fehler, laut Spec so gewollt):** Hat der Inhaber eine Überschneidung übersteuert, kann ein Mitarbeiter diese Buchung nicht mehr bearbeiten, solange die Überschneidung besteht. Das gilt auch für reine Personen- oder Gaständerungen. Notiz und Mitreisende bleiben änderbar.
 
+### Behebung (2026-10-25)
+- **BUG-1:** `booking-panel.tsx` trägt bei der vorausgewählten einzigen Wohnung die Reinigungsgebühr für Inhaber gleich als Position „Reinigung“ ein.
+- **BUG-2:**
+  - Check-in/-out-Zeit sind im Formular optional (leer → keine Zeit).
+  - `save_booking` übernimmt beim Ändern den übergebenen Wert; beim Anlegen ohne Angabe gelten die Zeiten der Wohnung.
+- **BUG-3:** Mitarbeiter erhalten beim Bestätigen einer überschneidenden Option „… Bitte den Inhaber fragen.“ (`bookings.confirmOption.staffBlocked`).
+- **BUG-4:** Neue Migration `20261026140000_bookings_qa_fixes.sql` (nur „apppa-dev“). RLS und Rechte sind unverändert.
+  - Anreise (Buchung, Sperre) und Ablaufdatum der Option höchstens 3 Jahre voraus (`private.booking_max_date()`);
+  - Geburtsdatum der Mitreisenden nicht in der Zukunft (`save_companions`);
+  - keine leeren Kinderalter (`bookings_child_ages_not_null_check`).
+  - Das Formular prüft das Ablaufdatum ebenfalls (`optionUntilTooFar`).
+- **BUG-5:** `save_booking` und `save_block` sperren wie `confirm_option` erst die Wohnung(en), nach id sortiert (`private.lock_apartments`), dann den Eintrag. Geprüft per Code-Review; die Verklemmung ist zeitabhängig und nicht verlässlich nachstellbar.
+- **Tests:**
+  - Unit-Tests: Zeiten optional, Obergrenze Ablaufdatum.
+  - 2 neue Integrationstests: Regeln bei direktem Aufruf, Zeiten beim Anlegen und Ändern.
+  - E2E: BUG-1 und BUG-2 als „(behoben)“ ohne `test.fail`, neuer Test BUG-3.
+- **Nachtest:**
+  - Vitest 326/326;
+  - Lint, Typprüfung und Build grün;
+  - PROJ-8-E2E 20/20 (desktop) grün;
+  - `db advisors`: nur die bekannten Auth-Hinweise der Dev-Umgebung (OTP-Ablauf, Leaked-Password-Schutz), kein Befund zu Tabellen oder Funktionen.
+
 ### Summary
-- **Acceptance Criteria:** 57/58 bestanden (1 teilweise nicht: Reinigungsgebühr bei nur einer Wohnung)
-- **Bugs Found:** 5 total (0 critical, 0 high, 1 medium, 4 low)
-- **Security:** Pass (2 Low-Hinweise zur Datenqualität bzw. Nebenläufigkeit)
-- **Production Ready:** YES (keine Critical/High)
-- **Recommendation:** BUG-1 vor dem Deploy beheben (klein, betrifft Kunden mit einer Wohnung bei jeder Buchung); BUG-2 bis BUG-5 können folgen
+- **Acceptance Criteria:** 58/58 bestanden (nach Behebung von BUG-1)
+- **Bugs Found:** 5 total (0 critical, 0 high, 1 medium, 4 low), alle behoben
+- **Security:** Pass
+- **Production Ready:** YES
+- **Recommendation:** Deploy
 
 ## Deployment
 _To be added by /deploy_
