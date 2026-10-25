@@ -1,6 +1,6 @@
 # PROJ-9: Belegungskalender
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-10-25
 **Last Updated:** 2026-10-25
 
@@ -210,12 +210,175 @@ Sie erscheinen nur, wenn sie im sichtbaren Zeitraum Einträge haben, und tragen 
 <!-- Added by /architecture -->
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Keine Datenbankänderung; Kalender liest die bestehenden Buchungen mit eigener, schlanker Abfrage ohne Beträge | Alle Angaben sind seit PROJ-8 vorhanden, der Index auf Wohnung und Zeitraum besteht; ohne Beträge erreicht kein Preis die Mitarbeiter | 2026-10-25 |
+| Zeitraum, Ansicht, Filter, gewählter Tag und offener Eintrag stehen in der Adresse; Laden auf dem Server | Gleiches Muster wie die Buchungsliste; „Zurück“ funktioniert; nach Aktionen erneuert `router.refresh()` Kalender und Panel in einem Zug | 2026-10-25 |
+| Detailpanel = Inhalt der Buchungs-Detailseite als gemeinsamer Baustein, im Kalender in einem Seitenpanel | Ein Detail für Seite und Panel, keine doppelte Pflege; Aktionen und Rollenregeln aus PROJ-8 gelten unverändert | 2026-10-25 |
+| Panel über Adress-Parameter statt „abfangender Routen“ von Next.js | Funktioniert gleich auf `/` und `/belegung`, ist einfacher zu testen; abfangende Routen bräuchten zwei Varianten und verhalten sich beim Neuladen anders | 2026-10-25 |
+| Ansicht und Objektfilter je Gerät in einem Cookie statt im Browser-Speicher | Der Server kennt die Wahl schon beim ersten Laden, dadurch kein Umspringen der Ansicht nach dem Laden | 2026-10-25 |
+| Vollbild-Seite zeigt immer 28 Tage, auch am Handy (seitlich scrollbar) | Der Server kennt die Bildschirmbreite nicht; am Handy wird ohnehin gescrollt | 2026-10-25 |
+| Balkenlage, Ebenen bei Überschneidungen und Monatszahlen als reine Rechenfunktionen | Gut mit Unit-Tests abzusichern (Wechseltag, Ränder, mehrere Ebenen), unabhängig von der Darstellung | 2026-10-25 |
+| Datumswähler: native Datumseingabe in einem Popover, keine Kalender-Bibliothek | Wie die Datumsfelder in PROJ-8; kein neues Paket | 2026-10-25 |
+| Freie Zellen nur per Maus/Touch, nicht in der Tab-Reihenfolge | Bei 50 Wohnungen × 28 Tagen wären es über 1.000 Tab-Stopps; Tastatur nutzt „Neue Buchung“ | 2026-10-25 |
+| „Belegt x/y“ zählt nur nicht archivierte Wohnungen (x und y) | Sonst könnte x größer als y werden; archivierte Wohnungen sind nicht mehr buchbar | 2026-10-25 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### Ausgangslage (bereits vorhanden)
+- **Buchungen (PROJ-8):** eine Tabelle für Buchungen, Optionen und Sperren mit Kanal, Zeitraum, Personen, Sperrgrund, Ablaufdatum und Storno. Der Zustand (aktiv, verfallen, storniert) wird berechnet. Ein Index auf Wohnung und Zeitraum besteht. Beträge stehen in eigenen Tabellen, die nur Inhaber lesen.
+- **Bausteine aus PROJ-8:**
+  - Formulare „Neue Buchung“ und „Neue Sperre“ (Seitenpanels);
+  - Aktionen im Detail (Bearbeiten, Bestätigen, Stornieren, Mitreisende, Notiz);
+  - Kennzeichen (Option, storniert, überschneidet sich);
+  - Rechenhilfen für Nächte, Überschneidung, Zustand und Personen.
+  Nach jeder Aktion erneuern sie die Seite.
+- **Buchungs-Detailseite** `/buchungen/[id]`: wird auf dem Server aufgebaut und zeigt den Preis nur dem Inhaber.
+- **Wohnungen (PROJ-6):** Objekt, Name, archiviert; Anzeige „Objekt · Wohnung“.
+- **Navigation (PROJ-2):** Punkt „Belegung“ (`/belegung`) ist angelegt und noch nicht freigeschaltet.
+- **Shell:** Seitenkopf, Leerzustand, Detail-Panel, Popover, Tooltip.
+
+### A) Seiten und Bausteine
+
+```
+Dashboard  /  (alle Mitglieder)
++-- Seitenkopf, Einladungen (wie bisher)
++-- Abschnitt „Belegung“  → Kalender, Variante „Dashboard“ (14 Tage) + Link „Vollbild“
+
+Vollbild-Seite  /belegung  (alle Mitglieder, neuer Navigationspunkt)
++-- Kalender, Variante „Vollbild“ (28 Tage)
+
+Kalender (gemeinsamer Baustein)
++-- Kopfzeile
+|   +-- Überschrift „Belegung“ · Umschalter Zeitleiste | Monat
+|   +-- ‹ Zeitraum › (Klick → Popover mit Datumsfeld) · „Heute“
+|   +-- „Neue Buchung“ · „Neue Sperre“ (bestehende Knöpfe aus PROJ-8)
++-- Filterzeile: Chips „Alle“ + je Objekt (ab 2 Objekten) · Legende
++-- Zeitleiste
+|   +-- Kopf: Wochentag + Tageszahl je Spalte, heute hervorgehoben, Wochenenden hinterlegt
+|   +-- je Objekt eine Gruppe, je Wohnung eine Zeile
+|   |   +-- linke Spalte (bleibt beim seitlichen Scrollen stehen): Name, Objekt,
+|   |   |   ggf. „archiviert“, ggf. Warnsymbol „Überschneidung“
+|   |   +-- Balken (Knopf mit Beschriftung und Tooltip), je Ebene eine Spur
+|   |   +-- freie Fläche: Klick auf einen Tag → „Neue Buchung“ vorbelegt
+|   +-- Markierungslinie „heute“
++-- Monatsansicht
+|   +-- Raster Mo–So: Kachel je Tag (Zahl, x/y, Balken, „n An“, „n Ab“)
+|   +-- Tagesliste des gewählten Tages (Desktop rechts, Handy darunter)
++-- Leerzustand (keine Wohnung) · Fehlerzustand mit „Erneut versuchen“
++-- Detailpanel (Seitenpanel, Handy bildschirmfüllend)
+    +-- Kopf: Nummer, Wohnung, Gast bzw. Sperrgrund, Kennzeichen
+    +-- Buchungsdetail-Inhalt (gemeinsam mit /buchungen/[id])
+    +-- Aktionen aus PROJ-8 (Bearbeiten öffnet das Formular über dem Panel)
+```
+
+**Gemeinsames Buchungsdetail:** Der Inhalt der Detailseite (Kennzeichen, Hinweise, Aktionen, Aufenthalt, Gast, Mitreisende, Preis) wird zu einem eigenen Baustein. Die Seite `/buchungen/[id]` zeigt ihn mit Seitenkopf und „Zurück“, der Kalender im Panel. Links auf überschneidende Einträge öffnen im Kalender den anderen Eintrag im Panel, auf der Detailseite wie bisher dessen Seite.
+
+**Ergänzungen an PROJ-8-Bausteinen:**
+- „Neue Buchung“ nimmt Wohnung und Anreise als Vorbelegung an; die Abreise ist Anreise + 1.
+- Die Aktionen melden „storniert“ bzw. „Sperre gelöscht“ zurück, damit der Kalender das Panel schließt.
+
+### B) Daten (in Worten)
+
+**Keine Änderung an der Datenbank.** Der Kalender liest mit einer eigenen, schlanken Abfrage je Zeitraum:
+
+- **Wohnungen** des Kunden: Kennung, Name, Objekt (Kennung und Name), archiviert. Sortiert nach „Objekt · Wohnung“ wie in der Wohnungsverwaltung.
+- **Einträge**, deren Zeitraum den sichtbaren Bereich berührt, nur nicht stornierte. Verfallene Optionen werden mit der Zustandsregel aus PROJ-8 herausgefiltert. Je Eintrag:
+  - Kennung, Wohnung, Art, Kanal, Anreise, Abreise;
+  - Personen (Erwachsene + Kinder), Sperrgrund, Ablaufdatum der Option;
+  - Gastname: Nachname für den Balken, voller Name für Tooltip und Tagesliste.
+  - **Keine Beträge**, auch nicht für Inhaber.
+- **Bereich:**
+  - Zeitleiste: Start bis Start + 14 bzw. 28 Tage.
+  - Monat: erster bis letzter Tag des Monats, dazu der Folgetag, damit Abreisen am Monatsletzten zählen.
+- **Archivierte Wohnungen:** Sie werden mitgeladen und nur angezeigt, wenn sie im Bereich Einträge haben.
+
+**Abgeleitete Werte (reine Rechenfunktionen, mit Unit-Tests):**
+- **Balkenlage:** Beginn Mitte Anreisetag, Ende Mitte Abreisetag, am Rand des Bereichs abgeschnitten.
+- **Ebenen:** Einträge einer Wohnung, die sich schneiden, kommen in die nächste freie Spur. Der Wechseltag zählt nicht als Überschneidung (Regel aus PROJ-8). Mehr als eine Spur heißt Warnsymbol.
+- **Monatskachel:**
+  - x = nicht archivierte Wohnungen im Filter mit Eintrag in dieser Nacht (Buchung, Option oder Sperre);
+  - y = nicht archivierte Wohnungen im Filter;
+  - An/Ab = Buchungen und Optionen mit Anreise bzw. Abreise an diesem Tag.
+- **Tagesliste:** Einträge, die in der Nacht belegen oder an diesem Tag abreisen, mit „Anreise“, „Abreise“ oder „bis {Datum}“.
+
+**Was in der Adresse steht** (wie bei der Buchungsliste; teilbar, „Zurück“ funktioniert):
+- Ansicht;
+- Start der Zeitleiste bzw. Monat;
+- gewählter Tag (Monatsansicht);
+- Objektfilter;
+- offener Eintrag (Panel).
+
+Ohne Angaben gilt: Start heute − 2 Tage bzw. aktueller Monat und heute.
+
+**Was je Gerät gemerkt wird:** Ansicht und Objektfilter in einem Cookie, gemeinsam für Dashboard und Vollbild. Der Server liest es beim ersten Laden, deshalb springt die Ansicht nicht um. Der Zeitraum wird nicht gemerkt. Zeigt der gemerkte Filter auf ein Objekt, das es nicht mehr gibt, gilt „Alle“.
+
+### C) Ablauf
+- **Laden:** Die Seite wird auf dem Server mit den Daten des Bereichs aufgebaut. Blättern, Ansicht und Filter ändern die Adresse. Der Kalender zeigt währenddessen einen dezenten Ladezustand. Die Nachbarzeiträume für Zurück/Weiter werden vorab geladen, damit Blättern sofort reagiert.
+- **Panel öffnen:** Ein Klick auf einen Balken oder einen Eintrag der Tagesliste setzt den offenen Eintrag in die Adresse. Der Server lädt das Detail mit denselben Regeln wie die Detailseite, den Preis also nur für Inhaber. Schließen entfernt den Parameter.
+- **Nach Aktionen** (Bearbeiten, Bestätigen, Mitreisende, Notiz) erneuert die Seite Kalender und Panel in einem Zug. Ansicht, Zeitraum und Filter bleiben, weil sie in der Adresse stehen.
+- **Stornieren / Sperre löschen:** Das Panel schließt, der Balken verschwindet.
+- **Eintrag nicht mehr vorhanden** (z. B. gelöschte Sperre über einen alten Link): Der Kalender öffnet ohne Panel und meldet „Eintrag nicht gefunden“.
+- **Anlegen per Klick:** Ein Klick auf eine freie Stelle einer aktiven Wohnung öffnet „Neue Buchung“ mit Wohnung und Tag. In Zeilen archivierter Wohnungen passiert nichts. Nach dem Speichern erneuert sich der Kalender.
+- **Fehler beim Laden:** Nur der Kalender-Abschnitt zeigt den Fehler mit „Erneut versuchen“, der Rest des Dashboards bleibt nutzbar (eigene Fehlergrenze).
+- **Keine Live-Aktualisierung:** Neu geladen wird beim Öffnen, Blättern und nach eigenen Aktionen (Spec).
+
+### D) Rechte
+- Keine neuen Regeln. Lesen läuft über die bestehenden Zugriffsregeln (Mandanten-RLS). Die Kalenderabfrage enthält keine Beträge.
+- Das Panel nutzt die Rollenregeln aus PROJ-8: Mitarbeiter ohne Preis und Stornieren, Betreiber-Admin nur lesend und ohne Aktionen.
+- Der Punkt „Belegung“ und das Dashboard sind für Inhaber und Mitarbeiter erreichbar.
+
+### E) Darstellung (nach Entwurf und Design-System)
+- **Kanalfarben** aus dem Entwurf: Direkt `neutral-800`, Booking.com `accent-700`, Airbnb `accent-2-700`.
+  - Option: Rahmen in der Kanalfarbe auf hellem Grund.
+  - Sperre: Schraffur `neutral-300`/`neutral-200`.
+  - Die Zuordnung Kanal → Farbe liegt an einer Stelle, damit PROJ-11 nur Daten liefern muss.
+- **Heute:** Linie und Tageszahl in `accent-2`. Wochenenden `neutral-200`. Überschneidungs-Warnsymbol in Magenta wie die Warnungen aus PROJ-8.
+- **Handy:** Die Zeitleiste behält ihre Mindestbreite und scrollt in ihrem eigenen Bereich seitlich. Die Namensspalte bleibt stehen. Die Seite scrollt nicht seitlich.
+- **Barrierefreiheit:**
+  - Balken sind Knöpfe mit Beschriftung „Gast, Zeitraum, Art“;
+  - Kacheln sind Knöpfe;
+  - Farbe ist nie allein unterscheidend (Rahmen + „Option“, Schraffur + Grund);
+  - freie Zellen sind nicht in der Tab-Reihenfolge, für die Tastatur gibt es „Neue Buchung“.
+- **Texte** in `messages/de.json` (Bereich „Belegung“), Formate de-AT, Woche ab Montag, Zeitzone Wien.
+
+### F) Navigation
+Der Punkt „Belegung“ wird freigeschaltet. Am Handy steht er in der unteren Leiste; dort sind dann Dashboard, Belegung, Buchungen und Gäste, der Rest liegt unter „Mehr“ wie vorgesehen.
+
+### G) Tests
+- **Unit:**
+  - Balkenlage inkl. Ränder und Wechseltag;
+  - Ebenen bei 2 und 3 Überschneidungen;
+  - Monatskachel (x/y mit Sperren, An/Ab ohne Sperren, archivierte nicht gezählt);
+  - Tagesliste;
+  - Bereich je Ansicht (14/28 Tage, Monat + Folgetag);
+  - Lesen der Adress-Parameter mit Rückfall auf Standardwerte;
+  - ungültiges Objekt im Cookie.
+- **Integration:**
+  - Die Kalenderabfrage liefert nur Einträge des eigenen Kunden.
+  - Für Mitarbeiter enthält das Ergebnis keine Beträge.
+- **E2E** (in kleinen Paketen):
+  - Dashboard und Vollbild sichtbar, Navigationspunkt;
+  - Balken für Buchung, Option, Sperre; storniert und verfallen fehlen;
+  - Blättern, Heute, Datumswähler;
+  - Monatsansicht mit Zählung und Tagesliste;
+  - Panel öffnen, bearbeiten (Balken verschiebt sich), stornieren (Panel schließt);
+  - Mitarbeiter ohne Preis und ohne Stornieren;
+  - Anlegen per Klick mit Vorbelegung;
+  - Objektfilter und gemerkte Ansicht nach Neuladen;
+  - archivierte Wohnung;
+  - Leerzustand;
+  - Handy (seitliches Scrollen, keine Seitenverschiebung);
+  - axe.
+
+### H) Abhängigkeiten (Pakete)
+- Keine neuen Pakete. Genutzt werden die vorhandenen shadcn-Bausteine (Sheet über das Detail-Panel, Popover, Tooltip, Tabs bzw. Umschalter, Button, Badge, Skeleton) und Phosphor-Icons.
+
+### I) Schnittstellen zu späteren Features
+- **PROJ-11:** Importierte Buchungen erscheinen ohne Änderung am Kalender, sobald Kanal booking.com/Airbnb geliefert wird. Die Legende zeigt diese Kanäle erst, wenn es sie beim Kunden gibt.
+- **PROJ-14:** ergänzt KPIs, „Heute“ und offene Zahlungen um den Abschnitt „Belegung“ herum. Der Kalender bleibt ein eigenständiger Baustein.
+- **PROJ-12:** Hinweise „auf Plattformen gesperrt“ kommen ins Detailpanel, nicht auf die Balken.
 
 ## QA Test Results
 _To be added by /qa_
