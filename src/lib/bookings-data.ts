@@ -3,7 +3,7 @@ import 'server-only'
 import { notFound } from 'next/navigation'
 import { cache } from 'react'
 
-import { apartmentLabel } from '@/lib/apartments'
+import { apartmentLabel, childPricesFromDb, type PriceMode } from '@/lib/apartments'
 import {
   type BlockReason,
   type BookableApartment,
@@ -44,7 +44,9 @@ export const getBookableApartments = cache(async (): Promise<BookableApartment[]
   const supabase = await createClient()
   const { data, error } = await supabase
     .from('apartments')
-    .select('id, name, max_guests, price_cents, cleaning_fee_cents, check_in, check_out, archived_at, property:properties!inner(name)')
+    .select(
+      'id, name, max_guests, max_adults, price_mode, price_cents, adult_price_cents, child_prices, cleaning_fee_cents, check_in, check_out, archived_at, property:properties!inner(name)'
+    )
     .eq('tenant_id', tenantId)
     .limit(500)
   if (error) console.error('[buchungen] Wohnungen nicht lesbar', error.message)
@@ -54,7 +56,11 @@ export const getBookableApartments = cache(async (): Promise<BookableApartment[]
         id: a.id,
         label: apartmentLabel(a.property.name, a.name),
         maxGuests: a.max_guests,
+        maxAdults: a.max_adults,
+        priceMode: a.price_mode as PriceMode,
         priceCents: a.price_cents,
+        adultPriceCents: a.adult_price_cents,
+        childPrices: childPricesFromDb(a.child_prices),
         cleaningFeeCents: a.cleaning_fee_cents,
         checkIn: hhmm(a.check_in),
         checkOut: hhmm(a.check_out),

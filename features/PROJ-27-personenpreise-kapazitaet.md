@@ -1,6 +1,6 @@
 # PROJ-27: Personenpreise und Kapazität nach Erwachsenen
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-10-25
 **Last Updated:** 2026-10-25
 
@@ -92,7 +92,7 @@ Unverändert. Preise und Preisart pflegt nur der Inhaber; Mitarbeiter sehen Kapa
 - [ ] Angenommen der Inhaber legt Kinderstufen an, wenn die Altersgrenzen nicht aufsteigend sind, doppelt vorkommen oder außerhalb 0–17 liegen, dann erscheint eine Meldung; mehr als drei Stufen sind nicht möglich
 - [ ] Angenommen der Inhaber speichert gültige Personenpreise, wenn er die Wohnung erneut öffnet, dann sind Preisart, Erwachsenenpreis und Stufen wie gespeichert sichtbar
 - [ ] Angenommen der Inhaber senkt die Erwachsenen-Grenze, wenn künftige Buchungen mehr Erwachsene haben, dann zeigt die App vor dem Speichern deren Anzahl als Hinweis
-- [ ] Angenommen der Nutzer ist Mitarbeiter, wenn er Wohnungen ansieht, dann sieht er Personen und Erwachsenen-Grenze, aber keine Preise
+- [ ] Angenommen der Nutzer ist Mitarbeiter, wenn er Wohnungen ansieht, dann sieht er keine Preise. (Umsetzung: „Einstellungen → Wohnungen“ ist wie bisher nur für Inhaber; im Buchungsformular sehen Mitarbeiter keine Preise. Die Kapazität erfahren sie über die Warnung.)
 
 ### Buchung
 - [ ] Angenommen eine Wohnung mit Personenpreisen (Erwachsene € 50; bis 2 Jahre € 0; bis 11 Jahre € 20), wenn der Inhaber 3 Nächte mit 2 Erwachsenen und Kindern von 1, 8 und 14 Jahren erfasst, dann schlägt die App € 510 als Übernachtungspreis vor und zeigt die Rechnung
@@ -205,3 +205,65 @@ Wohnungsübersicht (PROJ-6): Kapazität „4 Personen, davon max. 2 Erwachsene�
 
 ### G) Abhängigkeiten
 Keine neuen Pakete.
+
+## Implementation Notes (Frontend + Backend)
+**Stand 2026-10-25.**
+
+**Migrationen** (nur „apppa-dev“):
+- `20261026150000_person_prices_capacity.sql`:
+  - Wohnungen: `max_adults`, `price_mode` (Vorgabe `apartment`), `adult_price_cents`, `child_prices` (jsonb).
+  - Regeln in der Datenbank:
+    - Erwachsene 1 bis Personenzahl;
+    - Erwachsenenpreis Pflicht bei Personenpreisen;
+    - Stufen geprüft durch `private.valid_child_prices`: höchstens 3, Alter 0–17 streng aufsteigend, Preis 0–10.000 €.
+  - Spaltenrechte wie beim Standardpreis.
+  - `private.suggested_nights_cents(apartment, adults, child_ages, nights)` rechnet den Vorschlag.
+  - Neu angelegt (mit zusätzlichem Parameter Erwachsene):
+    - `booking_warnings_for` und `booking_warnings`
+    - die öffentliche Hülle `booking_warnings`, mit `p_adults default 0`
+  - Angepasst: `save_booking`, `save_block` und `confirm_option`:
+    - Erwachsene fließen in die Prüfung ein;
+    - Mitarbeiter-Vorschlag nach Preisart;
+    - „Preis prüfen“ bei Personenänderungen, nur bei Personenpreisen.
+- `20261026150100_person_prices_grant.sql`: Ausführungsrecht der Prüffunktion für `service_role`. Die Prüfregel läuft mit den Rechten der schreibenden Rolle; ohne das Recht scheitern Systemvorgänge und Tests.
+- Bestehende Wohnungen und Buchungen bleiben unverändert (Preisart „Wohnung“, keine Erwachsenen-Grenze).
+
+**App**
+- **`src/lib/apartments.ts`:**
+  - Typen `PriceMode`, `ChildPrice`, `ApartmentPricing`.
+  - `suggestedNightsCents` (gleiche Rechnung wie die Datenbank), `personPriceGroups` (Anzeige der Rechnung), `childNightCents`, Umwandlung der Stufen.
+- **`src/lib/bookings.ts`:**
+  - `BookableApartment` mit Preis-Konfiguration und Erwachsenen-Grenze.
+  - `overCapacity` prüft auch die Erwachsenen; die Warnung liefert Personen und Erwachsene.
+- **Wohnung bearbeiten** (`apartment-panel.tsx`):
+  - „Personen (gesamt)“ und „davon höchstens Erwachsene“.
+  - Abschnitt „Preis-Konfiguration“ mit Preisart, Wohnungspreis oder Erwachsenenpreis und bis zu 3 Kinderstufen, dazu die Reinigungsgebühr.
+  - Hinweise zu künftigen Buchungen mit mehr Personen bzw. Erwachsenen.
+  - Die Werte der nicht gewählten Preisart bleiben gespeichert.
+- **Übersicht:** Kapazität mit „max. 2 Erw.“; Preis „€ 50,00 / Erw.“ bzw. Wohnungspreis.
+- **Buchungsformular:**
+  - Der Vorschlag folgt Wohnung, Zeitraum, Erwachsenen, Kindern und Alter, solange der Preis nicht von Hand geändert ist; danach nur „Neuen Vorschlag übernehmen“.
+  - Rechnung „Vorschlag: € 510 (3 Nächte × (3 × € 50 + 1 × € 0 + 1 × € 20))“.
+  - Vereinbarter Preis und Gebühren-Positionen wie in PROJ-8.
+- **Warnung:** zusätzliche Zeile „3 Erwachsene, die Wohnung ist für höchstens 2 Erwachsene ausgelegt.“
+
+**Tests**
+- **Unit:** 241/241, neu:
+  - Vorschlag je Preisart mit Spec-Beispiel € 510;
+  - Altersgrenzen einschließlich, ältere Kinder zum Erwachsenenpreis;
+  - Erwachsenen-Grenze;
+  - Prüfregeln der Wohnung.
+- **Integration** (`bookings.integration.test.ts`), 6 neu:
+  - Vorgaben bestehender Wohnungen;
+  - Mitarbeiter-Vorschlag € 510 mit Reinigung einmal;
+  - abweichender vereinbarter Preis mit Gebühren;
+  - Erwachsenen-Grenze (Mitarbeiter blockiert, Inhaber übersteuert, 1 + 3 Kinder ohne Warnung);
+  - „Preis prüfen“ nur bei Personenpreisen;
+  - Datenbank lehnt ungültige Konfigurationen ab, Mitarbeiter dürfen sie nicht ändern.
+  - Alle Integrationstests grün; beim Gesamtlauf liefen einmal zwei Tests wegen der Last in die 5-Sekunden-Grenze, einzeln grün.
+- **E2E**, neu `tests/PROJ-27-personenpreise-kapazitaet.spec.ts` (5 Abläufe, alle grün; Layout/axe auch Tablet und Handy):
+  - Konfiguration speichern;
+  - Prüfregeln und Hinweis;
+  - Vorschlag € 510 und vereinbarter Preis € 535;
+  - Erwachsenen-Warnung und Wohnungspreis.
+- **Regression:** PROJ-6 und PROJ-8 grün (Desktop). Dafür wurden die Beschriftungen „Personen (gesamt)“ und „Wohnungspreis pro Nacht (€)“ in den Tests angepasst.

@@ -4,9 +4,11 @@ import { revalidatePath } from 'next/cache'
 
 import {
   type ApartmentErrorCode,
+  childPricesToDb,
   type FederalState,
   type Municipality,
   municipalitySearchKey,
+  type PriceMode,
 } from '@/lib/apartments'
 import type { ActionResult, CommonErrorCode } from '@/lib/auth/result'
 import { getSessionUser, pendingMfaStep } from '@/lib/auth/session'
@@ -18,6 +20,7 @@ import {
   propertySchema,
   type ApartmentInput,
   type PropertyInput,
+  toChildPrices,
 } from '@/lib/validation/apartments'
 
 // Server-Aktionen für „Einstellungen → Wohnungen“ (PROJ-6), nur für Inhaber des gewählten Kunden.
@@ -61,24 +64,40 @@ async function isCurrentMunicipality(code: string): Promise<boolean> {
   return Boolean(data)
 }
 
-const apartmentColumns = (v: {
+type ApartmentFields = {
   name: string
   maxGuests: number
+  maxAdults: number | null
   kind: 'holiday' | 'service'
+  priceMode: PriceMode
   price: number | null
+  adultPrice: number | null
+  childPrices: { toAge: string; price: number | null }[]
   cleaningFee: number | null
   checkIn: string
   checkOut: string
   note: string | null
-}) => ({
+}
+
+// Spalten, die die Funktion „Wohnung mit Objekt anlegen“ (PROJ-6) nicht kennt: Reinigungsgebühr (PROJ-8),
+// Erwachsenen-Grenze und Preis-Konfiguration (PROJ-27). Die Werte der nicht gewählten Preisart bleiben gespeichert.
+const extraColumns = (v: ApartmentFields) => ({
+  max_adults: v.maxAdults,
+  price_mode: v.priceMode,
+  adult_price_cents: v.adultPrice,
+  child_prices: childPricesToDb(toChildPrices(v.childPrices)),
+  cleaning_fee_cents: v.cleaningFee,
+})
+
+const apartmentColumns = (v: ApartmentFields) => ({
   name: v.name,
   max_guests: v.maxGuests,
   kind: v.kind,
   price_cents: v.price,
-  cleaning_fee_cents: v.cleaningFee,
   check_in: v.checkIn,
   check_out: v.checkOut,
   note: v.note,
+  ...extraColumns(v),
 })
 
 // Wohnung anlegen, bei „Neues Objekt“ samt Objekt in einem Datenbankvorgang
@@ -109,11 +128,9 @@ export async function createApartment(values: ApartmentInput): Promise<Result<{ 
       p_note: v.note as string,
     })
     if (error || !data) return dbFail(error ?? {}, 'Wohnung mit Objekt nicht angelegt')
-    // Reinigungsgebühr kennt die Funktion aus PROJ-6 nicht: nachtragen
-    if (v.cleaningFee !== null) {
-      const { error: feeError } = await supabase.from('apartments').update({ cleaning_fee_cents: v.cleaningFee }).eq('id', data)
-      if (feeError) return dbFail(feeError, 'Reinigungsgebühr nicht gespeichert')
-    }
+    // Felder, die die Funktion aus PROJ-6 nicht kennt, nachtragen
+    const { error: extraError } = await supabase.from('apartments').update(extraColumns(v)).eq('id', data)
+    if (extraError) return dbFail(extraError, 'Preis-Konfiguration nicht gespeichert')
     revalidatePath(PAGE)
     return { ok: true, data: { id: data } }
   }

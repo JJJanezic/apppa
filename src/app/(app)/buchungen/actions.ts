@@ -79,7 +79,7 @@ const revalidate = (id?: string) => {
 
 type DbWarnings = {
   conflicts: { id: string; kind: string; number: string | null; guest_name: string | null; block_reason: string | null; arrival: string; departure: string }[]
-  over_capacity: { persons: number; max_guests: number } | null
+  over_capacity: { persons: number; max_guests: number; adults: number | null; max_adults: number | null } | null
 }
 
 const toWarnings = (w: DbWarnings): BookingWarnings => ({
@@ -92,7 +92,14 @@ const toWarnings = (w: DbWarnings): BookingWarnings => ({
     arrival: c.arrival,
     departure: c.departure,
   })),
-  overCapacity: w?.over_capacity ? { persons: w.over_capacity.persons, maxGuests: w.over_capacity.max_guests } : null,
+  overCapacity: w?.over_capacity
+    ? {
+        persons: w.over_capacity.persons,
+        maxGuests: w.over_capacity.max_guests,
+        adults: w.over_capacity.adults ?? 0,
+        maxAdults: w.over_capacity.max_adults,
+      }
+    : null,
 })
 
 type SaveResult = { status: 'saved'; id: string } | { status: 'warnings'; warnings: DbWarnings }
@@ -105,7 +112,7 @@ function saved(data: unknown, owner: boolean): Result<{ id: string }> {
   return fail(owner ? 'warnings' : 'ownerOnly')
 }
 
-type WarningQuery = { id?: string | null; apartmentId: string; arrival: string; departure: string; persons: number }
+type WarningQuery = { id?: string | null; apartmentId: string; arrival: string; departure: string; persons: number; adults: number }
 
 // Vorschau im Formular: Überschneidungen und Überbelegung, sobald Wohnung und Zeitraum stehen
 export async function checkBookingWarnings(values: WarningQuery): Promise<Result<BookingWarnings>> {
@@ -115,6 +122,7 @@ export async function checkBookingWarnings(values: WarningQuery): Promise<Result
   if (!isId(values?.apartmentId) || !isIsoDate(String(values.arrival)) || !isIsoDate(String(values.departure))) return none
   if (values.arrival >= values.departure) return none
   const persons = Math.max(0, Math.min(LIMITS.personsMax * 2, Math.floor(Number(values.persons) || 0)))
+  const adults = Math.max(0, Math.min(LIMITS.personsMax * 2, Math.floor(Number(values.adults) || 0)))
   const supabase = await createClient()
   const { data, error } = await supabase.rpc('booking_warnings', {
     p_tenant_id: guard.tenant.id,
@@ -122,6 +130,7 @@ export async function checkBookingWarnings(values: WarningQuery): Promise<Result
     p_arrival: values.arrival,
     p_departure: values.departure,
     p_persons: persons,
+    p_adults: adults,
     p_exclude: isId(values.id) ? values.id : undefined,
   })
   if (error) return dbFail(error, 'Warnungen')

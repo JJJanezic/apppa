@@ -36,8 +36,14 @@ export function ApartmentsOverview({ properties }: { properties: Property[] }) {
 
   const visible = visibleProperties(properties, showArchived)
   const hasArchived = properties.some((p) => p.apartments.some((a) => a.archivedAt))
-  const price = (a: Apartment) =>
-    a.priceCents === null ? t('noPrice') : format.number(a.priceCents / 100, { style: 'currency', currency: 'EUR' })
+  const euro = (cents: number) => format.number(cents / 100, { style: 'currency', currency: 'EUR' })
+  // Preis-Konfiguration (PROJ-27): Wohnungspreis pro Nacht oder Erwachsenenpreis pro Person und Nacht
+  const configuredCents = (a: Apartment) => (a.priceMode === 'person' ? a.adultPriceCents : a.priceCents)
+  const price = (a: Apartment) => {
+    const cents = configuredCents(a)
+    if (cents === null) return t('noPrice')
+    return a.priceMode === 'person' ? t('perAdultShort', { price: euro(cents) }) : euro(cents)
+  }
   const archivedBadge = (a: Apartment) =>
     a.archivedAt ? (
       <Badge variant="secondary" className="font-normal">
@@ -128,7 +134,12 @@ export function ApartmentsOverview({ properties }: { properties: Property[] }) {
                       <TableRow key={a.id} className="relative">
                         <TableCell>{nameButton(a)}</TableCell>
                         <TableCell>{t(`kind.${a.kind}`)}</TableCell>
-                        <TableCell className="text-right tabular-nums">{a.maxGuests}</TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {a.maxGuests}
+                          {a.maxAdults !== null && (
+                            <span className="block text-[13px] text-ds-neutral-700">{t('adultsLimitShort', { count: a.maxAdults })}</span>
+                          )}
+                        </TableCell>
                         <TableCell className="text-right tabular-nums">{price(a)}</TableCell>
                         <TableCell className="tabular-nums">{t('times', { checkIn: a.checkIn, checkOut: a.checkOut })}</TableCell>
                         <TableCell>{archivedBadge(a)}</TableCell>
@@ -146,9 +157,17 @@ export function ApartmentsOverview({ properties }: { properties: Property[] }) {
                       </span>
                       <span className="text-sm text-ds-neutral-800">
                         {t(`kind.${a.kind}`)} · {t('guests', { count: a.maxGuests })}
+                        {a.maxAdults !== null && <>, {t('adultsLimit', { count: a.maxAdults })}</>}
                       </span>
                       <span className="text-[13px] text-ds-neutral-700 tabular-nums">
-                        {a.priceCents !== null && <>{t('perNight', { price: price(a) })} · </>}
+                        {configuredCents(a) !== null && (
+                          <>
+                            {a.priceMode === 'person'
+                              ? t('perAdult', { price: euro(configuredCents(a)!) })
+                              : t('perNight', { price: euro(configuredCents(a)!) })}{' '}
+                            ·{' '}
+                          </>
+                        )}
                         {t('times', { checkIn: a.checkIn, checkOut: a.checkOut })}
                       </span>
                     </li>

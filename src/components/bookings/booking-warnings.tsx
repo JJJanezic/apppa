@@ -38,8 +38,11 @@ export function BookingWarningsAlert({ warnings, owner, override, onOverrideChan
           {warnings.conflicts.map((c) => (
             <li key={c.id}>{t('warnings.conflict', { what: what(c), from: day(c.arrival), to: day(c.departure) })}</li>
           ))}
-          {warnings.overCapacity && (
+          {warnings.overCapacity && warnings.overCapacity.persons > warnings.overCapacity.maxGuests && (
             <li>{t('warnings.capacity', { persons: warnings.overCapacity.persons, max: warnings.overCapacity.maxGuests })}</li>
+          )}
+          {warnings.overCapacity && warnings.overCapacity.maxAdults !== null && warnings.overCapacity.adults > warnings.overCapacity.maxAdults && (
+            <li>{t('warnings.capacityAdults', { adults: warnings.overCapacity.adults, max: warnings.overCapacity.maxAdults })}</li>
           )}
         </ul>
         {owner ? (

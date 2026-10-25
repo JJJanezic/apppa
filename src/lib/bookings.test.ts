@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
+import { personPriceGroups } from '@/lib/apartments'
 import {
   addDays,
   amountInput,
@@ -102,13 +103,49 @@ describe('Zustand', () => {
 describe('Personen und Preis', () => {
   it('warnt bei mehr Personen als die Wohnung aufnimmt', () => {
     expect(overCapacity(2, [4], 3)).toBeNull()
-    expect(overCapacity(2, [4, 1], 3)).toEqual({ persons: 4, maxGuests: 3 })
+    expect(overCapacity(2, [4, 1], 3)).toEqual({ persons: 4, maxGuests: 3, adults: 2, maxAdults: null })
   })
 
-  it('schlägt Standardpreis × Nächte vor', () => {
-    expect(suggestedNightsCents(12000, 3)).toBe(36000)
-    expect(suggestedNightsCents(null, 3)).toBeNull()
-    expect(suggestedNightsCents(12000, 0)).toBeNull()
+  it('warnt bei mehr Erwachsenen als erlaubt; Kinder dürfen Erwachsenenplätze belegen (PROJ-27)', () => {
+    expect(overCapacity(3, [], 4, 2)).toEqual({ persons: 3, maxGuests: 4, adults: 3, maxAdults: 2 })
+    expect(overCapacity(1, [3, 5, 8], 4, 2)).toBeNull()
+    expect(overCapacity(2, [3, 5], 4, 2)).toBeNull()
+  })
+
+  const flat = { priceMode: 'apartment' as const, priceCents: 12000, adultPriceCents: null, childPrices: [] }
+  // Beispiel der Spec: Erwachsene € 50, bis 2 Jahre € 0, bis 11 Jahre € 20
+  const perPerson = {
+    priceMode: 'person' as const,
+    priceCents: 12000,
+    adultPriceCents: 5000,
+    childPrices: [
+      { toAge: 2, priceCents: 0 },
+      { toAge: 11, priceCents: 2000 },
+    ],
+  }
+
+  it('schlägt bei Wohnungspreis Preis × Nächte vor, unabhängig von den Personen', () => {
+    expect(suggestedNightsCents(flat, 3, 2, [4])).toBe(36000)
+    expect(suggestedNightsCents({ ...flat, priceCents: null }, 3, 2, [])).toBeNull()
+    expect(suggestedNightsCents(flat, 0, 2, [])).toBeNull()
+  })
+
+  it('schlägt bei Personenpreisen Nächte × Summe der Personenpreise vor (PROJ-27)', () => {
+    // 3 × (2 × 50 + 0 + 20 + 50) = 510
+    expect(suggestedNightsCents(perPerson, 3, 2, [1, 8, 14])).toBe(51000)
+    // Altersgrenze einschließlich: 2 → gratis, 11 → Kinderpreis, 12 → Erwachsenenpreis
+    expect(suggestedNightsCents(perPerson, 1, 0, [2, 11, 12])).toBe(0 + 2000 + 5000)
+    // ohne Stufen zahlen Kinder den Erwachsenenpreis
+    expect(suggestedNightsCents({ ...perPerson, childPrices: [] }, 2, 1, [5])).toBe(2 * 10000)
+    expect(suggestedNightsCents({ ...perPerson, adultPriceCents: null }, 3, 2, [])).toBeNull()
+  })
+
+  it('gruppiert Personen nach Preis für die Anzeige der Rechnung', () => {
+    expect(personPriceGroups(perPerson, 2, [1, 8, 14])).toEqual([
+      { count: 3, cents: 5000 },
+      { count: 1, cents: 0 },
+      { count: 1, cents: 2000 },
+    ])
   })
 
   it('Endbetrag = Übernachtungen + Zusatzkosten', () => {

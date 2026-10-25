@@ -8,8 +8,12 @@ const base = {
   propertyId: '5b1d7a0e-0000-4000-8000-000000000001',
   name: ' Top 1 ',
   maxGuests: '4',
+  maxAdults: '',
   kind: 'holiday' as const,
+  priceMode: 'apartment' as const,
   price: '125,50',
+  adultPrice: '',
+  childPrices: [] as { toAge: string; price: string }[],
   cleaningFee: '',
   checkIn: '15:00',
   checkOut: '10:00',
@@ -54,6 +58,34 @@ describe('Wohnung', () => {
     expect(apartmentSchema(key).safeParse({ ...base, propertyId: NEW_PROPERTY }).success).toBe(false)
     expect(apartmentSchema(key).safeParse({ ...base, propertyId: 'irgendwas' }).success).toBe(false)
     expect(apartmentSchema(key).safeParse({ ...base, propertyId: NEW_PROPERTY, newProperty: property }).success).toBe(true)
+  })
+})
+
+describe('Kapazität und Personenpreise (PROJ-27)', () => {
+  const issues = (input: object) =>
+    (withExistingProperty(key).safeParse({ ...base, ...input }).error?.issues ?? []).map((i) => `${i.path.join('.')}:${i.message}`)
+
+  it('Erwachsenen-Grenze optional, 1 bis Personenzahl', () => {
+    expect(apartmentSchema(key).parse(base).maxAdults).toBeNull()
+    expect(apartmentSchema(key).parse({ ...base, maxAdults: '2' }).maxAdults).toBe(2)
+    expect(issues({ maxAdults: '0' })).toContain('maxAdults:adultsInvalid')
+    expect(issues({ maxAdults: '5' })).toContain('maxAdults:adultsTooMany')
+  })
+
+  it('Personenpreise verlangen den Erwachsenenpreis; Wohnungspreis-Felder bleiben unabhängig', () => {
+    expect(issues({ priceMode: 'person', adultPrice: '' })).toContain('adultPrice:adultPriceRequired')
+    const r = apartmentSchema(key).parse({ ...base, priceMode: 'person', adultPrice: '50', childPrices: [{ toAge: '2', price: '0' }] })
+    expect(r).toMatchObject({ priceMode: 'person', adultPrice: 5000, price: 12550, childPrices: [{ toAge: '2', price: 0 }] })
+  })
+
+  it('Kinderstufen: Alter 0–17 aufsteigend, Preis Pflicht (0 = gratis), höchstens 3', () => {
+    const tiers = (...t: [string, string][]) => ({ priceMode: 'person', adultPrice: '50', childPrices: t.map(([toAge, price]) => ({ toAge, price })) })
+    expect(issues(tiers(['2', '0'], ['11', '20']))).toEqual([])
+    expect(issues(tiers(['18', '10']))).toContain('childPrices.0.toAge:childAgeInvalid')
+    expect(issues(tiers(['11', '20'], ['2', '0']))).toContain('childPrices.1.toAge:childAgesAscending')
+    expect(issues(tiers(['2', '0'], ['2', '5']))).toContain('childPrices.1.toAge:childAgesAscending')
+    expect(issues(tiers(['2', '']))).toContain('childPrices.0.price:childPriceRequired')
+    expect(issues(tiers(['1', '0'], ['5', '0'], ['9', '0'], ['12', '0'])).length).toBeGreaterThan(0)
   })
 })
 

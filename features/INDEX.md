@@ -41,7 +41,7 @@
 | PROJ-24 | Online-Zahlung Direktbuchungen | Zahlungslink für Gäste (z. B. Stripe) | P2 | PROJ-13 | Roadmap | – | 2026-10-12 |
 | PROJ-25 | Bankabgleich | Kontoauszüge importieren, Zahlungen automatisch Buchungen zuordnen | P2 | PROJ-13 | Roadmap | – | 2026-10-12 |
 | PROJ-26 | Gästeblatt (Meldewesen) | Gesetzliche Gästemeldung je Aufenthalt mit Hauptgast und Mitreisenden | P0 | PROJ-1, PROJ-6, PROJ-7, PROJ-8 | Roadmap | – | 2026-10-26 |
-| PROJ-27 | Personenpreise und Kapazität nach Erwachsenen | Kapazität „gesamt, davon max. Erwachsene“; Preisart je Wohnung (Wohnungs- oder Personenpreis mit Kinder-Altersstufen); Preisvorschlag und Warnung in Buchungen | P0 | PROJ-6, PROJ-8 | Architected | [Spec](PROJ-27-personenpreise-kapazitaet.md) | 2026-10-25 |
+| PROJ-27 | Personenpreise und Kapazität nach Erwachsenen | Kapazität „gesamt, davon max. Erwachsene“; Preisart je Wohnung (Wohnungs- oder Personenpreis mit Kinder-Altersstufen); Preisvorschlag und Warnung in Buchungen | P0 | PROJ-6, PROJ-8 | In Progress | [Spec](PROJ-27-personenpreise-kapazitaet.md) | 2026-10-25 |
 
 <!-- Add features above this line -->
 

@@ -16,54 +16,66 @@ export type Database = {
     Tables: {
       apartments: {
         Row: {
+          adult_price_cents: number | null
           archived_at: string | null
           check_in: string
           check_out: string
+          child_prices: Json
           cleaning_fee_cents: number | null
           created_at: string
           created_by: string | null
           id: string
           kind: string
+          max_adults: number | null
           max_guests: number
           name: string
           note: string | null
           price_cents: number | null
+          price_mode: string
           property_id: string
           tenant_id: string
           updated_at: string
           updated_by: string | null
         }
         Insert: {
+          adult_price_cents?: number | null
           archived_at?: string | null
           check_in?: string
           check_out?: string
+          child_prices?: Json
           cleaning_fee_cents?: number | null
           created_at?: string
           created_by?: string | null
           id?: string
           kind?: string
+          max_adults?: number | null
           max_guests: number
           name: string
           note?: string | null
           price_cents?: number | null
+          price_mode?: string
           property_id: string
           tenant_id: string
           updated_at?: string
           updated_by?: string | null
         }
         Update: {
+          adult_price_cents?: number | null
           archived_at?: string | null
           check_in?: string
           check_out?: string
+          child_prices?: Json
           cleaning_fee_cents?: number | null
           created_at?: string
           created_by?: string | null
           id?: string
           kind?: string
+          max_adults?: number | null
           max_guests?: number
           name?: string
           note?: string | null
           price_cents?: number | null
+          price_mode?: string
           property_id?: string
           tenant_id?: string
           updated_at?: string
@@ -991,6 +1003,7 @@ export type Database = {
       belongs_to_deactivated_tenant: { Args: never; Returns: boolean }
       booking_warnings: {
         Args: {
+          p_adults?: number
           p_apartment_id: string
           p_arrival: string
           p_departure: string

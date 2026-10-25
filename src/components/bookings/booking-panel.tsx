@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { Plus, Trash, WarningCircle } from '@phosphor-icons/react'
 import { useRouter } from 'next/navigation'
 import { useLocale, useTranslations } from 'next-intl'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useFieldArray, useForm, useWatch } from 'react-hook-form'
 import { toast } from 'sonner'
 
@@ -24,6 +24,7 @@ import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
+import { personPriceGroups } from '@/lib/apartments'
 import {
   addDays,
   amountInput,
@@ -140,10 +141,18 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
   const apartment = apartments.find((a) => a.id === apartmentId) ?? null
   const periodOk = isIsoDate(arrival) && isIsoDate(departure) && arrival < departure
   const nights = periodOk ? nightsBetween(arrival, departure) : 0
-  const persons = (Number(adults) || 0) + childRows.length
-  const suggestion = apartment ? suggestedNightsCents(apartment.priceCents, nights) : null
+  const adultCount = Number(adults) || 0
+  const persons = adultCount + childRows.length
+  // Alter der Kinder; solange eines fehlt oder ungültig ist, bleibt der bisherige Vorschlag stehen (undefined)
+  const childAges = childRows.map((c) => (/^\d{1,2}$/.test(c.age?.trim() ?? '') && Number(c.age) <= LIMITS.childAgeMax ? Number(c.age) : null))
+  const agesComplete = childAges.every((a) => a !== null)
+  // Rechnerischer Vorschlag nach Preisart der Wohnung (PROJ-27); vereinbart wird der eingetragene Preis
+  const suggestion =
+    apartment && nights > 0 && agesComplete ? suggestedNightsCents(apartment, nights, adultCount, childAges as number[]) : apartment && nights > 0 ? undefined : null
+  const hasPricing = apartment !== null && (apartment.priceMode === 'person' ? apartment.adultPriceCents !== null : apartment.priceCents !== null)
+  const groups = apartment?.priceMode === 'person' && agesComplete ? personPriceGroups(apartment, adultCount, childAges as number[]) : null
 
-  const { warnings, version, recheck } = useBookingWarnings({ id: booking?.id ?? null, apartmentId, arrival, departure, persons })
+  const { warnings, version, recheck } = useBookingWarnings({ id: booking?.id ?? null, apartmentId, arrival, departure, persons, adults: adultCount })
   const warn = hasWarnings(warnings)
   const overrideOk = owner && override?.version === version
   const blocked = warn && !overrideOk
@@ -153,11 +162,13 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
     return cents.every((c) => c === null || !Number.isNaN(c)) ? cents.reduce<number>((s, c) => s + (c ?? 0), 0) : null
   }, [nightsPrice, chargeRows])
 
-  // Neuer Vorschlag nach Änderung von Wohnung oder Zeitraum: übernehmen, solange der Preis nicht von Hand geändert wurde
-  function applySuggestion(apt: BookableApartment | null, n: number) {
-    if (!owner || priceTouched || !apt) return
-    form.setValue('nightsPrice', amountInput(suggestedNightsCents(apt.priceCents, n)))
-  }
+  // Neuer Vorschlag nach Änderung von Wohnung, Zeitraum oder Personen: übernehmen, solange der Preis nicht von Hand
+  // geändert wurde (sonst nur „Neuen Vorschlag übernehmen“). Wohnung ohne Preis: Feld leeren, Preis ist Pflicht.
+  useEffect(() => {
+    if (!owner || priceTouched || suggestion === undefined) return
+    if (suggestion !== null) form.setValue('nightsPrice', amountInput(suggestion))
+    else if (apartment && !hasPricing) form.setValue('nightsPrice', '')
+  }, [owner, priceTouched, suggestion, apartment, hasPricing, form])
 
   function onApartment(id: string) {
     const apt = apartments.find((a) => a.id === id) ?? null
@@ -165,7 +176,6 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
     if (!apt || booking) return
     form.setValue('checkIn', apt.checkIn)
     form.setValue('checkOut', apt.checkOut)
-    applySuggestion(apt, nights)
     // Reinigungsgebühr der Wohnung als Position „Reinigung“ (nur neue Buchungen)
     if (owner) {
       const cleaning = t('chargeSuggestions.cleaning')
@@ -179,9 +189,6 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
 
   function onPeriod(field: 'arrival' | 'departure', value: string) {
     form.setValue(field, value, { shouldValidate: form.formState.isSubmitted })
-    const a = field === 'arrival' ? value : arrival
-    const d = field === 'departure' ? value : departure
-    if (isIsoDate(a) && isIsoDate(d) && a < d) applySuggestion(apartment, nightsBetween(a, d))
   }
 
   async function save(values: BookingInput, forceNewGuest = false) {
@@ -519,13 +526,22 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
                         }}
                       />
                     </FormControl>
-                    {apartment && nights > 0 && apartment.priceCents !== null && (
+                    {typeof suggestion === 'number' && apartment?.priceMode === 'apartment' && apartment.priceCents !== null && (
                       <FormDescription>
-                        {t('panel.suggestion', { price: euro(suggestion ?? 0), nights, rate: euro(apartment.priceCents) })}
+                        {t('panel.suggestion', { price: euro(suggestion), nights, rate: euro(apartment.priceCents) })}
                       </FormDescription>
                     )}
-                    {apartment && apartment.priceCents === null && <FormDescription>{t('panel.noDefaultPrice')}</FormDescription>}
-                    {priceTouched && suggestion !== null && parseAmountCents(nightsPrice) !== suggestion && (
+                    {typeof suggestion === 'number' && groups && (
+                      <FormDescription>
+                        {t('panel.suggestionPersons', {
+                          price: euro(suggestion),
+                          nights,
+                          persons: groups.map((g) => `${g.count} × ${euro(g.cents)}`).join(' + '),
+                        })}
+                      </FormDescription>
+                    )}
+                    {apartment && !hasPricing && <FormDescription>{t('panel.noDefaultPrice')}</FormDescription>}
+                    {priceTouched && typeof suggestion === 'number' && parseAmountCents(nightsPrice) !== suggestion && (
                       <Button
                         type="button"
                         variant="link"

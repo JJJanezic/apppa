@@ -34,7 +34,16 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-8 Manuelle Buchungen', () => {
     }
     return data.id
   }
-  const apartment = async (tenantId: string, name: string, extra: { max_guests?: number; price_cents?: number | null; cleaning_fee_cents?: number | null } = {}) => {
+  type ApartmentExtra = {
+    max_guests?: number
+    max_adults?: number | null
+    price_cents?: number | null
+    cleaning_fee_cents?: number | null
+    price_mode?: string
+    adult_price_cents?: number | null
+    child_prices?: Json
+  }
+  const apartment = async (tenantId: string, name: string, extra: ApartmentExtra = {}) => {
     const { data: p } = await service.from('properties').select('id').eq('tenant_id', tenantId).limit(1).maybeSingle()
     const propertyId =
       p?.id ??
@@ -207,7 +216,7 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-8 Manuelle Buchungen', () => {
 
     it('warnt bei Überbelegung', async () => {
       const r = await save(ownerA, bookingInput(tenantA, apt, g, '2027-10-01', '2027-10-03', { adults: 2, child_ages: [3, 5] }))
-      expect((r.result as { warnings: { over_capacity: unknown } }).warnings.over_capacity).toEqual({ persons: 4, max_guests: 3 })
+      expect((r.result as { warnings: { over_capacity: unknown } }).warnings.over_capacity).toEqual({ persons: 4, max_guests: 3, adults: 2, max_adults: null })
     })
 
     it('stornierte und verfallene Einträge zählen nicht; Vorschau nur für Mitglieder', async () => {
@@ -315,6 +324,120 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-8 Manuelle Buchungen', () => {
       savedId(await save(staffA, { ...bookingInput(tenantA, apt, g, '2027-06-01', '2027-06-03', { check_in: null, check_out: null }), id, updated_at: created.updated_at }))
       const changed = await row(id)
       expect([changed.check_in, changed.check_out]).toEqual([null, null])
+    })
+  })
+
+  describe('Personenpreise und Erwachsenen-Grenze (PROJ-27)', () => {
+    // Beispiel der Spec: Erwachsene € 50, bis 2 Jahre € 0, bis 11 Jahre € 20; Reinigung € 60
+    const perPerson = {
+      max_guests: 6,
+      max_adults: 2,
+      price_mode: 'person',
+      adult_price_cents: 5000,
+      child_prices: [
+        { to_age: 2, price_cents: 0 },
+        { to_age: 11, price_cents: 2000 },
+      ] as Json,
+      cleaning_fee_cents: 6000,
+    }
+
+    it('bestehende und neue Wohnungen haben die Preisart „Wohnung“ und keine Erwachsenen-Grenze', async () => {
+      const apt = await apartment(tenantA, 'Vorgabe')
+      const { data } = await service.from('apartments').select('price_mode, max_adults, child_prices').eq('id', apt).single()
+      expect(data).toEqual({ price_mode: 'apartment', max_adults: null, child_prices: [] })
+    })
+
+    it('Mitarbeiter-Buchung erhält den Vorschlag nach Personenpreisen, Reinigung genau einmal', async () => {
+      const apt = await apartment(tenantA, 'Personen', perPerson)
+      const g = await guest(tenantA, 'Personengast')
+      // 2 Erwachsene + Kinder 1, 8, 14 Jahre: 3 × (100 + 0 + 20 + 50) = € 510
+      const id = savedId(await save(staffA, bookingInput(tenantA, apt, g, '2027-07-01', '2027-07-04', { adults: 2, child_ages: [1, 8, 14] })))
+      const { data: amounts } = await service.from('booking_amounts').select('nights_cents').eq('id', id).single()
+      expect(amounts?.nights_cents).toBe(51000)
+      const { data: charges } = await service.from('booking_charges').select('label, amount_cents').eq('booking_id', id)
+      expect(charges).toEqual([{ label: 'Reinigung', amount_cents: 6000 }])
+      expect((await row(id)).price_review).toBe(false)
+    })
+
+    it('Inhaber speichert einen abweichenden vereinbarten Preis mit eigenen Gebühren', async () => {
+      const apt = await apartment(tenantA, 'Vereinbart', perPerson)
+      const g = await guest(tenantA, 'Vereinbartgast')
+      const id = savedId(
+        await save(
+          ownerA,
+          bookingInput(tenantA, apt, g, '2027-07-10', '2027-07-13', {
+            adults: 2,
+            child_ages: [1, 8, 14],
+            amounts: { nights_cents: 45000, charges: [{ label: 'Reinigung', amount_cents: 7000 }, { label: 'Haustier', amount_cents: 1500 }] },
+          })
+        )
+      )
+      const { data: amounts } = await service.from('booking_amounts').select('nights_cents').eq('id', id).single()
+      expect(amounts?.nights_cents).toBe(45000)
+      const { data: charges } = await service.from('booking_charges').select('label, amount_cents').eq('booking_id', id).order('position')
+      expect(charges).toEqual([
+        { label: 'Reinigung', amount_cents: 7000 },
+        { label: 'Haustier', amount_cents: 1500 },
+      ])
+    })
+
+    it('Erwachsenen-Grenze: 3 Erwachsene warnen (Mitarbeiter blockiert, Inhaber übersteuert); 1 + 3 Kinder nicht', async () => {
+      const apt = await apartment(tenantA, 'Grenze', { ...perPerson, max_guests: 4 })
+      const g = await guest(tenantA, 'Grenzgast')
+      const tooMany = bookingInput(tenantA, apt, g, '2027-08-01', '2027-08-03', { adults: 3 })
+      const blocked = await save(staffA, tooMany)
+      expect(blocked.result?.status).toBe('warnings')
+      expect((blocked.result as { warnings: { over_capacity: unknown } }).warnings.over_capacity).toEqual({
+        persons: 3,
+        max_guests: 4,
+        adults: 3,
+        max_adults: 2,
+      })
+      expect((await save(staffA, tooMany, true)).result?.status).toBe('warnings')
+      savedId(await save(ownerA, tooMany, true))
+      savedId(await save(staffA, bookingInput(tenantA, apt, g, '2027-08-10', '2027-08-12', { adults: 1, child_ages: [3, 5, 8] })))
+
+      const preview = await staffA.rpc('booking_warnings', {
+        p_tenant_id: tenantA,
+        p_apartment_id: apt,
+        p_arrival: '2027-09-01',
+        p_departure: '2027-09-03',
+        p_persons: 3,
+        p_adults: 3,
+      })
+      expect((preview.data as { over_capacity: { max_adults: number } }).over_capacity.max_adults).toBe(2)
+    })
+
+    it('Mitarbeiter ändert Personen bei Personenpreisen: Preis bleibt, „Preis prüfen“ wird gesetzt', async () => {
+      const apt = await apartment(tenantA, 'Prüfen', perPerson)
+      const flatApt = await apartment(tenantA, 'Pauschal', { price_cents: 12000 })
+      const g = await guest(tenantA, 'Prüfgast')
+      const id = savedId(await save(ownerA, bookingInput(tenantA, apt, g, '2027-10-01', '2027-10-03', { adults: 2 })))
+      const before = await row(id)
+      savedId(await save(staffA, { ...bookingInput(tenantA, apt, g, '2027-10-01', '2027-10-03', { adults: 2, child_ages: [8] }), id, updated_at: before.updated_at }))
+      expect((await row(id)).price_review).toBe(true)
+      const { data: amounts } = await service.from('booking_amounts').select('nights_cents').eq('id', id).single()
+      expect(amounts?.nights_cents).toBe(30000)
+
+      // Wohnungspreis: Personenänderung ändert den Preis nicht, daher kein „Preis prüfen“
+      const flatId = savedId(await save(ownerA, bookingInput(tenantA, flatApt, g, '2027-10-10', '2027-10-12', { adults: 2 })))
+      const flatBefore = await row(flatId)
+      savedId(await save(staffA, { ...bookingInput(tenantA, flatApt, g, '2027-10-10', '2027-10-12', { adults: 1 }), id: flatId, updated_at: flatBefore.updated_at }))
+      expect((await row(flatId)).price_review).toBe(false)
+    })
+
+    it('Datenbank lehnt ungültige Preis-Konfigurationen ab', async () => {
+      const apt = await apartment(tenantA, 'Ungültig')
+      const update = (values: Record<string, unknown>) => ownerA.from('apartments').update(values as never).eq('id', apt)
+      expect((await update({ price_mode: 'person' })).error?.code).toBe('23514')
+      expect((await update({ max_adults: 9 })).error?.code).toBe('23514')
+      expect((await update({ child_prices: [{ to_age: 11, price_cents: 0 }, { to_age: 2, price_cents: 0 }] })).error?.code).toBe('23514')
+      expect((await update({ child_prices: [{ to_age: 18, price_cents: 0 }] })).error?.code).toBe('23514')
+      expect((await update({ child_prices: [1, 2, 3, 4] })).error?.code).toBe('23514')
+      expect((await update({ price_mode: 'person', adult_price_cents: 5000, child_prices: [{ to_age: 2, price_cents: 0 }] })).error).toBeNull()
+      // Mitarbeiter dürfen die Preis-Konfiguration nicht ändern (Regel aus PROJ-6)
+      const staffUpdate = await staffA.from('apartments').update({ adult_price_cents: 1 } as never).eq('id', apt).select('id')
+      expect(staffUpdate.data ?? []).toHaveLength(0)
     })
   })
 

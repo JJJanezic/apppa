@@ -283,7 +283,7 @@ test.describe('Buchung anlegen (Inhaber)', () => {
 
     // Wohnung ohne Standardpreis: Preis bleibt leer und ist Pflicht
     await chooseApartment(page, 'Haus See · Top 2')
-    await expect(panel(page).getByText('Die Wohnung hat keinen Standardpreis. Bitte den Preis eingeben.')).toBeVisible()
+    await expect(panel(page).getByText('Die Wohnung hat keinen Preis hinterlegt. Bitte den Preis eingeben.')).toBeVisible()
     await setPeriod(page, day(5, FUTURE), day(2, FUTURE))
     await expect(panel(page).getByText('Die Abreise muss nach der Anreise liegen.')).toBeVisible()
     await setPeriod(page, FUTURE, day(2, FUTURE))

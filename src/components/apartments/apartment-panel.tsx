@@ -1,10 +1,11 @@
 'use client'
 
 import { zodResolver } from '@hookform/resolvers/zod'
+import { Plus, Trash } from '@phosphor-icons/react'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { useState } from 'react'
-import { type Resolver, useForm, useWatch } from 'react-hook-form'
+import { type Resolver, useFieldArray, useForm, useWatch } from 'react-hook-form'
 import { toast } from 'sonner'
 
 import {
@@ -32,6 +33,8 @@ import {
   apartmentLabel,
   LIMITS,
   type Municipality,
+  PRICE_MODES,
+  type PriceMode,
   priceInput,
   type Property,
 } from '@/lib/apartments'
@@ -42,8 +45,12 @@ type FormValues = {
   newProperty?: { name: string; street: string; postalCode: string; city: string; municipalityCode: string }
   name: string
   maxGuests: string
+  maxAdults: string
   kind: 'holiday' | 'service'
+  priceMode: PriceMode
   price: string
+  adultPrice: string
+  childPrices: { toAge: string; price: string }[]
   cleaningFee: string
   checkIn: string
   checkOut: string
@@ -78,8 +85,12 @@ export function ApartmentPanel({ open, onOpenChange, properties, apartment, pres
         propertyId: apartment.propertyId,
         name: apartment.name,
         maxGuests: String(apartment.maxGuests),
+        maxAdults: apartment.maxAdults === null ? '' : String(apartment.maxAdults),
         kind: apartment.kind,
+        priceMode: apartment.priceMode,
         price: priceInput(apartment.priceCents),
+        adultPrice: priceInput(apartment.adultPriceCents),
+        childPrices: apartment.childPrices.map((c) => ({ toAge: String(c.toAge), price: priceInput(c.priceCents) })),
         cleaningFee: priceInput(apartment.cleaningFeeCents),
         checkIn: apartment.checkIn,
         checkOut: apartment.checkOut,
@@ -90,8 +101,12 @@ export function ApartmentPanel({ open, onOpenChange, properties, apartment, pres
         newProperty: EMPTY_PROPERTY,
         name: '',
         maxGuests: '',
+        maxAdults: '',
         kind: APARTMENT_DEFAULTS.kind,
+        priceMode: 'apartment',
         price: '',
+        adultPrice: '',
+        childPrices: [],
         cleaningFee: '',
         checkIn: APARTMENT_DEFAULTS.checkIn,
         checkOut: APARTMENT_DEFAULTS.checkOut,
@@ -108,9 +123,13 @@ export function ApartmentPanel({ open, onOpenChange, properties, apartment, pres
       : (resolveExisting({ ...values, newProperty: undefined } as never, context, options as never) as never)
   const form = useForm<FormValues>({ resolver, defaultValues: defaults })
   const isNew = useWatch({ control: form.control, name: 'propertyId' }) === NEW_PROPERTY
-  // Künftige Buchungen mit mehr Personen als die eingegebene Kapazität (nur Hinweis, PROJ-8)
+  const childPrices = useFieldArray({ control: form.control, name: 'childPrices' })
+  const priceMode = useWatch({ control: form.control, name: 'priceMode' })
+  // Künftige Buchungen mit mehr Personen bzw. Erwachsenen als eingegeben (nur Hinweis, PROJ-8/27)
   const maxGuests = Number(useWatch({ control: form.control, name: 'maxGuests' }))
-  const tooLarge = apartment && maxGuests > 0 ? apartment.futurePersons.filter((n) => n > maxGuests).length : 0
+  const maxAdults = Number(useWatch({ control: form.control, name: 'maxAdults' }))
+  const tooLarge = apartment && maxGuests > 0 ? apartment.futureStays.filter((s) => s.persons > maxGuests).length : 0
+  const tooManyAdults = apartment && maxAdults > 0 ? apartment.futureStays.filter((s) => s.adults > maxAdults).length : 0
   const property = properties.find((p) => p.id === (apartment?.propertyId ?? ''))
   const title = apartment && property ? apartmentLabel(property.name, apartment.name) : t('panel.createTitle')
 
@@ -229,6 +248,23 @@ export function ApartmentPanel({ open, onOpenChange, properties, apartment, pres
           />
           <FormField
             control={form.control}
+            name="maxAdults"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t('panel.maxAdults')}</FormLabel>
+                <FormControl>
+                  <Input type="number" inputMode="numeric" min={LIMITS.guestsMin} max={LIMITS.guestsMax} className="min-h-11 w-32" {...field} />
+                </FormControl>
+                <FormDescription>{t('panel.maxAdultsHint')}</FormDescription>
+                {tooManyAdults > 0 && (
+                  <FormDescription className="text-ds-accent-2-800">{t('panel.capacityAdultsHint', { count: tooManyAdults })}</FormDescription>
+                )}
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
             name="kind"
             render={({ field }) => (
               <FormItem>
@@ -249,34 +285,133 @@ export function ApartmentPanel({ open, onOpenChange, properties, apartment, pres
               </FormItem>
             )}
           />
-          <FormField
-            control={form.control}
-            name="price"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>{t('panel.price')}</FormLabel>
-                <FormControl>
-                  <Input inputMode="decimal" autoComplete="off" className="min-h-11 w-40" {...field} />
-                </FormControl>
-                <FormDescription>{t('panel.priceHint')}</FormDescription>
-                <FormMessage />
-              </FormItem>
+          <fieldset className="flex flex-col gap-4 rounded-lg border p-4">
+            <legend className="px-1 text-sm font-semibold">{t('panel.priceSection')}</legend>
+            <p className="-mt-1 text-[13px] text-ds-neutral-800">{t('panel.priceSectionHint')}</p>
+            <FormField
+              control={form.control}
+              name="priceMode"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('panel.priceMode')}</FormLabel>
+                  <FormControl>
+                    <RadioGroup value={field.value} onValueChange={field.onChange} className="flex flex-wrap gap-3">
+                      {PRICE_MODES.map((mode) => (
+                        <div key={mode} className="flex min-h-11 items-center gap-2 rounded-md border px-3">
+                          <RadioGroupItem value={mode} id={`preisart-${mode}`} />
+                          <Label htmlFor={`preisart-${mode}`} className="cursor-pointer font-normal">
+                            {t(`priceMode.${mode}`)}
+                          </Label>
+                        </div>
+                      ))}
+                    </RadioGroup>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            {priceMode === 'apartment' ? (
+              <FormField
+                control={form.control}
+                name="price"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('panel.price')}</FormLabel>
+                    <FormControl>
+                      <Input inputMode="decimal" autoComplete="off" className="min-h-11 w-40" {...field} />
+                    </FormControl>
+                    <FormDescription>{t('panel.priceHint')}</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            ) : (
+              <>
+                <FormField
+                  control={form.control}
+                  name="adultPrice"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('panel.adultPrice')}</FormLabel>
+                      <FormControl>
+                        <Input inputMode="decimal" autoComplete="off" className="min-h-11 w-40" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <div className="flex flex-col gap-3">
+                  <span className="text-sm font-semibold">{t('panel.childPrices')}</span>
+                  <p className="-mt-2 text-[13px] text-ds-neutral-800">{t('panel.childPricesHint')}</p>
+                  {childPrices.fields.map((tier, i) => (
+                    <div key={tier.id} className="grid grid-cols-[1fr_1fr_auto] items-start gap-2">
+                      <FormField
+                        control={form.control}
+                        name={`childPrices.${i}.toAge`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-[13px] font-normal">{t('panel.childToAge', { n: i + 1 })}</FormLabel>
+                            <FormControl>
+                              <Input type="number" inputMode="numeric" min={0} max={LIMITS.childAgeMax} className="min-h-11" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name={`childPrices.${i}.price`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-[13px] font-normal">{t('panel.childPrice', { n: i + 1 })}</FormLabel>
+                            <FormControl>
+                              <Input inputMode="decimal" autoComplete="off" className="min-h-11" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="mt-6 size-11"
+                        aria-label={t('panel.removeChildPrice', { n: i + 1 })}
+                        onClick={() => childPrices.remove(i)}
+                      >
+                        <Trash size={18} aria-hidden="true" />
+                      </Button>
+                    </div>
+                  ))}
+                  {childPrices.fields.length < LIMITS.childPricesMax && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="min-h-11 self-start"
+                      onClick={() => childPrices.append({ toAge: '', price: '' }, { shouldFocus: true })}
+                    >
+                      <Plus size={16} aria-hidden="true" />
+                      {t('panel.addChildPrice')}
+                    </Button>
+                  )}
+                </div>
+              </>
             )}
-          />
-          <FormField
-            control={form.control}
-            name="cleaningFee"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>{t('panel.cleaningFee')}</FormLabel>
-                <FormControl>
-                  <Input inputMode="decimal" autoComplete="off" className="min-h-11 w-40" {...field} />
-                </FormControl>
-                <FormDescription>{t('panel.cleaningFeeHint')}</FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+            <FormField
+              control={form.control}
+              name="cleaningFee"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('panel.cleaningFee')}</FormLabel>
+                  <FormControl>
+                    <Input inputMode="decimal" autoComplete="off" className="min-h-11 w-40" {...field} />
+                  </FormControl>
+                  <FormDescription>{t('panel.cleaningFeeHint')}</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </fieldset>
           <div className="grid grid-cols-2 gap-3">
             {(['checkIn', 'checkOut'] as const).map((name) => (
               <FormField
@@ -343,8 +478,8 @@ export function ApartmentPanel({ open, onOpenChange, properties, apartment, pres
           onOpenChange={(next) => !next && setConfirming(null)}
           title={t(`confirm.${confirming}Title`, { name: apartment.name })}
           text={
-            confirming === 'archive' && apartment.futurePersons.length > 0
-              ? `${t('confirm.archiveText')} ${t('confirm.archiveFuture', { count: apartment.futurePersons.length })}`
+            confirming === 'archive' && apartment.futureStays.length > 0
+              ? `${t('confirm.archiveText')} ${t('confirm.archiveFuture', { count: apartment.futureStays.length })}`
               : t(`confirm.${confirming}Text`)
           }
           confirmLabel={t(confirming === 'archive' ? 'panel.archive' : 'panel.delete')}

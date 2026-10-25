@@ -53,7 +53,7 @@ export function BlockPanel({ open, onOpenChange, apartments, block, owner, today
       : { apartmentId: active.length === 1 ? active[0].id : '', arrival: '', departure: '', reason: 'owner_use', note: '' },
   })
   const [apartmentId, arrival, departure, reason] = useWatch({ control: form.control, name: ['apartmentId', 'arrival', 'departure', 'reason'] })
-  const { warnings, version, recheck } = useBookingWarnings({ id: block?.id ?? null, apartmentId, arrival, departure, persons: 0 })
+  const { warnings, version, recheck } = useBookingWarnings({ id: block?.id ?? null, apartmentId, arrival, departure, persons: 0, adults: 0 })
   const warn = hasWarnings(warnings)
   const overrideOk = owner && override?.version === version
   const options = apartments.filter((a) => !a.archived || a.id === block?.apartment.id)

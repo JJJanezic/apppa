@@ -1,7 +1,11 @@
 // Manuelle Buchungen (PROJ-8): Typen und reine Regeln für Browser und Server.
 // Lesefunktionen: src/lib/bookings-data.ts (nur Server), Aktionen: src/app/(app)/buchungen/actions.ts.
 
+import type { ApartmentPricing } from '@/lib/apartments'
 import { TIME_ZONE } from '@/lib/locale'
+
+// Rechnerischer Vorschlag nach Preisart der Wohnung (PROJ-27); Regel in src/lib/apartments.ts
+export { suggestedNightsCents } from '@/lib/apartments'
 
 export type BookingErrorCode =
   | 'notFound'
@@ -56,12 +60,12 @@ export type BookingAmounts = {
 
 export type Companion = { firstName: string; lastName: string; birthDate: string | null }
 
-// Wohnung, wie das Buchungsformular sie braucht
-export type BookableApartment = {
+// Wohnung, wie das Buchungsformular sie braucht (Preise nur für den Vorschlag des Inhabers)
+export type BookableApartment = ApartmentPricing & {
   id: string
   label: string
   maxGuests: number
-  priceCents: number | null
+  maxAdults: number | null
   cleaningFeeCents: number | null
   checkIn: string
   checkOut: string
@@ -83,8 +87,8 @@ export type Conflict = {
 
 export type BookingWarnings = {
   conflicts: Conflict[]
-  // Personen über der Kapazität der Wohnung
-  overCapacity: { persons: number; maxGuests: number } | null
+  // Personen über der Kapazität bzw. Erwachsene über der Erwachsenen-Grenze der Wohnung (PROJ-27)
+  overCapacity: { persons: number; maxGuests: number; adults: number; maxAdults: number | null } | null
 }
 
 export type Booking = {
@@ -200,14 +204,15 @@ export function findConflicts<T extends Occupancy>(
 
 export const personCount = (adults: number, childAges: readonly number[]) => adults + childAges.length
 
-export function overCapacity(adults: number, childAges: readonly number[], maxGuests: number): BookingWarnings['overCapacity'] {
+export function overCapacity(
+  adults: number,
+  childAges: readonly number[],
+  maxGuests: number,
+  maxAdults: number | null = null
+): BookingWarnings['overCapacity'] {
   const persons = personCount(adults, childAges)
-  return persons > maxGuests ? { persons, maxGuests } : null
-}
-
-// Vorschlag: Standardpreis × Nächte (null, wenn die Wohnung keinen Standardpreis hat)
-export function suggestedNightsCents(priceCents: number | null, nights: number): number | null {
-  return priceCents === null || nights < 1 ? null : priceCents * nights
+  const tooMany = persons > maxGuests || (maxAdults !== null && adults > maxAdults)
+  return tooMany ? { persons, maxGuests, adults, maxAdults } : null
 }
 
 export const chargesCents = (charges: readonly Charge[]) => charges.reduce((sum, c) => sum + c.amountCents, 0)
