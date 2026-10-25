@@ -10,7 +10,7 @@ import type { ActionResult } from '@/lib/auth/result'
 
 // Führt eine Team- bzw. Betreiber-Aktion aus: Erfolg → Hinweis-Meldung und Seite neu laden (bzw. Weiterleitung),
 // Fehler → Meldung aus „team.errors“ bzw. „operator.errors“. pending verhindert Doppelklicks.
-export function useTeamAction(namespace: 'team.errors' | 'operator.errors' | 'apartments.errors' = 'team.errors') {
+export function useTeamAction(namespace: 'team.errors' | 'operator.errors' | 'apartments.errors' | 'guests.errors' = 'team.errors') {
   const t = useTranslations(namespace) as (key: string) => string
   const router = useRouter()
   const [pending, setPending] = useState(false)

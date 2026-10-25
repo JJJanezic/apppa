@@ -1,6 +1,6 @@
 # PROJ-7: Gäste-Datenbank
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-10-26
 **Last Updated:** 2026-10-26
 
@@ -338,6 +338,39 @@ Bestätigungsdialog „Gast löschen“
 
 ### L) Abhängigkeiten
 - Keine neuen Pakete. Länder- und Sprachnamen kommen aus der eingebauten Sprachfunktion von JavaScript; Auswahl mit Suche über die vorhandenen shadcn-Bausteine Command und Popover.
+
+## Implementation Notes (Frontend)
+**Stand 2026-10-26.** Die Oberfläche ist fertig. Schreibende Aktionen melden bis zum Backend „Diese Funktion wird gerade eingerichtet“. In der Entwicklung (`npm run dev`) zeigen Liste, Detail, Suche und Dubletten sieben Beispielgäste; im Build bzw. in Staging und Production ist die Liste leer.
+
+**Seiten** (`src/app/(app)/gaeste/`)
+- `page.tsx`: Gästeliste. Ohne Kunde (z. B. Betreiber-Admin ohne Mitgliedschaft) der Hinweis „keinem Kunden zugeordnet“ wie im Dashboard statt 404. Leerzustand je Rolle; „Gast anlegen“ und der Link „N mögliche Dubletten“ nur für Inhaber; „Keine Gäste gefunden“ mit „Suche und Filter zurücksetzen“
+- `[id]/page.tsx`: Gast-Detail mit Kontakt (Kennzeichen „von Plattform übernommen“), Aufenthalte (bis PROJ-8 leer), weitere Angaben, Firma (nur wenn vorhanden). Anonymisierte Gäste zeigen einen Hinweis und keine Aktionen
+- `dubletten/page.tsx`: Vorschlagsliste
+- **Navigation:** „Gäste“ ist freigeschaltet (`ready: true`)
+- **App-Rahmen:** liefert 404 für `/gaeste/dubletten` bei Mitarbeitern und für unbekannte Gäste, schon vor dem Streaming (Muster aus PROJ-5)
+
+**Bausteine** (`src/components/guests/`)
+- `guest-fields.tsx`: alle Felder eines Gastes, wiederverwendbar für das Buchungsformular (PROJ-8). Firma aufklappbar, eigene Marketing-Quelle als Textfeld
+- `country-picker.tsx`: Länderauswahl mit Suche (ohne Akzente), häufige Länder oben, keine Vorauswahl; beim Adressland mit „Keine Angabe“
+- `guest-panel.tsx`: Anlegen und Bearbeiten. Prüft vor dem Anlegen auf mögliche Doppeleinträge („Bestehenden Gast öffnen“ / „Trotzdem anlegen“); die Warnung verfällt, sobald sich eine Eingabe ändert. Beim Bearbeiten wird „zuletzt geändert am“ mitgeschickt; bei fremder Änderung erscheint ein Hinweis mit „Aktuelle Fassung laden“, die Eingaben bleiben stehen
+- `guest-filters.tsx`: Suche (300 ms Verzögerung), Filter Herkunftsland und Marketing-Quelle (inkl. „Eigene Angabe“ und „Keine Angabe“), Sortierung, alles in der Adresse (`?q`, `land`, `quelle`, `sortierung`, `seite`)
+- `guest-list.tsx`: Tabelle ab 768 px, darunter Karten; Blättern zu je 50
+- `guest-actions.tsx`: Bearbeiten, Zusammenführen, Löschen. Der Lösch-Dialog erklärt bei Gästen mit Aufenthalten das Anonymisieren
+- `merge-dialog.tsx`: zweiten Gast per Suche wählen (bzw. vorgewählt aus „Mögliche Dubletten“); je Angabe Auswahl A/B, gleiche Werte ohne Auswahl; Vorbelegung A, außer A ist leer; Hinweis „nicht rückgängig“ und Bestätigung
+- `guest-picker.tsx`: Gastsuche mit Trefferliste (ab 2 Zeichen), wiederverwendbar für PROJ-8
+- `duplicate-list.tsx`, `create-guest-button.tsx`
+
+**Regeln** (`src/lib/guests.ts`, Unit-Tests): Namen („Huber, Anna“ / „Anna Huber“), vereinheitlichter Suchtext (ohne Akzente, ß → ss), Telefon-Ziffern, Erkennung von Plattform-Relay-Adressen, Dubletten-Gründe, Länder- und Sprachnamen über `Intl.DisplayNames`, Filter aus der Adresse, Hilfen für das Zusammenführen.
+
+**Prüfregeln** (`src/lib/validation/guests.ts`, Unit-Tests): Pflicht Nachname und Herkunftsland (ISO-Code aus der Liste), E-Mail-Format (gespeichert in Kleinbuchstaben), Telefon grob, Geburtsdatum nicht in der Zukunft (Wiener Datum) und nicht vor 1900, Längen, Marketing-Quelle (Standardwert oder Freitext; leerer Freitext = keine Angabe).
+
+**Vorläufig bis zum Backend**
+- `src/lib/guests-data.ts`: Lesefunktionen auf Beispielgästen (nur in der Entwicklung)
+- `src/app/(app)/gaeste/actions.ts`: Anlegen, Ändern, Löschen, Zusammenführen und „Kein Doppeleintrag“ prüfen Rolle und Eingaben und melden „wird eingerichtet“; Suche, Dublettenprüfung und `loadGuest` arbeiten auf den Beispielgästen
+
+**Geprüft**
+- Typprüfung, Lint, Build grün; Unit-Tests 203/203 (davon 25 neu)
+- Im Browser (Desktop 1440 px und Handy 375 px) als Inhaber und als Mitarbeiter: Liste, Suche, Detail, Bearbeiten, Pflichtfeld-Meldungen, Dubletten, Zusammenführen-Dialog; Mitarbeiter ohne Aktionen, `/gaeste/dubletten` liefert für Mitarbeiter 404
 
 ## QA Test Results
 _To be added by /qa_
