@@ -1,6 +1,6 @@
 # PROJ-7: Gäste-Datenbank
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-10-26
 **Last Updated:** 2026-10-26
 
@@ -372,8 +372,143 @@ Bestätigungsdialog „Gast löschen“
 - Typprüfung, Lint, Build grün; Unit-Tests 203/203 (davon 25 neu)
 - Im Browser (Desktop 1440 px und Handy 375 px) als Inhaber und als Mitarbeiter: Liste, Suche, Detail, Bearbeiten, Pflichtfeld-Meldungen, Dubletten, Zusammenführen-Dialog; Mitarbeiter ohne Aktionen, `/gaeste/dubletten` liefert für Mitarbeiter 404
 
+## Implementation Notes (Backend)
+**Stand 2026-10-26.** Eingespielt in „apppa-dev“; Advisors ohne Befund zur Datenbank (siehe unten). Die Beispielgäste aus dem Frontend sind entfernt, alle Lese- und Schreibwege laufen gegen die Datenbank.
+
+**Migrationen**
+- `20261026120000_guests.sql`:
+  - Erweiterungen `unaccent` und `pg_trgm` (Schema `extensions`)
+  - Tabelle `guests` mit Prüfregeln (Längen, Ländercode, E-Mail in Kleinbuchstaben, Standard-Quelle oder Freitext, Geburtsdatum ab 1900) und den von der Datenbank gepflegten Feldern `search_text`, `email_key`, `phone_key`, `name_key` (Trigger `guests_before_write`; prüft auch „Geburtsdatum nicht in der Zukunft“, Wiener Datum)
+  - Tabelle `guest_duplicate_dismissals` (Paar in fester Reihenfolge, löscht sich mit den Gästen)
+  - Rechte: Lesen Mitglieder und Admin; Anlegen und Ändern nur Inhaber, Ändern nur solange nicht anonymisiert; kein direktes Löschen; Spaltenrechte wie bei PROJ-6; Standardfelder und Änderungsprotokoll über `enable_tenant_table`
+  - Funktionen: `guest_list` (Suche, Filter, Sortierung, Blättern; Zugriffsregeln wie bei direkten Abfragen), `guest_duplicate_candidates` (Warnung beim Anlegen), `guest_duplicate_pairs`, `merge_guests`, `delete_guest` (nach dem Muster „private Funktion mit Rollenprüfung + öffentlicher Aufruf“ aus PROJ-5)
+  - Fehlercodes für die App: P0701 nur Inhaber, P0702 nicht gefunden, P0703 anonymisiert, P0704 Zusammenführen ungültig
+- `20261026120100_guests_search_words.sql`: Suche mit mehreren Wörtern unabhängig von der Reihenfolge („rene dupre“ findet „Dupré, René“); `anonymize_guest` öffentlich aufrufbar, aber nur mit dem Secret Key (Tests, später PROJ-8)
+
+**Abweichungen bzw. Präzisierungen zum Tech Design**
+- **Zusammenführen:** Die Datenbank übernimmt die Werte selbst aus beiden Gästen nach der Auswahl je Angabe (die App schickt nur „a/b“, keine Werte). Die Verknüpfung im Protokoll ist ein Eintrag `merged_from` beim verbleibenden Gast.
+- **Löschen:** `delete_guest` löscht bis PROJ-8 immer endgültig (es gibt noch keine Buchungen); der Zweig „anonymisieren“ ist fertig und über `anonymize_guest` getestet. PROJ-8 ergänzt in `delete_guest` die Prüfung auf Buchungen und in `merge_guests` das Umhängen der Buchungen (Stellen im SQL markiert).
+- **Kontakt-Herkunft:** Ändert ein Inhaber eine von der Plattform übernommene E-Mail bzw. Telefonnummer, gilt der neue Wert als „direkt“.
+- **Nach dem endgültigen Löschen** lädt die Aktion nichts neu und die Oberfläche wechselt mit frischem Laden zur Liste (sonst zeigte die gelöschte Detailseite kurz „Seite nicht gefunden“; gleiches Muster wie BUG-4 in PROJ-5).
+- **Telefonvergleich:** nur über die Ziffern; „+43 …“ und „0043 …“ gelten bewusst nicht als gleich.
+
+**Server** (`src/lib/guests-data.ts`, `src/app/(app)/gaeste/actions.ts`): Lesen über `guest_list` bzw. direkte Abfragen; Anlegen/Ändern direkt (RLS), Schutz vor Überschreiben über `updated_at`; Löschen, Zusammenführen und Dubletten über die Funktionen. Datenbankfehler werden in die Meldungen aus `guests.errors` übersetzt.
+
+**Tests**
+- `supabase/tests/guests.integration.test.ts` (12, gegen „apppa-dev“): Abschottung, Mitarbeiter ohne Schreibrechte, Prüfregeln, Schutz vor Überschreiben, Suche (Akzente, Firma, Telefon, Mehrwortsuche, Platzhalter, Filter, Blättern), Dubletten (E-Mail, Name, Relay-Adressen ignoriert, nur Inhaber, Warnung beim Anlegen, „Kein Doppeleintrag“), Zusammenführen (Feldwahl, Verknüpfung im Protokoll, nicht mit sich selbst/fremden Kunden/als Mitarbeiter), Löschen und Anonymisieren inkl. bereinigtem Protokoll
+- Gesamt: 279/279 grün (Unit + Integration), Typprüfung, Lint, Build grün
+- Im Browser durchgeklickt (Desktop): Anlegen, Dublettenwarnung, „Trotzdem anlegen“, Bearbeiten, Mehrwortsuche, Zusammenführen, Löschen
+
+**Advisors:** keine Befunde zur Datenbank. Gemeldet werden nur zwei Auth-Einstellungen von „apppa-dev“, die nicht zu PROJ-7 gehören: lange Gültigkeit der Mail-Links (24 h, bewusst für Einladungen) und die Prüfung auf geleakte Passwörter (laut PROJ-1 nur in Produktion vorgesehen; seit der Umstellung auf Pro auch in Dev verfügbar).
+
 ## QA Test Results
-_To be added by /qa_
+
+**Tested:** 2026-10-26
+**App URL:** http://localhost:3000 (Dev-Server) gegen Supabase „apppa-dev“
+**Tester:** QA Engineer (AI)
+**Stand:** Arbeitsstand mit Backend (noch nicht committet)
+
+### Automatisierte Tests
+- `npm test`: 279/279 grün (Unit + Integration), davon neu für PROJ-7: 25 Unit-Tests (`src/lib/guests.test.ts`, `src/lib/validation/guests.test.ts`), 12 Integrationstests (`supabase/tests/guests.integration.test.ts`)
+- **Neu:** `tests/PROJ-7-gaeste-datenbank.spec.ts` (13 E2E-Tests): alle Abläufe im Projekt „desktop“ grün; Layout und Barrierefreiheit (axe, WCAG 2.1 AA, kein seitliches Scrollen) auf Desktop, Tablet und Handy grün
+- E2E wegen der Laufzeitgrenze der Umgebung in Paketen je Testblock ausgeführt (siehe Regression)
+
+### Acceptance Criteria Status
+**Gästeliste (9/9)**
+- [x] Leerzustand Inhaber mit „Gast anlegen“ (E2E)
+- [x] Leerzustand Mitarbeiter mit Hinweis, ohne „Gast anlegen“ (E2E)
+- [x] Liste mit Name (und Firma), Herkunft, Aufenthalte, letzter Aufenthalt, alphabetisch (E2E)
+- [x] Suche über Name, Firma, E-Mail, Telefon, ohne Groß-/Kleinschreibung und Akzente, auch mit mehreren Wörtern (E2E + Integration)
+- [x] „Keine Gäste gefunden“ mit Zurücksetzen (E2E)
+- [x] Filter Herkunftsland und Marketing-Quelle, zusammen mit der Suche (E2E + Integration)
+- [x] Filter Marketing-Quelle bietet Standardwerte, „Eigene Angabe“ und „Keine Angabe“ (E2E + Integration)
+- [x] Blättern zu je 50 (E2E mit 51 Gästen)
+- [x] Nur Gäste des eigenen Kunden, auch per Adresse (E2E 404 + Integration RLS)
+
+**Anlegen und Bearbeiten (9/9)**
+- [x] Anlegen nur mit Nachname und Herkunftsland (E2E)
+- [x] Fehlermeldungen bei leerem Nachnamen bzw. Land (E2E)
+- [x] Ungültige E-Mail und Geburtsdatum in der Zukunft (E2E + Datenbank-Regel)
+- [x] Warnung vor Doppeleintrag mit „Bestehenden Gast öffnen“ / „Trotzdem anlegen“ (E2E)
+- [x] Eigene Marketing-Quelle als Freitext; leerer Freitext = keine Angabe (E2E + Unit)
+- [x] Firma mit UID-Nummer erscheint in Liste und Detail (E2E)
+- [x] Änderungen sofort sichtbar und im Änderungsprotokoll (E2E; Protokoll über den Standard-Trigger, Integration)
+- [x] Fehler beim Speichern: Meldung, Eingaben bleiben (Code-Review: Formular wird nur nach Erfolg geschlossen)
+- [x] Gleichzeitiges Bearbeiten: Hinweis und „Aktuelle Fassung laden“, eigene Eingaben bleiben bis dahin (E2E)
+
+**Gast-Detail (2/2)**
+- [x] „Noch keine Aufenthalte“ (E2E)
+- [x] Kennzeichen „von Plattform übernommen“ (Detail per Code-Review, im Zusammenführen-Dialog per E2E)
+
+**Rollen (2/2 prüfbar, 1 erst mit PROJ-8)**
+- [x] Mitarbeiter ohne Knöpfe zum Anlegen, Bearbeiten, Zusammenführen, Löschen (E2E)
+- [x] Direkte Änderung durch Mitarbeiter wird abgelehnt (Integration: RLS, Funktionen mit P0701; Server-Aktion „ownerOnly“)
+- [ ] Nicht prüfbar: Mitarbeiter legt Gast beim Anlegen einer Buchung an → kommt mit PROJ-8
+
+**Dubletten (6/6)**
+- [x] Vorschläge mit Grund (E2E + Integration für E-Mail, Telefon, Name)
+- [x] „Kein Doppeleintrag“ blendet dauerhaft aus (E2E + Integration)
+- [x] Zusammenführen mit Feldwahl; Buchungen (ab PROJ-8) und der zweite Eintrag entfernt (E2E + Integration)
+- [x] Hinweis „nicht rückgängig“ und Bestätigung (E2E)
+- [x] Zusammenführen im Änderungsprotokoll mit beiden Gästen (Integration: Eintrag `merged_from` + Löschvermerk)
+- [x] Nicht mit sich selbst bzw. Gast eines anderen Kunden (Integration P0704; Suche blendet den eigenen Gast aus)
+
+**Löschen und Anonymisieren (4/4 prüfbar, 1 erst mit PROJ-8)**
+- [x] Gast ohne Buchungen wird endgültig gelöscht (E2E + Integration)
+- [ ] Nicht prüfbar: Erklärung „wird anonymisiert“ im Lösch-Dialog erscheint nur bei Gästen mit Aufenthalten → mit PROJ-8 (Text und Funktion vorhanden)
+- [x] Anonymisieren entfernt die Personenangaben, Herkunftsland bleibt (Integration + E2E über die Server-Funktion)
+- [x] Protokoll ohne personenbezogene Altwerte (Integration)
+- [x] Anonymisierter Gast nicht mehr bearbeitbar oder zusammenführbar (E2E + Integration)
+
+### Edge Cases Status
+- [x] Gleichnamige verschiedene Personen → Vorschlag, „Kein Doppeleintrag“ dauerhaft (E2E)
+- [x] Plattform- und private Adresse desselben Gastes → private Adresse beim Zusammenführen wählbar, Kennzeichen wandert mit (E2E + Integration)
+- [x] Gast ohne Vorname (Integration, E2E „Zeller“)
+- [x] Akzente/ß in der Suche; „Mueller“ ≠ „Müller“ wie spezifiziert (Unit + Integration)
+- [x] Anonymisierter Gast fällt aus den Dubletten-Vorschlägen (Integration)
+- [x] Gast gelöscht, während jemand anderer ihn bearbeitet → „Diesen Gast gibt es nicht mehr“ (Code-Review `updateGuest`)
+- [x] Platzhalter wie „%“ in der Suche werden wörtlich genommen (Integration)
+- [x] Kunde gelöscht (PROJ-5) → Gäste werden mitgelöscht, Protokoll danach entfernt (Code-Review `admin_delete_tenant` + Fremdschlüssel)
+- [x] Viele Gäste: Suche und Blättern in der Datenbank (Trigram-Index), Browser lädt nur 50
+
+### Security Audit Results
+- [x] Ohne Anmeldung kein Zugriff (Seiten im App-Rahmen, Aktionen prüfen die Sitzung)
+- [x] Kunden untereinander abgeschottet (RLS auf `guests` und `guest_duplicate_dismissals`; fremde Gäste 404; Zusammenführen über Kundengrenzen abgelehnt)
+- [x] Rollen in der Datenbank durchgesetzt (Anlegen/Ändern nur Inhaber, kein direktes Löschen, Funktionen prüfen die Rolle selbst)
+- [x] Anonymisieren nur serverseitig mit dem Secret Key bzw. über `delete_guest` (Integration: Inhaber direkt abgelehnt)
+- [x] Eingaben serverseitig geprüft (Zod) und zusätzlich per Datenbank-Regeln
+- [x] Keine XSS-Senken (keine `dangerouslySetInnerHTML`; `mailto:`/`tel:` mit festem Präfix, Telefon auf Ziffern reduziert)
+- [x] SQL-Platzhalter in der Suche maskiert; alle Abfragen parametrisiert
+- [x] Keine Schlüssel im Browser; Fehlermeldungen ohne Datenbank-Details
+- [x] Hinweis: keine eigene Ratenbegrenzung für Gäste-Aktionen. Nur angemeldete Mitglieder können sie aufrufen; für das Pilot-Volumen vertretbar
+- [x] Hinweis: Inhaber können über die API die Kontakt-Herkunft („direkt/Plattform“) selbst setzen. Betrifft nur die eigenen Daten, kein Sicherheitsproblem
+
+### Regression
+- PROJ-2: E2E auf Desktop, Tablet und Handy grün. Zwei veraltete Erwartungen angepasst (prüften, dass „Gäste“ noch gesperrt ist)
+- PROJ-3: E2E Desktop 32/32 grün
+- PROJ-4: E2E Desktop vollständig grün (einmal „Request rate limit reached“ von Supabase, nach Wartezeit grün; kein App-Fehler)
+- PROJ-5: E2E Desktop 16/16 grün (2026-10-26, nach dem Fix BUG-5)
+- PROJ-6: E2E Desktop vollständig grün
+- Nicht gemacht: Firefox und Safari (die Testprojekte laufen mit Chromium)
+
+### Bugs Found
+
+#### BUG-1: Meldung „Gast gelöscht“ ist nach dem endgültigen Löschen nicht zu sehen
+- **Severity:** Low
+- **Steps to Reproduce:**
+  1. Als Inhaber einen Gast ohne Aufenthalte öffnen, „Gast löschen“ → „Endgültig löschen“
+  2. Expected: Liste und kurze Bestätigung „Gast gelöscht“
+  3. Actual: Die Liste lädt frisch (gewollt, siehe Implementation Notes); die Bestätigung geht dabei verloren
+- **Priority:** Nice to have
+- **Status:** Behoben 2026-10-26. Nach dem Löschen öffnet sich `/gaeste?geloescht=1`; die Liste zeigt „Gast gelöscht“ und entfernt den Zusatz wieder aus der Adresse (`src/components/guests/deleted-notice.tsx`). E2E-Test ergänzt.
+
+### Summary
+- **Acceptance Criteria:** 32/32 prüfbare von 34 bestanden; 2 erst mit PROJ-8 prüfbar (Gast beim Buchen anlegen, Anonymisieren-Erklärung bei Gästen mit Aufenthalten)
+- **Bugs Found:** 1 (0 critical, 0 high, 0 medium, 1 low), behoben
+- **Security:** Pass
+- **Production Ready:** YES
+- **Recommendation:** Freigeben
+
 
 ## Deployment
 _To be added by /deploy_
