@@ -606,7 +606,7 @@ test.describe('Bearbeiten und Mitreisende', () => {
     await page.context().clearCookies()
     await signInAs(page, owner)
     await openBooking(page, booking.id)
-    await expect(page.getByText('Ein Mitarbeiter hat Zeitraum oder Wohnung geändert. Bitte den Preis prüfen.')).toBeVisible()
+    await expect(page.getByText('Ein Mitarbeiter hat die Buchung angelegt oder Zeitraum, Wohnung bzw. Personen geändert. Bitte den Preis prüfen.')).toBeVisible()
     await openList(page, `?monat=${month(FUTURE)}`)
     await expect(page.getByRole('table').getByText('Preis prüfen')).toBeVisible()
   })

@@ -259,6 +259,18 @@ test.describe('Buchung mit Personenpreisen', () => {
     await expect(panel(page).getByLabel('Übernachtungspreis (€)')).toHaveValue('360')
     await expect(panel(page).getByText(/Vorschlag: €\s360 \(3 × €\s120\)/)).toBeVisible()
   })
+
+  test('QA BUG-2: Rechnung über dem Höchstbetrag ergibt keinen Vorschlag, sondern einen Hinweis', async ({ page, users }) => {
+    desktopOnly()
+    const { tenantId, propertyId } = await setup(page, users)
+    await addApartment(tenantId, propertyId, 'Top 1', { ...PER_PERSON, max_guests: 50, max_adults: null, adult_price_cents: 1_000_000 })
+    await newBooking(page, 'Haus See · Top 1')
+    await expect(panel(page).getByLabel('Übernachtungspreis (€)')).not.toHaveValue('')
+    await panel(page).getByLabel('Erwachsene').fill('50')
+    await expect(panel(page).getByText('Der rechnerische Preis übersteigt den Höchstbetrag von € 1.000.000. Bitte den Preis eingeben.')).toBeVisible()
+    await expect(panel(page).getByLabel('Übernachtungspreis (€)')).toHaveValue('')
+    await expect(panel(page).getByText(/Vorschlag:/)).toHaveCount(0)
+  })
 })
 
 async function addBooking(tenantId: string, apartmentId: string, guestId: string, seq: number, nightsCents: number) {
@@ -354,9 +366,10 @@ test.describe('Mitarbeiter und bestehende Buchungen', () => {
     await ready(page)
     await expect(page.getByRole('table').getByText('Preis prüfen')).toBeVisible()
 
-    // Inhaber: 3 Erwachsene bei max. 2 → bewusst übersteuern
+    // Inhaber: Hinweis nennt auch Personen (QA BUG-1); 3 Erwachsene bei max. 2 → bewusst übersteuern
     await page.goto(`/buchungen/${booking}`)
     await ready(page)
+    await expect(page.getByText('Ein Mitarbeiter hat die Buchung angelegt oder Zeitraum, Wohnung bzw. Personen geändert. Bitte den Preis prüfen.')).toBeVisible()
     await page.getByRole('button', { name: 'Bearbeiten', exact: true }).click()
     await panel(page).getByLabel('Erwachsene').fill('3')
     await expect(panel(page).getByRole('alert').getByText('3 Erwachsene, die Wohnung ist für höchstens 2 Erwachsene ausgelegt.')).toBeVisible()

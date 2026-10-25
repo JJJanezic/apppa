@@ -150,6 +150,8 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
   const suggestion =
     apartment && nights > 0 && agesComplete ? suggestedNightsCents(apartment, nights, adultCount, childAges as number[]) : apartment && nights > 0 ? undefined : null
   const hasPricing = apartment !== null && (apartment.priceMode === 'person' ? apartment.adultPriceCents !== null : apartment.priceCents !== null)
+  // Rechnung über dem Höchstbetrag: kein Vorschlag, Preis von Hand eingeben
+  const tooHigh = hasPricing && nights > 0 && agesComplete && suggestion === null
   const groups = apartment?.priceMode === 'person' && agesComplete ? personPriceGroups(apartment, adultCount, childAges as number[]) : null
 
   const { warnings, version, recheck } = useBookingWarnings({ id: booking?.id ?? null, apartmentId, arrival, departure, persons, adults: adultCount })
@@ -163,12 +165,13 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
   }, [nightsPrice, chargeRows])
 
   // Neuer Vorschlag nach Änderung von Wohnung, Zeitraum oder Personen: übernehmen, solange der Preis nicht von Hand
-  // geändert wurde (sonst nur „Neuen Vorschlag übernehmen“). Wohnung ohne Preis: Feld leeren, Preis ist Pflicht.
+  // geändert wurde (sonst nur „Neuen Vorschlag übernehmen“). Wohnung ohne Preis oder Rechnung über dem Höchstbetrag:
+  // Feld leeren, Preis ist Pflicht.
   useEffect(() => {
     if (!owner || priceTouched || suggestion === undefined) return
     if (suggestion !== null) form.setValue('nightsPrice', amountInput(suggestion))
-    else if (apartment && !hasPricing) form.setValue('nightsPrice', '')
-  }, [owner, priceTouched, suggestion, apartment, hasPricing, form])
+    else if (apartment && (!hasPricing || tooHigh)) form.setValue('nightsPrice', '')
+  }, [owner, priceTouched, suggestion, apartment, hasPricing, tooHigh, form])
 
   function onApartment(id: string) {
     const apt = apartments.find((a) => a.id === id) ?? null
@@ -541,6 +544,7 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
                       </FormDescription>
                     )}
                     {apartment && !hasPricing && <FormDescription>{t('panel.noDefaultPrice')}</FormDescription>}
+                    {tooHigh && <FormDescription>{t('panel.suggestionTooHigh')}</FormDescription>}
                     {priceTouched && typeof suggestion === 'number' && parseAmountCents(nightsPrice) !== suggestion && (
                       <Button
                         type="button"

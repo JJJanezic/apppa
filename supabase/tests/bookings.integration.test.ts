@@ -359,6 +359,16 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-8 Manuelle Buchungen', () => {
       expect((await row(id)).price_review).toBe(false)
     })
 
+    it('QA BUG-2: Vorschlag über dem Höchstbetrag → Mitarbeiter-Buchung mit € 0 und „Preis prüfen“ statt Fehler', async () => {
+      // 50 Erwachsene × € 10.000 × 300 Nächte = € 150 Mio. (über € 1 Mio. und über dem Ganzzahlbereich)
+      const apt = await apartment(tenantA, 'Teuer', { ...perPerson, max_guests: 50, max_adults: null, adult_price_cents: 1_000_000 })
+      const g = await guest(tenantA, 'Teuergast')
+      const id = savedId(await save(staffA, bookingInput(tenantA, apt, g, '2027-08-01', '2028-05-27', { adults: 50, child_ages: [] })))
+      const { data: amounts } = await service.from('booking_amounts').select('nights_cents').eq('id', id).single()
+      expect(amounts?.nights_cents).toBe(0)
+      expect((await row(id)).price_review).toBe(true)
+    })
+
     it('Inhaber speichert einen abweichenden vereinbarten Preis mit eigenen Gebühren', async () => {
       const apt = await apartment(tenantA, 'Vereinbart', perPerson)
       const g = await guest(tenantA, 'Vereinbartgast')

@@ -1,7 +1,7 @@
 // Manuelle Buchungen (PROJ-8): Typen und reine Regeln für Browser und Server.
 // Lesefunktionen: src/lib/bookings-data.ts (nur Server), Aktionen: src/app/(app)/buchungen/actions.ts.
 
-import type { ApartmentPricing } from '@/lib/apartments'
+import { AMOUNT_MAX_CENTS, type ApartmentPricing } from '@/lib/apartments'
 import { TIME_ZONE } from '@/lib/locale'
 
 // Rechnerischer Vorschlag nach Preisart der Wohnung (PROJ-27); Regel in src/lib/apartments.ts
@@ -44,7 +44,7 @@ export const LIMITS = {
   adultsMax: 50,
   childAgeMax: 17,
   personsMax: 50,
-  amountMaxCents: 100_000_000,
+  amountMaxCents: AMOUNT_MAX_CENTS,
   optionDefaultDays: 7,
   nameMax: 100,
 } as const

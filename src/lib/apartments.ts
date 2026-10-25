@@ -167,13 +167,20 @@ export function personPriceGroups(
   return [...groups].map(([cents, count]) => ({ count, cents }))
 }
 
-// Rechnerischer Übernachtungspreis (Vorschlag) in Cent; null ohne Preis oder ohne Nächte.
+// Höchster Betrag einer Buchung (Übernachtungspreis bzw. Position) in Cent, wie in der Datenbank (booking_amounts)
+export const AMOUNT_MAX_CENTS = 100_000_000
+
+// Rechnerischer Übernachtungspreis (Vorschlag) in Cent; null ohne Preis, ohne Nächte oder über dem Höchstbetrag.
 // Gleiche Rechnung wie private.suggested_nights_cents in der Datenbank (Mitarbeiter-Buchungen).
 export function suggestedNightsCents(pricing: ApartmentPricing, nights: number, adults: number, childAges: readonly number[]): number | null {
   if (nights < 1) return null
-  if (pricing.priceMode === 'apartment') return pricing.priceCents === null ? null : pricing.priceCents * nights
-  const groups = personPriceGroups(pricing, adults, childAges)
-  return groups === null ? null : nights * groups.reduce((sum, g) => sum + g.count * g.cents, 0)
+  let cents: number | null
+  if (pricing.priceMode === 'apartment') cents = pricing.priceCents === null ? null : pricing.priceCents * nights
+  else {
+    const groups = personPriceGroups(pricing, adults, childAges)
+    cents = groups === null ? null : nights * groups.reduce((sum, g) => sum + g.count * g.cents, 0)
+  }
+  return cents !== null && cents > AMOUNT_MAX_CENTS ? null : cents
 }
 
 // Ein Objekt wird ausgeblendet, wenn es Wohnungen hat und alle archiviert sind (außer bei „Archivierte anzeigen“)

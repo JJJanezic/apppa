@@ -322,7 +322,7 @@ Keine neuen Pakete.
 - [x] Wohnungspreis leer: kein Vorschlag; Mitarbeiter-Buchung € 0 und „Preis prüfen“ (Integration)
 - [x] Wechsel der Wohnung in der Buchung: Vorschlag nach der neuen Wohnung (E2E Top 1 → Top 2)
 - [x] Wechsel der Preisart: Werte der anderen Preisart bleiben gespeichert
-- [ ] BUG-2: sehr große Beträge bei Mitarbeiter-Buchungen (siehe unten)
+- [x] Sehr große Beträge: kein Vorschlag über € 1.000.000, Mitarbeiter-Buchung mit € 0 und „Preis prüfen“ (BUG-2, behoben)
 
 ### Security Audit Results
 - [x] Keine neuen Tabellen, keine RLS-Änderung; neue Spalten mit denselben Spaltenrechten wie der Standardpreis
@@ -336,6 +336,7 @@ Keine neuen Pakete.
 ### Bugs Found
 
 #### BUG-1: Hinweis „Preis prüfen“ nennt bei Personenänderung den falschen Grund
+- **Status:** Behoben (2026-10-25): Text lautet jetzt „Ein Mitarbeiter hat die Buchung angelegt oder Zeitraum, Wohnung bzw. Personen geändert. Bitte den Preis prüfen.“
 - **Severity:** Low
 - **Steps to Reproduce:**
   1. Wohnung mit Personenpreisen, Buchung vorhanden.
@@ -346,6 +347,10 @@ Keine neuen Pakete.
 - **Priority:** Nice to have (Textänderung)
 
 #### BUG-2: Mitarbeiter-Buchung mit extrem hohem Vorschlag scheitert mit allgemeiner Fehlermeldung
+- **Status:** Behoben (2026-10-25), Migration `20261026150200_person_prices_qa_fixes.sql`:
+  - Die Datenbank rechnet in `bigint`; über € 1.000.000 gibt es keinen Vorschlag. Die Mitarbeiter-Buchung wird wie bei einer Wohnung ohne Preis mit € 0 und „Preis prüfen“ gespeichert.
+  - App gleich (`AMOUNT_MAX_CENTS` in `src/lib/apartments.ts`): Das Formular des Inhabers leert den Preis und zeigt „Der rechnerische Preis übersteigt den Höchstbetrag von € 1.000.000. Bitte den Preis eingeben.“
+  - Tests: Unit, Integration und E2E ergänzt.
 - **Severity:** Low
 - **Steps to Reproduce:**
   1. Wohnung mit Personenpreisen, z. B. 50 Personen und Erwachsenenpreis € 10.000.
@@ -359,7 +364,8 @@ Keine neuen Pakete.
 
 ### Summary
 - **Acceptance Criteria:** 17/17 passed
-- **Bugs Found:** 2 total (0 critical, 0 high, 0 medium, 2 low)
+- **Bugs Found:** 2 total (0 critical, 0 high, 0 medium, 2 low), beide behoben
+- **Nach den Fixes:** Unit + Integration 249/249 (src/lib + Buchungen), E2E PROJ-27 desktop 9/9 sowie tablet/mobile grün, PROJ-8 „Preis prüfen“ grün, Lint und Build grün
 - **Security:** Pass
 - **Production Ready:** YES
 - **Recommendation:** Deploy (die beiden Low-Bugs können vorher oder später behoben werden)

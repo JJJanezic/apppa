@@ -132,6 +132,12 @@ describe('Personen und Preis', () => {
     expect(suggestedNightsCents(flat, 0, 2, [])).toBeNull()
   })
 
+  it('liefert keinen Vorschlag über dem Höchstbetrag von € 1.000.000 (QA BUG-2 PROJ-27)', () => {
+    expect(suggestedNightsCents({ ...flat, priceCents: 1_000_000 }, 100, 1, [])).toBe(100_000_000)
+    expect(suggestedNightsCents({ ...flat, priceCents: 1_000_000 }, 101, 1, [])).toBeNull()
+    expect(suggestedNightsCents({ ...perPerson, adultPriceCents: 1_000_000 }, 365, 50, [])).toBeNull()
+  })
+
   it('schlägt bei Personenpreisen Nächte × Summe der Personenpreise vor (PROJ-27)', () => {
     // 3 × (2 × 50 + 0 + 20 + 50) = 510
     expect(suggestedNightsCents(perPerson, 3, 2, [1, 8, 14])).toBe(51000)
