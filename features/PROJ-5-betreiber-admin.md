@@ -1,6 +1,6 @@
 # PROJ-5: Betreiber-Admin
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-10-24
 **Last Updated:** 2026-10-24
 
@@ -550,4 +550,8 @@ Die Server-Aktionen der Seiten prüfen den Admin ebenfalls (erste Ebene) und kü
 - **Recommendation:** Bereit für `/deploy`.
 
 ## Deployment
-_To be added by /deploy_
+_Stand 2026-10-25 (/deploy, erstes Release über Staging, Tag `v1.0.0`)_
+
+- **Staging:** https://staging.apppa.at (Vercel `apppa-staging`, Supabase `iikzjqjjxoznrkkixfqa`). Freigegeben nach Prüfung von Anmeldung mit 2FA, Betreiber-Bereich, Einladung, Team und Wohnungen
+- **Production:** https://app.apppa.at (Vercel `apppa`, Supabase `ahclrqbhfpidxjzbpfgb`), Commit `cedd560`, 2026-10-25
+- **Migrationen:** alle 13 bis `20261024140200_apartments_fk_indexes.sql` in Staging und Production eingespielt (2026-10-24), Advisors ohne Befund. Im Release selbst gab es keine neuen

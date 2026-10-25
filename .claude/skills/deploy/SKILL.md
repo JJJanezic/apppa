@@ -81,7 +81,7 @@ npx supabase migration list
 npx supabase db push
 npx supabase db advisors --linked
 ```
-`config push` again by the user, if needed (`Loading config override: [remotes.production]`).
+`config push` again by the user, if needed (`Loading config override: [remotes.production]`). After a production `config push`, ask the user to confirm in the dashboard that *Authentication → Sign In / Providers → Email → „Prevent use of leaked passwords“* is still on (not managed by `config.toml`).
 
 ### 6. Production: Code
 ```bash

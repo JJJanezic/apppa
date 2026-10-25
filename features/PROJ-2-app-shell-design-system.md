@@ -1,6 +1,6 @@
 # PROJ-2: App-Shell & Design-System
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-10-14
 **Last Updated:** 2026-10-14
 
@@ -428,4 +428,8 @@ _Stand 2026-10-14 (/frontend)_
 - **Recommendation:** Freigeben. Offen bleiben nur die Hinweise (Firefox/Safari manuell prüfen, Rollen und Bausteine mit den nutzenden Features erneut testen) und die Sicherheits-Header aus PROJ-1 bei /deploy
 
 ## Deployment
-_To be added by /deploy_
+_Stand 2026-10-25 (/deploy, erstes Release über Staging, Tag `v1.0.0`)_
+
+- **Staging:** https://staging.apppa.at (Vercel `apppa-staging`, Supabase `iikzjqjjxoznrkkixfqa`). Freigegeben nach Prüfung von Anmeldung mit 2FA, Betreiber-Bereich, Einladung, Team und Wohnungen
+- **Production:** https://app.apppa.at (Vercel `apppa`, Supabase `ahclrqbhfpidxjzbpfgb`), Commit `cedd560`, 2026-10-25
+- **Migrationen:** alle 13 bis `20261024140200_apartments_fk_indexes.sql` in Staging und Production eingespielt (2026-10-24), Advisors ohne Befund. Im Release selbst gab es keine neuen

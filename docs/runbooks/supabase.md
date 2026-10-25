@@ -96,7 +96,7 @@ Stand 2026-10-24: Beide Projekte sind angelegt, alle Migrationen eingespielt, Ad
 4. `config push` mit den SMTP-Variablen (Abschnitt 8). Ohne ihn bleiben die Mails englisch und die Links zeigen auf localhost
 5. Ersten Admin wie in Abschnitt 4 einrichten
 6. In Vercel die Variablen aus `.env.local.example` mit den Werten des Projekts setzen: Produktion im Vercel-Projekt `apppa` unter *Production*, Staging im eigenen Vercel-Projekt `apppa-staging` unter *Production* (Produktions-Branch `staging`). Dev-Werte in `apppa` unter *Preview*. Grund: Der Gratis-Tarif erlaubt keine Variablen je Branch
-7. **Nur Produktion:** *Authentication → Policies*: Prüfung gegen geleakte Passwörter aktivieren. *Authentication → Sessions*: „Time-box user sessions“ 30 Tage und „Inactivity timeout“ 8 Stunden (Pro-Tarif; zusätzlich zur Prüfung in der App). Backups siehe Abschnitt 6
+7. **Nur Produktion:** *Authentication → Sign In / Providers → Email*: „Prevent use of leaked passwords“ einschalten. `config.toml` kennt diese Einstellung nicht, deshalb nach jedem `config push` in Produktion prüfen, ob sie noch an ist. *Database → Settings*: „Enforce SSL“ einschalten. *Authentication → Sessions*: „Time-box user sessions“ 30 Tage und „Inactivity timeout“ 8 Stunden (Pro-Tarif; zusätzlich zur Prüfung in der App). Backups siehe Abschnitt 6
 8. Danach wieder mit der Entwicklung verbinden: `npx supabase link --project-ref nizgfmvjplhegoosanmu`
 
 **`npm test` nie gegen Staging oder Produktion laufen lassen.** Die Integrationstests legen Nutzer und Mandanten an und löschen sie wieder (Abschnitt 7).

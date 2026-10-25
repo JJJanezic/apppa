@@ -1,6 +1,6 @@
 # PROJ-1: Supabase Infrastructure Setup
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-10-13
 **Last Updated:** 2026-10-14
 
@@ -453,9 +453,14 @@ _Stand 2026-10-14 (/backend)_
 ### Summary
 - **Acceptance Criteria:** 19/24 bestanden, 2 nicht erfüllt (BUG-2, BUG-5), 3 ausstehend (Admin-Einrichtung teilweise erledigt, Backups erst mit Produktion)
 - **Bugs Found:** 9 total (0 critical, 0 high, 5 medium, 4 low); **behoben: BUG-1, BUG-9**; offen: 3 medium (BUG-2, BUG-3, BUG-4), 4 low (BUG-5 bis BUG-8)
+- *Nachtrag 2026-10-25 (/deploy):* BUG-2 ist mit PROJ-3 erledigt (Brevo-SMTP, deutsche Vorlagen), ebenso BUG-3 (Einlösen erst per Knopf auf `/bestaetigen`). BUG-4 hat PROJ-4 erledigt (Aufnahme nur per Einladung), BUG-7 der Commit `eed7997` (Sicherheitsheader in `next.config.ts`). Für BUG-6 gibt es eine Umgehung (Runbook Abschnitt 12). BUG-5 und BUG-8 bleiben „Nice to have“
 - **Security:** Mandantentrennung und Rollen sind solide; Open Redirect behoben (BUG-1/BUG-9); offen sind 1 Medium-Befund zu den Mail-Links (BUG-3) und 1 Medium-Befund zur Aufnahme von Mitgliedern (BUG-4)
 - **Production Ready:** YES (keine Critical/High-Bugs). Vor dem Pilotstart müssen aber BUG-2 bis BUG-4 und BUG-7 behoben und die ausstehenden Kriterien geprüft sein
 - **Recommendation:** Freigeben. Die offenen Bugs werden in den zuständigen Features erledigt: BUG-3 in PROJ-3, BUG-4 in PROJ-4, BUG-6 in PROJ-5, BUG-2 mit dem eigenen Mailversand, BUG-7 bei /deploy
 
 ## Deployment
-_To be added by /deploy_
+_Stand 2026-10-25 (/deploy, erstes Release über Staging, Tag `v1.0.0`)_
+
+- **Staging:** https://staging.apppa.at (Vercel `apppa-staging`, Supabase `iikzjqjjxoznrkkixfqa`). Freigegeben nach Prüfung von Anmeldung mit 2FA, Betreiber-Bereich, Einladung, Team und Wohnungen
+- **Production:** https://app.apppa.at (Vercel `apppa`, Supabase `ahclrqbhfpidxjzbpfgb`), Commit `cedd560`, 2026-10-25
+- **Migrationen:** alle 13 bis `20261024140200_apartments_fk_indexes.sql` in Staging und Production eingespielt (2026-10-24), Advisors ohne Befund. Im Release selbst gab es keine neuen
