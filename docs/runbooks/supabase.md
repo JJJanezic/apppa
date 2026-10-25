@@ -50,7 +50,7 @@ npx supabase migration list # lokal und remote müssen übereinstimmen
 
 Danach `npx supabase db advisors --linked` ausführen: Das Ergebnis muss leer sein. Bekannt und akzeptiert (Stand 2026-10-25), beides Auth-Einstellungen und nicht die Datenbank:
 - `auth_otp_long_expiry` in allen Projekten. Mail-Links gelten bewusst 24 Stunden (`otp_expiry = 86400`).
-- `auth_leaked_password_protection` in Dev und Staging. Die Prüfung gibt es nur im Pro-Tarif und ist deshalb nur in Produktion eingeschaltet (Abschnitt 5, Punkt 7).
+- `auth_leaked_password_protection` in Dev und Staging. Die Prüfung ist bisher nur in Produktion eingeschaltet (Abschnitt 5, Punkt 7). Seit alle Projekte im Pro-Tarif sind, ließe sie sich auch in Dev und Staging einschalten (Dashboard, nicht über `config.toml`).
 
 Jeder andere Hinweis stoppt das Ausliefern.
 
