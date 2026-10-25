@@ -41,8 +41,9 @@ export function GuestActions({ guest }: { guest: Guest }) {
       toast.success(t('done.anonymized'))
       router.refresh()
     } else {
-      toast.success(t('done.deleted'))
-      router.replace('/gaeste')
+      // Frisch laden, damit die Liste den gelöschten Gast nicht mehr aus dem Zwischenspeicher zeigt;
+      // die Bestätigung zeigt die Liste selbst (?geloescht=1, siehe DeletedNotice)
+      window.location.assign(result.redirectTo ?? '/gaeste?geloescht=1')
     }
   }
 

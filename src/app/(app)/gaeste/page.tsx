@@ -5,6 +5,7 @@ import { getTranslations } from 'next-intl/server'
 
 import { EmptyState } from '@/components/empty-state'
 import { CreateGuestButton } from '@/components/guests/create-guest-button'
+import { DeletedNotice } from '@/components/guests/deleted-notice'
 import { GuestFilterBar } from '@/components/guests/guest-filters'
 import { GuestList } from '@/components/guests/guest-list'
 import { PageHeader } from '@/components/page-header'
@@ -47,6 +48,7 @@ export default async function GuestsPage({ searchParams }: { searchParams: Searc
   if (!anyGuest) {
     return (
       <>
+        <DeletedNotice />
         <PageHeader title={t('title')} lead={t('lead')} />
         <EmptyState
           icon={UsersThree}
@@ -60,6 +62,7 @@ export default async function GuestsPage({ searchParams }: { searchParams: Searc
 
   return (
     <>
+      <DeletedNotice />
       <PageHeader title={t('title')} lead={t('lead')} action={isOwner && <CreateGuestButton />} />
       <section className="flex flex-col gap-4">
         <GuestFilterBar filters={page} />

@@ -122,6 +122,159 @@ export type Database = {
         }
         Relationships: []
       }
+      guest_duplicate_dismissals: {
+        Row: {
+          dismissed_at: string
+          dismissed_by: string | null
+          guest_a: string
+          guest_b: string
+          tenant_id: string
+        }
+        Insert: {
+          dismissed_at?: string
+          dismissed_by?: string | null
+          guest_a: string
+          guest_b: string
+          tenant_id: string
+        }
+        Update: {
+          dismissed_at?: string
+          dismissed_by?: string | null
+          guest_a?: string
+          guest_b?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guest_duplicate_dismissals_a_fkey"
+            columns: ["guest_a", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "guests"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "guest_duplicate_dismissals_b_fkey"
+            columns: ["guest_b", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "guests"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "guest_duplicate_dismissals_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      guests: {
+        Row: {
+          address_country: string | null
+          anonymized_at: string | null
+          birth_date: string | null
+          city: string | null
+          company_billing_address: string | null
+          company_name: string | null
+          company_vat_id: string | null
+          country: string
+          created_at: string
+          created_by: string | null
+          email: string | null
+          email_key: string | null
+          email_source: string
+          first_name: string | null
+          id: string
+          language: string | null
+          last_name: string
+          marketing_custom: string | null
+          marketing_source: string | null
+          name_key: string | null
+          note: string | null
+          phone: string | null
+          phone_key: string | null
+          phone_source: string
+          postal_code: string | null
+          search_text: string
+          street: string | null
+          tenant_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          address_country?: string | null
+          anonymized_at?: string | null
+          birth_date?: string | null
+          city?: string | null
+          company_billing_address?: string | null
+          company_name?: string | null
+          company_vat_id?: string | null
+          country: string
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          email_key?: string | null
+          email_source?: string
+          first_name?: string | null
+          id?: string
+          language?: string | null
+          last_name: string
+          marketing_custom?: string | null
+          marketing_source?: string | null
+          name_key?: string | null
+          note?: string | null
+          phone?: string | null
+          phone_key?: string | null
+          phone_source?: string
+          postal_code?: string | null
+          search_text?: string
+          street?: string | null
+          tenant_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          address_country?: string | null
+          anonymized_at?: string | null
+          birth_date?: string | null
+          city?: string | null
+          company_billing_address?: string | null
+          company_name?: string | null
+          company_vat_id?: string | null
+          country?: string
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          email_key?: string | null
+          email_source?: string
+          first_name?: string | null
+          id?: string
+          language?: string | null
+          last_name?: string
+          marketing_custom?: string | null
+          marketing_source?: string | null
+          name_key?: string | null
+          note?: string | null
+          phone?: string | null
+          phone_key?: string | null
+          phone_source?: string
+          postal_code?: string | null
+          search_text?: string
+          street?: string | null
+          tenant_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guests_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invitations: {
         Row: {
           closed_at: string | null
@@ -531,6 +684,7 @@ export type Database = {
           total: number
         }[]
       }
+      anonymize_guest: { Args: { p_guest_id: string }; Returns: undefined }
       belongs_to_deactivated_tenant: { Args: never; Returns: boolean }
       create_apartment_with_property: {
         Args: {
@@ -552,6 +706,54 @@ export type Database = {
       }
       decline_invitation: {
         Args: { p_invitation_id: string }
+        Returns: undefined
+      }
+      delete_guest: { Args: { p_guest_id: string }; Returns: string }
+      guest_duplicate_candidates: {
+        Args: {
+          p_email: string
+          p_first_name: string
+          p_last_name: string
+          p_phone: string
+          p_tenant_id: string
+        }
+        Returns: {
+          id: string
+          reasons: string[]
+        }[]
+      }
+      guest_duplicate_pairs: {
+        Args: { p_tenant_id: string }
+        Returns: {
+          guest_a: string
+          guest_b: string
+          reasons: string[]
+        }[]
+      }
+      guest_list: {
+        Args: {
+          p_country?: string
+          p_limit?: number
+          p_marketing?: string
+          p_offset?: number
+          p_query?: string
+          p_sort?: string
+          p_tenant_id: string
+        }
+        Returns: {
+          anonymized_at: string
+          company_name: string
+          country: string
+          first_name: string
+          id: string
+          last_name: string
+          last_stay: string
+          stay_count: number
+          total: number
+        }[]
+      }
+      merge_guests: {
+        Args: { p_choice: Json; p_keep: string; p_remove: string }
         Returns: undefined
       }
       my_open_invitations: {
