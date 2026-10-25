@@ -2,6 +2,7 @@ import { createHmac, randomUUID } from 'node:crypto'
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
+import { assertTestableProject } from '../../src/lib/supabase/projects'
 import type { Database } from '../../src/types/database'
 
 export type Client = SupabaseClient<Database>
@@ -14,6 +15,7 @@ try {
 }
 
 export const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
+assertTestableProject(url)
 export const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? ''
 export const secretKey = process.env.SUPABASE_SECRET_KEY ?? ''
 export const hasSupabaseEnv = Boolean(url && publishableKey && secretKey)

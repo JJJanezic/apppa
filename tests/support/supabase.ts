@@ -5,6 +5,7 @@ import { createServerClient } from '@supabase/ssr'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
 import { SESSION_COOKIE, startSession } from '../../src/lib/auth/session-limits'
+import { assertTestableProject } from '../../src/lib/supabase/projects'
 import type { Database } from '../../src/types/database'
 
 // Testnutzer für die E2E-Tests in „apppa-dev“. Adressen test-e2e-*@example.com; Mails werden nie verschickt
@@ -15,6 +16,7 @@ try {
 } catch {
   // ohne .env.local werden die Tests übersprungen
 }
+assertTestableProject(process.env.NEXT_PUBLIC_SUPABASE_URL)
 
 // Gemeinsamer angemeldeter Testnutzer (tests/auth.setup.ts, gelöscht in tests/auth.teardown.ts)
 export const STORAGE_STATE = 'tests/.auth/owner.json'

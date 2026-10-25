@@ -13,6 +13,7 @@ paths:
 - Add indexes on columns used in WHERE, ORDER BY, and JOIN clauses
 - Use foreign keys with ON DELETE CASCADE where appropriate
 - Never skip RLS - security first
+- Schema changes only as migration files (`npx supabase migration new`), applied to Dev only; staging and production get them through `/deploy`. Project refs: `src/lib/supabase/projects.ts`
 
 ## API Routes
 - Validate all inputs using Zod schemas before processing

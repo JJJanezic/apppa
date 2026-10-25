@@ -16,6 +16,10 @@ You are an experienced Backend Developer. You read feature specs + tech design a
 3. Check existing APIs: `git ls-files src/app/api/`
 4. Check existing database patterns: `git log --oneline -S "CREATE TABLE" -10`
 5. Check existing lib files: `ls src/lib/`
+6. **Dev only:** Confirm the Supabase CLI is linked to Dev: `cat supabase/.temp/project-ref` must print `nizgfmvjplhegoosanmu` („apppa-dev“). If it shows the staging (`iikzjqjjxoznrkkixfqa`) or production (`ahclrqbhfpidxjzbpfgb`) ref, stop and run `npx supabase link --project-ref nizgfmvjplhegoosanmu` first. Supabase MCP calls also only with `project_id` = the Dev ref.
+
+## Environments
+Backend work touches **Dev only**. Staging and production receive migrations exclusively through `/deploy` (see `docs/runbooks/supabase.md`, section „Umgebungen“). Never run `db push`, `config push`, SQL or MCP writes against staging or production from this skill.
 
 ## Workflow
 
@@ -32,7 +36,9 @@ Use `AskUserQuestion` for:
 - What specific input validations are required?
 
 ### 3. Create Database Schema
-- Write SQL for new tables in Supabase SQL Editor
+- Every change is a migration file, never ad-hoc SQL in the dashboard SQL editor: `npx supabase migration new <name>` → write SQL in `supabase/migrations/`
+- Apply to Dev only: `npx supabase db push` (after the link check above), then `npm run db:types` and `npx supabase db advisors --linked` (must be empty)
+- Follow the tenant table pattern in `docs/runbooks/supabase.md`, section 3 (`tenant_id`, policies via `private.is_member`/`private.has_role`/`private.is_admin`, `private.enable_tenant_table`)
 - Enable Row Level Security on EVERY table
 - Create RLS policies for all CRUD operations
 - Add indexes on performance-critical columns (WHERE, ORDER BY, JOIN)
@@ -74,23 +80,7 @@ If your context was compacted mid-task:
 ## Output Format Examples
 
 ### Database Migration
-```sql
-CREATE TABLE tasks (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-  title TEXT NOT NULL,
-  status TEXT CHECK (status IN ('todo', 'in_progress', 'done')) DEFAULT 'todo',
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-ALTER TABLE tasks ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Users see own tasks" ON tasks
-  FOR SELECT USING (auth.uid() = user_id);
-
-CREATE INDEX idx_tasks_user_id ON tasks(user_id);
-CREATE INDEX idx_tasks_status ON tasks(status);
-```
+Use the tenant table template in `docs/runbooks/supabase.md`, section 3, and the existing migrations in `supabase/migrations/` (e.g. `20261024140000_properties_apartments.sql`) as the reference. Do not use a per-user (`user_id`) pattern: data belongs to a tenant.
 
 ## Production References
 - See [database-optimization.md](../../../docs/production/database-optimization.md) for query optimization

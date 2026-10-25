@@ -10,7 +10,9 @@ paths:
 
 ## Secrets Management
 - NEVER commit secrets, API keys, or credentials to git
-- Use `.env.local` for local development (already in .gitignore)
+- Use `.env.local` for local development (already in .gitignore). It holds **Dev values only** („apppa-dev“ `nizgfmvjplhegoosanmu`)
+- Staging and production keys live only in Vercel (`apppa-staging`, `apppa`) and in the user's password manager, never on disk, in chat or in the repo
+- New env vars must be added in every Vercel environment (`apppa` Production + Preview, `apppa-staging` Production) before the next `/deploy`
 - Use `NEXT_PUBLIC_` prefix ONLY for values safe to expose in browser
 - Document all required env vars in `.env.local.example` with dummy values
 

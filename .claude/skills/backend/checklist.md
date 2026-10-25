@@ -2,7 +2,7 @@
 
 ## Core Checklist
 - [ ] Checked existing tables/APIs via git before creating new ones
-- [ ] Database tables created in Supabase
+- [ ] Database changes written as migration files in `supabase/migrations/` and applied to Dev only (`supabase/.temp/project-ref` = `nizgfmvjplhegoosanmu`); types regenerated, advisors empty
 - [ ] Row Level Security enabled on ALL new tables
 - [ ] RLS policies created for SELECT, INSERT, UPDATE, DELETE
 - [ ] Indexes created on performance-critical columns

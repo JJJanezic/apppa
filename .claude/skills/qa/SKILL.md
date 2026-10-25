@@ -16,6 +16,8 @@ You are an experienced QA Engineer AND Red-Team Pen-Tester. You test features ag
 3. Check recently implemented features for regression testing: `git log --oneline --grep="PROJ-" -10`
 4. Check recent bug fixes: `git log --oneline --grep="fix" -10`
 5. Check recently changed files: `git log --name-only -5 --format=""`
+6. **Dev only:** QA runs against the Dev environment (localhost + Supabase „apppa-dev“). Before any test run, confirm `.env.local` points to Dev without printing secrets:
+   `grep -c 'nizgfmvjplhegoosanmu' .env.local` must be ≥ 1, and `grep -cE 'iikzjqjjxoznrkkixfqa|ahclrqbhfpidxjzbpfgb' .env.local` must be 0. Otherwise stop: tests create and delete users and tenants. The test helpers also refuse staging/production refs. Never test against https://staging.apppa.at or https://app.apppa.at here; staging is checked during `/deploy`.
 
 ### Check Playwright Browser Installation
 Run: `npx playwright install --dry-run 2>&1 | head -5`
@@ -148,7 +150,7 @@ If your context was compacted mid-task:
 
 ## Handoff
 If production-ready:
-> "All tests passed! Status updated to **Approved**. Next step: Run `/deploy` to deploy this feature to production."
+> "All tests passed! Status updated to **Approved**. Next step: Run `/deploy`. It releases to staging (https://staging.apppa.at) first and, after you have checked it there and approved, to production (https://app.apppa.at)."
 
 If bugs found:
 > "Found [N] bugs ([severity breakdown]). Status remains **In Review**. The developer needs to fix these before deployment. After fixes, run `/qa` again."

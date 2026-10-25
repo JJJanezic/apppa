@@ -91,7 +91,7 @@ Angemeldete Nutzer können das Kennzeichen nicht ändern (Spaltenrechte + Trigge
 Stand 2026-10-24: Beide Projekte sind angelegt, alle Migrationen eingespielt, Advisors ohne Befund. Offen sind die Schritte 4–7.
 
 1. Neues Projekt anlegen: Region **eu-west-1**, Option **„Enable automatic RLS“ ankreuzen**. Die Migration `restrict_rls_auto_enable` setzt die Funktion `public.rls_auto_enable()` voraus und bricht ohne sie ab. Vergessen: Funktion und Event-Trigger `ensure_rls` im SQL-Editor nachbauen. Die Vorlage ist die Definition in „apppa-dev“ (`select pg_get_functiondef('public.rls_auto_enable()'::regprocedure)`). Beim Kopieren aus dem Terminal gehen `$$` verloren, deshalb über eine Datei und `pbcopy` kopieren.
-2. Neues Projekt mit Ref und Adressen als `[remotes.<name>]` in `supabase/config.toml` eintragen
+2. Neues Projekt mit Ref und Adressen als `[remotes.<name>]` in `supabase/config.toml` eintragen, die Ref zusätzlich in `src/lib/supabase/projects.ts` (Testsperre, Authenticator-Name) und in der Tabelle oben
 3. `npx supabase link --project-ref <ref>` → `db push` → `db advisors --linked`
 4. `config push` mit den SMTP-Variablen (Abschnitt 8). Ohne ihn bleiben die Mails englisch und die Links zeigen auf localhost
 5. Ersten Admin wie in Abschnitt 4 einrichten

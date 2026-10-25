@@ -23,6 +23,7 @@ Key rules:
 - Use Supabase joins instead of N+1 query loops
 - Never hardcode secrets in source code
 - Always check authentication before processing requests
+- Database changes only as migration files (`npx supabase migration new`), applied with `db push` to **Dev only** (`supabase/.temp/project-ref` must be `nizgfmvjplhegoosanmu`); never touch staging or production, that is `/deploy`'s job
 
 Read `.claude/rules/backend.md` for detailed backend rules.
 Read `.claude/rules/security.md` for security requirements.

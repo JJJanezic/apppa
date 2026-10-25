@@ -61,7 +61,7 @@ Based on the state analysis, determine what the user should do next:
 
 **If features have passed QA but aren't deployed:**
 > Feature PROJ-X has passed QA and is ready for deployment.
-> Run `/deploy` to deploy to production.
+> Run `/deploy`: it releases to staging (https://staging.apppa.at) first and, after you have checked and approved it there, to production (https://app.apppa.at).
 
 **If all features are deployed:**
 > All current features are deployed! You can:
@@ -76,7 +76,7 @@ If the user asked a specific question (via arguments), answer it in the context 
 - "How do I add a new feature?" → Explain `/write-spec` workflow (or `/init` if the project isn't set up yet)
 - "How do I customize this template?" → Point to CLAUDE.md, rules/, skills/
 - "What's the project structure?" → Explain the directory layout
-- "How do I deploy?" → Explain `/deploy` workflow and prerequisites
+- "How do I deploy?" → Explain the `/deploy` workflow: three environments (Dev on `main`, Staging on `staging`, Production on `production`), database first then code, `main` → staging → user check and approval → production. Prerequisites: QA approved, everything pushed on `main`. Details: `docs/runbooks/supabase.md`, section „Umgebungen“
 
 ## Output Format
 
