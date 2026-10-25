@@ -11,6 +11,7 @@ export type BookingErrorCode =
   | 'apartmentArchived'
   | 'guestAnonymized'
   | 'notActive'
+  | 'tooManyCompanions'
 
 // Buchung (bestätigt), Option (vorgemerkt mit Ablaufdatum) oder Sperre (ohne Gast und Preis)
 export const BOOKING_KINDS = ['booking', 'option', 'block'] as const

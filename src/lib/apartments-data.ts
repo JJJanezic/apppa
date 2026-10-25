@@ -21,11 +21,27 @@ export async function getProperties(): Promise<Property[]> {
   const { data, error } = await supabase
     .from('properties')
     .select(
-      'id, name, street, postal_code, city, municipality:municipalities!inner(code, name, state), apartments(id, property_id, name, max_guests, kind, price_cents, check_in, check_out, note, archived_at)'
+      'id, name, street, postal_code, city, municipality:municipalities!inner(code, name, state), apartments(id, property_id, name, max_guests, kind, price_cents, cleaning_fee_cents, check_in, check_out, note, archived_at)'
     )
     .eq('tenant_id', active.id)
     .limit(500)
   if (error) console.error('[wohnungen] Objekte nicht lesbar', error.message)
+
+  // Buchungen je Wohnung (PROJ-8): ob es welche gibt und die Personenzahl künftiger aktiver Einträge
+  const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Vienna' })
+  const { data: bookings, error: bookingsError } = await supabase
+    .from('bookings')
+    .select('apartment_id, kind, departure, adults, child_ages, cancelled_at, option_until')
+    .eq('tenant_id', active.id)
+    .limit(10000)
+  if (bookingsError) console.error('[wohnungen] Buchungen nicht lesbar', bookingsError.message)
+  const withBookings = new Set((bookings ?? []).map((b) => b.apartment_id))
+  const futurePersons = new Map<string, number[]>()
+  for (const b of bookings ?? []) {
+    const active = b.cancelled_at === null && (b.kind !== 'option' || (b.option_until ?? '') >= today)
+    if (b.kind === 'block' || !active || b.departure <= today) continue
+    futurePersons.set(b.apartment_id, [...(futurePersons.get(b.apartment_id) ?? []), (b.adults ?? 0) + b.child_ages.length])
+  }
 
   return (data ?? [])
     .map((p) => ({
@@ -44,10 +60,13 @@ export async function getProperties(): Promise<Property[]> {
             maxGuests: a.max_guests,
             kind: a.kind as Apartment['kind'],
             priceCents: a.price_cents,
+            cleaningFeeCents: a.cleaning_fee_cents,
             checkIn: hhmm(a.check_in),
             checkOut: hhmm(a.check_out),
             note: a.note,
             archivedAt: a.archived_at,
+            hasBookings: withBookings.has(a.id),
+            futurePersons: futurePersons.get(a.id) ?? [],
           })
         )
         .sort(byName),

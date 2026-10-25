@@ -39,6 +39,14 @@ const apartmentFields = (t: T) => ({
       return cents === null || (!Number.isNaN(cents) && cents <= LIMITS.priceMaxCents)
     }, t('priceInvalid'))
     .transform((v) => parsePriceCents(v)),
+  // Reinigungsgebühr (PROJ-8): wird neuen Buchungen als Position „Reinigung“ vorgeschlagen
+  cleaningFee: z
+    .string()
+    .refine((v) => {
+      const cents = parsePriceCents(v)
+      return cents === null || (!Number.isNaN(cents) && cents <= LIMITS.priceMaxCents)
+    }, t('priceInvalid'))
+    .transform((v) => parsePriceCents(v)),
   checkIn: time(t),
   checkOut: time(t),
   note: z

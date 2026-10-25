@@ -1,0 +1,318 @@
+// @vitest-environment node
+//
+// PROJ-8: Manuelle Buchungen gegen „apppa-dev“ (übersprungen ohne .env.local)
+import { randomUUID } from 'node:crypto'
+
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+
+import type { Json } from '../../src/types/database'
+import { type Client, createTestUser, hasSupabaseEnv, serviceClient, signIn, type TestUser } from './helpers'
+
+type Saved = { status: 'saved'; id: string } | { status: 'warnings'; warnings: { conflicts: { id: string }[]; over_capacity: unknown } }
+
+describe.skipIf(!hasSupabaseEnv)('PROJ-8 Manuelle Buchungen', () => {
+  let service: Client
+  const users: TestUser[] = []
+  const tenants: string[] = []
+  let tenantA: string
+  let ownerA: Client, staffA: Client, ownerB: Client
+  let ownerUserA: TestUser, staffUserA: TestUser
+  const runId = randomUUID().slice(0, 8)
+
+  const user = async () => {
+    const u = await createTestUser(service)
+    users.push(u)
+    return u
+  }
+  const newTenant = async (members: [TestUser, 'owner' | 'staff'][]) => {
+    const { data, error } = await service.from('tenants').insert({ name: `PROJ-8 Test ${runId}` }).select('id').single()
+    if (error) throw error
+    tenants.push(data.id)
+    for (const [u, role] of members) {
+      const { error: e } = await service.from('memberships').insert({ tenant_id: data.id, user_id: u.id, role })
+      if (e) throw e
+    }
+    return data.id
+  }
+  const apartment = async (tenantId: string, name: string, extra: { max_guests?: number; price_cents?: number | null; cleaning_fee_cents?: number | null } = {}) => {
+    const { data: p } = await service.from('properties').select('id').eq('tenant_id', tenantId).limit(1).maybeSingle()
+    const propertyId =
+      p?.id ??
+      (
+        await service
+          .from('properties')
+          .insert({ tenant_id: tenantId, name: 'Haus Test', street: 'Seeweg 12', postal_code: '5340', city: 'St. Gilgen', municipality_code: '50330' })
+          .select('id')
+          .single()
+      ).data!.id
+    const { data, error } = await service
+      .from('apartments')
+      .insert({ tenant_id: tenantId, property_id: propertyId, name, max_guests: 4, price_cents: 10000, ...extra })
+      .select('id')
+      .single()
+    if (error) throw error
+    return data.id
+  }
+  const guest = async (tenantId: string, lastName: string) => {
+    const { data, error } = await service.from('guests').insert({ tenant_id: tenantId, last_name: lastName, country: 'AT' }).select('id').single()
+    if (error) throw error
+    return data.id
+  }
+  const save = async (client: Client, input: Record<string, unknown>, confirm = false) => {
+    const { data, error } = await client.rpc('save_booking', { p_input: input as Json, p_confirm: confirm })
+    return { result: data as unknown as Saved | null, error }
+  }
+  const savedId = (r: { result: Saved | null; error: unknown }) => {
+    expect(r.error).toBeNull()
+    expect(r.result?.status).toBe('saved')
+    return (r.result as { id: string }).id
+  }
+  const bookingInput = (tenantId: string, apartmentId: string, guestId: string, arrival: string, departure: string, over: Record<string, unknown> = {}) => ({
+    tenant_id: tenantId,
+    kind: 'booking',
+    apartment_id: apartmentId,
+    arrival,
+    departure,
+    check_in: '15:00',
+    check_out: '10:00',
+    guest_id: guestId,
+    adults: 2,
+    child_ages: [],
+    option_until: null,
+    note: null,
+    amounts: { nights_cents: 30000, charges: [{ label: 'Reinigung', amount_cents: 6000 }] },
+    ...over,
+  })
+  const row = async (id: string) => (await service.from('bookings').select('*').eq('id', id).single()).data!
+
+  beforeAll(async () => {
+    service = serviceClient()
+    const [a, s, b] = await Promise.all([user(), user(), user()])
+    ownerUserA = a
+    staffUserA = s
+    tenantA = await newTenant([
+      [a, 'owner'],
+      [s, 'staff'],
+    ])
+    await newTenant([[b, 'owner']])
+    ;[ownerA, staffA, ownerB] = await Promise.all([signIn(a), signIn(s), signIn(b)])
+  }, 60_000)
+
+  afterAll(async () => {
+    if (!service) return
+    // Löschen des Kunden entfernt Buchungen, Wohnungen und Gäste in einer Anweisung (Löschsperre NO ACTION)
+    for (const id of tenants) {
+      const { error } = await service.from('tenants').delete().eq('id', id)
+      if (error) console.error('Aufräumen fehlgeschlagen', error.message)
+    }
+    for (const u of users) await service.auth.admin.deleteUser(u.id)
+  }, 60_000)
+
+  describe('Anlegen, Nummern und Rechte', () => {
+    it('Inhaber legt an; Nummer je Jahr fortlaufend; Beträge nur für Inhaber; fremde Kunden sehen nichts', async () => {
+      const apt = await apartment(tenantA, 'Nummern')
+      const g = await guest(tenantA, 'Huber')
+      const first = savedId(await save(ownerA, bookingInput(tenantA, apt, g, '2027-03-01', '2027-03-04')))
+      const second = savedId(await save(ownerA, bookingInput(tenantA, apt, g, '2027-03-04', '2027-03-06')))
+      const [b1, b2] = [await row(first), await row(second)]
+      expect(b2.number_seq).toBe(b1.number_seq! + 1)
+      expect(b1.number).toMatch(/^2027-\d{4}$/)
+
+      expect((await ownerA.from('booking_amounts').select('nights_cents').eq('id', first)).data).toEqual([{ nights_cents: 30000 }])
+      expect((await ownerA.from('booking_charges').select('label, amount_cents').eq('booking_id', first)).data).toEqual([{ label: 'Reinigung', amount_cents: 6000 }])
+      expect((await staffA.from('bookings').select('id').eq('id', first)).data).toHaveLength(1)
+      expect((await staffA.from('booking_amounts').select('nights_cents').eq('id', first)).data).toHaveLength(0)
+      expect((await staffA.from('booking_charges').select('id').eq('booking_id', first)).data).toHaveLength(0)
+      expect((await ownerB.from('bookings').select('id').eq('id', first)).data).toHaveLength(0)
+
+      // Direktes Schreiben ist nicht erlaubt, fremde Kunden können nicht über die Funktion buchen
+      const direct = await ownerA.from('bookings').update({ note: 'x' }).eq('id', first).select('id')
+      expect(direct.error ?? (direct.data?.length === 0 ? 'keine Zeile' : null)).not.toBeNull()
+      const foreign = await save(ownerB, bookingInput(tenantA, apt, g, '2027-05-01', '2027-05-02'))
+      expect(foreign.error?.code).toBe('P0801')
+    })
+
+    it('vergibt bei gleichzeitigem Anlegen eindeutige, lückenlose Nummern', async () => {
+      const t = await newTenant([[ownerUserA, 'owner']])
+      // Objekt zuerst anlegen, dann die Wohnungen (sonst legt jede Wohnung ihr eigenes Objekt an)
+      const apts = [await apartment(t, 'Parallel 1')]
+      apts.push(...(await Promise.all([2, 3, 4, 5].map((n) => apartment(t, `Parallel ${n}`)))))
+      const g = await guest(t, 'Parallel')
+      const ids = await Promise.all(apts.map((a) => save(ownerA, bookingInput(t, a, g, '2028-01-10', '2028-01-12')).then(savedId)))
+      const seqs = (await service.from('bookings').select('number_seq').in('id', ids)).data!.map((r) => r.number_seq).sort()
+      expect(seqs).toEqual([1, 2, 3, 4, 5])
+    })
+
+    it('Mitarbeiter-Buchungen erhalten den Preisvorschlag; mitgeschickte Beträge zählen nicht', async () => {
+      const apt = await apartment(tenantA, 'Vorschlag', { price_cents: 12000, cleaning_fee_cents: 5500 })
+      const g = await guest(tenantA, 'Staffgast')
+      const id = savedId(await save(staffA, bookingInput(tenantA, apt, g, '2027-06-01', '2027-06-04', { amounts: { nights_cents: 1, charges: [] } })))
+      expect((await service.from('booking_amounts').select('nights_cents').eq('id', id)).data).toEqual([{ nights_cents: 36000 }])
+      expect((await service.from('booking_charges').select('label, amount_cents').eq('booking_id', id)).data).toEqual([{ label: 'Reinigung', amount_cents: 5500 }])
+
+      // Änderung des Zeitraums durch Mitarbeiter: Preis bleibt, „Preis prüfen“ wird gesetzt
+      const b = await row(id)
+      savedId(await save(staffA, { ...bookingInput(tenantA, apt, g, '2027-06-01', '2027-06-05'), id, updated_at: b.updated_at }))
+      expect((await row(id)).price_review).toBe(true)
+      expect((await service.from('booking_amounts').select('nights_cents').eq('id', id)).data).toEqual([{ nights_cents: 36000 }])
+    })
+
+    it('legt einen neuen Gast nur zusammen mit der Buchung an (alles oder nichts), auch für Mitarbeiter', async () => {
+      const apt = await apartment(tenantA, 'Neugast')
+      const newGuest = { last_name: `Neu ${runId}`, first_name: 'Nina', country: 'DE' }
+      const bad = await save(staffA, bookingInput(tenantA, apt, '', '2027-07-05', '2027-07-01', { guest_id: null, new_guest: newGuest }))
+      expect(bad.error).not.toBeNull()
+      expect((await service.from('guests').select('id').eq('last_name', newGuest.last_name)).data).toHaveLength(0)
+
+      const id = savedId(await save(staffA, bookingInput(tenantA, apt, '', '2027-07-01', '2027-07-05', { guest_id: null, new_guest: newGuest })))
+      const created = (await service.from('guests').select('id, tenant_id').eq('last_name', newGuest.last_name)).data!
+      expect(created).toHaveLength(1)
+      expect((await row(id)).guest_id).toBe(created[0].id)
+    })
+
+    it('lehnt archivierte Wohnungen und anonymisierte Gäste für neue Buchungen ab', async () => {
+      const apt = await apartment(tenantA, 'Archiv')
+      const g = await guest(tenantA, 'Archivgast')
+      await service.from('apartments').update({ archived_at: new Date().toISOString() }).eq('id', apt)
+      expect((await save(ownerA, bookingInput(tenantA, apt, g, '2027-08-01', '2027-08-03'))).error?.code).toBe('P0806')
+      const apt2 = await apartment(tenantA, 'Anonym')
+      await service.rpc('anonymize_guest', { p_guest_id: g })
+      expect((await save(ownerA, bookingInput(tenantA, apt2, g, '2027-08-01', '2027-08-03'))).error?.code).toBe('P0804')
+    })
+  })
+
+  describe('Überschneidung und Kapazität', () => {
+    let apt: string, g: string
+    beforeAll(async () => {
+      apt = await apartment(tenantA, 'Konflikt', { max_guests: 3 })
+      g = await guest(tenantA, 'Konfliktgast')
+      savedId(await save(ownerA, bookingInput(tenantA, apt, g, '2027-09-10', '2027-09-15')))
+    })
+
+    it('Wechseltag ist erlaubt; Überschneidung liefert Warnungen und speichert nichts', async () => {
+      savedId(await save(staffA, bookingInput(tenantA, apt, g, '2027-09-15', '2027-09-17')))
+      const before = (await service.from('bookings').select('id').eq('apartment_id', apt)).data!.length
+      const owner = await save(ownerA, bookingInput(tenantA, apt, g, '2027-09-14', '2027-09-16'))
+      expect(owner.result?.status).toBe('warnings')
+      expect((owner.result as { warnings: { conflicts: unknown[] } }).warnings.conflicts).toHaveLength(2)
+      const staff = await save(staffA, bookingInput(tenantA, apt, g, '2027-09-14', '2027-09-16'), true)
+      expect(staff.result?.status).toBe('warnings')
+      expect((await service.from('bookings').select('id').eq('apartment_id', apt)).data).toHaveLength(before)
+    })
+
+    it('Inhaber übersteuern bewusst; die Person wird vermerkt', async () => {
+      const id = savedId(await save(ownerA, bookingInput(tenantA, apt, g, '2027-09-11', '2027-09-12'), true))
+      expect((await row(id)).override_by).toBe(ownerUserA.id)
+    })
+
+    it('warnt bei Überbelegung', async () => {
+      const r = await save(ownerA, bookingInput(tenantA, apt, g, '2027-10-01', '2027-10-03', { adults: 2, child_ages: [3, 5] }))
+      expect((r.result as { warnings: { over_capacity: unknown } }).warnings.over_capacity).toEqual({ persons: 4, max_guests: 3 })
+    })
+
+    it('stornierte und verfallene Einträge zählen nicht; Vorschau nur für Mitglieder', async () => {
+      const t = await newTenant([
+        [ownerUserA, 'owner'],
+        [staffUserA, 'staff'],
+      ])
+      const a = await apartment(t, 'Frei')
+      const gg = await guest(t, 'Frei')
+      const cancelled = savedId(await save(ownerA, bookingInput(t, a, gg, '2027-11-01', '2027-11-05')))
+      expect((await staffA.rpc('cancel_booking', { p_booking_id: cancelled })).error?.code).toBe('P0801')
+      expect((await ownerA.rpc('cancel_booking', { p_booking_id: cancelled, p_reason: 'Krankheit', p_fee_cents: 5000 })).error).toBeNull()
+      expect((await service.from('booking_amounts').select('cancellation_fee_cents').eq('id', cancelled)).data).toEqual([{ cancellation_fee_cents: 5000 }])
+
+      // verfallene Option (Ablaufdatum gestern) direkt in der Datenbank
+      const { data: n } = await service.from('booking_numbers').select('last_seq').eq('tenant_id', t).eq('year', 2027).single()
+      await service.from('bookings').insert({
+        tenant_id: t, apartment_id: a, kind: 'option', number_year: 2027, number_seq: n!.last_seq + 100, arrival: '2027-11-02', departure: '2027-11-04',
+        guest_id: gg, adults: 1, option_until: '2020-01-01',
+      })
+      const preview = await staffA.rpc('booking_warnings', { p_tenant_id: t, p_apartment_id: a, p_arrival: '2027-11-01', p_departure: '2027-11-05', p_persons: 2 })
+      expect((preview.data as { conflicts: unknown[] }).conflicts).toHaveLength(0)
+      expect((await ownerB.rpc('booking_warnings', { p_tenant_id: t, p_apartment_id: a, p_arrival: '2027-11-01', p_departure: '2027-11-05', p_persons: 2 })).error?.code).toBe('P0801')
+      savedId(await save(staffA, bookingInput(t, a, gg, '2027-11-01', '2027-11-05')))
+    })
+  })
+
+  describe('Optionen, Sperren, Mitreisende, Stand', () => {
+    it('Option wird zur Buchung mit derselben Nummer', async () => {
+      const apt = await apartment(tenantA, 'Option')
+      const g = await guest(tenantA, 'Optionsgast')
+      const tomorrow = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10)
+      const id = savedId(await save(staffA, bookingInput(tenantA, apt, g, '2027-12-01', '2027-12-03', { kind: 'option', option_until: tomorrow })))
+      const before = await row(id)
+      expect(before.kind).toBe('option')
+      const confirmed = await staffA.rpc('confirm_option', { p_booking_id: id })
+      expect((confirmed.data as unknown as Saved).status).toBe('saved')
+      const after = await row(id)
+      expect(after.kind).toBe('booking')
+      expect(after.option_until).toBeNull()
+      expect(after.number).toBe(before.number)
+    })
+
+    it('Sperren: alle legen an, nur Inhaber löschen; Wohnung mit Einträgen lässt sich nicht löschen', async () => {
+      const apt = await apartment(tenantA, 'Sperre')
+      const { data, error } = await staffA.rpc('save_block', {
+        p_input: { tenant_id: tenantA, apartment_id: apt, arrival: '2027-04-01', departure: '2027-04-05', block_reason: 'renovation', note: null } as Json,
+      })
+      expect(error).toBeNull()
+      const id = (data as unknown as { id: string }).id
+      expect((await row(id)).number).toBeNull()
+      const other = await staffA.rpc('save_block', {
+        p_input: { tenant_id: tenantA, apartment_id: apt, arrival: '2027-04-10', departure: '2027-04-11', block_reason: 'other', note: null } as Json,
+      })
+      expect(other.error?.code).toBe('23514')
+
+      expect((await ownerA.from('apartments').delete().eq('id', apt)).error?.code).toBe('23503')
+      expect((await staffA.from('bookings').delete().eq('id', id).select('id')).data ?? []).toHaveLength(0)
+      expect((await ownerA.from('bookings').delete().eq('id', id).select('id')).data).toHaveLength(1)
+    })
+
+    it('Mitreisende: höchstens Personen minus Hauptgast; Stand schützt vor Überschreiben', async () => {
+      const apt = await apartment(tenantA, 'Mitreise')
+      const g = await guest(tenantA, 'Mitreisegast')
+      const id = savedId(await save(ownerA, bookingInput(tenantA, apt, g, '2027-02-01', '2027-02-03', { adults: 2, child_ages: [6] })))
+      const b = await row(id)
+      const three = [1, 2, 3].map((n) => ({ first_name: `P${n}`, last_name: 'Mitreise', birth_date: null }))
+      expect((await staffA.rpc('save_companions', { p_booking_id: id, p_updated_at: b.updated_at, p_companions: three as Json })).error?.code).toBe('P0808')
+      expect((await staffA.rpc('save_companions', { p_booking_id: id, p_updated_at: b.updated_at, p_companions: three.slice(0, 2) as Json })).error).toBeNull()
+      // alter Stand: Änderung wird abgelehnt
+      expect((await staffA.rpc('save_companions', { p_booking_id: id, p_updated_at: b.updated_at, p_companions: [] })).error?.code).toBe('P0803')
+      // Personenzahl nicht unter Hauptgast + Mitreisende
+      const fresh = await row(id)
+      const lower = await save(ownerA, { ...bookingInput(tenantA, apt, g, '2027-02-01', '2027-02-03', { adults: 1, child_ages: [] }), id, updated_at: fresh.updated_at })
+      expect(lower.error?.code).toBe('P0808')
+    })
+  })
+
+  describe('Gäste (PROJ-7) mit Buchungen', () => {
+    it('Zusammenführen hängt Buchungen um; Löschen anonymisiert und entfernt Mitreisende; Gästeliste zählt Aufenthalte', async () => {
+      const apt = await apartment(tenantA, 'Gäste')
+      const keep = await guest(tenantA, `Keep ${runId}`)
+      const remove = await guest(tenantA, `Remove ${runId}`)
+      const id = savedId(await save(ownerA, bookingInput(tenantA, apt, remove, '2026-01-10', '2026-01-12', { adults: 2 })))
+      await ownerA.rpc('save_companions', {
+        p_booking_id: id,
+        p_updated_at: (await row(id)).updated_at,
+        p_companions: [{ first_name: 'Max', last_name: 'Begleiter', birth_date: '1990-01-01' }] as Json,
+      })
+      const choice = { name: 'a', country: 'a', email: 'a', phone: 'a', language: 'a', birthDate: 'a', address: 'a', marketing: 'a', company: 'a', note: 'a' }
+      expect((await ownerA.rpc('merge_guests', { p_keep: keep, p_remove: remove, p_choice: choice })).error).toBeNull()
+      expect((await row(id)).guest_id).toBe(keep)
+
+      const list = await ownerA.rpc('guest_list', { p_tenant_id: tenantA, p_query: `keep ${runId}` })
+      expect(list.data?.[0]).toMatchObject({ stay_count: 1, last_stay: '2026-01-10' })
+
+      expect((await ownerA.from('guests').delete().eq('id', keep).select('id')).data ?? []).toHaveLength(0)
+      const deleted = await ownerA.rpc('delete_guest', { p_guest_id: keep })
+      expect(deleted.data).toBe('anonymized')
+      expect((await service.from('booking_companions').select('id').eq('booking_id', id)).data).toHaveLength(0)
+      const log = await service.from('audit_log').select('old_data, new_data').eq('table_name', 'booking_companions').eq('tenant_id', tenantA)
+      expect((log.data ?? []).filter((l) => JSON.stringify(l).includes('Begleiter'))).toHaveLength(0)
+      const b = await row(id)
+      expect(b.guest_id).toBe(keep)
+      expect(b.adults).toBe(2)
+    })
+  })
+})

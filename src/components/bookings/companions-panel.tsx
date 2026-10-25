@@ -43,7 +43,7 @@ export function CompanionsPanel({ open, onOpenChange, booking, today }: Companio
 
   async function save(values: CompanionsInput) {
     setError(null)
-    const result = await callAction(() => saveCompanions({ id: booking.id, updatedAt: booking.updatedAt, max, values }))
+    const result = await callAction(() => saveCompanions({ id: booking.id, updatedAt: booking.updatedAt, values }))
     if (!result.ok) {
       setError(result.error)
       return

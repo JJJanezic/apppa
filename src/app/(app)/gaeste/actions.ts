@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache'
 import type { ActionResult, CommonErrorCode } from '@/lib/auth/result'
 import { getSessionUser, pendingMfaStep } from '@/lib/auth/session'
 import { type DuplicateMatch, type DuplicateReason, type Guest, type GuestErrorCode, type GuestRow, MERGE_FIELDS, type MergeChoice } from '@/lib/guests'
-import { GUEST_COLUMNS, toGuest, toRow } from '@/lib/guests-data'
+import { GUEST_COLUMNS, guestStays, toGuest, toRow } from '@/lib/guests-data'
 import { createClient } from '@/lib/supabase/server'
 import { getTenantContext, type TenantSummary } from '@/lib/tenant'
 import { guestSchema, type GuestInput, type GuestValues } from '@/lib/validation/guests'
@@ -85,7 +85,8 @@ const revalidate = (id?: string) => {
 export async function checkGuestDuplicates(values: GuestInput): Promise<Result<DuplicateMatch[]>> {
   const parsed = guestSchema(key).safeParse(values)
   if (!parsed.success) return fail('unknown')
-  const guard = await requireOwner()
+  // Alle Mitglieder: Mitarbeiter legen Gäste im Buchungsformular an (PROJ-8)
+  const guard = await requireMember()
   if (!guard.ok) return guard
   const v = parsed.data
   const supabase = await createClient()
@@ -254,5 +255,5 @@ export async function loadGuest(values: { id: string }): Promise<Result<Guest>> 
   const supabase = await createClient()
   const { data, error } = await supabase.from('guests').select(GUEST_COLUMNS).eq('id', values.id).eq('tenant_id', guard.tenant.id).maybeSingle()
   if (error) return dbFail(error, 'Gast nicht lesbar')
-  return data ? { ok: true, data: toGuest(data) } : fail('notFound')
+  return data ? { ok: true, data: { ...toGuest(data), stays: await guestStays(guard.tenant.id, data.id) } } : fail('notFound')
 }

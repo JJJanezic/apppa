@@ -12,6 +12,7 @@ import {
   GUEST_PAGE_SIZE,
   type GuestPage,
   type GuestRow,
+  type GuestStays,
   type Language,
   type MarketingSource,
 } from '@/lib/guests'
@@ -28,8 +29,31 @@ type GuestDbRow = Database['public']['Tables']['guests']['Row']
 export const GUEST_COLUMNS =
   'id, last_name, first_name, country, email, email_source, phone, phone_source, language, birth_date, street, postal_code, city, address_country, marketing_source, marketing_custom, company_name, company_vat_id, company_billing_address, note, anonymized_at, updated_at'
 
-// Aufenthalte kommen mit den Buchungen (PROJ-8)
-const NO_STAYS = { count: 0, last: null, next: null, channels: [] }
+// Aufenthalte werden aus den Buchungen berechnet (PROJ-8), nicht am Gast gespeichert
+const NO_STAYS: GuestStays = { count: 0, bookings: 0, last: null, next: null, channels: [] }
+
+export async function guestStays(tenantId: string, guestId: string): Promise<GuestStays> {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('bookings')
+    .select('kind, channel, arrival, cancelled_at')
+    .eq('tenant_id', tenantId)
+    .eq('guest_id', guestId)
+    .limit(2000)
+  if (error) console.error('[gaeste] Aufenthalte nicht lesbar', error.message)
+  const all = data ?? []
+  const stays = all.filter((b) => b.kind === 'booking' && b.cancelled_at === null)
+  const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Vienna' })
+  const past = stays.filter((b) => b.arrival <= today).map((b) => b.arrival).sort()
+  const future = stays.filter((b) => b.arrival > today).map((b) => b.arrival).sort()
+  return {
+    count: stays.length,
+    bookings: all.length,
+    last: past.at(-1) ?? null,
+    next: future[0] ?? null,
+    channels: [...new Set(stays.map((b) => b.channel))],
+  }
+}
 
 async function requireMember(): Promise<{ tenantId: string; role: Role }> {
   const { active } = await getTenantContext()
@@ -143,7 +167,7 @@ export const getGuest = cache(async (id: string): Promise<Guest> => {
   const { data, error } = await supabase.from('guests').select(GUEST_COLUMNS).eq('id', id).eq('tenant_id', tenantId).maybeSingle()
   if (error) console.error('[gaeste] Gast nicht lesbar', error.message)
   if (!data) notFound()
-  return toGuest(data)
+  return { ...toGuest(data), stays: await guestStays(tenantId, id) }
 })
 
 // Mögliche Dubletten (nur Inhaber): Paare mit gleicher E-Mail, Telefonnummer oder gleichem Vor- und Nachnamen

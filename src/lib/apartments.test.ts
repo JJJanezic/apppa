@@ -72,10 +72,13 @@ describe('Sichtbare Objekte', () => {
     maxGuests: 2,
     kind: 'holiday',
     priceCents: null,
+    cleaningFeeCents: null,
     checkIn: '15:00',
     checkOut: '10:00',
     note: null,
     archivedAt: archived ? '2026-10-24T10:00:00Z' : null,
+    hasBookings: false,
+    futurePersons: [],
   })
   const prop = (id: string, apartments: Apartment[]): Property => ({
     id,

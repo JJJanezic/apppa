@@ -509,7 +509,11 @@
       "restore": "Wiederherstellen",
       "delete": "Endgültig löschen",
       "archivedNote": "Diese Wohnung ist archiviert. Sie steht nicht zur Auswahl für neue Buchungen und erscheint nicht im Kalender.",
-      "postalCodeMismatch": "Die PLZ {postalCode} gehört laut Gemeindeliste nicht zur Gemeinde {municipality}. Bitte prüfen – die Gemeinde bestimmt später die Tourismusabgabe."
+      "postalCodeMismatch": "Die PLZ {postalCode} gehört laut Gemeindeliste nicht zur Gemeinde {municipality}. Bitte prüfen – die Gemeinde bestimmt später die Tourismusabgabe.",
+      "cleaningFee": "Reinigungsgebühr (€)",
+      "cleaningFeeHint": "Optional. Wird neuen Buchungen als Zusatzkosten „Reinigung“ vorgeschlagen.",
+      "capacityHint": "{count, plural, one {# künftige Buchung hat} other {# künftige Buchungen haben}} mehr Personen. Sie bleiben bestehen.",
+      "hasBookingsHint": "Diese Wohnung hat Buchungen und lässt sich nicht endgültig löschen. Archiviere sie stattdessen."
     },
     "propertyPanel": {
       "title": "Objekt bearbeiten",
@@ -534,7 +538,8 @@
       "deleteText": "Die Wohnung wird unwiderruflich entfernt. Das ist nur möglich, solange sie noch nie eine Buchung hatte.",
       "deletePropertyTitle": "Objekt „{name}“ löschen?",
       "deletePropertyText": "Das Objekt wird unwiderruflich entfernt.",
-      "cancel": "Abbrechen"
+      "cancel": "Abbrechen",
+      "archiveFuture": "{count, plural, one {# künftige Buchung bleibt} other {# künftige Buchungen bleiben}} bestehen."
     },
     "done": {
       "created": "„{name}“ angelegt.",
@@ -646,7 +651,8 @@
       "anonymizedNote": "Dieser Gast wurde am {date} anonymisiert. Herkunftsland und Aufenthalte bleiben für Statistik und Tourismusabgabe erhalten.",
       "edit": "Bearbeiten",
       "merge": "Mit anderem Gast zusammenführen",
-      "delete": "Gast löschen"
+      "delete": "Gast löschen",
+      "bookings": "Buchungen"
     },
     "panel": {
       "createTitle": "Gast anlegen",
@@ -856,7 +862,7 @@
       "nights": "Nächte",
       "persons": "Personen",
       "personsValue": "{persons} ({adults} Erwachsene, {children, plural, one {# Kind} other {# Kinder}})",
-      "personsAdultsOnly": "{persons} Erwachsene",
+      "personsAdultsOnly": "{persons, plural, one {# Erwachsener} other {# Erwachsene}}",
       "childAges": "Alter der Kinder bei Anreise",
       "agesValue": "{ages} Jahre",
       "channel": "Kanal",
@@ -990,7 +996,10 @@
       "title": "Option {number} bestätigen?",
       "text": "Die Option wird zur Buchung mit derselben Nummer.",
       "confirm": "Bestätigen",
-      "cancel": "Abbrechen"
+      "cancel": "Abbrechen",
+      "overrideTitle": "Trotzdem bestätigen?",
+      "overrideText": "Der Zeitraum überschneidet sich inzwischen mit einem anderen Eintrag oder die Wohnung ist überbelegt. Als Inhaber kannst du die Option trotzdem bestätigen.",
+      "overrideConfirm": "Trotzdem bestätigen"
     },
     "stale": {
       "text": "Diese Buchung wurde inzwischen von jemand anderem geändert. Deine Eingaben bleiben stehen.",
@@ -1016,7 +1025,8 @@
       "network": "Keine Verbindung. Bitte prüfe deine Internetverbindung und versuche es erneut.",
       "sessionExpired": "Deine Sitzung ist abgelaufen. Bitte melde dich erneut an.",
       "notImplemented": "Diese Funktion wird gerade eingerichtet.",
-      "unknown": "Etwas ist schiefgelaufen. Bitte versuche es erneut."
+      "unknown": "Etwas ist schiefgelaufen. Bitte versuche es erneut.",
+      "tooManyCompanions": "Es sind mehr Mitreisende erfasst, als die Personenzahl zulässt. Bitte zuerst Mitreisende entfernen."
     },
     "validation": {
       "apartmentRequired": "Bitte eine Wohnung wählen.",

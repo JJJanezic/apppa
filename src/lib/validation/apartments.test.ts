@@ -10,6 +10,7 @@ const base = {
   maxGuests: '4',
   kind: 'holiday' as const,
   price: '125,50',
+  cleaningFee: '',
   checkIn: '15:00',
   checkOut: '10:00',
   note: '  ',
@@ -24,6 +25,12 @@ describe('Wohnung', () => {
 
   it('erlaubt einen leeren Preis', () => {
     expect(apartmentSchema(key).parse({ ...base, price: '' }).price).toBeNull()
+  })
+
+  it('liest die Reinigungsgebühr (PROJ-8), leer = keine', () => {
+    expect(apartmentSchema(key).parse(base).cleaningFee).toBeNull()
+    expect(apartmentSchema(key).parse({ ...base, cleaningFee: '60' }).cleaningFee).toBe(6000)
+    expect(apartmentSchema(key).safeParse({ ...base, cleaningFee: 'x' }).success).toBe(false)
   })
 
   it('weist ungültige Werte mit Meldung je Feld ab', () => {

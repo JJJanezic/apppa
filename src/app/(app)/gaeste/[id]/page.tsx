@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { getFormatter, getLocale, getTranslations } from 'next-intl/server'
 
+import { BookingList } from '@/components/bookings/booking-list'
 import { GuestActions } from '@/components/guests/guest-actions'
 import { PageHeader } from '@/components/page-header'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -10,6 +11,7 @@ import { Badge } from '@/components/ui/badge'
 import { requireArea } from '@/lib/areas'
 import { formatNumber } from '@/lib/format'
 import { countryName, type Guest, guestDisplayName, languageName } from '@/lib/guests'
+import { getGuestBookings } from '@/lib/bookings-data'
 import { getGuest } from '@/lib/guests-data'
 import { getTenantContext } from '@/lib/tenant'
 
@@ -28,7 +30,8 @@ export default async function GuestDetailPage({ params }: { params: Params }) {
   const t = await getTranslations('guests')
   const format = await getFormatter()
   const locale = await getLocale()
-  const guest = await getGuest(id)
+  const tb = await getTranslations('bookings')
+  const [guest, bookings] = await Promise.all([getGuest(id), getGuestBookings(id)])
   const { active } = await getTenantContext()
   const isOwner = active?.role === 'owner'
   // Datum ohne Uhrzeit: mittags erzeugen, damit die Zeitzone den Tag nicht verschiebt
@@ -119,7 +122,7 @@ export default async function GuestDetailPage({ params }: { params: Params }) {
             <Fact label={t('detail.staysCount')}>{formatNumber(guest.stays.count)}</Fact>
             <Fact label={t('detail.lastStay')}>{guest.stays.last ? date(guest.stays.last) : missing}</Fact>
             <Fact label={t('detail.nextStay')}>{guest.stays.next ? date(guest.stays.next) : missing}</Fact>
-            <Fact label={t('detail.channels')}>{guest.stays.channels.join(', ') || missing}</Fact>
+            <Fact label={t('detail.channels')}>{guest.stays.channels.map((c) => (c === 'direct' ? tb('detail.channelDirect') : c)).join(', ') || missing}</Fact>
           </DetailSection>
         )}
 
@@ -139,6 +142,13 @@ export default async function GuestDetailPage({ params }: { params: Params }) {
           </DetailSection>
         )}
       </div>
+
+      {bookings.length > 0 && (
+        <section className="flex flex-col gap-3">
+          <h2 className="text-2xl">{t('detail.bookings')}</h2>
+          <BookingList rows={bookings} showAmounts={isOwner} withYear />
+        </section>
+      )}
     </>
   )
 }

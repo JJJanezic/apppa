@@ -23,8 +23,8 @@ export function GuestActions({ guest }: { guest: Guest }) {
   const [dialog, setDialog] = useState<'edit' | 'merge' | 'delete' | null>(null)
   const [pending, setPending] = useState(false)
   const close = (open: boolean) => !open && setDialog(null)
-  // Mit Aufenthalten wird anonymisiert statt gelöscht (Buchungen bleiben für Abgabe und Steuer)
-  const anonymize = guest.stays.count > 0
+  // Mit Buchungen (auch Optionen und stornierten) wird anonymisiert statt gelöscht (Buchungen bleiben für Abgabe und Steuer)
+  const anonymize = guest.stays.bookings > 0
 
   if (guest.anonymizedAt) return null
 

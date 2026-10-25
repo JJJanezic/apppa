@@ -5,31 +5,32 @@ import { cache } from 'react'
 
 import { apartmentLabel } from '@/lib/apartments'
 import {
-  addDays,
+  type BlockReason,
   type BookableApartment,
   type Booking,
   type BookingFilters,
+  type BookingKind,
   type BookingRow,
   bookingState,
-  filterRows,
+  type Conflict,
   findConflicts,
-  formatBookingNumber,
+  monthRange,
   personCount,
   todayIso,
   totalCents,
 } from '@/lib/bookings'
-import { guestSortName } from '@/lib/guests'
+import { guestSortName, searchKey } from '@/lib/guests'
 import type { Role } from '@/lib/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getTenantContext } from '@/lib/tenant'
 
 // Lesefunktionen der Buchungen (PROJ-8) für alle Mitglieder des gewählten Kunden; Beträge nur für Inhaber.
-// VORLÄUFIG bis /backend: Die Tabellen fehlen noch. In der Entwicklung liefern die Funktionen Beispielbuchungen
-// auf den echten Wohnungen und Gästen des Kunden, damit sich Liste, Detail und Formulare ansehen lassen; sonst leer.
+// Rechte prüft die Datenbank zusätzlich (RLS: Buchungen und Mitreisende für Mitglieder, Beträge nur für Inhaber).
 
-const samplesEnabled = () => process.env.NODE_ENV === 'development'
 // Datenbank liefert Uhrzeiten als „15:00:00“
-const hhmm = (value: string) => value.slice(0, 5)
+const hhmm = (value: string | null) => (value ? value.slice(0, 5) : '')
+const LIST_LIMIT = 1000
+const SEARCH_LIMIT = 50
 
 async function requireMember(): Promise<{ tenantId: string; role: Role }> {
   const { active } = await getTenantContext()
@@ -43,7 +44,7 @@ export const getBookableApartments = cache(async (): Promise<BookableApartment[]
   const supabase = await createClient()
   const { data, error } = await supabase
     .from('apartments')
-    .select('id, name, max_guests, price_cents, check_in, check_out, archived_at, property:properties!inner(name)')
+    .select('id, name, max_guests, price_cents, cleaning_fee_cents, check_in, check_out, archived_at, property:properties!inner(name)')
     .eq('tenant_id', tenantId)
     .limit(500)
   if (error) console.error('[buchungen] Wohnungen nicht lesbar', error.message)
@@ -54,8 +55,7 @@ export const getBookableApartments = cache(async (): Promise<BookableApartment[]
         label: apartmentLabel(a.property.name, a.name),
         maxGuests: a.max_guests,
         priceCents: a.price_cents,
-        // Reinigungsgebühr kommt mit /backend (neues Feld der Wohnung)
-        cleaningFeeCents: null,
+        cleaningFeeCents: a.cleaning_fee_cents,
         checkIn: hhmm(a.check_in),
         checkOut: hhmm(a.check_out),
         archived: a.archived_at !== null,
@@ -64,168 +64,246 @@ export const getBookableApartments = cache(async (): Promise<BookableApartment[]
     .sort((a, b) => a.label.localeCompare(b.label, 'de', { numeric: true }))
 })
 
-// ---- VORLÄUFIG: Beispielbuchungen ------------------------------------------------------------------
+const ROW_COLUMNS =
+  'id, kind, number, apartment_id, arrival, departure, adults, child_ages, block_reason, option_until, cancelled_at, price_review, guest:guests(id, last_name, first_name), apartment:apartments!inner(name, property:properties!inner(name)), amounts:booking_amounts(nights_cents), charges:booking_charges(amount_cents)'
 
-type SampleGuest = { id: string; lastName: string; firstName: string | null; country: string }
-const FALLBACK_GUESTS: SampleGuest[] = [
-  { id: '00000000-0000-4000-9100-000000000001', lastName: 'Huber', firstName: 'Anna', country: 'AT' },
-  { id: '00000000-0000-4000-9100-000000000002', lastName: 'Schmidt', firstName: 'Jonas', country: 'DE' },
-  { id: '00000000-0000-4000-9100-000000000003', lastName: 'Rossi', firstName: 'Giulia', country: 'IT' },
-  { id: '00000000-0000-4000-9100-000000000004', lastName: 'Brown', firstName: 'Olivia', country: 'US' },
-]
-const sampleId = (n: number) => `00000000-0000-4000-9000-${String(n).padStart(12, '0')}`
+type ListDbRow = {
+  id: string
+  kind: string
+  number: string | null
+  apartment_id: string
+  arrival: string
+  departure: string
+  adults: number | null
+  child_ages: number[]
+  block_reason: string | null
+  option_until: string | null
+  cancelled_at: string | null
+  price_review: boolean
+  guest: { id: string; last_name: string; first_name: string | null } | null
+  apartment: { name: string; property: { name: string } }
+  // eine Zeile je Buchung; PostgREST liefert sie als Liste (Verweis über id + tenant_id)
+  amounts: { nights_cents: number }[]
+  charges: { amount_cents: number }[]
+}
 
-const getSamples = cache(async (): Promise<Booking[]> => {
-  if (!samplesEnabled()) return []
-  const { tenantId, role } = await requireMember()
-  const apartments = (await getBookableApartments()).filter((a) => !a.archived)
-  if (apartments.length === 0) return []
+// Aktive Einträge (für das Kennzeichen „überschneidet sich“) der betroffenen Wohnungen im Zeitraum
+async function activeOccupancy(tenantId: string, apartmentIds: string[], from: string, to: string, today: string) {
+  if (apartmentIds.length === 0) return []
   const supabase = await createClient()
-  const { data } = await supabase
-    .from('guests')
-    .select('id, last_name, first_name, country')
+  const { data, error } = await supabase
+    .from('bookings')
+    .select('id, kind, number, apartment_id, arrival, departure, block_reason, option_until, cancelled_at, guest:guests(last_name, first_name)')
     .eq('tenant_id', tenantId)
-    .is('anonymized_at', null)
-    .order('last_name')
-    .limit(4)
-  const real = (data ?? []).map((g) => ({ id: g.id, lastName: g.last_name, firstName: g.first_name, country: g.country }))
-  const guests = real.length >= 4 ? real : [...real, ...FALLBACK_GUESTS].slice(0, 4)
-  const apt = (i: number) => apartments[i % apartments.length]
-  const today = todayIso()
-  const year = Number(today.slice(0, 4))
-  const owner = role === 'owner'
+    .in('apartment_id', apartmentIds)
+    .is('cancelled_at', null)
+    .lt('arrival', to)
+    .gt('departure', from)
+    .limit(LIST_LIMIT * 2)
+  if (error) console.error('[buchungen] Belegung nicht lesbar', error.message)
+  return (data ?? [])
+    .map((o) => ({
+      id: o.id,
+      apartmentId: o.apartment_id,
+      kind: o.kind as BookingKind,
+      number: o.number,
+      arrival: o.arrival,
+      departure: o.departure,
+      cancelledAt: o.cancelled_at,
+      optionUntil: o.option_until,
+      blockReason: o.block_reason as BlockReason | null,
+      guestName: o.guest ? guestSortName({ lastName: o.guest.last_name, firstName: o.guest.first_name }) : null,
+    }))
+    .filter((o) => bookingState(o, today) === 'active')
+}
 
-  type Seed = Partial<Booking> & { n: number; aptIndex: number; guestIndex: number | null; from: number; to: number; nightsEuro?: number; fee?: number }
-  const seeds: Seed[] = [
-    { n: 1, kind: 'booking', aptIndex: 0, guestIndex: 0, from: -2, to: 3, adults: 2, childAges: [4], nightsEuro: 600, note: 'Kinderbett aufstellen.' },
-    { n: 2, kind: 'option', aptIndex: 1, guestIndex: 1, from: 10, to: 14, adults: 1, optionUntil: addDays(today, 3) },
-    { n: 3, kind: 'block', aptIndex: 0, guestIndex: null, from: 5, to: 8, blockReason: 'renovation', note: 'Malerarbeiten im Bad' },
-    { n: 4, kind: 'booking', aptIndex: 0, guestIndex: 2, from: 7, to: 10, adults: 2, nightsEuro: 360, overrideBy: 'Inhaber', priceReview: true },
-    { n: 5, kind: 'option', aptIndex: 2, guestIndex: 3, from: 20, to: 27, adults: 3, optionUntil: addDays(today, -1) },
-    { n: 6, kind: 'booking', aptIndex: 1, guestIndex: 0, from: -10, to: -6, adults: 2, nightsEuro: 400, fee: 50, cancelledAt: `${addDays(today, -20)}T09:30:00.000Z`, cancelledBy: 'Inhaber', cancelReason: 'Krankheit' },
-    { n: 7, kind: 'booking', aptIndex: 1, guestIndex: 3, from: -35, to: -28, adults: 4, childAges: [12, 9], nightsEuro: 980 },
-  ]
-  let seq = 0
-  const bookings = seeds.map((s): Booking => {
-    const a = apt(s.aptIndex)
-    const g = s.guestIndex === null ? null : guests[s.guestIndex]
-    const kind = s.kind ?? 'booking'
-    return {
-      id: sampleId(s.n),
-      kind,
-      channel: 'direct',
-      number: kind === 'block' ? null : formatBookingNumber(year, ++seq),
-      apartment: { id: a.id, label: a.label, maxGuests: a.maxGuests, archived: a.archived },
-      arrival: addDays(today, s.from),
-      departure: addDays(today, s.to),
-      checkIn: a.checkIn,
-      checkOut: a.checkOut,
-      guest: g && { ...g, anonymized: false },
-      adults: s.adults ?? 0,
-      childAges: s.childAges ?? [],
-      blockReason: s.blockReason ?? null,
-      optionUntil: s.optionUntil ?? null,
-      note: s.note ?? null,
-      cancelledAt: s.cancelledAt ?? null,
-      cancelledBy: s.cancelledBy ?? null,
-      cancelReason: s.cancelReason ?? null,
-      overrideBy: s.overrideBy ?? null,
-      priceReview: s.priceReview ?? false,
-      companions: s.n === 1 ? [{ firstName: 'Max', lastName: g?.lastName ?? 'Huber', birthDate: '1985-03-12' }] : [],
-      amounts:
-        owner && kind !== 'block'
-          ? {
-              nightsCents: (s.nightsEuro ?? 0) * 100,
-              charges: [{ label: 'Reinigung', amountCents: 6000 }],
-              cancellationFeeCents: s.fee === undefined ? null : s.fee * 100,
-            }
-          : null,
-      conflicts: [],
-      updatedAt: '2026-10-20T09:00:00.000Z',
-    }
-  })
-  return withConflicts(bookings, today)
+type Occupancy = Awaited<ReturnType<typeof activeOccupancy>>[number]
+const toConflict = (o: Occupancy): Conflict => ({
+  id: o.id,
+  kind: o.kind,
+  number: o.number,
+  guestName: o.guestName,
+  blockReason: o.blockReason,
+  arrival: o.arrival,
+  departure: o.departure,
 })
 
-// Aktuelle Überschneidungen je Eintrag (nur aktive Einträge)
-function withConflicts(bookings: Booking[], today: string): Booking[] {
-  const occ = bookings.map((b) => ({ ...b, apartmentId: b.apartment.id }))
-  return bookings.map((b) => ({
-    ...b,
-    conflicts:
-      bookingState(b, today) === 'active'
-        ? findConflicts({ id: b.id, apartmentId: b.apartment.id, arrival: b.arrival, departure: b.departure }, occ, today).map((o) => ({
-            id: o.id,
-            kind: o.kind,
-            number: o.number,
-            guestName: o.guest ? guestSortName(o.guest) : null,
-            blockReason: o.blockReason,
-            arrival: o.arrival,
-            departure: o.departure,
-          }))
-        : [],
-  }))
-}
-
-function toRow(b: Booking, today: string): BookingRow {
+function toRow(r: ListDbRow, owner: boolean, today: string, occupancy: Occupancy[]): BookingRow {
+  const kind = r.kind as BookingKind
+  const state = bookingState({ kind, cancelledAt: r.cancelled_at, optionUntil: r.option_until }, today)
   return {
-    id: b.id,
-    kind: b.kind,
-    number: b.number,
-    apartmentId: b.apartment.id,
-    apartmentLabel: b.apartment.label,
-    arrival: b.arrival,
-    departure: b.departure,
-    guestName: b.guest ? guestSortName(b.guest) : null,
-    blockReason: b.blockReason,
-    persons: personCount(b.adults, b.childAges),
-    state: bookingState(b, today),
-    optionUntil: b.optionUntil,
-    totalCents: b.amounts ? totalCents(b.amounts) : null,
-    overlapping: b.conflicts.length > 0,
-    priceReview: b.priceReview,
+    id: r.id,
+    kind,
+    number: r.number,
+    apartmentId: r.apartment_id,
+    apartmentLabel: apartmentLabel(r.apartment.property.name, r.apartment.name),
+    arrival: r.arrival,
+    departure: r.departure,
+    guestName: r.guest ? guestSortName({ lastName: r.guest.last_name, firstName: r.guest.first_name }) : null,
+    blockReason: r.block_reason as BlockReason | null,
+    persons: kind === 'block' ? 0 : personCount(r.adults ?? 0, r.child_ages),
+    state,
+    optionUntil: r.option_until,
+    totalCents: owner && r.amounts[0] ? totalCents({ nightsCents: r.amounts[0].nights_cents, charges: r.charges.map((c) => ({ label: '', amountCents: c.amount_cents })) }) : null,
+    overlapping: state === 'active' && findConflicts({ id: r.id, apartmentId: r.apartment_id, arrival: r.arrival, departure: r.departure }, occupancy, today).length > 0,
+    priceReview: r.price_review,
   }
 }
-
-// ---- Lesefunktionen -------------------------------------------------------------------------------
 
 export type BookingList = { rows: BookingRow[]; searching: boolean; truncated: boolean }
-const SEARCH_LIMIT = 50
 
-// Monatsliste bzw. Suche über alle Monate (neueste zuerst, höchstens 50 Treffer)
+// Suchbegriff für die Adresse der Datenbank-Abfrage: nur Buchstaben, Ziffern, Leerzeichen und Bindestrich
+const cleanQuery = (value: string) => value.replace(/[^\p{L}\d\s-]/gu, ' ').replace(/\s+/g, ' ').trim()
+
+// Monatsliste bzw. Suche über alle Monate (neueste zuerst, höchstens 50 Treffer). Ohne Zustandsfilter nur aktive Einträge.
 export async function getBookingList(filters: BookingFilters): Promise<BookingList> {
-  await requireMember()
+  const { tenantId, role } = await requireMember()
+  const owner = role === 'owner'
   const today = todayIso()
-  const all = (await getSamples()).map((b) => toRow(b, today))
-  const query = filters.query.trim().toLowerCase()
-  if (query.length >= 2) {
-    const hits = filterRows(all, filters, true)
-      .filter((r) => (r.number ?? '').includes(query) || (r.guestName ?? '').toLowerCase().includes(query))
-      .sort((a, b) => b.arrival.localeCompare(a.arrival))
-    return { rows: hits.slice(0, SEARCH_LIMIT), searching: true, truncated: hits.length > SEARCH_LIMIT }
+  const supabase = await createClient()
+  const query = cleanQuery(filters.query)
+  const searching = query.length >= 2
+
+  let request = supabase.from('bookings').select(ROW_COLUMNS).eq('tenant_id', tenantId)
+  if (filters.apartment) request = request.eq('apartment_id', filters.apartment)
+  if (filters.kind) request = request.eq('kind', filters.kind)
+  if (filters.state === 'cancelled') request = request.not('cancelled_at', 'is', null)
+  else if (filters.state === 'expired') request = request.eq('kind', 'option').is('cancelled_at', null).lt('option_until', today)
+  else request = request.is('cancelled_at', null).or(`kind.neq.option,option_until.gte.${today}`)
+
+  if (searching) {
+    // Gäste über den vereinheitlichten Suchtext (PROJ-7), dazu die Buchungsnummer
+    const words = searchKey(query).split(' ').filter(Boolean)
+    let guests = supabase.from('guests').select('id').eq('tenant_id', tenantId)
+    for (const w of words) guests = guests.like('search_text', `%${w}%`)
+    const { data: hits } = await guests.limit(200)
+    const ids = (hits ?? []).map((g) => g.id)
+    const number = query.replace(/\s/g, '')
+    request = request.or(ids.length ? `number.ilike.%${number}%,guest_id.in.(${ids.join(',')})` : `number.ilike.%${number}%`)
+    request = request.order('arrival', { ascending: false }).limit(SEARCH_LIMIT + 1)
+  } else {
+    const { from, to } = monthRange(filters.month)
+    request = request.lt('arrival', to).gt('departure', from).order('arrival').order('number').limit(LIST_LIMIT)
   }
-  const rows = filterRows(all, filters, false).sort((a, b) => a.arrival.localeCompare(b.arrival) || (a.number ?? '').localeCompare(b.number ?? ''))
-  return { rows, searching: false, truncated: false }
+
+  const { data, error } = await request
+  if (error) console.error('[buchungen] Liste nicht lesbar', error.message)
+  const rows = ((data ?? []) as unknown as ListDbRow[]).slice(0, searching ? SEARCH_LIMIT : LIST_LIMIT)
+  let occupancy: Occupancy[] = []
+  if (rows.length) {
+    const from = rows.reduce((m, r) => (r.arrival < m ? r.arrival : m), rows[0].arrival)
+    const to = rows.reduce((m, r) => (r.departure > m ? r.departure : m), rows[0].departure)
+    occupancy = await activeOccupancy(tenantId, [...new Set(rows.map((r) => r.apartment_id))], from, to, today)
+  }
+  return {
+    rows: rows.map((r) => toRow(r, owner, today, occupancy)),
+    searching,
+    truncated: searching && (data?.length ?? 0) > SEARCH_LIMIT,
+  }
 }
 
 // Hat der Kunde überhaupt Einträge? (Leerzustand statt „Keine Buchungen gefunden“)
 export async function hasAnyBooking(): Promise<boolean> {
-  await requireMember()
-  return (await getSamples()).length > 0
+  const { tenantId } = await requireMember()
+  const supabase = await createClient()
+  const { count, error } = await supabase.from('bookings').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId)
+  if (error) console.error('[buchungen] Anzahl nicht lesbar', error.message)
+  return (count ?? 0) > 0
+}
+
+// Anzeigenamen (Storno, Übersteuern); frühere Mitglieder sind nicht mehr lesbar → null
+async function displayNames(ids: (string | null)[]): Promise<Map<string, string>> {
+  const wanted = [...new Set(ids.filter((id): id is string => Boolean(id)))]
+  if (wanted.length === 0) return new Map()
+  const supabase = await createClient()
+  const { data } = await supabase.from('profiles').select('id, display_name, email').in('id', wanted)
+  return new Map((data ?? []).map((p) => [p.id, p.display_name || p.email]))
 }
 
 // Einmal pro Anfrage (Seitentitel, App-Rahmen und Seite); fremde oder unbekannte Buchungen → „Seite nicht gefunden“
 export const getBooking = cache(async (id: string): Promise<Booking> => {
-  await requireMember()
+  const { tenantId, role } = await requireMember()
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound()
-  const booking = (await getSamples()).find((b) => b.id === id)
-  if (!booking) notFound()
-  return booking
+  const supabase = await createClient()
+  const { data: b, error } = await supabase
+    .from('bookings')
+    .select(
+      'id, kind, channel, number, apartment_id, arrival, departure, check_in, check_out, adults, child_ages, block_reason, option_until, note, cancelled_at, cancelled_by, cancel_reason, override_by, price_review, updated_at, guest:guests(id, last_name, first_name, country, anonymized_at), apartment:apartments!inner(name, max_guests, archived_at, property:properties!inner(name)), companions:booking_companions(position, first_name, last_name, birth_date), amounts:booking_amounts(nights_cents, cancellation_fee_cents), charges:booking_charges(position, label, amount_cents)'
+    )
+    .eq('id', id)
+    .eq('tenant_id', tenantId)
+    .maybeSingle()
+  if (error) console.error('[buchungen] Buchung nicht lesbar', error.message)
+  if (!b) notFound()
+
+  const today = todayIso()
+  const kind = b.kind as BookingKind
+  const state = bookingState({ kind, cancelledAt: b.cancelled_at, optionUntil: b.option_until }, today)
+  const [occupancy, names] = await Promise.all([
+    state === 'active' ? activeOccupancy(tenantId, [b.apartment_id], b.arrival, b.departure, today) : Promise.resolve([]),
+    displayNames([b.cancelled_by, b.override_by]),
+  ])
+  const byPosition = <T extends { position: number }>(list: T[]) => [...list].sort((x, y) => x.position - y.position)
+  const amounts = b.amounts[0]
+
+  return {
+    id: b.id,
+    kind,
+    channel: 'direct',
+    number: b.number,
+    apartment: {
+      id: b.apartment_id,
+      label: apartmentLabel(b.apartment.property.name, b.apartment.name),
+      maxGuests: b.apartment.max_guests,
+      archived: b.apartment.archived_at !== null,
+    },
+    arrival: b.arrival,
+    departure: b.departure,
+    checkIn: hhmm(b.check_in),
+    checkOut: hhmm(b.check_out),
+    guest: b.guest && {
+      id: b.guest.id,
+      lastName: b.guest.last_name,
+      firstName: b.guest.first_name,
+      country: b.guest.country,
+      anonymized: b.guest.anonymized_at !== null,
+    },
+    adults: b.adults ?? 0,
+    childAges: b.child_ages,
+    blockReason: b.block_reason as BlockReason | null,
+    optionUntil: b.option_until,
+    note: b.note,
+    cancelledAt: b.cancelled_at,
+    cancelledBy: b.cancelled_by ? (names.get(b.cancelled_by) ?? null) : null,
+    cancelReason: b.cancel_reason,
+    overrideBy: b.override_by ? (names.get(b.override_by) ?? '–') : null,
+    priceReview: b.price_review,
+    companions: byPosition(b.companions).map((c) => ({ firstName: c.first_name, lastName: c.last_name, birthDate: c.birth_date })),
+    amounts:
+      role === 'owner' && kind !== 'block'
+        ? {
+            nightsCents: amounts?.nights_cents ?? 0,
+            charges: byPosition(b.charges).map((c) => ({ label: c.label, amountCents: c.amount_cents })),
+            cancellationFeeCents: amounts?.cancellation_fee_cents ?? null,
+          }
+        : null,
+    conflicts: findConflicts({ id: b.id, apartmentId: b.apartment_id, arrival: b.arrival, departure: b.departure }, occupancy, today).map(toConflict),
+    updatedAt: b.updated_at,
+  }
 })
 
-// Belegung derselben Wohnung für die Vorschau der Konfliktprüfung (VORLÄUFIG: Beispielbuchungen)
-export async function getOccupancy(apartmentId: string) {
-  return (await getSamples())
-    .filter((b) => b.apartment.id === apartmentId)
-    .map((b) => ({ ...b, apartmentId: b.apartment.id }))
+// Buchungen eines Gastes (Gast-Detail, PROJ-7), neueste zuerst
+export async function getGuestBookings(guestId: string): Promise<BookingRow[]> {
+  const { tenantId, role } = await requireMember()
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('bookings')
+    .select(ROW_COLUMNS)
+    .eq('tenant_id', tenantId)
+    .eq('guest_id', guestId)
+    .order('arrival', { ascending: false })
+    .limit(200)
+  if (error) console.error('[buchungen] Buchungen des Gastes nicht lesbar', error.message)
+  const today = todayIso()
+  return ((data ?? []) as unknown as ListDbRow[]).map((r) => toRow(r, role === 'owner', today, []))
 }

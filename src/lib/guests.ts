@@ -59,7 +59,10 @@ export const isCountry = (code: string): boolean => COUNTRY_SET.has(code)
 export type ContactSource = 'direct' | 'platform'
 
 export type GuestStays = {
+  // aktive Buchungen (ohne Optionen)
   count: number
+  // alle Einträge des Gastes, auch Optionen und stornierte (dann wird beim Löschen anonymisiert)
+  bookings: number
   // ISO-Datum (Anreise) des letzten bzw. nächsten Aufenthalts; bis PROJ-8 immer leer
   last: string | null
   next: string | null

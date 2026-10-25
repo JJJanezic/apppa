@@ -27,7 +27,7 @@ interface BookingActionsProps {
   today: string
 }
 
-type Dialog = 'edit' | 'note' | 'confirm' | 'cancel' | 'companions' | null
+type Dialog = 'edit' | 'note' | 'confirm' | 'confirmOverride' | 'cancel' | 'companions' | null
 
 // Aktionen im Buchungs-Detail (PROJ-8). Aktive Einträge: Bearbeiten, Option bestätigen, Stornieren (Inhaber).
 // Stornierte und verfallene: nur Notiz (Inhaber zusätzlich Stornogebühr); verfallene Optionen lassen sich bestätigen.
@@ -40,11 +40,13 @@ export function BookingActions({ booking, apartments, owner, today }: BookingAct
   const state = bookingState(booking, today)
   const isBlock = booking.kind === 'block'
 
-  async function confirm() {
+  async function confirm(confirmOverride = false) {
     setDialog(null)
-    const result = await callAction(() => confirmOption({ id: booking.id }))
+    const result = await callAction(() => confirmOption({ id: booking.id, confirmOverride }))
     if (!result.ok) {
-      if (result.error !== 'sessionExpired') toast.error(te(result.error))
+      // Überschneidung oder Überbelegung: Inhaber dürfen bewusst trotzdem bestätigen
+      if (result.error === 'warnings') setDialog('confirmOverride')
+      else if (result.error !== 'sessionExpired') toast.error(te(result.error === 'ownerOnly' ? 'warnings' : result.error))
       return
     }
     toast.success(t('done.confirmed'))
@@ -103,7 +105,18 @@ export function BookingActions({ booking, apartments, owner, today }: BookingAct
           text={t('confirmOption.text')}
           confirmLabel={t('confirmOption.confirm')}
           cancelLabel={t('confirmOption.cancel')}
-          onConfirm={confirm}
+          onConfirm={() => confirm()}
+        />
+      )}
+      {dialog === 'confirmOverride' && (
+        <ConfirmDialog
+          open
+          onOpenChange={close}
+          title={t('confirmOption.overrideTitle')}
+          text={t('confirmOption.overrideText')}
+          confirmLabel={t('confirmOption.overrideConfirm')}
+          cancelLabel={t('confirmOption.cancel')}
+          onConfirm={() => confirm(true)}
         />
       )}
     </>

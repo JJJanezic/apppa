@@ -66,6 +66,7 @@ const apartmentColumns = (v: {
   maxGuests: number
   kind: 'holiday' | 'service'
   price: number | null
+  cleaningFee: number | null
   checkIn: string
   checkOut: string
   note: string | null
@@ -74,6 +75,7 @@ const apartmentColumns = (v: {
   max_guests: v.maxGuests,
   kind: v.kind,
   price_cents: v.price,
+  cleaning_fee_cents: v.cleaningFee,
   check_in: v.checkIn,
   check_out: v.checkOut,
   note: v.note,
@@ -107,6 +109,11 @@ export async function createApartment(values: ApartmentInput): Promise<Result<{ 
       p_note: v.note as string,
     })
     if (error || !data) return dbFail(error ?? {}, 'Wohnung mit Objekt nicht angelegt')
+    // Reinigungsgebühr kennt die Funktion aus PROJ-6 nicht: nachtragen
+    if (v.cleaningFee !== null) {
+      const { error: feeError } = await supabase.from('apartments').update({ cleaning_fee_cents: v.cleaningFee }).eq('id', data)
+      if (feeError) return dbFail(feeError, 'Reinigungsgebühr nicht gespeichert')
+    }
     revalidatePath(PAGE)
     return { ok: true, data: { id: data } }
   }

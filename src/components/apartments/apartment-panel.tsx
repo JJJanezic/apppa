@@ -44,6 +44,7 @@ type FormValues = {
   maxGuests: string
   kind: 'holiday' | 'service'
   price: string
+  cleaningFee: string
   checkIn: string
   checkOut: string
   note: string
@@ -79,6 +80,7 @@ export function ApartmentPanel({ open, onOpenChange, properties, apartment, pres
         maxGuests: String(apartment.maxGuests),
         kind: apartment.kind,
         price: priceInput(apartment.priceCents),
+        cleaningFee: priceInput(apartment.cleaningFeeCents),
         checkIn: apartment.checkIn,
         checkOut: apartment.checkOut,
         note: apartment.note ?? '',
@@ -90,6 +92,7 @@ export function ApartmentPanel({ open, onOpenChange, properties, apartment, pres
         maxGuests: '',
         kind: APARTMENT_DEFAULTS.kind,
         price: '',
+        cleaningFee: '',
         checkIn: APARTMENT_DEFAULTS.checkIn,
         checkOut: APARTMENT_DEFAULTS.checkOut,
         note: '',
@@ -105,6 +108,9 @@ export function ApartmentPanel({ open, onOpenChange, properties, apartment, pres
       : (resolveExisting({ ...values, newProperty: undefined } as never, context, options as never) as never)
   const form = useForm<FormValues>({ resolver, defaultValues: defaults })
   const isNew = useWatch({ control: form.control, name: 'propertyId' }) === NEW_PROPERTY
+  // Künftige Buchungen mit mehr Personen als die eingegebene Kapazität (nur Hinweis, PROJ-8)
+  const maxGuests = Number(useWatch({ control: form.control, name: 'maxGuests' }))
+  const tooLarge = apartment && maxGuests > 0 ? apartment.futurePersons.filter((n) => n > maxGuests).length : 0
   const property = properties.find((p) => p.id === (apartment?.propertyId ?? ''))
   const title = apartment && property ? apartmentLabel(property.name, apartment.name) : t('panel.createTitle')
 
@@ -216,6 +222,7 @@ export function ApartmentPanel({ open, onOpenChange, properties, apartment, pres
                 <FormControl>
                   <Input type="number" inputMode="numeric" min={LIMITS.guestsMin} max={LIMITS.guestsMax} className="min-h-11 w-32" {...field} />
                 </FormControl>
+                {tooLarge > 0 && <FormDescription className="text-ds-accent-2-800">{t('panel.capacityHint', { count: tooLarge })}</FormDescription>}
                 <FormMessage />
               </FormItem>
             )}
@@ -252,6 +259,20 @@ export function ApartmentPanel({ open, onOpenChange, properties, apartment, pres
                   <Input inputMode="decimal" autoComplete="off" className="min-h-11 w-40" {...field} />
                 </FormControl>
                 <FormDescription>{t('panel.priceHint')}</FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="cleaningFee"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t('panel.cleaningFee')}</FormLabel>
+                <FormControl>
+                  <Input inputMode="decimal" autoComplete="off" className="min-h-11 w-40" {...field} />
+                </FormControl>
+                <FormDescription>{t('panel.cleaningFeeHint')}</FormDescription>
                 <FormMessage />
               </FormItem>
             )}
@@ -304,9 +325,13 @@ export function ApartmentPanel({ open, onOpenChange, properties, apartment, pres
                   {t('panel.archive')}
                 </Button>
               )}
-              <Button type="button" variant="ghost" className="min-h-11 text-ds-accent-2-700" disabled={pending} onClick={() => setConfirming('delete')}>
-                {t('panel.delete')}
-              </Button>
+              {apartment.hasBookings ? (
+                <p className="w-full text-sm text-ds-neutral-800">{t('panel.hasBookingsHint')}</p>
+              ) : (
+                <Button type="button" variant="ghost" className="min-h-11 text-ds-accent-2-700" disabled={pending} onClick={() => setConfirming('delete')}>
+                  {t('panel.delete')}
+                </Button>
+              )}
             </div>
           )}
         </form>
@@ -317,7 +342,11 @@ export function ApartmentPanel({ open, onOpenChange, properties, apartment, pres
           open
           onOpenChange={(next) => !next && setConfirming(null)}
           title={t(`confirm.${confirming}Title`, { name: apartment.name })}
-          text={t(`confirm.${confirming}Text`)}
+          text={
+            confirming === 'archive' && apartment.futurePersons.length > 0
+              ? `${t('confirm.archiveText')} ${t('confirm.archiveFuture', { count: apartment.futurePersons.length })}`
+              : t(`confirm.${confirming}Text`)
+          }
           confirmLabel={t(confirming === 'archive' ? 'panel.archive' : 'panel.delete')}
           cancelLabel={t('confirm.cancel')}
           onConfirm={() => confirm(confirming)}

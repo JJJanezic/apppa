@@ -53,7 +53,7 @@ export function BlockPanel({ open, onOpenChange, apartments, block, owner, today
       : { apartmentId: active.length === 1 ? active[0].id : '', arrival: '', departure: '', reason: 'owner_use', note: '' },
   })
   const [apartmentId, arrival, departure, reason] = useWatch({ control: form.control, name: ['apartmentId', 'arrival', 'departure', 'reason'] })
-  const { warnings, version } = useBookingWarnings({ id: block?.id ?? null, apartmentId, arrival, departure, persons: 0 })
+  const { warnings, version, recheck } = useBookingWarnings({ id: block?.id ?? null, apartmentId, arrival, departure, persons: 0 })
   const warn = hasWarnings(warnings)
   const overrideOk = owner && override?.version === version
   const options = apartments.filter((a) => !a.archived || a.id === block?.apartment.id)
@@ -64,7 +64,11 @@ export function BlockPanel({ open, onOpenChange, apartments, block, owner, today
     const result = await callAction(() => saveBlock({ id: block?.id, updatedAt: block?.updatedAt, values, confirmOverride: overrideOk }))
     if (!result.ok) {
       if (result.error === 'staleBooking') setStale(true)
-      else setError(result.error)
+      else {
+        setError(result.error)
+        // Inzwischen neue Überschneidung (z. B. gleichzeitig angelegt): Warnung neu laden
+        if (result.error === 'warnings' || result.error === 'ownerOnly') recheck()
+      }
       return
     }
     toast.success(t('done.blockSaved'))

@@ -19,6 +19,7 @@ export type Database = {
           archived_at: string | null
           check_in: string
           check_out: string
+          cleaning_fee_cents: number | null
           created_at: string
           created_by: string | null
           id: string
@@ -36,6 +37,7 @@ export type Database = {
           archived_at?: string | null
           check_in?: string
           check_out?: string
+          cleaning_fee_cents?: number | null
           created_at?: string
           created_by?: string | null
           id?: string
@@ -53,6 +55,7 @@ export type Database = {
           archived_at?: string | null
           check_in?: string
           check_out?: string
+          cleaning_fee_cents?: number | null
           created_at?: string
           created_by?: string | null
           id?: string
@@ -121,6 +124,306 @@ export type Database = {
           tenant_id?: string
         }
         Relationships: []
+      }
+      booking_amounts: {
+        Row: {
+          cancellation_fee_cents: number | null
+          created_at: string
+          created_by: string | null
+          id: string
+          nights_cents: number
+          tenant_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          cancellation_fee_cents?: number | null
+          created_at?: string
+          created_by?: string | null
+          id: string
+          nights_cents: number
+          tenant_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          cancellation_fee_cents?: number | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          nights_cents?: number
+          tenant_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_amounts_booking_fkey"
+            columns: ["id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "booking_amounts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      booking_charges: {
+        Row: {
+          amount_cents: number
+          booking_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          label: string
+          position: number
+          tenant_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          amount_cents: number
+          booking_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          label: string
+          position: number
+          tenant_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          amount_cents?: number
+          booking_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          label?: string
+          position?: number
+          tenant_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_charges_booking_fkey"
+            columns: ["booking_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "booking_charges_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      booking_companions: {
+        Row: {
+          birth_date: string | null
+          booking_id: string
+          created_at: string
+          created_by: string | null
+          first_name: string
+          id: string
+          last_name: string
+          position: number
+          tenant_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          birth_date?: string | null
+          booking_id: string
+          created_at?: string
+          created_by?: string | null
+          first_name: string
+          id?: string
+          last_name: string
+          position: number
+          tenant_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          birth_date?: string | null
+          booking_id?: string
+          created_at?: string
+          created_by?: string | null
+          first_name?: string
+          id?: string
+          last_name?: string
+          position?: number
+          tenant_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_companions_booking_fkey"
+            columns: ["booking_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "booking_companions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      booking_numbers: {
+        Row: {
+          last_seq: number
+          tenant_id: string
+          year: number
+        }
+        Insert: {
+          last_seq: number
+          tenant_id: string
+          year: number
+        }
+        Update: {
+          last_seq?: number
+          tenant_id?: string
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_numbers_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bookings: {
+        Row: {
+          adults: number | null
+          apartment_id: string
+          arrival: string
+          block_reason: string | null
+          cancel_reason: string | null
+          cancelled_at: string | null
+          cancelled_by: string | null
+          channel: string
+          check_in: string | null
+          check_out: string | null
+          child_ages: number[]
+          created_at: string
+          created_by: string | null
+          departure: string
+          guest_id: string | null
+          id: string
+          kind: string
+          note: string | null
+          number: string | null
+          number_seq: number | null
+          number_year: number | null
+          option_until: string | null
+          override_at: string | null
+          override_by: string | null
+          price_review: boolean
+          tenant_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          adults?: number | null
+          apartment_id: string
+          arrival: string
+          block_reason?: string | null
+          cancel_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          channel?: string
+          check_in?: string | null
+          check_out?: string | null
+          child_ages?: number[]
+          created_at?: string
+          created_by?: string | null
+          departure: string
+          guest_id?: string | null
+          id?: string
+          kind: string
+          note?: string | null
+          number?: string | null
+          number_seq?: number | null
+          number_year?: number | null
+          option_until?: string | null
+          override_at?: string | null
+          override_by?: string | null
+          price_review?: boolean
+          tenant_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          adults?: number | null
+          apartment_id?: string
+          arrival?: string
+          block_reason?: string | null
+          cancel_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          channel?: string
+          check_in?: string | null
+          check_out?: string | null
+          child_ages?: number[]
+          created_at?: string
+          created_by?: string | null
+          departure?: string
+          guest_id?: string | null
+          id?: string
+          kind?: string
+          note?: string | null
+          number?: string | null
+          number_seq?: number | null
+          number_year?: number | null
+          option_until?: string | null
+          override_at?: string | null
+          override_by?: string | null
+          price_review?: boolean
+          tenant_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bookings_apartment_fkey"
+            columns: ["apartment_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "apartments"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "bookings_guest_fkey"
+            columns: ["guest_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "guests"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "bookings_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       guest_duplicate_dismissals: {
         Row: {
@@ -686,6 +989,25 @@ export type Database = {
       }
       anonymize_guest: { Args: { p_guest_id: string }; Returns: undefined }
       belongs_to_deactivated_tenant: { Args: never; Returns: boolean }
+      booking_warnings: {
+        Args: {
+          p_apartment_id: string
+          p_arrival: string
+          p_departure: string
+          p_exclude?: string
+          p_persons: number
+          p_tenant_id: string
+        }
+        Returns: Json
+      }
+      cancel_booking: {
+        Args: { p_booking_id: string; p_fee_cents?: number; p_reason?: string }
+        Returns: undefined
+      }
+      confirm_option: {
+        Args: { p_booking_id: string; p_confirm?: boolean }
+        Returns: Json
+      }
       create_apartment_with_property: {
         Args: {
           p_check_in: string
@@ -765,6 +1087,28 @@ export type Database = {
           role: Database["public"]["Enums"]["member_role"]
           tenant_name: string
         }[]
+      }
+      save_block: {
+        Args: { p_confirm?: boolean; p_input: Json }
+        Returns: Json
+      }
+      save_booking: {
+        Args: { p_confirm?: boolean; p_input: Json }
+        Returns: Json
+      }
+      save_booking_note: {
+        Args: {
+          p_booking_id: string
+          p_fee_cents?: number
+          p_note: string
+          p_set_fee?: boolean
+          p_updated_at: string
+        }
+        Returns: undefined
+      }
+      save_companions: {
+        Args: { p_booking_id: string; p_companions: Json; p_updated_at: string }
+        Returns: undefined
       }
     }
     Enums: {

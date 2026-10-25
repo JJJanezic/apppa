@@ -141,7 +141,7 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
   const persons = (Number(adults) || 0) + childRows.length
   const suggestion = apartment ? suggestedNightsCents(apartment.priceCents, nights) : null
 
-  const { warnings, version } = useBookingWarnings({ id: booking?.id ?? null, apartmentId, arrival, departure, persons })
+  const { warnings, version, recheck } = useBookingWarnings({ id: booking?.id ?? null, apartmentId, arrival, departure, persons })
   const warn = hasWarnings(warnings)
   const overrideOk = owner && override?.version === version
   const blocked = warn && !overrideOk
@@ -203,7 +203,11 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
     )
     if (!result.ok) {
       if (result.error === 'staleBooking') setStale(true)
-      else setError(result.error)
+      else {
+        setError(result.error)
+        // Inzwischen neue Überschneidung (z. B. gleichzeitig angelegt): Warnung neu laden
+        if (result.error === 'warnings' || result.error === 'ownerOnly') recheck()
+      }
       return
     }
     toast.success(booking ? t('done.saved') : t('done.created'))

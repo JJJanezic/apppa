@@ -503,18 +503,94 @@ Ergänzungen bestehender Seiten
 
 **Prüfregeln** (`src/lib/validation/bookings.ts`, Unit-Tests): Zeitraum (Abreise nach Anreise, höchstens 365 Nächte, Anreise höchstens 3 Jahre voraus, Vergangenheit erlaubt), Gast, Erwachsene 1–50, Kinderalter 0–17, Option mit Ablaufdatum ab heute, Übernachtungspreis Pflicht nur für Inhaber, Positionen, Sperrgrund, Mitreisende, Storno.
 
-**Vorläufig bis zum Backend**
-- `src/lib/bookings-data.ts`: Wohnungen echt aus der Datenbank (Reinigungsgebühr noch leer); Buchungen sind Beispiele (nur in der Entwicklung)
-- `src/app/(app)/buchungen/actions.ts`: Speichern, Sperre speichern/löschen, Stornieren, Bestätigen, Mitreisende, Notiz → „wird eingerichtet“; die Warnungs-Vorschau arbeitet auf den Beispielen
-- **Für /backend offen:**
-  - Feld „Reinigungsgebühr“ im Wohnungsformular (PROJ-6);
-  - Hinweise beim Archivieren und Senken der Personenzahl;
-  - Aufenthalte und Buchungsliste im Gast-Detail und in der Gästeliste (PROJ-7);
-  - Dublettenprüfung für Mitarbeiter: `checkGuestDuplicates` ist bisher nur für Inhaber erlaubt; Mitarbeiter sehen im Buchungsformular deshalb noch keine Dublettenwarnung.
+**Ursprünglich vorläufig** (seit dem Backend erledigt): Beispielbuchungen, „wird eingerichtet“-Aktionen, Reinigungsgebühr, Hinweise bei Wohnungen, Aufenthalte bei Gästen, Dublettenprüfung für Mitarbeiter. Siehe „Implementation Notes (Backend)“.
 
 **Geprüft**
 - Typprüfung, Lint, Build grün; Unit-Tests 309/309 (davon 30 neu)
 - Im Browser (Desktop 1440 px, Handy 375 px) als Inhaber und als Mitarbeiter: Liste mit Monatsleiste und Karten, Detail mit Preis (Inhaber) bzw. ohne Preis und ohne „Stornieren“ (Mitarbeiter), Formular mit Preisvorschlag, Kinderalter und Kapazitätswarnung inkl. „Trotzdem speichern“
+
+## Implementation Notes (Backend)
+**Stand 2026-10-26.** Migration `supabase/migrations/20261026130000_bookings.sql`, eingespielt nur in „apppa-dev“; `npm run db:types` erzeugt; `db advisors` ohne Befund.
+
+**Tabellen** (alle mit Kundenkennung, Standardfeldern und Änderungsprotokoll)
+- `bookings`: Buchungen, Optionen und Sperren (`kind`).
+  - **Nummer:** Jahr + laufende Nummer; `number` wird daraus berechnet („2026-0042“, ab 10.000 fünfstellig).
+  - **Regeln in der Datenbank:**
+    - Abreise nach Anreise, höchstens 365 Nächte;
+    - Kinderalter 0–17, höchstens 50 Personen;
+    - Buchung/Option mit Gast, Erwachsenen und Nummer;
+    - Sperre mit Grund, ohne Gast, Nummer und Storno;
+    - Ablaufdatum genau bei Optionen;
+    - Notiz Pflicht beim Sperrgrund „Sonstiges“.
+  - **Verweise auf Wohnung und Gast** mit Löschsperre (NO ACTION). Das Löschen eines ganzen Kunden bleibt möglich.
+- `booking_amounts` (Übernachtungspreis, Stornogebühr) und `booking_charges` (Positionen): nur Inhaber und Admin lesen
+- `booking_companions`: Mitreisende, für alle Mitglieder lesbar
+- `booking_numbers`: Nummernkreis je Kunde und Jahr, nur intern
+- `apartments`: neues Feld `cleaning_fee_cents`, Schlüssel `(id, tenant_id)` für Verweise
+
+**Rechte:** Lesen über Zugriffsregeln wie bisher. Geschrieben wird nur über geschützte Funktionen (eigene Rollenprüfung, alles oder nichts); direkt erlaubt ist nur „Sperre löschen“ für Inhaber.
+
+**Funktionen** (privat mit Rollenprüfung, öffentliche Hülle für die App)
+- `save_booking(p_input, p_confirm)` legt an oder ändert.
+  - **Prüft:**
+    - Mitgliedschaft und Stand (`updated_at`);
+    - ob die Buchung aktiv ist;
+    - archivierte Wohnung und anonymisierten Gast;
+    - Mitreisende gegen die Personenzahl.
+  - **Gleichzeitige Speichervorgänge** je Wohnung laufen nacheinander (Transaktionssperre je Wohnung).
+  - **Bei Überschneidung oder Überbelegung** ohne Bestätigung des Inhabers → `{ status: 'warnings' }`, es wird nichts gespeichert.
+  - **Beim Speichern:**
+    - legt bei Bedarf den neuen Gast im selben Vorgang an;
+    - vergibt die Nummer;
+    - schreibt die Beträge des Inhabers bzw. für Mitarbeiter den Vorschlag (Standardpreis × Nächte + „Reinigung“).
+  - **„Preis prüfen“:** wird gesetzt, wenn ein Mitarbeiter Zeitraum oder Wohnung ändert. Speichert der Inhaber, verschwindet es wieder.
+- Weitere Funktionen:
+  - `save_block`;
+  - `cancel_booking`: nur Inhaber, mit Grund und Gebühr;
+  - `confirm_option`: gleiche Nummer, erneute Prüfung, Inhaber kann übersteuern;
+  - `save_companions`: höchstens Personen minus 1;
+  - `save_booking_note`: Notiz; Stornogebühr nur Inhaber.
+- `booking_warnings`: Vorschau für das Formular (nur Mitglieder)
+- Fehlercodes P0801–P0808 → Meldungen in `src/app/(app)/buchungen/actions.ts`
+
+**PROJ-6/7 angeschlossen**
+- **Datenbank-Funktionen aus PROJ-7:**
+  - `merge_guests` hängt Buchungen um;
+  - `delete_guest` anonymisiert, sobald der Gast Einträge hat (auch Optionen und stornierte);
+  - `anonymize_guest` entfernt die Mitreisenden seiner Buchungen samt Altwerten im Protokoll;
+  - `guest_list` zählt Aufenthalte (aktive Buchungen ohne Optionen) und den letzten Aufenthalt.
+- Gast-Detail: Aufenthalte (Anzahl, letzter, nächster, Kanäle) und Liste der Buchungen; Löschdialog entscheidet nach „hat Einträge“
+- Dublettenwarnung (`checkGuestDuplicates`) jetzt für alle Mitglieder (Mitarbeiter im Buchungsformular)
+- **Wohnungen:**
+  - Feld „Reinigungsgebühr“;
+  - kein „Endgültig löschen“ mehr bei Wohnungen mit Einträgen, stattdessen ein Hinweis;
+  - Archivieren nennt die Zahl künftiger Buchungen;
+  - Hinweis, wenn künftige Buchungen mehr Personen haben als die neue Personenzahl.
+
+**App**
+- `src/lib/bookings-data.ts`:
+  - Monatsliste und Suche (Gast über den Suchtext aus PROJ-7, Nummer);
+  - Kennzeichen „überschneidet sich“ aus den aktiven Einträgen der betroffenen Wohnungen;
+  - Detail mit Mitreisenden, Beträgen (nur Inhaber) und Namen für Storno und Übersteuern.
+- `src/app/(app)/buchungen/actions.ts`: ruft die Funktionen auf; bei neuen Warnungen beim Speichern lädt das Formular die Warnung neu
+
+**Tests**
+- `supabase/tests/bookings.integration.test.ts` (13):
+  - Abschottung, Beträge nur für Inhaber;
+  - Nummern fortlaufend und eindeutig, auch bei gleichzeitigem Anlegen;
+  - Preisvorschlag und „Preis prüfen“ für Mitarbeiter;
+  - neuer Gast alles oder nichts;
+  - archivierte Wohnung und anonymisierter Gast;
+  - Wechseltag, Warnungen ohne Speichern, Übersteuern nur Inhaber, Überbelegung;
+  - stornierte und verfallene Einträge zählen nicht;
+  - Option bestätigen mit gleicher Nummer;
+  - Sperren (anlegen alle, löschen nur Inhaber), Löschsperre der Wohnung;
+  - Mitreisende (Höchstzahl, Stand, Personenzahl);
+  - Zusammenführen, Anonymisieren samt Protokoll;
+  - Aufenthalte in der Gästeliste.
+- Unit-Tests 234/234 grün (inkl. Reinigungsgebühr); Lint und Typprüfung grün
+- Rauchtest im Browser: Mitarbeiter legt Buchung mit neuem Gast an (Preisvorschlag € 420 = 3 × € 120 + Reinigung € 60), Inhaber storniert mit Gebühr
+- Hinweis: Beim Lauf der ganzen Suite schlug einmal ein Test aus PROJ-4 fehl (Anmelde-Grenze von Supabase); einzeln läuft er grün
 
 ## QA Test Results
 _To be added by /qa_

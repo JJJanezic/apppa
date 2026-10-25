@@ -41,10 +41,16 @@ export type Apartment = {
   kind: ApartmentKind
   // Standardpreis pro Nacht in Cent; null = keiner
   priceCents: number | null
+  // Reinigungsgebühr in Cent (PROJ-8); null = keine
+  cleaningFeeCents: number | null
   checkIn: string
   checkOut: string
   note: string | null
   archivedAt: string | null
+  // PROJ-8: Hat die Wohnung Buchungen oder Sperren (auch stornierte)? Dann kein „Endgültig löschen“
+  hasBookings: boolean
+  // Personenzahl der künftigen aktiven Buchungen und Optionen (Hinweise beim Archivieren und Senken der Kapazität)
+  futurePersons: number[]
 }
 
 export type Property = {
