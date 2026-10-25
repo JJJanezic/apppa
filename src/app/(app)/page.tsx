@@ -39,7 +39,9 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   if (target !== '/' && isPathAvailable(new URL(target, 'https://app.local').pathname, viewerOf(shell))) redirect(target)
   const invitations = await getMyInvitations()
   const noTenant = tenant.list !== null && tenant.list.length === 0
-  if (noTenant && person.isAdmin) redirect('/betreiber')
+  // Admin ohne eigenen Kunden → Betreiber-Bereich; aber nicht, solange eine Einladung an ihn offen ist,
+  // sonst könnte er sie nie annehmen (sie erscheint nur hier)
+  if (noTenant && person.isAdmin && invitations.length === 0) redirect('/betreiber')
   const deactivated = noTenant && (await belongsToDeactivatedTenant())
   const now = new Date()
 

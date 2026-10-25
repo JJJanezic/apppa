@@ -536,6 +536,15 @@ Die Server-Aktionen der Seiten prüfen den Admin ebenfalls (erste Ebene) und kü
   - Die Server-Aktionen laden die Detailseite nur noch nach Erfolg neu, damit kein „Seite nicht gefunden“ dazwischenkommt.
   - E2E-Test ergänzt.
 
+#### BUG-5: Betreiber-Admin ohne eigenen Kunden kann eine Einladung nicht annehmen (gefunden 2026-10-26)
+- **Severity:** Medium
+- **Steps to Reproduce:**
+  1. Als Betreiber-Admin ohne Kundenmitgliedschaft einen Kunden anlegen und sich selbst als Inhaber einladen.
+  2. Hinweis-Mail öffnen, „Zu apppa“ bzw. Dashboard aufrufen.
+  3. Expected: Kasten „Einladung annehmen / ablehnen“ auf dem Dashboard.
+  4. Actual: Das Dashboard leitet sofort in den Betreiber-Bereich weiter; der Kunde bleibt auf „Einladung offen“.
+- **Status:** Behoben 2026-10-26. Die Weiterleitung greift nur noch, wenn keine Einladung an den Admin offen ist (`src/app/(app)/page.tsx`). E2E PROJ-5 (16) grün.
+
 ### Summary
 - **Acceptance Criteria:** 42/42 bestanden (nach den Behebungen).
 - **Bugs Found:** 4 total (0 critical, 0 high, 2 medium, 2 low); alle am 2026-10-24 behoben.
