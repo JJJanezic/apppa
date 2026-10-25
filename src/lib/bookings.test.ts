@@ -110,6 +110,8 @@ describe('Personen und Preis', () => {
     expect(overCapacity(3, [], 4, 2)).toEqual({ persons: 3, maxGuests: 4, adults: 3, maxAdults: 2 })
     expect(overCapacity(1, [3, 5, 8], 4, 2)).toBeNull()
     expect(overCapacity(2, [3, 5], 4, 2)).toBeNull()
+    // Kind älter als die letzte Preisstufe zahlt den Erwachsenenpreis, zählt aber als Kind
+    expect(overCapacity(2, [14], 4, 2)).toBeNull()
   })
 
   const flat = { priceMode: 'apartment' as const, priceCents: 12000, adultPriceCents: null, childPrices: [] }

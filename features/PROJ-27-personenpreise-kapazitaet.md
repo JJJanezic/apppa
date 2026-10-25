@@ -1,6 +1,6 @@
 # PROJ-27: Personenpreise und Kapazität nach Erwachsenen
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-10-25
 **Last Updated:** 2026-10-25
 
@@ -267,3 +267,99 @@ Keine neuen Pakete.
   - Vorschlag € 510 und vereinbarter Preis € 535;
   - Erwachsenen-Warnung und Wohnungspreis.
 - **Regression:** PROJ-6 und PROJ-8 grün (Desktop). Dafür wurden die Beschriftungen „Personen (gesamt)“ und „Wohnungspreis pro Nacht (€)“ in den Tests angepasst.
+
+---
+
+## QA Test Results
+
+**Tested:** 2026-10-25
+**App URL:** http://localhost:3000 (Dev, Supabase „apppa-dev“)
+**Tester:** QA Engineer (AI)
+
+**Umgebung:**
+- Die Prüfung von `.env.local` per `grep` wurde abgelehnt (Dateizugriff gesperrt). Schutz besteht trotzdem: Die Test-Helfer brechen bei Staging- oder Produktions-Refs ab.
+- Supabase-CLI und MCP zeigen auf „apppa-dev“ (`nizgfmvjplhegoosanmu`).
+- Browser: nur Chromium. Firefox und WebKit sind auf diesem Rechner nicht installiert; die Installation wurde früher abgebrochen (Speicher). Die Änderungen betreffen nur Formulare und Berechnungen, kein browserspezifisches Verhalten.
+
+**Automatische Tests**
+- Vitest Unit: 241/241 grün (eine Prüfung im bestehenden Test ergänzt: Kind 14 zählt als Kind).
+- Integration `bookings.integration.test.ts` + Wohnungen: 32/32 grün (davon 6 für PROJ-27).
+- E2E `tests/PROJ-27-personenpreise-kapazitaet.spec.ts`: 8 Abläufe im Projekt „desktop“, Layout/axe zusätzlich „tablet“ und „mobile“, alle grün. Neu in der QA:
+  - Mitarbeiter sieht keine Preise, ist bei 3 Erwachsenen blockiert, seine Buchung erhält € 510 + Reinigung einmal;
+  - Mitarbeiter ändert Erwachsene → Preis bleibt, Inhaber sieht „Preis prüfen“; Inhaber übersteuert die Erwachsenen-Warnung;
+  - bestehende Buchung behält ihre Beträge nach Preisänderung der Wohnung.
+- Datenbank direkt („apppa-dev“, nur lesend): Vorschlag € 510; Altersgrenzen einschließlich (2 → Stufe 1, 3 und 11 → Stufe 2, 12 → Erwachsenenpreis); Prüfregel lehnt doppelte, gebrochene, als Text angegebene, zusätzliche Felder und Alter außerhalb 0–17 ab.
+- Regression (desktop): PROJ-6 13/13; PROJ-8 28/28 in 4 Paketen. Ein Paket scheiterte zuerst an der Supabase-Grenze „Request rate limit reached“ beim Anmelden und lief nach der Wartezeit grün.
+
+### Acceptance Criteria Status
+
+#### Wohnung (7/7)
+- [x] Erwachsenen-Grenze größer als Personenzahl oder kleiner als 1 → Meldung am Feld
+- [x] Bestehende Wohnung: Preisart „Wohnungspreis“ mit bisherigem Preis, Erwachsenen-Grenze leer
+- [x] „Personenpreise“ ohne Erwachsenenpreis → „Bitte den Erwachsenenpreis eingeben.“
+- [x] Kinderstufen: nicht aufsteigend, doppelt oder außerhalb 0–17 → Meldung; höchstens drei Stufen (Knopf verschwindet, Datenbank lehnt mehr ab)
+- [x] Gespeicherte Personenpreise beim erneuten Öffnen sichtbar; Übersicht „max. 2 Erw.“ und „€ 50,00 / Erw.“
+- [x] Senken der Erwachsenen-Grenze zeigt die Zahl künftiger Buchungen mit mehr Erwachsenen
+- [x] Mitarbeiter sehen keine Preise (Wohnungsverwaltung nur für Inhaber; Buchungsformular ohne Beträge)
+
+#### Buchung (10/10)
+- [x] Vorschlag € 510 mit Rechnung „3 Nächte × (3 × € 50 + 1 × € 0 + 1 × € 20)“
+- [x] Vorschlag folgt Erwachsenen, Kindern und Alter; nach Handänderung nur „Neuen Vorschlag … übernehmen“
+- [x] Wohnungspreis: Wohnungspreis × Nächte, unabhängig von Personen
+- [x] Mitarbeiter-Buchung erhält Personenpreis-Vorschlag plus Reinigung
+- [x] Mitarbeiter ändert Personen → Preis unverändert, Inhaber sieht „Preis prüfen“ (Hinweistext siehe BUG-1)
+- [x] 3 Erwachsene bei max. 2 → Warnung; Mitarbeiter blockiert, Inhaber bestätigt „Trotzdem speichern“
+- [x] 1 Erwachsener + 3 Kinder → keine Warnung
+- [x] Reinigung genau einmal als Position, unabhängig von Nächten und Personen
+- [x] Vereinbarter Preis € 450 + Reinigung € 70 + Haustier € 15 = € 535, ohne Warnung
+- [x] Bestehende Buchung behält ihre Beträge nach Preisänderung der Wohnung
+
+### Edge Cases Status
+- [x] Wohnung ohne Erwachsenen-Grenze: nur die Gesamtzahl zählt
+- [x] Keine Kinderstufen: alle Kinder zahlen den Erwachsenenpreis (Unit + Datenbank)
+- [x] Kind älter als die letzte Stufe: Erwachsenenpreis, zählt aber als Kind (2 Erwachsene + Kind 14 bei max. 2 Erwachsenen ohne Warnung, Unit)
+- [x] Bestehende Buchung öffnen: der gespeicherte Preis wird nicht durch den Vorschlag überschrieben (Bestand gilt als von Hand gesetzt)
+- [x] Wohnungspreis leer: kein Vorschlag; Mitarbeiter-Buchung € 0 und „Preis prüfen“ (Integration)
+- [x] Wechsel der Wohnung in der Buchung: Vorschlag nach der neuen Wohnung (E2E Top 1 → Top 2)
+- [x] Wechsel der Preisart: Werte der anderen Preisart bleiben gespeichert
+- [ ] BUG-2: sehr große Beträge bei Mitarbeiter-Buchungen (siehe unten)
+
+### Security Audit Results
+- [x] Keine neuen Tabellen, keine RLS-Änderung; neue Spalten mit denselben Spaltenrechten wie der Standardpreis
+- [x] Mitarbeiter können Preis-Konfiguration nicht ändern (Integration: RLS-Update nur Inhaber)
+- [x] `booking_warnings` prüft die Mitgliedschaft; fremde Wohnungen liefern keine Kapazitätsdaten; `anon` ohne Ausführungsrecht
+- [x] `suggested_nights_cents` und `booking_warnings_for` sind für `authenticated` nicht direkt aufrufbar
+- [x] Kinderstufen (jsonb) werden in der Datenbank streng geprüft: genau zwei Zahlenfelder, keine Fremdfelder, keine Texte → kein Einschleusen beliebiger Daten
+- [x] Mitarbeiter können keinen Preis setzen: Beträge aus der Eingabe werden für Mitarbeiter ignoriert, der Vorschlag entsteht in der Datenbank
+- [x] Erwachsenenpreise sind für Mitarbeiter technisch lesbar, aber unsichtbar (wie Standardpreis, Entscheidung PROJ-8)
+
+### Bugs Found
+
+#### BUG-1: Hinweis „Preis prüfen“ nennt bei Personenänderung den falschen Grund
+- **Severity:** Low
+- **Steps to Reproduce:**
+  1. Wohnung mit Personenpreisen, Buchung vorhanden.
+  2. Mitarbeiter ändert nur die Zahl der Erwachsenen und speichert.
+  3. Inhaber öffnet die Buchung.
+  4. Expected: Hinweis, dass ein Mitarbeiter Zeitraum, Wohnung oder Personen geändert hat (bzw. allgemein „Bitte den Preis prüfen“).
+  5. Actual: „Ein Mitarbeiter hat Zeitraum oder Wohnung geändert. Bitte den Preis prüfen.“ (`messages/de.json` `detail.priceReviewNote`). Gleiches gilt schon seit PROJ-8 für Mitarbeiter-Buchungen in Wohnungen ohne Preis.
+- **Priority:** Nice to have (Textänderung)
+
+#### BUG-2: Mitarbeiter-Buchung mit extrem hohem Vorschlag scheitert mit allgemeiner Fehlermeldung
+- **Severity:** Low
+- **Steps to Reproduce:**
+  1. Wohnung mit Personenpreisen, z. B. 50 Personen und Erwachsenenpreis € 10.000.
+  2. Mitarbeiter legt eine lange Buchung (z. B. 365 Nächte) mit vielen Erwachsenen an.
+  3. Expected: Buchung wird gespeichert oder es erscheint eine verständliche Meldung.
+  4. Actual: Der Vorschlag überschreitet die Grenze von € 1.000.000 (`booking_amounts_nights_cents_check`) bzw. den Ganzzahlbereich („integer out of range“, in „apppa-dev“ nachgestellt); der Mitarbeiter sieht nur eine allgemeine Fehlermeldung. Bei Wohnungspreisen bestand das schon in PROJ-8.
+- **Priority:** Nice to have (nur bei unrealistischen Werten)
+
+### Beobachtung (kein Bug)
+- „Wohnung mit neuem Objekt anlegen“ schreibt die Preis-Konfiguration in einem zweiten Schritt (wie schon die Reinigungsgebühr seit PROJ-8). Da Browser und Server dieselben Prüfregeln nutzen, ist ein Scheitern des zweiten Schritts praktisch ausgeschlossen.
+
+### Summary
+- **Acceptance Criteria:** 17/17 passed
+- **Bugs Found:** 2 total (0 critical, 0 high, 0 medium, 2 low)
+- **Security:** Pass
+- **Production Ready:** YES
+- **Recommendation:** Deploy (die beiden Low-Bugs können vorher oder später behoben werden)

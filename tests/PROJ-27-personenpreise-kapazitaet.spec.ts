@@ -261,6 +261,138 @@ test.describe('Buchung mit Personenpreisen', () => {
   })
 })
 
+async function addBooking(tenantId: string, apartmentId: string, guestId: string, seq: number, nightsCents: number) {
+  const { data, error } = await service()
+    .from('bookings')
+    .insert({
+      tenant_id: tenantId, apartment_id: apartmentId, kind: 'booking', arrival: FUTURE, departure: day(3), guest_id: guestId,
+      adults: 2, child_ages: [8], number_year: 2030, number_seq: seq,
+    } as never)
+    .select('id')
+    .single()
+  if (error) throw error
+  const id = (data as { id: string }).id
+  const { error: amountError } = await service().from('booking_amounts').insert({ id, tenant_id: tenantId, nights_cents: nightsCents } as never)
+  if (amountError) throw amountError
+  return id
+}
+
+test.describe('Mitarbeiter und bestehende Buchungen', () => {
+  test('AC: Mitarbeiter sieht keine Preise, ist bei 3 Erwachsenen blockiert; seine Buchung erhält € 510 + Reinigung einmal', async ({ page, users }) => {
+    desktopOnly()
+    const owner = await users({ displayName: 'Olga Owner' })
+    const staff = await users({ displayName: 'Sam Staff' })
+    const tenantId = await createTenant('QA27 Testkunde', [
+      { user: owner, role: 'owner' },
+      { user: staff, role: 'staff' },
+    ])
+    const { data: property } = await service()
+      .from('properties')
+      .insert({ tenant_id: tenantId, name: 'Haus See', street: 'Seeweg 12', postal_code: '5340', city: 'St. Gilgen', municipality_code: '50330' })
+      .select('id')
+      .single()
+    await addApartment(tenantId, property!.id, 'Top 1', PER_PERSON)
+    await addGuest(tenantId, 'Huber', 'Anna')
+    await signInAs(page, staff)
+
+    await newBooking(page, 'Haus See · Top 1')
+    await expect(panel(page).getByLabel('Übernachtungspreis (€)')).toHaveCount(0)
+    await expect(panel(page).getByText(/Vorschlag/)).toHaveCount(0)
+    await expect(panel(page).getByText('€')).toHaveCount(0)
+    await panel(page).getByLabel('Erwachsene').fill('3')
+    const alert = panel(page).getByRole('alert')
+    await expect(alert.getByText('3 Erwachsene, die Wohnung ist für höchstens 2 Erwachsene ausgelegt.')).toBeVisible()
+    await expect(panel(page).getByLabel(/Trotzdem speichern/)).toHaveCount(0)
+    await expect(panel(page).getByRole('button', { name: 'Buchung speichern' })).toBeDisabled()
+
+    await panel(page).getByLabel('Erwachsene').fill('2')
+    await addChildren(page, [1, 8, 14])
+    await panel(page).getByLabel('Gast suchen').fill('Huber')
+    await page.getByRole('option', { name: /Huber, Anna/ }).click()
+    await page.waitForTimeout(800)
+    await expect(panel(page).getByRole('alert')).toHaveCount(0)
+    await panel(page).getByRole('button', { name: 'Buchung speichern' }).click()
+    await expect(page).toHaveURL(/\/buchungen\/[0-9a-f-]{36}$/)
+    const id = page.url().split('/').pop()!
+    const { data: amounts } = await service().from('booking_amounts').select('nights_cents').eq('id', id).single()
+    expect(amounts?.nights_cents).toBe(51000)
+    const { data: charges } = await service().from('booking_charges').select('label, amount_cents').eq('booking_id', id)
+    expect(charges).toEqual([{ label: 'Reinigung', amount_cents: 6000 }])
+  })
+
+  test('AC: Mitarbeiter ändert Erwachsene; Preis bleibt, Inhaber sieht „Preis prüfen“; Inhaber übersteuert die Erwachsenen-Warnung', async ({ page, users }) => {
+    desktopOnly()
+    const owner = await users({ displayName: 'Olga Owner' })
+    const staff = await users({ displayName: 'Sam Staff' })
+    const tenantId = await createTenant('QA27 Testkunde', [
+      { user: owner, role: 'owner' },
+      { user: staff, role: 'staff' },
+    ])
+    const { data: property } = await service()
+      .from('properties')
+      .insert({ tenant_id: tenantId, name: 'Haus See', street: 'Seeweg 12', postal_code: '5340', city: 'St. Gilgen', municipality_code: '50330' })
+      .select('id')
+      .single()
+    const apt = await addApartment(tenantId, property!.id, 'Top 1', PER_PERSON)
+    const guest = await addGuest(tenantId, 'Huber', 'Anna')
+    const booking = await addBooking(tenantId, apt, guest, 1, 45000)
+    await signInAs(page, staff)
+
+    await page.goto(`/buchungen/${booking}`)
+    await ready(page)
+    await page.getByRole('button', { name: 'Bearbeiten', exact: true }).click()
+    await panel(page).getByLabel('Erwachsene').fill('1')
+    await panel(page).getByRole('button', { name: 'Änderungen speichern' }).click()
+    await expect(page.getByText('Änderungen gespeichert.')).toBeVisible()
+    const { data: after } = await service().from('bookings').select('adults, price_review').eq('id', booking).single()
+    expect(after).toEqual({ adults: 1, price_review: true })
+    expect((await service().from('booking_amounts').select('nights_cents').eq('id', booking).single()).data?.nights_cents).toBe(45000)
+
+    await page.context().clearCookies()
+    await signInAs(page, owner)
+    await page.goto(`/buchungen?monat=${FUTURE.slice(0, 7)}`)
+    await ready(page)
+    await expect(page.getByRole('table').getByText('Preis prüfen')).toBeVisible()
+
+    // Inhaber: 3 Erwachsene bei max. 2 → bewusst übersteuern
+    await page.goto(`/buchungen/${booking}`)
+    await ready(page)
+    await page.getByRole('button', { name: 'Bearbeiten', exact: true }).click()
+    await panel(page).getByLabel('Erwachsene').fill('3')
+    await expect(panel(page).getByRole('alert').getByText('3 Erwachsene, die Wohnung ist für höchstens 2 Erwachsene ausgelegt.')).toBeVisible()
+    await panel(page).getByLabel(/Trotzdem speichern/).click()
+    await panel(page).getByRole('button', { name: 'Änderungen speichern' }).click()
+    await expect(page.getByText('Änderungen gespeichert.')).toBeVisible()
+    const { data: owned } = await service().from('bookings').select('adults, price_review, override_at').eq('id', booking).single()
+    expect(owned?.adults).toBe(3)
+    expect(owned?.price_review).toBe(false)
+    expect(owned?.override_at).not.toBeNull()
+    // vereinbarter Preis bleibt (Bestand gilt als von Hand gesetzt)
+    expect((await service().from('booking_amounts').select('nights_cents').eq('id', booking).single()).data?.nights_cents).toBe(45000)
+  })
+
+  test('AC: bestehende Buchung behält ihre Beträge, wenn der Inhaber die Preise der Wohnung ändert', async ({ page, users }) => {
+    desktopOnly()
+    const { tenantId, propertyId } = await setup(page, users)
+    const apt = await addApartment(tenantId, propertyId, 'Top 1', PER_PERSON)
+    const guest = await addGuest(tenantId, 'Huber', 'Anna')
+    const booking = await addBooking(tenantId, apt, guest, 1, 45000)
+    await openApartments(page)
+    await page.getByRole('button', { name: /Top 1/ }).first().click()
+    await panel(page).getByLabel('Erwachsener pro Nacht (€)').fill('80')
+    await panel(page).getByRole('radio', { name: 'Wohnungspreis' }).click()
+    await panel(page).getByRole('button', { name: 'Speichern', exact: true }).click()
+    await expect(panel(page)).toHaveCount(0)
+
+    await page.goto(`/buchungen/${booking}`)
+    await ready(page)
+    await expect(page.getByText(money('450,00')).first()).toBeVisible()
+    const { data } = await service().from('apartments').select('price_mode, adult_price_cents').eq('id', apt).single()
+    expect(data).toEqual({ price_mode: 'apartment', adult_price_cents: 8000 })
+    expect((await service().from('booking_amounts').select('nights_cents').eq('id', booking).single()).data?.nights_cents).toBe(45000)
+  })
+})
+
 test.describe('Layout und Barrierefreiheit', () => {
   test('Wohnungs-Panel mit Personenpreisen: keine automatisch erkennbaren WCAG-2.1-AA-Verstöße, kein seitliches Scrollen', async ({ page, users }) => {
     const { tenantId, propertyId } = await setup(page, users)
