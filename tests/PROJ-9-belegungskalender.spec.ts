@@ -251,6 +251,16 @@ test.describe('Zeitleiste', () => {
     await expect(bar(page, 'Buchung', 'Lukas Brenner')).toHaveCount(0)
   })
 
+  test('QA BUG-2: schneller Doppelklick auf „Zurück“ blättert zwei Wochen', async ({ page, users }) => {
+    desktopOnly()
+    const { tenantId, signIn } = await setup(page, users)
+    await withCalendar(tenantId)
+    await signIn()
+    await open(page)
+    await page.getByRole('button', { name: 'Zurück' }).dblclick()
+    await expect(page).toHaveURL(new RegExp(`ab=${day(-16)}`))
+  })
+
   test('Eintrag vor bzw. nach dem Bereich wird am Rand abgeschnitten und bleibt anklickbar', async ({ page, users }) => {
     desktopOnly()
     const { tenantId, signIn } = await setup(page, users)
@@ -580,6 +590,29 @@ test.describe('Sicherheit', () => {
 })
 
 test.describe('Layout und Barrierefreiheit', () => {
+  test('QA BUG-3/4: am Handy bleibt das Label langer Aufenthalte sichtbar, links neben der Namensspalte scrollt nichts durch', async ({ page, users }) => {
+    test.skip(test.info().project.name !== 'mobile', 'nur Handy')
+    const { tenantId, signIn } = await setup(page, users)
+    await withCalendar(tenantId)
+    await signIn()
+    await open(page)
+    await timeline(page).evaluate((el) => el.scrollBy(400, 0))
+    await expect.poll(() => timeline(page).evaluate((el) => el.scrollLeft)).toBeGreaterThan(300)
+    const box = await page.evaluate(() => {
+      const region = document.querySelector('[role="region"]')!.getBoundingClientRect()
+      const name = [...document.querySelectorAll('[role="region"] span')].find((el) => el.textContent === 'Loft')!.closest('.sticky')!.getBoundingClientRect()
+      const button = [...document.querySelectorAll('button')].find((b) => b.getAttribute('aria-label')?.startsWith('Buchung: Petra Wallner'))!
+      const label = button.querySelector('span')!.getBoundingClientRect()
+      const probe = document.elementFromPoint(region.left + 2, name.top + name.height / 2)
+      return { regionLeft: region.left, nameLeft: name.left, nameRight: name.right, labelLeft: label.left, probeInNameColumn: Boolean(probe?.closest('.sticky')) }
+    })
+    expect(box.nameLeft).toBeLessThanOrEqual(box.regionLeft + 1)
+    expect(box.probeInNameColumn).toBe(true)
+    expect(box.labelLeft).toBeGreaterThanOrEqual(box.nameRight - 1)
+    await expect(bar(page, 'Buchung', 'Petra Wallner').locator('span')).toBeInViewport()
+  })
+
+
   test('Zeitleiste, Monat und Panel ohne axe-Verstöße; die Seite scrollt nicht seitlich', async ({ page, users }) => {
     const { tenantId, signIn } = await setup(page, users)
     await withCalendar(tenantId)

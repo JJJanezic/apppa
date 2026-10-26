@@ -58,7 +58,8 @@ export function CalendarTimeline({ variant, days, apartments, entries, selected,
 
   return (
     <TooltipProvider delayDuration={300}>
-      <div role="region" aria-label={t('gridLabel')} tabIndex={0} className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+      {/* Ohne eigenen Seitenabstand: Die stehende Namensspalte beginnt am Rand des Scrollbereichs (QA BUG-4) */}
+      <div role="region" aria-label={t('gridLabel')} tabIndex={0} className="overflow-x-auto">
         <div className={cn('flex flex-col', MIN_WIDTH[variant])}>
           <div className="grid grid-cols-[7.5rem_minmax(0,1fr)] sm:grid-cols-[12.5rem_minmax(0,1fr)]">
             <div className="sticky left-0 z-20 bg-ds-bg px-1 pb-2 text-[13px] text-ds-neutral-700">
@@ -141,7 +142,8 @@ export function CalendarTimeline({ variant, days, apartments, entries, selected,
                             }}
                             aria-label={t('barLabel', { kind: tb(`kind.${e.kind}`), name: name(e), from: short(e.arrival), to: short(e.departure) })}
                             className={cn(
-                              'absolute flex items-center overflow-hidden rounded-lg px-2 text-left text-[13px] leading-tight shadow-sm',
+                              // overflow-clip statt -hidden: kein eigener Scrollbereich, damit das Label „sticky“ bleiben kann (QA BUG-3)
+                              'absolute flex items-center overflow-clip rounded-lg px-2 text-left text-[13px] leading-tight shadow-sm',
                               barClasses(e),
                               bar.clippedStart && 'rounded-l-none',
                               bar.clippedEnd && 'rounded-r-none',
@@ -154,7 +156,8 @@ export function CalendarTimeline({ variant, days, apartments, entries, selected,
                               width: `calc(${pct(bar.width)} - 4px)`,
                             }}
                           >
-                            <span className="sticky left-0 truncate">{label(e)}</span>
+                            {/* Langer Aufenthalt: Label bleibt beim seitlichen Scrollen rechts neben der Namensspalte stehen */}
+                            <span className="sticky left-[8rem] block min-w-0 max-w-full truncate sm:left-[13rem]">{label(e)}</span>
                           </button>
                         </TooltipTrigger>
                         <TooltipContent>{t('barTitle', { name: name(e), from: short(e.arrival), to: short(e.departure) })}</TooltipContent>

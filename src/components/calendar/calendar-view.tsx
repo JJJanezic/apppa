@@ -4,7 +4,7 @@ import { ArrowsOut, CaretLeft, CaretRight } from '@phosphor-icons/react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useFormatter, useTranslations } from 'next-intl'
-import { useEffect, useState, useTransition } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
 import { toast } from 'sonner'
 
 import { BookingPanel } from '@/components/bookings/booking-panel'
@@ -16,7 +16,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { addDays, type BookableApartment, isIsoDate, shiftMonth } from '@/lib/bookings'
 import {
   CALENDAR_COOKIE,
@@ -84,14 +84,27 @@ export function CalendarView({ variant, state, today, apartments, entries, booka
   const count = TIMELINE_DAYS[variant]
   const closeHref = calendarHref(variant, { ...current, entry: null })
 
-  const href = (patch: Partial<CalendarState>) => calendarHref(variant, { ...current, entry: null, ...patch })
-  const go = (patch: Partial<CalendarState>) => startTransition(() => router.push(href(patch), { scroll: false }))
+  // Zuletzt angeforderter Zustand, solange der Server noch lädt: Schnelles Blättern zählt jeden Klick (QA BUG-2)
+  const requested = useRef<CalendarState | null>(null)
+  useEffect(() => {
+    requested.current = null
+  }, [state])
 
-  const prev = state.view === 'timeline' ? { start: addDays(state.start, -TIMELINE_STEP) } : { month: shiftMonth(state.month, -1), day: `${shiftMonth(state.month, -1)}-01` }
-  const next = state.view === 'timeline' ? { start: addDays(state.start, TIMELINE_STEP) } : { month: shiftMonth(state.month, 1), day: `${shiftMonth(state.month, 1)}-01` }
+  const href = (patch: Partial<CalendarState>) => calendarHref(variant, { ...current, entry: null, ...patch })
+  function go(patch: Partial<CalendarState>) {
+    const target: CalendarState = { ...(requested.current ?? current), entry: null, ...patch }
+    requested.current = target
+    startTransition(() => router.push(calendarHref(variant, target), { scroll: false }))
+  }
+
+  // Eine Woche bzw. einen Monat weiter oder zurück
+  const step = (from: CalendarState, dir: 1 | -1): Partial<CalendarState> =>
+    from.view === 'timeline'
+      ? { start: addDays(from.start, dir * TIMELINE_STEP) }
+      : { month: shiftMonth(from.month, dir), day: `${shiftMonth(from.month, dir)}-01` }
   const todayPatch = state.view === 'timeline' ? { start: addDays(today, -TIMELINE_LEAD) } : { month: today.slice(0, 7), day: today }
-  const prevHref = href(prev)
-  const nextHref = href(next)
+  const prevHref = href(step(current, -1))
+  const nextHref = href(step(current, 1))
 
   // Nachbarzeiträume vorab laden, damit Blättern sofort reagiert
   useEffect(() => {
@@ -137,12 +150,13 @@ export function CalendarView({ variant, state, today, apartments, entries, booka
   const Heading = variant === 'full' ? 'h1' : 'h2'
 
   return (
-    <section aria-labelledby="belegung-titel" className="flex min-w-0 flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
-        <Heading id="belegung-titel" className={variant === 'full' ? 'text-[34px] leading-[1.05] sm:text-[42px]' : 'text-2xl'}>
-          {t('title')}
-        </Heading>
-        <Tabs value={state.view} onValueChange={setView}>
+    <section aria-labelledby="belegung-titel" className="min-w-0">
+      {/* Der Kalenderkörper ist der Inhalt des gewählten Tabs, damit „aria-controls“ auf ihn zeigt (QA BUG-1) */}
+      <Tabs value={state.view} onValueChange={setView} className="flex min-w-0 flex-col gap-3">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
+          <Heading id="belegung-titel" className={variant === 'full' ? 'text-[34px] leading-[1.05] sm:text-[42px]' : 'text-2xl'}>
+            {t('title')}
+          </Heading>
           <TabsList aria-label={t('viewLabel')}>
             <TabsTrigger value="timeline" className="min-h-9">
               {t('view.timeline')}
@@ -151,99 +165,99 @@ export function CalendarView({ variant, state, today, apartments, entries, booka
               {t('view.month')}
             </TabsTrigger>
           </TabsList>
-        </Tabs>
-        <div className="flex items-center gap-1 sm:ml-auto">
-          <Button variant="ghost" size="icon" className="size-11" onClick={() => go(prev)} aria-label={t('prev')}>
-            <CaretLeft size={18} aria-hidden="true" />
-          </Button>
-          <Popover open={jumpOpen} onOpenChange={setJumpOpen}>
-            <PopoverTrigger asChild>
-              <Button variant="ghost" className="min-h-11 min-w-[11rem] px-2 font-normal tabular-nums" aria-label={`${periodLabel}. ${t('pickDate')}`}>
-                {periodLabel}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto">
-              <form onSubmit={jump} className="flex flex-col gap-3">
-                <Label htmlFor="belegung-datum">{t('pickDateLabel')}</Label>
-                <Input id="belegung-datum" type="date" className="min-h-11 w-48" value={jumpDate} onChange={(e) => setJumpDate(e.target.value)} />
-                <Button type="submit" className="min-h-11" disabled={!isIsoDate(jumpDate)}>
-                  {t('jump')}
-                </Button>
-              </form>
-            </PopoverContent>
-          </Popover>
-          <Button variant="ghost" size="icon" className="size-11" onClick={() => go(next)} aria-label={t('next')}>
-            <CaretRight size={18} aria-hidden="true" />
-          </Button>
-          <Button variant="outline" className="ml-1 min-h-11" onClick={() => go(todayPatch)}>
-            {t('today')}
-          </Button>
-        </div>
-      </div>
-
-      {(canCreate || variant === 'dashboard') && (
-        <div className="flex flex-wrap items-center gap-3">
-          {canCreate && <NewBookingButtons apartments={bookable} owner={owner} today={today} afterCreate="refresh" />}
-          {variant === 'dashboard' && (
-            <Button asChild variant="ghost" className="min-h-11 sm:ml-auto">
-              <Link href={CALENDAR_PATH.full}>
-                <ArrowsOut size={18} aria-hidden="true" />
-                {t('fullscreen')}
-              </Link>
+          <div className="flex items-center gap-1 sm:ml-auto">
+            <Button variant="ghost" size="icon" className="size-11" onClick={() => go(step(requested.current ?? current, -1))} aria-label={t('prev')}>
+              <CaretLeft size={18} aria-hidden="true" />
             </Button>
-          )}
+            <Popover open={jumpOpen} onOpenChange={setJumpOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="ghost" className="min-h-11 min-w-[11rem] px-2 font-normal tabular-nums" aria-label={`${periodLabel}. ${t('pickDate')}`}>
+                  {periodLabel}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto">
+                <form onSubmit={jump} className="flex flex-col gap-3">
+                  <Label htmlFor="belegung-datum">{t('pickDateLabel')}</Label>
+                  <Input id="belegung-datum" type="date" className="min-h-11 w-48" value={jumpDate} onChange={(e) => setJumpDate(e.target.value)} />
+                  <Button type="submit" className="min-h-11" disabled={!isIsoDate(jumpDate)}>
+                    {t('jump')}
+                  </Button>
+                </form>
+              </PopoverContent>
+            </Popover>
+            <Button variant="ghost" size="icon" className="size-11" onClick={() => go(step(requested.current ?? current, 1))} aria-label={t('next')}>
+              <CaretRight size={18} aria-hidden="true" />
+            </Button>
+            <Button variant="outline" className="ml-1 min-h-11" onClick={() => go(todayPatch)}>
+              {t('today')}
+            </Button>
+          </div>
         </div>
-      )}
 
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        {properties.length > 1 && (
-          <div role="group" aria-label={t('filterLabel')} className="flex flex-wrap gap-2">
-            {[{ id: null, name: t('allProperties') }, ...properties].map((p) => (
-              <Button
-                key={p.id ?? 'alle'}
-                size="sm"
-                variant={property === p.id ? 'default' : 'outline'}
-                aria-pressed={property === p.id}
-                className="min-h-9 rounded-lg font-normal"
-                onClick={() => setProperty(p.id)}
-              >
-                {p.name}
+        {(canCreate || variant === 'dashboard') && (
+          <div className="flex flex-wrap items-center gap-3">
+            {canCreate && <NewBookingButtons apartments={bookable} owner={owner} today={today} afterCreate="refresh" />}
+            {variant === 'dashboard' && (
+              <Button asChild variant="ghost" className="min-h-11 sm:ml-auto">
+                <Link href={CALENDAR_PATH.full}>
+                  <ArrowsOut size={18} aria-hidden="true" />
+                  {t('fullscreen')}
+                </Link>
               </Button>
-            ))}
+            )}
           </div>
         )}
-        <ul aria-label={t('legendLabel')} className="flex flex-wrap gap-3 text-[13px] text-ds-neutral-700 sm:ml-auto">
-          <LegendItem className={LEGEND_CLASSES.direct} label={t('channel.direct')} />
-          <LegendItem className={LEGEND_CLASSES.option} label={t('legendOption')} />
-          <LegendItem className={LEGEND_CLASSES.block} label={t('legendBlock')} />
-        </ul>
-      </div>
 
-      <div aria-busy={pending} className={cn('transition-opacity', pending && 'opacity-60')}>
-        {pending && <span className="sr-only">{t('loading')}</span>}
-        {state.view === 'timeline' ? (
-          <CalendarTimeline
-            variant={variant}
-            days={calendarDays(state.start, count, today)}
-            apartments={shown}
-            entries={shownEntries}
-            selected={state.entry}
-            onOpen={(id) => go({ entry: id })}
-            onCreate={canCreate ? (apartmentId, arrival) => setCreateAt({ apartmentId, arrival }) : null}
-          />
-        ) : (
-          <CalendarMonth
-            month={state.month}
-            day={day}
-            today={today}
-            apartments={shown}
-            entries={shownEntries}
-            selected={state.entry}
-            onSelectDay={selectDay}
-            onOpen={(id) => go({ entry: id })}
-          />
-        )}
-      </div>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          {properties.length > 1 && (
+            <div role="group" aria-label={t('filterLabel')} className="flex flex-wrap gap-2">
+              {[{ id: null, name: t('allProperties') }, ...properties].map((p) => (
+                <Button
+                  key={p.id ?? 'alle'}
+                  size="sm"
+                  variant={property === p.id ? 'default' : 'outline'}
+                  aria-pressed={property === p.id}
+                  className="min-h-9 rounded-lg font-normal"
+                  onClick={() => setProperty(p.id)}
+                >
+                  {p.name}
+                </Button>
+              ))}
+            </div>
+          )}
+          <ul aria-label={t('legendLabel')} className="flex flex-wrap gap-3 text-[13px] text-ds-neutral-700 sm:ml-auto">
+            <LegendItem className={LEGEND_CLASSES.direct} label={t('channel.direct')} />
+            <LegendItem className={LEGEND_CLASSES.option} label={t('legendOption')} />
+            <LegendItem className={LEGEND_CLASSES.block} label={t('legendBlock')} />
+          </ul>
+        </div>
+
+        <TabsContent value={state.view} aria-busy={pending} className={cn('mt-0 transition-opacity', pending && 'opacity-60')}>
+          {pending && <span className="sr-only">{t('loading')}</span>}
+          {state.view === 'timeline' ? (
+            <CalendarTimeline
+              variant={variant}
+              days={calendarDays(state.start, count, today)}
+              apartments={shown}
+              entries={shownEntries}
+              selected={state.entry}
+              onOpen={(id) => go({ entry: id })}
+              onCreate={canCreate ? (apartmentId, arrival) => setCreateAt({ apartmentId, arrival }) : null}
+            />
+          ) : (
+            <CalendarMonth
+              month={state.month}
+              day={day}
+              today={today}
+              apartments={shown}
+              entries={shownEntries}
+              selected={state.entry}
+              onSelectDay={selectDay}
+              onOpen={(id) => go({ entry: id })}
+            />
+          )}
+        </TabsContent>
+      </Tabs>
 
       {createAt && (
         <BookingPanel

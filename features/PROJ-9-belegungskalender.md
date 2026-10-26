@@ -1,6 +1,6 @@
 # PROJ-9: Belegungskalender
 
-## Status: In Review
+## Status: In Progress
 **Created:** 2026-10-25
 **Last Updated:** 2026-10-26
 
@@ -420,6 +420,15 @@ Der Punkt „Belegung“ wird freigeschaltet. Am Handy steht er in der unteren L
 **Hinweise:**
 - Im Dev-Server erschien sporadisch eine Hydration-Warnung (abweichende Radix-IDs) beim ersten Aufruf einer neu kompilierten Seite; im Produktions-Build nicht.
 - Integrationstests gegen „apppa-dev“ scheiterten in diesem Lauf an der Rate-Grenze von Supabase, nicht an der Änderung.
+
+### QA-Fixes (Frontend, 2026-10-26)
+- **BUG-1 (axe):** Der Kalenderkörper ist jetzt der `TabsContent` des gewählten Tabs. `aria-controls` zeigt damit auf ein vorhandenes Element (Tabs mit Inhaltsbereich statt reinem Umschalter).
+- **BUG-2 (schnelles Blättern):** „Zurück“/„Weiter“ rechnen vom zuletzt angeforderten Zustand aus, solange der Server noch lädt; jeder Klick zählt.
+- **BUG-3 (Label langer Aufenthalte):**
+  - Der Balken schneidet mit `overflow-clip` statt `overflow-hidden` ab und bildet damit keinen eigenen Scrollbereich.
+  - Das Label bleibt rechts neben der Namensspalte stehen (Handy 8 rem, ab sm 13 rem).
+- **BUG-4 (Streifen links der Namensspalte):** Der Scrollbereich der Zeitleiste hat keinen eigenen Seitenabstand mehr (vorher `-mx-4 px-4`). Die stehende Namensspalte beginnt am Rand des Bereichs.
+- **Neue E2E-Regressionstests:** Doppelklick blättert zwei Wochen; Label und Namensspalte am Handy nach dem Scrollen. Der axe-Test ist in allen drei Breiten grün.
 
 ## QA Test Results
 
