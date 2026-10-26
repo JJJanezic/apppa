@@ -44,12 +44,13 @@
 | PROJ-27 | Personenpreise und Kapazität nach Erwachsenen | Kapazität „gesamt, davon max. Erwachsene“; Preisart je Wohnung (Wohnungs- oder Personenpreis mit Kinder-Altersstufen); Preisvorschlag und Warnung in Buchungen | P0 | PROJ-6, PROJ-8 | Deployed | [Spec](PROJ-27-personenpreise-kapazitaet.md) | 2026-10-25 |
 | PROJ-28 | Kundenstammdaten | Zweite Namenszeile, Adresse, Staat, UID, Steuernummer, Registernummer je Kunde; editierbar durch Betreiber und Inhaber | P0 | PROJ-4, PROJ-5 | Deployed | [Spec](PROJ-28-kundenstammdaten.md) | 2026-10-26 |
 | PROJ-29 | Gast-Erweiterung: Titel, Geschlecht, Reisedokument | Akademische Grade vor/nach dem Namen, Geschlecht, ein Reisedokument mit Bildern (Vorder-/Rückseite); Safari-Zeilenklick in der Gästeliste | P0 | PROJ-4, PROJ-7, PROJ-8 | Deployed | [Spec](PROJ-29-gast-titel-geschlecht-reisedokument.md) | 2026-10-26 |
+| PROJ-30 | Buchungs-Erweiterung: Meldedaten, Buchungsquelle, Monatsauswahl | Gästeblattnummer, Abreise geplant/tatsächlich (Preis anteilig, Belegung nach tatsächlicher Abreise), Wohnsitz angemeldet, Buchungsquelle inkl. booking.com mit Kalenderfarbe und Filter, Sprungauswahl in der Buchungsübersicht, Mitreisende Nachname vor Vorname | P0 | PROJ-8, PROJ-9, PROJ-27 | Planned | [Spec](PROJ-30-buchungs-erweiterung.md) | 2026-10-26 |
 
 <!-- Add features above this line -->
 
 ## Build Order
-1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 29 → 10 → 11 → 12 → 13 → 14 → 15 → 16 → 26 → 17 (**Pilotstand**, ca. 3 Monate) → 18 → 19 (**MVP komplett**, ca. 4–5 Monate) → P2 nach Bedarf.
+1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 29 → 30 → 10 → 11 → 12 → 13 → 14 → 15 → 16 → 26 → 17 (**Pilotstand**, ca. 3 Monate) → 18 → 19 (**MVP komplett**, ca. 4–5 Monate) → P2 nach Bedarf.
 
 Den Channex-Block (PROJ-10 bis PROJ-12) früh angehen: Er ist das größte Risiko (Testzugang, Webhooks, Abläufe mit den Plattformen).
 
-## Next Available ID: PROJ-30
+## Next Available ID: PROJ-31
