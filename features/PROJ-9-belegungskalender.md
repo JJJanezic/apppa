@@ -1,6 +1,6 @@
 # PROJ-9: Belegungskalender
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-10-25
 **Last Updated:** 2026-10-26
 
@@ -568,6 +568,34 @@ Der Punkt „Belegung“ wird freigeschaltet. Am Handy steht er in der unteren L
 - **Production Ready:** YES nach Definition (keine Critical/High)
 - **Priorisierung (Nutzer, 2026-10-26):** alle vier Bugs vor dem Deployment beheben; danach `/qa` erneut
 - **Recommendation:** BUG-1 vor dem Deployment beheben (kleiner Eingriff, sonst bleibt der axe-Test rot). BUG-3 und BUG-4 betreffen dieselbe Stelle und lassen sich gemeinsam beheben.
+
+### Nachtest nach den QA-Fixes (2026-10-26, Commit 772ae02)
+**Automatische Tests**
+- Lint grün, Vitest Unit 262/262 grün.
+- E2E PROJ-9 in vier Paketen, alle grün:
+  - desktop: 28 Tests;
+  - Layout/axe auf Tablet und Handy: 5 grün, 1 übersprungen (nur Handy).
+- Neue Regressionstests: BUG-2 (Doppelklick) und BUG-3/4 (Handy). Der axe-Test ist ohne Ausnahme in allen drei Breiten grün.
+- Regression PROJ-2 (desktop): 19 grün, 4 übersprungen. PROJ-8 nicht erneut gelaufen: Die Fixes ändern nur `calendar-view.tsx` und `calendar-timeline.tsx`, keine PROJ-8-Bausteine.
+
+**Zusätzlich geprüft** (temporäre Tests, wieder entfernt)
+- **BUG-1:** `aria-controls` des gewählten Tabs zeigt auf den vorhandenen Inhaltsbereich (`tabpanel`).
+- **BUG-2:**
+  - Dreifachklick auf „Weiter“ springt 21 Tage weiter, die Adresse bleibt danach stabil.
+  - „Heute“ nach schnellem Blättern führt auf heute − 2.
+  - „Heute“ ohne Änderung, Panel öffnen und schließen: „Weiter“ rechnet danach vom aktuellen Stand aus, kein veralteter Zustand.
+  - Monat: Doppelklick auf „Weiter“ springt zwei Monate weiter.
+- **BUG-3/4:**
+  - Dashboard und Vollbild auf Handy (375 px) und Tablet (768 px): Nach dem seitlichen Scrollen bleibt das Label 8 px rechts der Namensspalte stehen.
+  - Am linken Rand liegt die Namensspalte vorne, die Seite scrollt nicht seitlich (Screenshot geprüft).
+  - Desktop unverändert: Das Label beginnt am Balken.
+- **Hinweis (kein Bug):** Der Inhaltsbereich der Tabs ist wie bei Radix üblich ein eigener Tab-Stopp vor dem Kalender.
+
+**Ergebnis**
+- BUG-1 bis BUG-4 behoben und verifiziert, keine neuen Bugs.
+- Offen bleibt nur der akzeptierte Hinweis zu Standardpreisen.
+- Firefox und Safari sind weiterhin nicht getestet (nicht installiert).
+- **Production Ready: YES.** Status **Approved**.
 
 ## Deployment
 _To be added by /deploy_

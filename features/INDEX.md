@@ -23,7 +23,7 @@
 | PROJ-6 | Wohnungsverwaltung | Objekte und Wohnungen: Stammdaten, Adresse, Gemeinde, Kapazität | P0 | PROJ-1, PROJ-4 | Deployed | [Spec](PROJ-6-wohnungsverwaltung.md) | 2026-10-12 |
 | PROJ-7 | Gäste-Datenbank | Hauptgäste mit Kontakt, Herkunftsland, Firma, Marketing-Quelle; Dubletten zusammenführen; Löschen/Anonymisieren | P0 | PROJ-1, PROJ-4 | Deployed | [Spec](PROJ-7-gaeste-datenbank.md) | 2026-10-12 |
 | PROJ-8 | Manuelle Buchungen | Direktbuchungen, Optionen und Sperren; Konflikt- und Kapazitätswarnung; Gast verknüpfen; Personen mit Alter, Mitreisende; Preis mit Zusatzkosten | P0 | PROJ-1, PROJ-6, PROJ-7 | Deployed | [Spec](PROJ-8-manuelle-buchungen.md) | 2026-10-12 |
-| PROJ-9 | Belegungskalender | Zeitleiste und Monatsansicht der Belegung auf dem Dashboard und als Vollbild-Seite; Detailpanel, Anlegen per Klick, Objektfilter | P0 | PROJ-1, PROJ-6, PROJ-8 | In Progress | [Spec](PROJ-9-belegungskalender.md) | 2026-10-12 |
+| PROJ-9 | Belegungskalender | Zeitleiste und Monatsansicht der Belegung auf dem Dashboard und als Vollbild-Seite; Detailpanel, Anlegen per Klick, Objektfilter | P0 | PROJ-1, PROJ-6, PROJ-8 | Approved | [Spec](PROJ-9-belegungskalender.md) | 2026-10-12 |
 | PROJ-10 | Channex-Verbindung | Channex-Konto je Kunde, Wohnungen mit Listings verknüpfen, Verbindungsstatus | P0 | PROJ-1, PROJ-6 | Roadmap | – | 2026-10-12 |
 | PROJ-11 | Buchungsimport aus Channex | Neue, geänderte und stornierte Buchungen von booking.com/Airbnb übernehmen, inkl. Gast | P0 | PROJ-1, PROJ-7, PROJ-8, PROJ-10 | Roadmap | – | 2026-10-12 |
 | PROJ-12 | Verfügbarkeitssperre an Channex | Manuell erfasste Buchungen sperren die Wohnung auf booking.com/Airbnb | P0 | PROJ-1, PROJ-8, PROJ-10 | Roadmap | – | 2026-10-12 |
