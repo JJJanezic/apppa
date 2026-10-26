@@ -204,6 +204,7 @@ Sie erscheinen nur, wenn sie im sichtbaren Zeitraum Einträge haben, und tragen 
 | „Belegt x/y“ zählt Buchungen, Optionen und Sperren | Vom Nutzer gewählt; für die Planung zählt, ob die Wohnung frei ist; abweichend vom Entwurf, der nur Buchungen zählt | 2026-10-25 |
 | Archivierte Wohnungen nur, wenn sie im Zeitraum Einträge haben | Vom Nutzer gewählt; alte Buchungen bleiben sichtbar, ohne die Liste zu füllen | 2026-10-25 |
 | Ansicht und Filter je Gerät gemerkt, Zeitraum nicht | Kalender soll immer bei heute öffnen; die bevorzugte Ansicht bleibt | 2026-10-25 |
+| Mitarbeiter dürfen den Standardpreis der Wohnungen im Seiten-Payload erhalten | Vom Nutzer bei der QA entschieden: keine Buchungsbeträge, in der Oberfläche nicht sichtbar; Verhalten wie seit PROJ-8 | 2026-10-26 |
 | Kein Preis auf Balken und Kacheln | Mitarbeiter dürfen keine Preise sehen (PROJ-8); der Preis steht im Panel für Inhaber | 2026-10-25 |
 
 ### Technical Decisions
@@ -512,7 +513,7 @@ Der Punkt „Belegung“ wird freigeschaltet. Am Handy steht er in der unteren L
   - Ungültige Adress-Parameter und manipulierte Cookies fallen auf Standardwerte zurück.
   - HTML in Gast-, Objekt- und Wohnungsnamen wird als Text angezeigt; kein Skript läuft, kein Dialog.
 - [x] **Rechte:** keine neuen Tabellen, Funktionen oder RLS-Regeln.
-- [ ] **Hinweis (Low, bestehend seit PROJ-8):** Der Standardpreis der Wohnungen (`priceCents`) steht für Mitarbeiter im Seiten-Payload. Er stammt aus den Wohnungsdaten für „Neue Buchung“. `/buchungen` liefert ihn seit PROJ-8 ebenso. Es sind keine Buchungsbeträge. Klären, ob Mitarbeiter Standardpreise sehen dürfen.
+- [x] **Hinweis (Low, bestehend seit PROJ-8, vom Nutzer am 2026-10-26 akzeptiert):** Der Standardpreis der Wohnungen (`priceCents`) steht für Mitarbeiter im Seiten-Payload. Er stammt aus den Wohnungsdaten für „Neue Buchung“. `/buchungen` liefert ihn seit PROJ-8 ebenso. Es sind keine Buchungsbeträge. Entscheidung: bleibt so, es sind keine Buchungsbeträge.
 
 ### Bugs Found
 
@@ -556,6 +557,7 @@ Der Punkt „Belegung“ wird freigeschaltet. Am Handy steht er in der unteren L
 - **Bugs Found:** 4 (0 critical, 0 high, 1 medium, 3 low), dazu 1 bestehender Sicherheits-Hinweis (Low)
 - **Security:** Pass (Hinweis zu Standardpreisen offen)
 - **Production Ready:** YES nach Definition (keine Critical/High)
+- **Priorisierung (Nutzer, 2026-10-26):** alle vier Bugs vor dem Deployment beheben; danach `/qa` erneut
 - **Recommendation:** BUG-1 vor dem Deployment beheben (kleiner Eingriff, sonst bleibt der axe-Test rot). BUG-3 und BUG-4 betreffen dieselbe Stelle und lassen sich gemeinsam beheben.
 
 ## Deployment
