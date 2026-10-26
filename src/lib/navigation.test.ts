@@ -27,14 +27,14 @@ describe('Navigationsliste', () => {
     ])
   })
 
-  it('zeigt derzeit Dashboard, Buchungen (PROJ-8) und Gäste (PROJ-7) und für Inhaber die Einstellungen (PROJ-4)', () => {
-    expect(visibleNavItems('owner').map((i) => i.id)).toEqual(['dashboard', 'bookings', 'guests', 'settings'])
-    expect(visibleNavItems('staff').map((i) => i.id)).toEqual(['dashboard', 'bookings', 'guests'])
+  it('zeigt derzeit Dashboard, Belegung (PROJ-9), Buchungen (PROJ-8) und Gäste (PROJ-7) und für Inhaber die Einstellungen (PROJ-4)', () => {
+    expect(visibleNavItems('owner').map((i) => i.id)).toEqual(['dashboard', 'calendar', 'bookings', 'guests', 'settings'])
+    expect(visibleNavItems('staff').map((i) => i.id)).toEqual(['dashboard', 'calendar', 'bookings', 'guests'])
   })
 
   it('zeigt den Betreiber-Bereich nur dem Admin, unabhängig von der Rolle (PROJ-5)', () => {
-    expect(visibleNavItems({ role: 'staff', isAdmin: true }).map((i) => i.id)).toEqual(['dashboard', 'bookings', 'guests', 'operator'])
-    expect(visibleNavItems({ role: 'owner', isAdmin: true }).map((i) => i.id)).toEqual(['dashboard', 'bookings', 'guests', 'settings', 'operator'])
+    expect(visibleNavItems({ role: 'staff', isAdmin: true }).map((i) => i.id)).toEqual(['dashboard', 'calendar', 'bookings', 'guests', 'operator'])
+    expect(visibleNavItems({ role: 'owner', isAdmin: true }).map((i) => i.id)).toEqual(['dashboard', 'calendar', 'bookings', 'guests', 'settings', 'operator'])
     expect(visibleNavItems({ role: 'owner', isAdmin: false }).map((i) => i.id)).not.toContain('operator')
     expect(isAreaAvailable('operator', 'owner')).toBe(false)
     expect(isAreaAvailable('operator', { role: 'staff', isAdmin: true })).toBe(true)
@@ -89,7 +89,8 @@ describe('Handy-Navigation', () => {
 describe('Erreichbarkeit und aktiver Punkt', () => {
   it('nicht fertige Bereiche sind nicht erreichbar', () => {
     expect(isAreaAvailable('dashboard', 'owner')).toBe(true)
-    expect(isAreaAvailable('calendar', 'owner')).toBe(false)
+    expect(isAreaAvailable('calendar', 'staff')).toBe(true)
+    expect(isAreaAvailable('payments', 'owner')).toBe(false)
   })
 
   it('erkennt den aktiven Bereich inklusive Unterseiten', () => {
@@ -115,7 +116,8 @@ describe('Rücksprung-Ziele nach der Anmeldung', () => {
     expect(isPathAvailable('/betreiber', admin)).toBe(true)
     expect(isPathAvailable('/einstellungen/team', 'owner')).toBe(true)
     expect(isPathAvailable('/betreiber', 'owner')).toBe(false)
-    expect(isPathAvailable('/belegung', 'owner')).toBe(false)
+    expect(isPathAvailable('/belegung', 'staff')).toBe(true)
+    expect(isPathAvailable('/zahlungen', 'owner')).toBe(false)
     expect(isPathAvailable('/konto', 'staff')).toBe(true)
   })
 })

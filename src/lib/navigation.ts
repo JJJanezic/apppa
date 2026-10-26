@@ -35,7 +35,7 @@ const OWNER: readonly Role[] = ['owner']
 
 export const NAV_ITEMS: readonly NavItem[] = [
   { id: 'dashboard', href: '/', roles: ALL, ready: true, mobile: 'primary' },
-  { id: 'calendar', href: '/belegung', roles: ALL, ready: false, mobile: 'primary' },
+  { id: 'calendar', href: '/belegung', roles: ALL, ready: true, mobile: 'primary' },
   { id: 'bookings', href: '/buchungen', roles: ALL, ready: true, mobile: 'primary' },
   { id: 'guests', href: '/gaeste', roles: ALL, ready: true, mobile: 'primary' },
   { id: 'payments', href: '/zahlungen', roles: OWNER, ready: false, mobile: 'more' },

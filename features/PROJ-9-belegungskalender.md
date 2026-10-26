@@ -1,8 +1,8 @@
 # PROJ-9: Belegungskalender
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-10-25
-**Last Updated:** 2026-10-25
+**Last Updated:** 2026-10-26
 
 ## Dependencies
 - Requires: PROJ-6 (Wohnungsverwaltung): Objekte, Wohnungen, archiviert
@@ -379,6 +379,46 @@ Der Punkt „Belegung“ wird freigeschaltet. Am Handy steht er in der unteren L
 - **PROJ-11:** Importierte Buchungen erscheinen ohne Änderung am Kalender, sobald Kanal booking.com/Airbnb geliefert wird. Die Legende zeigt diese Kanäle erst, wenn es sie beim Kunden gibt.
 - **PROJ-14:** ergänzt KPIs, „Heute“ und offene Zahlungen um den Abschnitt „Belegung“ herum. Der Kalender bleibt ein eigenständiger Baustein.
 - **PROJ-12:** Hinweise „auf Plattformen gesperrt“ kommen ins Detailpanel, nicht auf die Balken.
+
+### Umsetzung (Frontend, 2026-10-26)
+**Neu:**
+- `src/lib/calendar.ts` (+ `calendar.test.ts`, 20 Unit-Tests): Zustand aus Adresse und Cookie, Adressen, Bereich, sichtbare Wohnungen und Objekte, Balkenlage mit Spuren, Monatskacheln, Tagesliste.
+- `src/lib/calendar-data.ts`: eine Abfrage für Wohnungen und eine für aktive Einträge des Bereichs, ohne Beträge.
+- `src/components/calendar/`:
+  - `occupancy-calendar` (Server): lädt Daten und das Detail des offenen Eintrags;
+  - `calendar-view`: Kopfzeile, Filter, Legende, Anlegen per Klick;
+  - `calendar-timeline`, `calendar-month`;
+  - `entry-panel`: Seitenpanel;
+  - `calendar-error`;
+  - `entry-style`: Kanal → Farbe an einer Stelle.
+- `src/components/bookings/booking-detail.tsx`: Inhalt der Detailseite als gemeinsamer Baustein für `/buchungen/[id]` und das Kalender-Panel.
+- Seite `/belegung` (Vollbild). Das Dashboard zeigt den Kalender statt des bisherigen Leerzustands. Der Navigationspunkt „Belegung“ ist freigeschaltet.
+
+**Geändert (PROJ-8-Bausteine, abwärtskompatibel):**
+- `BookingPanel` nimmt `defaults` (Wohnung, Anreise) an.
+- `BookingPanel`, `BlockPanel` und `NewBookingButtons` haben `afterCreate` (`open` | `refresh`).
+- `BookingActions` → `CancelDialog`/`BlockPanel`: `closeHref` schließt nach Stornieren bzw. Löschen das Panel.
+- `findBooking` liefert `null` statt „Seite nicht gefunden“.
+
+**Abweichungen vom Tech Design:**
+- **Bereich:** Geladen werden Einträge mit Abreise ab dem ersten Tag (statt „Monat + Folgetag“). So sind auch Abreisen am Monatsersten und halbe Balken am linken Rand der Zeitleiste sichtbar.
+- **Gewählter Tag der Monatsansicht:** wird ohne Neuladen in der Adresse nachgeführt, ohne Abfrage an den Server.
+- **Namensspalte der Zeitleiste:** am Handy 7,5 rem (Desktop 12,5 rem), damit mehr Tage sichtbar sind.
+
+**Geprüft:**
+- Lint, Build und alle Unit-Tests.
+- Temporärer Sichttest gegen den Produktions-Build (Desktop, Handy):
+  - Balken für Buchung, Option, Sperre; Überschneidung in zweiter Spur mit Warnsymbol; stornierte Buchung fehlt; archivierte Wohnung nur mit Eintrag;
+  - Monatszählung ohne archivierte Wohnungen;
+  - Panel mit vollem Detail;
+  - Anlegen per Klick mit Wohnung, Anreise und Abreise vorbelegt;
+  - nach dem Stornieren schließt das Panel und der Balken verschwindet;
+  - keine seitliche Seitenverschiebung am Handy.
+- E2E PROJ-2 angepasst (Dashboard zeigt „Belegung“, `/belegung` ist kein 404 mehr). Die eigentlichen PROJ-9-E2E-Tests folgen in `/qa`.
+
+**Hinweise:**
+- Im Dev-Server erschien sporadisch eine Hydration-Warnung (abweichende Radix-IDs) beim ersten Aufruf einer neu kompilierten Seite; im Produktions-Build nicht.
+- Integrationstests gegen „apppa-dev“ scheiterten in diesem Lauf an der Rate-Grenze von Supabase, nicht an der Änderung.
 
 ## QA Test Results
 _To be added by /qa_

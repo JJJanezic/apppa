@@ -31,11 +31,15 @@ interface BlockPanelProps {
   block: Booking | null
   owner: boolean
   today: string
+  // Nach dem Anlegen: Detailseite öffnen (Standard) oder nur die Seite erneuern (Belegungskalender, PROJ-9)
+  afterCreate?: 'open' | 'refresh'
+  // Im Kalender-Panel (PROJ-9): nach dem Löschen dorthin statt zur Buchungsliste
+  afterDeleteHref?: string
 }
 
 // Detail-Panel „Neue Sperre / Sperre bearbeiten“ (PROJ-8): Wohnung, Zeitraum, Grund. Dieselbe Konfliktprüfung
 // wie bei Buchungen; löschen darf nur der Inhaber.
-export function BlockPanel({ open, onOpenChange, apartments, block, owner, today }: BlockPanelProps) {
+export function BlockPanel({ open, onOpenChange, apartments, block, owner, today, afterCreate = 'open', afterDeleteHref }: BlockPanelProps) {
   const t = useTranslations('bookings')
   const tv = useTranslations('bookings.validation')
   const te = useTranslations('bookings.errors')
@@ -73,7 +77,7 @@ export function BlockPanel({ open, onOpenChange, apartments, block, owner, today
     }
     toast.success(t('done.blockSaved'))
     onOpenChange(false)
-    if (!block && result.data) router.push(bookingHref(result.data.id))
+    if (!block && result.data && afterCreate === 'open') router.push(bookingHref(result.data.id))
     else router.refresh()
   }
 
@@ -86,7 +90,10 @@ export function BlockPanel({ open, onOpenChange, apartments, block, owner, today
       return
     }
     toast.success(t('done.blockDeleted'))
-    window.location.assign('/buchungen')
+    if (afterDeleteHref) {
+      onOpenChange(false)
+      router.replace(afterDeleteHref, { scroll: false })
+    } else window.location.assign('/buchungen')
   }
 
   const submitting = form.formState.isSubmitting

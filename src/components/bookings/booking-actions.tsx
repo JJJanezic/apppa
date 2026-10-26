@@ -25,13 +25,15 @@ interface BookingActionsProps {
   apartments: BookableApartment[]
   owner: boolean
   today: string
+  // Im Kalender-Panel (PROJ-9): nach Stornieren bzw. Löschen der Sperre dorthin, statt die Seite zu erneuern
+  closeHref?: string
 }
 
 type Dialog = 'edit' | 'note' | 'confirm' | 'confirmOverride' | 'cancel' | 'companions' | null
 
 // Aktionen im Buchungs-Detail (PROJ-8). Aktive Einträge: Bearbeiten, Option bestätigen, Stornieren (Inhaber).
 // Stornierte und verfallene: nur Notiz (Inhaber zusätzlich Stornogebühr); verfallene Optionen lassen sich bestätigen.
-export function BookingActions({ booking, apartments, owner, today }: BookingActionsProps) {
+export function BookingActions({ booking, apartments, owner, today, closeHref }: BookingActionsProps) {
   const t = useTranslations('bookings')
   const te = useTranslations('bookings.errors')
   const router = useRouter()
@@ -92,13 +94,22 @@ export function BookingActions({ booking, apartments, owner, today }: BookingAct
       {/* Neuer Schlüssel bei geänderter Fassung: „Aktuelle Fassung laden“ startet das Formular mit den neuen Werten */}
       {dialog === 'edit' &&
         (isBlock ? (
-          <BlockPanel key={booking.updatedAt} open onOpenChange={close} apartments={apartments} block={booking} owner={owner} today={today} />
+          <BlockPanel
+            key={booking.updatedAt}
+            open
+            onOpenChange={close}
+            apartments={apartments}
+            block={booking}
+            owner={owner}
+            today={today}
+            afterDeleteHref={closeHref}
+          />
         ) : (
           <BookingPanel key={booking.updatedAt} open onOpenChange={close} apartments={apartments} booking={booking} owner={owner} today={today} />
         ))}
       {dialog === 'note' && <NotePanel key={booking.updatedAt} open onOpenChange={close} booking={booking} owner={owner} />}
       {dialog === 'companions' && <CompanionsPanel key={booking.updatedAt} open onOpenChange={close} booking={booking} today={today} />}
-      {dialog === 'cancel' && <CancelDialog open onOpenChange={close} booking={booking} />}
+      {dialog === 'cancel' && <CancelDialog open onOpenChange={close} booking={booking} afterCancelHref={closeHref} />}
       {dialog === 'confirm' && (
         <ConfirmDialog
           open

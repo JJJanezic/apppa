@@ -7,14 +7,15 @@ const isDesktop = (page: Page) => (page.viewportSize()?.width ?? 0) >= 1024
 const sidebar = (page: Page) => page.locator('div.sticky:has(nav[aria-label="Hauptnavigation"])')
 
 test.describe('Startseite', () => {
-  test('zeigt Datum, Begrüßung nach Tageszeit und den Leerzustand', async ({ page }) => {
+  test('zeigt Datum, Begrüßung nach Tageszeit und den Abschnitt „Belegung“', async ({ page }) => {
     await page.goto('/')
     const header = page.locator('main header')
     await expect(header.locator('p').first()).toHaveText(
       /^(Montag|Dienstag|Mittwoch|Donnerstag|Freitag|Samstag|Sonntag), \d{1,2}\. (Jänner|Februar|März|April|Mai|Juni|Juli|August|September|Oktober|November|Dezember) \d{4}$/i
     )
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(/^Guten (Morgen|Tag|Abend), Erika\.$/)
-    await expect(page.getByRole('heading', { name: 'Hier erscheinen bald deine Buchungen.' })).toBeVisible()
+    // PROJ-9: Der Leerzustand ist dem Belegungskalender gewichen (bzw. dessen Leerzustand ohne Wohnungen)
+    await expect(page.getByRole('heading', { level: 2, name: /^(Belegung|Noch keine Wohnung.*)$/ })).toBeVisible()
   })
 
   // Angemeldet als Inhaber von „Testkunde E2E“ (tests/auth.setup.ts): echter Name und Kunde (PROJ-3/4)
@@ -134,13 +135,13 @@ test.describe('Sichtbarkeit der Navigation', () => {
   test('nicht fertige Bereiche fehlen in der Navigation', async ({ page }) => {
     await page.goto('/')
     if (!isDesktop(page)) await page.getByRole('button', { name: 'Mehr' }).click()
-    // „Einstellungen“ ist seit PROJ-4 für Inhaber sichtbar
-    for (const name of ['Belegung', 'Zahlungen', 'Auswertungen', 'Tourismusabgabe', 'Kanäle & Kalender']) {
+    // „Einstellungen“ ist seit PROJ-4 für Inhaber sichtbar, „Belegung“ seit PROJ-9
+    for (const name of ['Zahlungen', 'Auswertungen', 'Tourismusabgabe', 'Kanäle & Kalender']) {
       await expect(page.getByRole('link', { name })).toHaveCount(0)
     }
   })
 
-  for (const path of ['/belegung', '/zahlungen']) {
+  for (const path of ['/zahlungen', '/auswertungen']) {
     test(`direkter Aufruf von ${path} zeigt „Seite nicht gefunden“`, async ({ page }) => {
       const res = await page.goto(path)
       expect(res?.status()).toBe(404)

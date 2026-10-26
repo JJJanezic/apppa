@@ -13,10 +13,12 @@ interface NewBookingButtonsProps {
   apartments: BookableApartment[]
   owner: boolean
   today: string
+  // Belegungskalender (PROJ-9): nach dem Anlegen im Kalender bleiben
+  afterCreate?: 'open' | 'refresh'
 }
 
-// „Neue Buchung“ und „Neue Sperre“ im Kopf der Buchungsliste (alle Mitglieder)
-export function NewBookingButtons({ apartments, owner, today }: NewBookingButtonsProps) {
+// „Neue Buchung“ und „Neue Sperre“ im Kopf der Buchungsliste und des Belegungskalenders (alle Mitglieder)
+export function NewBookingButtons({ apartments, owner, today, afterCreate = 'open' }: NewBookingButtonsProps) {
   const t = useTranslations('bookings')
   const [open, setOpen] = useState<'booking' | 'block' | null>(null)
   const close = (o: boolean) => !o && setOpen(null)
@@ -33,8 +35,8 @@ export function NewBookingButtons({ apartments, owner, today }: NewBookingButton
           {t('newBlock')}
         </Button>
       </div>
-      {open === 'booking' && <BookingPanel open onOpenChange={close} apartments={apartments} booking={null} owner={owner} today={today} />}
-      {open === 'block' && <BlockPanel open onOpenChange={close} apartments={apartments} block={null} owner={owner} today={today} />}
+      {open === 'booking' && <BookingPanel open onOpenChange={close} apartments={apartments} booking={null} owner={owner} today={today} afterCreate={afterCreate} />}
+      {open === 'block' && <BlockPanel open onOpenChange={close} apartments={apartments} block={null} owner={owner} today={today} afterCreate={afterCreate} />}
     </>
   )
 }

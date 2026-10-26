@@ -21,10 +21,12 @@ interface CancelDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   booking: Booking
+  // Im Kalender-Panel (PROJ-9): danach dorthin (Panel schließt), sonst Seite erneuern
+  afterCancelHref?: string
 }
 
 // Stornieren (nur Inhaber): optional Grund und Stornogebühr, danach nicht mehr aktivierbar
-export function CancelDialog({ open, onOpenChange, booking }: CancelDialogProps) {
+export function CancelDialog({ open, onOpenChange, booking, afterCancelHref }: CancelDialogProps) {
   const t = useTranslations('bookings.cancel')
   const tv = useTranslations('bookings.validation')
   const td = useTranslations('bookings.done')
@@ -44,7 +46,8 @@ export function CancelDialog({ open, onOpenChange, booking }: CancelDialogProps)
     }
     toast.success(td('cancelled'))
     onOpenChange(false)
-    router.refresh()
+    if (afterCancelHref) router.replace(afterCancelHref, { scroll: false })
+    else router.refresh()
   }
 
   const submitting = form.formState.isSubmitting

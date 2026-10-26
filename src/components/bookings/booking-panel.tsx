@@ -54,12 +54,22 @@ interface BookingPanelProps {
   owner: boolean
   // Heutiges Datum (Wien) vom Server
   today: string
+  // Anlegen per Klick im Belegungskalender (PROJ-9): Wohnung und Anreise vorbelegt, Abreise = Anreise + 1
+  defaults?: { apartmentId: string; arrival: string }
+  // Nach dem Anlegen: Detailseite öffnen (Standard) oder nur die Seite erneuern (Belegungskalender)
+  afterCreate?: 'open' | 'refresh'
 }
 
 const euro = (cents: number) => formatCurrency(cents / 100, { cents: cents % 100 !== 0 })
 
 // Neue Buchung: Inhaber erhalten die Reinigungsgebühr der Wohnung als Position (cleaningLabel), Mitarbeiter keine Beträge
-function initialValues(booking: Booking | null, apartments: BookableApartment[], today: string, cleaningLabel: string | null): BookingInput {
+function initialValues(
+  booking: Booking | null,
+  apartments: BookableApartment[],
+  today: string,
+  cleaningLabel: string | null,
+  defaults?: BookingPanelProps['defaults']
+): BookingInput {
   if (booking) {
     return {
       kind: booking.kind === 'option' ? 'option' : 'booking',
@@ -79,12 +89,13 @@ function initialValues(booking: Booking | null, apartments: BookableApartment[],
     }
   }
   const active = apartments.filter((a) => !a.archived)
-  const only = active.length === 1 ? active[0] : null
+  // Vorbelegte (nur aktive) Wohnung, sonst die einzige aktive
+  const only = active.find((a) => a.id === defaults?.apartmentId) ?? (active.length === 1 ? active[0] : null)
   return {
     kind: 'booking',
     apartmentId: only?.id ?? '',
-    arrival: '',
-    departure: '',
+    arrival: defaults?.arrival ?? '',
+    departure: defaults ? addDays(defaults.arrival, 1) : '',
     checkIn: only?.checkIn ?? '15:00',
     checkOut: only?.checkOut ?? '10:00',
     guestMode: 'existing',
@@ -93,7 +104,7 @@ function initialValues(booking: Booking | null, apartments: BookableApartment[],
     children: [],
     optionUntil: addDays(today, LIMITS.optionDefaultDays),
     nightsPrice: '',
-    // Einzige aktive Wohnung ist vorausgewählt: ihre Reinigungsgebühr gleich eintragen (wie beim Wählen)
+    // Vorausgewählte Wohnung: ihre Reinigungsgebühr gleich eintragen (wie beim Wählen)
     charges: cleaningLabel && only && only.cleaningFeeCents !== null ? [{ label: cleaningLabel, amount: amountInput(only.cleaningFeeCents) }] : [],
     note: '',
   }
@@ -102,7 +113,7 @@ function initialValues(booking: Booking | null, apartments: BookableApartment[],
 // Detail-Panel „Neue Buchung / Buchung bearbeiten“ (PROJ-8). Gast suchen oder neu anlegen (Bausteine aus PROJ-7),
 // Personen mit Kinderalter, Preis mit Vorschlag und Zusatzkosten (nur Inhaber), Warnung bei Überschneidung oder
 // Überbelegung (Inhaber dürfen bewusst übersteuern).
-export function BookingPanel({ open, onOpenChange, apartments, booking, owner, today }: BookingPanelProps) {
+export function BookingPanel({ open, onOpenChange, apartments, booking, owner, today, defaults, afterCreate = 'open' }: BookingPanelProps) {
   const t = useTranslations('bookings')
   const tv = useTranslations('bookings.validation')
   const tgv = useTranslations('guests.validation')
@@ -120,7 +131,7 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
 
   const form = useForm<BookingInput>({
     resolver: zodResolver(bookingSchema(tv, { owner, today }), undefined, { raw: true }),
-    defaultValues: initialValues(booking, apartments, today, owner ? t('chargeSuggestions.cleaning') : null),
+    defaultValues: initialValues(booking, apartments, today, owner ? t('chargeSuggestions.cleaning') : null, defaults),
   })
   const guestForm = useForm<GuestInput>({
     resolver: zodResolver(guestSchema(tgv), undefined, { raw: true }),
@@ -224,7 +235,7 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
     }
     toast.success(booking ? t('done.saved') : t('done.created'))
     onOpenChange(false)
-    if (!booking && result.data) router.push(bookingHref(result.data.id))
+    if (!booking && result.data && afterCreate === 'open') router.push(bookingHref(result.data.id))
     else router.refresh()
   }
 

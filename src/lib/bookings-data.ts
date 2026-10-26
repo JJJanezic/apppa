@@ -227,9 +227,12 @@ async function displayNames(ids: (string | null)[]): Promise<Map<string, string>
 }
 
 // Einmal pro Anfrage (Seitentitel, App-Rahmen und Seite); fremde oder unbekannte Buchungen → „Seite nicht gefunden“
-export const getBooking = cache(async (id: string): Promise<Booking> => {
+export const getBooking = cache(async (id: string): Promise<Booking> => (await findBooking(id)) ?? notFound())
+
+// Wie getBooking, aber null statt „Seite nicht gefunden“ (Detailpanel im Belegungskalender, PROJ-9)
+export const findBooking = cache(async (id: string): Promise<Booking | null> => {
   const { tenantId, role } = await requireMember()
-  if (!/^[0-9a-f-]{36}$/i.test(id)) notFound()
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return null
   const supabase = await createClient()
   const { data: b, error } = await supabase
     .from('bookings')
@@ -240,7 +243,7 @@ export const getBooking = cache(async (id: string): Promise<Booking> => {
     .eq('tenant_id', tenantId)
     .maybeSingle()
   if (error) console.error('[buchungen] Buchung nicht lesbar', error.message)
-  if (!b) notFound()
+  if (!b) return null
 
   const today = todayIso()
   const kind = b.kind as BookingKind

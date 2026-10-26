@@ -1094,5 +1094,50 @@
       "descriptionStaff": "Dieser Eintrag ist nicht mehr aktiv. Änderbar ist nur die Notiz.",
       "save": "Speichern"
     }
+  },
+  "calendar": {
+    "title": "Belegung",
+    "viewLabel": "Ansicht",
+    "view": {
+      "timeline": "Zeitleiste",
+      "month": "Monat"
+    },
+    "prev": "Zurück",
+    "next": "Weiter",
+    "today": "Heute",
+    "pickDate": "Datum wählen, zu dem gesprungen wird",
+    "pickDateLabel": "Springen zu",
+    "jump": "Anzeigen",
+    "fullscreen": "Vollbild",
+    "filterLabel": "Objekt",
+    "allProperties": "Alle",
+    "legendLabel": "Legende",
+    "channel": {
+      "direct": "Direkt"
+    },
+    "legendOption": "Option",
+    "legendBlock": "Gesperrt",
+    "optionPrefix": "Option",
+    "overlap": "Überschneidung",
+    "archived": "archiviert",
+    "apartmentColumn": "Wohnung",
+    "gridLabel": "Belegung je Wohnung, seitlich scrollbar",
+    "barLabel": "{kind}: {name}, {from} bis {to}",
+    "barTitle": "{name} · {from} – {to}",
+    "createHint": "In einen freien Tag klicken, um eine Buchung anzulegen",
+    "dayArrival": "Anreise",
+    "dayDeparture": "Abreise",
+    "dayUntil": "bis {date}",
+    "dayEmpty": "Keine Belegung an diesem Tag.",
+    "occupied": "{occupied}/{total}",
+    "occupiedLabel": "{occupied} von {total} Wohnungen belegt",
+    "arrivals": "{count} An",
+    "departures": "{count} Ab",
+    "dayButton": "{date}: {occupied} von {total} belegt, {arrivals} Anreisen, {departures} Abreisen",
+    "loading": "Belegung wird geladen …",
+    "loadErrorTitle": "Die Belegung konnte nicht geladen werden.",
+    "loadErrorText": "Bitte versuche es gleich noch einmal. Die übrigen Bereiche funktionieren weiter.",
+    "retry": "Erneut versuchen",
+    "entryMissing": "Dieser Eintrag wurde nicht gefunden. Er wurde vielleicht gelöscht."
   }
 }
