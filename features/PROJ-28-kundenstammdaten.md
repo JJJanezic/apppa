@@ -1,6 +1,6 @@
 # PROJ-28: Kundenstammdaten
 
-## Status: In Progress
+## Status: In Review
 **Created:** 2026-10-26
 **Last Updated:** 2026-10-26
 
@@ -272,7 +272,116 @@ Keine neuen Pakete.
   - Alle Datenbank-Integrationstests (`supabase/tests`, 100 Tests in 8 Dateien) und alle 267 Unit-Tests grün.
 
 ## QA Test Results
-_To be added by /qa_
+
+**Tested:** 2026-10-26
+**App URL:** http://localhost:3000 (Supabase „apppa-dev“; Testhelfer verweigern Staging/Produktion über `assertTestableProject`)
+**Tester:** QA Engineer (AI)
+**Automatisiert:** `tests/PROJ-28-kundenstammdaten.spec.ts` (21 Tests), Unit-Tests `src/lib/validation/tenant.test.ts`
+
+### Acceptance Criteria Status
+
+#### Inhaber
+- [x] Gespeicherte Werte aller zehn Felder werden angezeigt (inkl. Staat „Deutschland“)
+- [x] Ohne gespeicherten Staat ist „Österreich“ vorausgewählt
+- [x] Nur Kundenname ausfüllen → gespeichert, Erfolgsmeldung (Österreich wird mitgespeichert)
+- [x] Leerer Kundenname → Meldung „Bitte gib einen Kundennamen ein.“, nichts gespeichert
+- [x] Geänderte Werte nach Neuladen sichtbar; neuer Name sofort sichtbar
+- [x] Optionales Feld leeren (auch nur Leerzeichen) → nicht angegeben
+- [x] Mitarbeiter → „Seite nicht gefunden“
+- [x] Mitarbeiter direkt über die Schnittstelle → abgewiesen (42501), nichts geändert
+
+#### Betreiber
+- [x] Abschnitt „Stammdaten“ als erster Abschnitt der Detailseite, inkl. Kundenname
+- [x] Änderung inkl. Name gespeichert; Seitentitel aktualisiert; für den Inhaber lesbar
+- [x] Deaktivierter Kunde: Hinweis, alle Felder (auch Staat) gesperrt, keine Speichern-Schaltfläche
+- [x] Deaktivierter Kunde: Änderung über die Schnittstelle abgewiesen
+- [x] „Kunde anlegen“ fragt weiterhin nur Name und E-Mail ab
+- [x] Ort klein unter dem Namen; ohne Ort kein Platzhalter
+- [x] Suche nach Ort findet nichts (nur Name/E-Mail)
+
+#### Validierung
+- [x] „atu 1234 5678“ → „ATU12345678“
+- [x] „ATU1234567“ → Meldung mit Beispiel, nichts gespeichert
+- [x] „DE123456789“ akzeptiert (Unit-Test + Anzeige)
+- [x] „123456789“ → Meldung (Unit-Test)
+- [x] Steuer-/Registernummer auf 30 Zeichen begrenzt
+- [x] „FN 123456a“ unverändert gespeichert
+- [x] Nur Leerzeichen = nicht angegeben, beim Namen Meldung
+- [x] Höchstlänge: Eingabe begrenzt, übrige Eingaben bleiben
+
+#### Gleichzeitiges Bearbeiten und Protokoll
+- [x] Inhaber speichert, während der Betreiber offen hat → Betreiber erhält „Die Kundendaten wurden inzwischen geändert.“, nichts überschrieben
+- [x] Eigene Eingaben bleiben bis „Aktuelle Fassung laden“; danach neuer Stand, Hinweis weg
+- [x] Allgemeines Änderungsprotokoll: wer/wann/alt/neu (`audit_log`, Integrationstest); Betreiber-Protokoll mit Feldliste in der Datenbank
+- [ ] **BUG-1:** Betreiber-Protokoll auf der Detailseite zeigt den Rohschlüssel `operator.log.master_data` statt „Stammdaten geändert: …“ (Änderungen durch Inhaber und Betreiber)
+
+#### Allgemein
+- [x] Keine Verbindung → „Keine Verbindung …“, Eingaben bleiben, nichts gespeichert
+- [x] 375 px / 768 px / 1440 px: kein seitliches Scrollen, keine axe-Verstöße (Einstellungen → Kunde und Betreiber-Detailseite)
+- [x] Mandantentrennung: fremder Inhaber kann weder lesen noch ändern
+- [x] Bestehende/neue Kunden: neue Felder leer, Name unverändert
+
+### Edge Cases Status
+- [x] Bestehende Kunden: Felder leer, Staat im Formular vorbelegt, gespeichert erst beim Speichern
+- [x] Staat auf „Keine Angabe“ setzbar (Länderauswahl mit Leeren-Eintrag)
+- [x] UID passt nicht zum Staat (DE-UID bei Staat Deutschland bzw. beliebig) → keine Querprüfung
+- [x] Umbenennen ohne Dublettenprüfung (wie bisher)
+- [x] Kunde während der Bearbeitung deaktiviert → Betreiber erhält „Der Kunde ist deaktiviert …“
+- [ ] **BUG-2:** Kunde während der Bearbeitung deaktiviert → Inhaber erhält nur „Etwas ist schiefgelaufen. Bitte versuche es erneut.“
+- [x] Speichern ohne Änderung → kein Fehler, kein Protokolleintrag
+- [x] Sonderzeichen/Umlaute unverändert (Unit-Test, „Müller-Öztürk & Söhne“)
+
+### Security Audit Results
+- [x] Rechte: Mitarbeiter, fremder Inhaber und Admin ohne 2FA kommen nicht an die Speicherfunktion (42501)
+- [x] Direktes Ändern der Kundentabelle durch Inhaber geschlossen (42501), bisheriger Integrationstest umgestellt
+- [x] Zusätzliche Felder in der Anfrage (`status`, `id`, `created_by`) werden ignoriert
+- [x] XSS: `<img src=x onerror=…>` als Ort wird als Text gespeichert und angezeigt, kein Skript ausgeführt
+- [x] Datenbank prüft Längen, Ländercode und UID-Format selbst (ungültige UID → 23514)
+- [x] Übersicht liefert nur den Ort zusätzlich, keine weiteren Stammdaten
+- [x] Bekannt und freigegeben: Mitarbeiter könnten die Felder über die Schnittstelle lesen (wie bisher den Namen)
+- [x] Gering: Inhaber können durch viele Änderungen viele Einträge im Betreiber-Protokoll erzeugen (je Änderung einer; Bereinigung nach 2 Jahren). Kein Handlungsbedarf
+
+### Cross-Browser
+- Chrome: alle Abläufe (desktop), Layout in drei Breiten
+- Firefox: nicht automatisiert (Playwright-Firefox auf diesem Rechner defekt)
+- Safari: nicht automatisiert (WebKit-Download mehrfach abgebrochen). Manuelle Prüfung durch den Nutzer in Safari empfohlen: Formular, Länderauswahl, Speichern; die Kundenübersicht ist seit dem Fix (nur Name als Link) Safari-tauglich
+
+### Regression
+- PROJ-4 komplett (desktop, 31 Tests) grün; 17 Tests scheiterten zunächst an der Anmeldegrenze von Supabase und liefen nach der Wartezeit durch
+- PROJ-5 komplett (desktop, 16 Tests) grün; Layout/axe in Handy und Tablet grün
+- Datenbank-Integrationstests (100) und Unit-Tests (267) grün (Stand Backend)
+
+### Bugs Found
+
+#### BUG-1: Betreiber-Protokoll zeigt Rohschlüssel statt Text
+- **Severity:** Medium
+- **Steps to Reproduce:**
+  1. Als Betreiber die Detailseite eines aktiven Kunden öffnen
+  2. Ort ändern und speichern (oder Inhaber ändert die Stammdaten)
+  3. Expected: Protokolleintrag „Stammdaten geändert: Ort“
+  4. Actual: „operator.log.master_data“
+- **Ursache:** Die Datenbank schreibt die Eintragsart `master_data`, der Text liegt in `messages/de.json` unter `operator.log.masterData`.
+- **Tests:** „Stammdaten oben auf der Detailseite …“ und „Änderung durch den Inhaber erscheint im Betreiber-Protokoll“ schlagen bis zur Behebung fehl.
+- **Priority:** Fix before deployment
+
+#### BUG-2: Inhaber erhält bei deaktiviertem Kunden nur eine allgemeine Fehlermeldung
+- **Severity:** Low
+- **Steps to Reproduce:**
+  1. Inhaber öffnet *Einstellungen → Kunde*
+  2. Betreiber deaktiviert den Kunden
+  3. Inhaber ändert ein Feld und speichert
+  4. Expected: verständliche Meldung (z. B. „Der Kunde ist deaktiviert …“), keine Aufforderung zum erneuten Versuch
+  5. Actual: „Etwas ist schiefgelaufen. Bitte versuche es erneut.“ (Gespeichert wird korrekt nichts.)
+- **Ursache:** Die Inhaber-Aktion prüft die Rolle vorab über den gewählten Kunden; für einen deaktivierten Kunden liefert sie den allgemeinen Fehler, bevor die Datenbank „deaktiviert“ melden kann.
+- **Test:** „Edge: … → Inhaber erhält verständliche Meldung“ schlägt bis zur Behebung fehl.
+- **Priority:** Nice to have (selten; Inhaber deaktivierter Kunden werden ohnehin gesperrt)
+
+### Summary
+- **Acceptance Criteria:** 30/31 passed (1 Medium-Bug)
+- **Bugs Found:** 2 total (0 critical, 0 high, 1 medium, 1 low)
+- **Security:** Pass
+- **Production Ready:** formal JA (keine Critical/High-Bugs), empfohlen aber erst nach Behebung von BUG-1 (sichtbarer Rohtext im Betreiber-Bereich, Zwei-Minuten-Korrektur)
+- **Recommendation:** BUG-1 beheben (klein), BUG-2 optional mitnehmen, dann `/qa` erneut
 
 ## Deployment
 _To be added by /deploy_

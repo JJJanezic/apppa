@@ -1,8 +1,19 @@
 import { randomUUID } from 'node:crypto'
 
+import AxeBuilder from '@axe-core/playwright'
 import { expect, type Page, test as base } from '@playwright/test'
 
-import { anon, createTenant, createUser, deleteUser, type E2EUser, hasSupabaseEnv, service, signInAs } from './support/supabase'
+import {
+  anon,
+  createTenant,
+  createUser,
+  deleteUser,
+  type E2EUser,
+  hasSupabaseEnv,
+  service,
+  signInAs,
+  signInAsAdmin,
+} from './support/supabase'
 
 // PROJ-28: Kundenstammdaten. Datenbank-Regeln direkt gegen die Speicherfunktion, dazu der Ablauf des Inhabers.
 // Abläufe nur im Projekt „desktop“.
@@ -163,5 +174,335 @@ test.describe('Einstellungen → Kunde', () => {
     await ready(page)
     await expect(page.getByLabel('UID')).toHaveValue('ATU12345678')
     await expect(page.getByLabel('Ort')).toHaveValue('Innsbruck')
+  })
+})
+
+const field = (page: Page, label: string) => page.getByLabel(label, { exact: true })
+
+async function seed(tenantId: string, values: Record<string, string | null>) {
+  const { error } = await service().from('tenants').update(values).eq('id', tenantId)
+  expect(error).toBeNull()
+}
+
+async function asAdmin(page: Page, users: Fixtures['users']) {
+  const admin = await users({ displayName: 'Ada Admin', admin: true })
+  await signInAsAdmin(page, admin)
+  return admin
+}
+
+test.describe('Inhaber: weitere Abläufe', () => {
+  test.skip(!hasSupabaseEnv, 'keine .env.local')
+
+  test('AC: Gespeicherte Werte sichtbar; nur Name speichern; leerer Name → Meldung; optionales Feld leeren', async ({ page, users }) => {
+    desktopOnly()
+    const owner = await users()
+    const name = unique('Werte')
+    const tenant = await createTenant(name, [{ user: owner, role: 'owner' }])
+    await seed(tenant, {
+      name_line2: 'z. H. Maria',
+      address_line1: 'Dorfstraße 1',
+      address_line2: 'Top 3',
+      postal_code: '6020',
+      city: 'Innsbruck',
+      country: 'DE',
+      vat_id: 'DE123456789',
+      tax_number: '12/345',
+      register_number: 'FN 123456a',
+    })
+    await signInAs(page, owner)
+    await page.goto('/einstellungen/kunde')
+    await ready(page)
+
+    for (const [label, value] of [
+      ['Kundenname', name],
+      ['Namenszeile 2', 'z. H. Maria'],
+      ['Adresszeile 1', 'Dorfstraße 1'],
+      ['Adresszeile 2', 'Top 3'],
+      ['Postleitzahl', '6020'],
+      ['Ort', 'Innsbruck'],
+      ['UID', 'DE123456789'],
+      ['Steuernummer', '12/345'],
+      ['Registernummer', 'FN 123456a'],
+    ]) {
+      await expect(field(page, label), label).toHaveValue(value)
+    }
+    await expect(field(page, 'Staat')).toContainText('Deutschland')
+
+    // Leerer Name: Meldung, nichts gespeichert
+    await field(page, 'Kundenname').fill('   ')
+    await page.getByRole('button', { name: 'Speichern' }).click()
+    await expect(page.getByText('Bitte gib einen Kundennamen ein.')).toBeVisible()
+    expect((await current(tenant)).name).toBe(name)
+
+    // Optionales Feld leeren (auch nur Leerzeichen = leer), sonst unverändert speichern
+    await field(page, 'Kundenname').fill(name)
+    await field(page, 'Adresszeile 2').fill('   ')
+    await field(page, 'Namenszeile 2').fill('')
+    await page.getByRole('button', { name: 'Speichern' }).click()
+    await expect(page.getByText('Kundendaten gespeichert.')).toBeVisible()
+    const after = await current(tenant)
+    expect(after).toMatchObject({ address_line2: null, name_line2: null, city: 'Innsbruck', register_number: 'FN 123456a' })
+
+    // Höchstlängen: Eingabe wird begrenzt
+    await field(page, 'Steuernummer').fill('1'.repeat(40))
+    await expect(field(page, 'Steuernummer')).toHaveValue('1'.repeat(30))
+  })
+
+  test('AC: Nur Name bei neuem Kunden speichern; Felder der neuen Kunden sind leer', async ({ page, users }) => {
+    desktopOnly()
+    const owner = await users()
+    const name = unique('NurName')
+    const tenant = await createTenant(name, [{ user: owner, role: 'owner' }])
+    expect(await current(tenant)).toMatchObject({ city: null, country: null, vat_id: null, name_line2: null })
+    await signInAs(page, owner)
+    await page.goto('/einstellungen/kunde')
+    await ready(page)
+    await field(page, 'Kundenname').fill(`${name} neu`)
+    await page.getByRole('button', { name: 'Speichern' }).click()
+    await expect(page.getByText('Kundendaten gespeichert.')).toBeVisible()
+    // Vorbelegtes Österreich wird mitgespeichert, sonst bleibt alles leer
+    expect(await current(tenant)).toMatchObject({ name: `${name} neu`, country: 'AT', city: null, vat_id: null })
+    await expect(page.getByText(`${name} neu`).first()).toBeVisible()
+  })
+
+  test('AC: Mitarbeiter bekommt „Seite nicht gefunden“', async ({ page, users }) => {
+    desktopOnly()
+    const owner = await users()
+    const staff = await users()
+    await createTenant(unique('Mitarbeiter'), [{ user: owner, role: 'owner' }, { user: staff, role: 'staff' }])
+    await signInAs(page, staff)
+    await page.goto('/einstellungen/kunde')
+    await expect(page.getByRole('heading', { name: 'Seite nicht gefunden' })).toBeVisible()
+    await expect(page.getByLabel('UID')).toHaveCount(0)
+  })
+
+  test('AC: Keine Verbindung beim Speichern → Meldung, Eingaben bleiben', async ({ page, users }) => {
+    desktopOnly()
+    const owner = await users()
+    const tenant = await createTenant(unique('Offline'), [{ user: owner, role: 'owner' }])
+    await signInAs(page, owner)
+    await page.goto('/einstellungen/kunde')
+    await ready(page)
+    await field(page, 'Ort').fill('Salzburg')
+    await page.context().setOffline(true)
+    await page.getByRole('button', { name: 'Speichern' }).click()
+    await expect(page.getByText('Keine Verbindung. Bitte prüfe deine Internetverbindung und versuche es erneut.')).toBeVisible()
+    await page.context().setOffline(false)
+    await expect(field(page, 'Ort')).toHaveValue('Salzburg')
+    expect((await current(tenant)).city).toBeNull()
+  })
+
+  test('Layout: kein seitliches Scrollen, keine automatisch erkennbaren WCAG-2.1-AA-Verstöße', async ({ page, users }) => {
+    const owner = await users()
+    await createTenant(unique('Layout'), [{ user: owner, role: 'owner' }])
+    await signInAs(page, owner)
+    await page.goto('/einstellungen/kunde')
+    await ready(page)
+    const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze()
+    expect(results.violations).toEqual([])
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
+    expect(overflow).toBeLessThanOrEqual(0)
+  })
+})
+
+test.describe('Betreiber', () => {
+  test.skip(!hasSupabaseEnv, 'keine .env.local')
+
+  test('AC: Stammdaten oben auf der Detailseite; Änderung inkl. Name gespeichert, im Protokoll und für den Inhaber sichtbar', async ({
+    page,
+    users,
+  }) => {
+    desktopOnly()
+    const owner = await users()
+    const name = unique('Betreiber')
+    const tenant = await createTenant(name, [{ user: owner, role: 'owner' }])
+    await asAdmin(page, users)
+    await page.goto(`/betreiber/kunden/${tenant}`)
+    await ready(page)
+
+    await expect(page.getByRole('heading', { level: 2 }).first()).toHaveText('Stammdaten')
+    await expect(field(page, 'Kundenname')).toHaveValue(name)
+    await field(page, 'Kundenname').fill(`${name} GmbH`)
+    await field(page, 'Ort').fill('Innsbruck')
+    await page.getByRole('button', { name: 'Speichern' }).click()
+    await expect(page.getByText('Kundendaten gespeichert.')).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(`${name} GmbH`)
+    await expect(page.getByText('Stammdaten geändert: Kundenname, Ort')).toBeVisible()
+    await expect(page.getByText(/Ada Admin/).first()).toBeVisible()
+
+    // Inhaber sieht den neuen Stand
+    const ownerClient = await signedIn(owner)
+    const { data } = await ownerClient.from('tenants').select('name, city').eq('id', tenant).single()
+    expect(data).toEqual({ name: `${name} GmbH`, city: 'Innsbruck' })
+  })
+
+  test('AC: Änderung durch den Inhaber erscheint im Betreiber-Protokoll', async ({ page, users }) => {
+    desktopOnly()
+    const owner = await users({ displayName: 'Olga Owner' })
+    const tenant = await createTenant(unique('ProtokollInhaber'), [{ user: owner, role: 'owner' }])
+    const client = await signedIn(owner)
+    const { updated_at } = await current(tenant)
+    const r = await client.rpc('update_tenant_master_data', {
+      p_tenant_id: tenant,
+      p_expected_updated_at: updated_at,
+      p_data: { name: (await current(tenant)).name, vat_id: 'ATU12345678' },
+    })
+    expect(r.error).toBeNull()
+    await asAdmin(page, users)
+    await page.goto(`/betreiber/kunden/${tenant}`)
+    await expect(page.getByText('Stammdaten geändert: UID')).toBeVisible()
+    await expect(page.getByText(/Olga Owner/)).toBeVisible()
+  })
+
+  test('AC: Deaktivierter Kunde: Stammdaten nur lesbar, kein Speichern; Änderung wird abgewiesen', async ({ page, users }) => {
+    desktopOnly()
+    const owner = await users()
+    const tenant = await createTenant(unique('Deaktiviert'), [{ user: owner, role: 'owner' }])
+    await seed(tenant, { city: 'Innsbruck' })
+    const { updated_at } = await current(tenant)
+    await service().from('tenants').update({ status: 'deactivated' }).eq('id', tenant)
+
+    await asAdmin(page, users)
+    await page.goto(`/betreiber/kunden/${tenant}`)
+    await ready(page)
+    await expect(page.getByText('Der Kunde ist deaktiviert. Die Stammdaten sind nur lesbar.')).toBeVisible()
+    await expect(field(page, 'Ort')).toHaveValue('Innsbruck')
+    await expect(field(page, 'Ort')).toBeDisabled()
+    await expect(field(page, 'Kundenname')).toBeDisabled()
+    await expect(field(page, 'Staat')).toBeDisabled()
+    await expect(page.getByRole('button', { name: 'Speichern' })).toHaveCount(0)
+
+    // Inhaber des deaktivierten Kunden: Datenbank weist ab
+    const client = await signedIn(owner)
+    const r = await client.rpc('update_tenant_master_data', {
+      p_tenant_id: tenant,
+      p_expected_updated_at: updated_at,
+      p_data: { name: 'Trotzdem', city: 'Wien' },
+    })
+    expect(r.error).not.toBeNull()
+    expect((await current(tenant)).city).toBe('Innsbruck')
+  })
+
+  test('AC: Übersicht zeigt den Ort unter dem Namen, ohne Ort nichts; Suche nach Ort findet nichts; Anlegen fragt nur Name und E-Mail', async ({
+    page,
+    users,
+  }) => {
+    desktopOnly()
+    const owner = await users()
+    const name = unique('Uebersicht')
+    const withCity = await createTenant(`${name} A`, [{ user: owner, role: 'owner' }])
+    await createTenant(`${name} B`, [{ user: owner, role: 'owner' }])
+    const city = `Ort${randomUUID().slice(0, 6)}`
+    await seed(withCity, { city })
+
+    await asAdmin(page, users)
+    await page.goto(`/betreiber?q=${encodeURIComponent(name)}`)
+    await ready(page)
+    const rowA = page.getByRole('row').filter({ hasText: `${name} A` })
+    const rowB = page.getByRole('row').filter({ hasText: `${name} B` })
+    await expect(rowA.getByRole('cell').first()).toHaveText(`${name} A${city}`)
+    await expect(rowB.getByRole('cell').first()).toHaveText(`${name} B`)
+
+    await page.goto(`/betreiber?q=${encodeURIComponent(city)}`)
+    await expect(page.getByRole('heading', { name: 'Kein Kunde gefunden' })).toBeVisible()
+
+    await page.goto('/betreiber')
+    await ready(page)
+    await page.getByRole('button', { name: 'Kunde anlegen' }).first().click()
+    const panel = page.getByRole('dialog')
+    await expect(panel.getByRole('textbox')).toHaveCount(2)
+    await expect(panel.getByLabel('Kundenname')).toBeVisible()
+    await expect(panel.getByLabel('E-Mail-Adresse des ersten Inhabers')).toBeVisible()
+  })
+
+  test('AC: Gleichzeitig bearbeitet → Hinweis, eigene Eingaben bleiben; „Aktuelle Fassung laden“ zeigt den neuen Stand', async ({
+    page,
+    users,
+  }) => {
+    desktopOnly()
+    const owner = await users()
+    const tenant = await createTenant(unique('Konflikt'), [{ user: owner, role: 'owner' }])
+    await asAdmin(page, users)
+    await page.goto(`/betreiber/kunden/${tenant}`)
+    await ready(page)
+
+    // Inhaber speichert, während der Betreiber das Formular offen hat
+    const client = await signedIn(owner)
+    const before = await current(tenant)
+    const r = await client.rpc('update_tenant_master_data', {
+      p_tenant_id: tenant,
+      p_expected_updated_at: before.updated_at,
+      p_data: { name: before.name, city: 'Graz' },
+    })
+    expect(r.error).toBeNull()
+
+    await field(page, 'Ort').fill('Linz')
+    await page.getByRole('button', { name: 'Speichern' }).click()
+    await expect(page.getByText('Die Kundendaten wurden inzwischen geändert.')).toBeVisible()
+    await expect(field(page, 'Ort')).toHaveValue('Linz')
+    expect((await current(tenant)).city).toBe('Graz')
+
+    await page.getByRole('button', { name: 'Aktuelle Fassung laden' }).click()
+    await expect(field(page, 'Ort')).toHaveValue('Graz')
+    await expect(page.getByText('Die Kundendaten wurden inzwischen geändert.')).toHaveCount(0)
+  })
+})
+
+test.describe('Edge Cases', () => {
+  test.skip(!hasSupabaseEnv, 'keine .env.local')
+
+  test('Edge: Kunde wird während der Bearbeitung deaktiviert → Betreiber erhält verständliche Meldung', async ({ page, users }) => {
+    desktopOnly()
+    const owner = await users()
+    const tenant = await createTenant(unique('DeaktivBetreiber'), [{ user: owner, role: 'owner' }])
+    await asAdmin(page, users)
+    await page.goto(`/betreiber/kunden/${tenant}`)
+    await ready(page)
+    await service().from('tenants').update({ status: 'deactivated' }).eq('id', tenant)
+    await field(page, 'Ort').fill('Wien')
+    await page.getByRole('button', { name: 'Speichern' }).click()
+    await expect(page.getByText('Der Kunde ist deaktiviert. Die Stammdaten lassen sich nicht ändern.')).toBeVisible()
+    expect((await current(tenant)).city).toBeNull()
+  })
+
+  test('Edge: Kunde wird während der Bearbeitung deaktiviert → Inhaber erhält verständliche Meldung', async ({ page, users }) => {
+    desktopOnly()
+    const owner = await users()
+    const tenant = await createTenant(unique('DeaktivInhaber'), [{ user: owner, role: 'owner' }])
+    await signInAs(page, owner)
+    await page.goto('/einstellungen/kunde')
+    await ready(page)
+    await service().from('tenants').update({ status: 'deactivated' }).eq('id', tenant)
+    await field(page, 'Ort').fill('Wien')
+    await page.getByRole('button', { name: 'Speichern' }).click()
+    await page.waitForTimeout(1500)
+    expect((await current(tenant)).city).toBeNull()
+    // Erwartung laut Spec: verständliche Meldung, keine Weiterleitung zur Anmeldung
+    await expect(page).toHaveURL(/\/einstellungen\/kunde/)
+    await expect(page.getByText('Der Kunde ist deaktiviert. Die Stammdaten lassen sich nicht ändern.')).toBeVisible()
+  })
+
+  test('Sicherheit: zusätzliche Felder in der Anfrage werden ignoriert; HTML bleibt Text', async ({ page, users }) => {
+    desktopOnly()
+    const owner = await users()
+    const tenant = await createTenant(unique('Angriff'), [{ user: owner, role: 'owner' }])
+    const client = await signedIn(owner)
+    const before = await current(tenant)
+    const r = await client.rpc('update_tenant_master_data', {
+      p_tenant_id: tenant,
+      p_expected_updated_at: before.updated_at,
+      p_data: { name: before.name, city: '<img src=x onerror=alert(1)>', status: 'deactivated', id: randomUUID(), created_by: owner.id },
+    })
+    expect(r.error).toBeNull()
+    const after = await current(tenant)
+    expect(after).toMatchObject({ id: tenant, status: 'active', created_by: before.created_by })
+
+    await signInAs(page, owner)
+    let dialog = false
+    page.on('dialog', () => (dialog = true))
+    await page.goto('/einstellungen/kunde')
+    await ready(page)
+    await expect(field(page, 'Ort')).toHaveValue('<img src=x onerror=alert(1)>')
+    expect(dialog).toBe(false)
   })
 })
