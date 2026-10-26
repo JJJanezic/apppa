@@ -18,6 +18,7 @@ import {
 } from '@/lib/operator'
 import { createClient } from '@/lib/supabase/server'
 import { invitationStatus } from '@/lib/team'
+import { MASTER_DATA_COLUMNS, masterDataFromRow } from '@/lib/tenant-master-data'
 
 // Lesefunktionen für den Betreiber-Bereich (PROJ-5). Der Admin darf laut PROJ-1 alles lesen (RLS, nur mit 2FA).
 // Die Kundenliste kommt aus einer nur für den Admin freigegebenen Datenbankfunktion (Suche, Seiten,
@@ -70,6 +71,7 @@ export async function getTenantPage(opts: { query?: string; page?: number }): Pr
       memberCount: t.member_count,
       createdAt: t.created_at,
       lastSignInAt: t.last_sign_in_at,
+      city: t.city,
     }
   })
   const total = Number(data?.[0]?.total ?? 0)
@@ -85,13 +87,13 @@ export const getTenantDetail = cache(async (id: string): Promise<TenantDetail> =
     supabase
       .from('tenants')
       .select(
-        'id, name, status, created_at, memberships(user_id, role, profile:profiles!inner(display_name, email)), invitations(id, email, role, status, sent_at, expires_at)'
+        `${MASTER_DATA_COLUMNS}, status, created_at, memberships(user_id, role, profile:profiles!inner(display_name, email)), invitations(id, email, role, status, sent_at, expires_at)` as const
       )
       .eq('id', id)
       .maybeSingle(),
     supabase
       .from('operator_log')
-      .select('id, created_at, action, actor_name, target_email')
+      .select('id, created_at, action, actor_name, target_email, changed_fields')
       .eq('tenant_id', id)
       .order('created_at', { ascending: false })
       .limit(200),
@@ -117,6 +119,7 @@ export const getTenantDetail = cache(async (id: string): Promise<TenantDetail> =
     status,
     inviteState: status === 'invited' ? inviteState(invitations) : null,
     createdAt: data.created_at,
+    masterData: masterDataFromRow(data),
     members,
     invitations,
     log: (log.data ?? []).map((entry) => ({
@@ -125,6 +128,8 @@ export const getTenantDetail = cache(async (id: string): Promise<TenantDetail> =
       action: entry.action as OperatorLogAction,
       actorName: entry.actor_name,
       targetEmail: entry.target_email,
+      // Spaltennamen (vat_id) → Feldschlüssel der Oberfläche (vatId)
+      fields: (entry.changed_fields ?? []).map((f) => f.replace(/_([a-z0-9])/g, (_, c: string) => c.toUpperCase())),
     })),
   }
 })

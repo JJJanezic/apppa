@@ -788,6 +788,7 @@ export type Database = {
           action: string
           actor_id: string | null
           actor_name: string | null
+          changed_fields: string[] | null
           created_at: string
           id: number
           target_email: string | null
@@ -798,6 +799,7 @@ export type Database = {
           action: string
           actor_id?: string | null
           actor_name?: string | null
+          changed_fields?: string[] | null
           created_at?: string
           id?: never
           target_email?: string | null
@@ -808,6 +810,7 @@ export type Database = {
           action?: string
           actor_id?: string | null
           actor_name?: string | null
+          changed_fields?: string[] | null
           created_at?: string
           id?: never
           target_email?: string | null
@@ -908,31 +911,58 @@ export type Database = {
       }
       tenants: {
         Row: {
+          address_line1: string | null
+          address_line2: string | null
+          city: string | null
+          country: string | null
           created_at: string
           created_by: string | null
           id: string
           name: string
+          name_line2: string | null
+          postal_code: string | null
+          register_number: string | null
           status: Database["public"]["Enums"]["tenant_status"]
+          tax_number: string | null
           updated_at: string
           updated_by: string | null
+          vat_id: string | null
         }
         Insert: {
+          address_line1?: string | null
+          address_line2?: string | null
+          city?: string | null
+          country?: string | null
           created_at?: string
           created_by?: string | null
           id?: string
           name: string
+          name_line2?: string | null
+          postal_code?: string | null
+          register_number?: string | null
           status?: Database["public"]["Enums"]["tenant_status"]
+          tax_number?: string | null
           updated_at?: string
           updated_by?: string | null
+          vat_id?: string | null
         }
         Update: {
+          address_line1?: string | null
+          address_line2?: string | null
+          city?: string | null
+          country?: string | null
           created_at?: string
           created_by?: string | null
           id?: string
           name?: string
+          name_line2?: string | null
+          postal_code?: string | null
+          register_number?: string | null
           status?: Database["public"]["Enums"]["tenant_status"]
+          tax_number?: string | null
           updated_at?: string
           updated_by?: string | null
+          vat_id?: string | null
         }
         Relationships: []
       }
@@ -988,6 +1018,7 @@ export type Database = {
       admin_tenant_overview: {
         Args: { p_limit?: number; p_offset?: number; p_query?: string }
         Returns: {
+          city: string
           created_at: string
           id: string
           invitations: Json
@@ -1121,6 +1152,10 @@ export type Database = {
       }
       save_companions: {
         Args: { p_booking_id: string; p_companions: Json; p_updated_at: string }
+        Returns: undefined
+      }
+      update_tenant_master_data: {
+        Args: { p_data: Json; p_expected_updated_at: string; p_tenant_id: string }
         Returns: undefined
       }
     }

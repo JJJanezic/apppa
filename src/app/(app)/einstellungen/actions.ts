@@ -8,7 +8,10 @@ import { createClient } from '@/lib/supabase/server'
 import { MAX_INVITES_PER_HOUR, type TeamErrorCode } from '@/lib/team'
 import { cleanupUnusedAccount, deliverInvitation, invitationKindFor } from '@/lib/team-invite'
 import { getTenantContext, rememberTenant, type TenantSummary } from '@/lib/tenant'
-import { inviteSchema, tenantNameSchema, type InviteInput, type TenantNameValues } from '@/lib/validation/team'
+import { saveTenantMasterData } from '@/lib/tenant-master-data-save'
+import type { TenantMasterDataErrorCode } from '@/lib/tenant-master-data'
+import { inviteSchema, type InviteInput } from '@/lib/validation/team'
+import { tenantMasterDataSchema, type TenantMasterDataInput } from '@/lib/validation/tenant'
 
 // Server-Aktionen für „Einstellungen → Team / Kunde“ (PROJ-4), nur für Inhaber des gewählten Kunden.
 // Änderungen an Mitgliedschaften laufen im Namen der Person: Die Datenbank-Regeln (RLS + Trigger) entscheiden
@@ -235,19 +238,18 @@ export async function leaveTenant(): Promise<Result> {
   return { ok: true, redirectTo: '/' }
 }
 
-export async function updateTenantName(values: TenantNameValues): Promise<Result> {
-  const parsed = tenantNameSchema(key).safeParse(values)
-  if (!parsed.success) return fail('unknown')
+// Stammdaten speichern (PROJ-28): eine Datenbank-Funktion prüft Rolle, Aktiv-Status und Stand und schreibt das Protokoll
+export async function updateTenantMasterData(
+  values: TenantMasterDataInput & { updatedAt: string }
+): Promise<ActionResult<undefined, TeamErrorCode | TenantMasterDataErrorCode>> {
+  const parsed = tenantMasterDataSchema(key).safeParse(values)
+  if (!parsed.success || typeof values?.updatedAt !== 'string') return fail('unknown')
   const guard = await requireOwner()
   if (!guard.ok) return guard.result
 
   const supabase = await createClient()
-  const { data, error } = await supabase
-    .from('tenants')
-    .update({ name: parsed.data.name })
-    .eq('id', guard.tenant.id)
-    .select('id')
-  if (error || !data?.length) return fail('unknown')
+  const result = await saveTenantMasterData(supabase, guard.tenant.id, values.updatedAt, parsed.data)
+  if (!result.ok) return result
 
   revalidatePath('/', 'layout')
   return { ok: true }

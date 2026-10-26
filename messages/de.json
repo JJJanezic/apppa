@@ -286,10 +286,6 @@
   },
   "tenant": {
     "title": "Kunde",
-    "nameLabel": "Kundenname",
-    "nameHint": "Erscheint in der Seitenleiste und in Einladungsmails, z. B. „Pichler Ferienwohnungen“.",
-    "save": "Speichern",
-    "saved": "Kundenname gespeichert.",
     "noTenantTitle": "Du bist noch keinem Kunden zugeordnet",
     "noTenantText": "Sobald dich ein Vermieter einlädt oder der Betreiber dein Kundenkonto anlegt, siehst du hier deine Buchungen.",
     "invitationsTitle": "Einladungen an dich",
@@ -300,6 +296,51 @@
     "declined": "Einladung abgelehnt.",
     "deactivatedTitle": "Dieses Kundenkonto ist deaktiviert",
     "deactivatedText": "Bitte wende dich an den Betreiber von apppa, wenn du wieder Zugriff brauchst."
+  },
+  "tenantData": {
+    "title": "Stammdaten",
+    "readOnlyHint": "Der Kunde ist deaktiviert. Die Stammdaten sind nur lesbar.",
+    "fields": {
+      "name": "Kundenname",
+      "nameHint": "Erscheint in der Seitenleiste und in Einladungsmails, z. B. „Pichler Ferienwohnungen“.",
+      "nameLine2": "Namenszeile 2",
+      "nameLine2Hint": "Optional, z. B. Rechtsform, „z. H.“ oder Name des Inhabers.",
+      "addressLine1": "Adresszeile 1",
+      "addressLine2": "Adresszeile 2",
+      "postalCode": "Postleitzahl",
+      "city": "Ort",
+      "country": "Staat",
+      "vatId": "UID",
+      "vatIdHint": "Zum Beispiel ATU12345678.",
+      "taxNumber": "Steuernummer",
+      "registerNumber": "Registernummer",
+      "registerNumberHint": "Zum Beispiel Firmenbuchnummer FN 123456a."
+    },
+    "sections": {
+      "address": "Adresse",
+      "numbers": "Steuer und Register"
+    },
+    "save": "Speichern",
+    "saved": "Kundendaten gespeichert.",
+    "stale": {
+      "text": "Die Kundendaten wurden inzwischen geändert. Deine Eingaben sind noch nicht gespeichert.",
+      "reload": "Aktuelle Fassung laden"
+    },
+    "validation": {
+      "nameRequired": "Bitte gib einen Kundennamen ein.",
+      "tooLong": "Diese Angabe ist zu lang.",
+      "vatIdInvalid": "Bitte prüfe die UID. Sie beginnt mit dem Länderkürzel, z. B. ATU12345678 (ATU und 8 Ziffern).",
+      "unknown": "Bitte prüfe diese Angabe."
+    },
+    "errors": {
+      "staleTenant": "Die Kundendaten wurden inzwischen geändert.",
+      "tenantDeactivated": "Der Kunde ist deaktiviert. Die Stammdaten lassen sich nicht ändern.",
+      "tenantGone": "Diesen Kunden gibt es nicht mehr.",
+      "network": "Keine Verbindung. Bitte prüfe deine Internetverbindung und versuche es erneut.",
+      "sessionExpired": "Deine Sitzung ist abgelaufen. Bitte melde dich erneut an.",
+      "notImplemented": "Diese Funktion wird gerade eingerichtet.",
+      "unknown": "Etwas ist schiefgelaufen. Bitte versuche es erneut."
+    }
   },
   "operator": {
     "title": "Kunden",
@@ -406,7 +447,8 @@
       "deactivated": "Kunde deaktiviert",
       "reactivated": "Kunde reaktiviert",
       "deleted": "Kunde gelöscht",
-      "by": "{date} · {actor}"
+      "by": "{date} · {actor}",
+      "masterData": "Stammdaten geändert: {fields}"
     },
     "done": {
       "created": "Kunde „{tenant}“ angelegt. Die Einladung an {email} ist unterwegs.",
@@ -441,7 +483,8 @@
       "sessionExpired": "Deine Sitzung ist abgelaufen. Bitte melde dich erneut an.",
       "notImplemented": "Diese Funktion wird gerade eingerichtet.",
       "unknown": "Etwas ist schiefgelaufen. Bitte versuche es erneut."
-    }
+    },
+    "masterDataTitle": "Stammdaten"
   },
   "apartments": {
     "title": "Wohnungen",

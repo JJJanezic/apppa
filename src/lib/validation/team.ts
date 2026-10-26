@@ -15,9 +15,5 @@ export const inviteSchema = (t: T) =>
     role: z.enum(['owner', 'staff'], { error: t('roleRequired') }),
   })
 
-export const tenantNameSchema = (t: T) =>
-  z.object({ name: z.string().trim().min(1, t('nameRequired')).max(TENANT_NAME_MAX, t('nameTooLong')) })
-
 export type InviteValues = z.infer<ReturnType<typeof inviteSchema>>
 export type InviteInput = z.input<ReturnType<typeof inviteSchema>>
-export type TenantNameValues = z.infer<ReturnType<typeof tenantNameSchema>>

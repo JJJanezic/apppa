@@ -6,8 +6,21 @@ import { getSessionUser } from '@/lib/auth/session'
 import { createClient } from '@/lib/supabase/server'
 import { invitationStatus, type MyInvitation, type Team } from '@/lib/team'
 import { getTenantContext } from '@/lib/tenant'
+import { MASTER_DATA_COLUMNS, masterDataFromRow, type TenantMasterData } from '@/lib/tenant-master-data'
 
 // Lesefunktionen für Team & Einladungen (PROJ-4). Rechte prüft die Datenbank (RLS) zusätzlich.
+
+// Stammdaten des gewählten Kunden – nur für Inhaber (Einstellungen → Kunde, PROJ-28)
+export async function getOwnTenantMasterData(): Promise<TenantMasterData> {
+  const [user, { active }] = await Promise.all([getSessionUser(), getTenantContext()])
+  if (!user || !active || active.role !== 'owner') notFound()
+
+  const supabase = await createClient()
+  const { data, error } = await supabase.from('tenants').select(MASTER_DATA_COLUMNS).eq('id', active.id).maybeSingle()
+  if (error) console.error('[kunde] Stammdaten nicht lesbar', error.message)
+  if (!data) notFound()
+  return masterDataFromRow(data)
+}
 
 // Team des gewählten Kunden – nur für Inhaber (Seiten unter /einstellungen)
 export async function getTeam(): Promise<Team> {

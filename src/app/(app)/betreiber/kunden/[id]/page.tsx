@@ -10,6 +10,7 @@ import { OwnerInvitePanel } from '@/components/operator/owner-invite-panel'
 import { TenantDangerZone } from '@/components/operator/tenant-danger-zone'
 import { TenantStatusBadge } from '@/components/operator/tenant-status-badge'
 import { PageHeader } from '@/components/page-header'
+import { TenantMasterDataForm } from '@/components/tenant/tenant-master-data-form'
 import { requireArea } from '@/lib/areas'
 import { getTenantDetail } from '@/lib/operator-data'
 
@@ -20,7 +21,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   return { title: tenant.name }
 }
 
-// Detailseite eines Kunden: Status, Mitglieder, Einladungen, Protokoll und Aktionen (PROJ-5)
+// Detailseite eines Kunden: Status, Stammdaten (PROJ-28), Mitglieder, Einladungen, Protokoll und Aktionen (PROJ-5)
 export default async function TenantDetailPage({ params }: { params: Params }) {
   await requireArea('operator')
   const { id } = await params
@@ -45,6 +46,11 @@ export default async function TenantDetailPage({ params }: { params: Params }) {
       <div className="-mt-6">
         <TenantStatusBadge status={tenant.status} inviteState={tenant.inviteState} />
       </div>
+
+      <section className="flex flex-col gap-4">
+        <h2 className="text-2xl">{t('masterDataTitle')}</h2>
+        <TenantMasterDataForm key={tenant.masterData.updatedAt} data={tenant.masterData} mode="operator" readOnly={deactivated} />
+      </section>
 
       <section className="flex flex-col gap-4">
         <h2 className="text-2xl">{t('membersTitle')}</h2>

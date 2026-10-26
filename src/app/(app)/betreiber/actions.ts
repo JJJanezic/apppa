@@ -8,12 +8,15 @@ import { type OperatorErrorCode, tenantHref } from '@/lib/operator'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { cleanupUnusedAccount, deliverInvitation } from '@/lib/team-invite'
+import type { TenantMasterDataErrorCode } from '@/lib/tenant-master-data'
+import { saveTenantMasterData } from '@/lib/tenant-master-data-save'
 import {
   createTenantSchema,
   ownerInviteSchema,
   type CreateTenantInput,
   type OwnerInviteInput,
 } from '@/lib/validation/operator'
+import { tenantMasterDataSchema, type TenantMasterDataInput } from '@/lib/validation/tenant'
 
 // Server-Aktionen des Betreiber-Bereichs (PROJ-5), nur für den Admin mit 2FA-bestätigter Sitzung.
 // Erste Ebene: Prüfung hier. Zweite Ebene: Jede Änderung läuft über eine Admin-Funktion der Datenbank, die
@@ -220,4 +223,22 @@ export async function deleteTenant(values: { tenantId: string; confirmName: stri
   }
   refresh()
   return { ok: true, data: { accountsLeft } }
+}
+
+// Stammdaten eines Kunden ändern (PROJ-28); dieselbe Datenbank-Funktion wie für Inhaber, sie prüft Admin + 2FA selbst
+export async function adminUpdateTenantMasterData(
+  values: TenantMasterDataInput & { tenantId: string; updatedAt: string }
+): Promise<ActionResult<undefined, TenantMasterDataErrorCode>> {
+  const parsed = tenantMasterDataSchema(key).safeParse(values)
+  if (!isId(values?.tenantId) || typeof values?.updatedAt !== 'string' || !parsed.success) return { ok: false, error: 'unknown' }
+  const guard = await requireAdmin()
+  if (!guard.ok) return { ok: false, error: guard.error === 'sessionExpired' ? 'sessionExpired' : 'unknown' }
+
+  const supabase = await createClient()
+  const result = await saveTenantMasterData(supabase, values.tenantId, values.updatedAt, parsed.data)
+  if (!result.ok) return result
+
+  refresh(values.tenantId)
+  revalidatePath('/', 'layout')
+  return { ok: true }
 }

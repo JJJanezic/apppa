@@ -1,5 +1,6 @@
 import type { Role } from '@/lib/navigation'
 import type { Invitation } from '@/lib/team'
+import type { TenantMasterData } from '@/lib/tenant-master-data'
 
 // Betreiber-Bereich (PROJ-5): Typen und reine Regeln für Browser und Server.
 // Lesefunktionen: src/lib/operator-data.ts (nur Server), Aktionen: src/app/(app)/betreiber/actions.ts.
@@ -49,6 +50,8 @@ export type TenantRow = {
   createdAt: string
   // jüngste Anmeldung eines Mitglieds; null = noch nie
   lastSignInAt: string | null
+  // Ort aus den Stammdaten (PROJ-28), klein unter dem Namen
+  city: string | null
 }
 
 export type TenantPage = { rows: TenantRow[]; total: number; page: number; pageCount: number; query: string }
@@ -71,6 +74,7 @@ export type OperatorLogAction =
   | 'deactivated'
   | 'reactivated'
   | 'deleted'
+  | 'master_data'
 
 export type OperatorLogEntry = {
   id: string
@@ -78,6 +82,8 @@ export type OperatorLogEntry = {
   action: OperatorLogAction
   actorName: string | null
   targetEmail: string | null
+  // bei „Stammdaten geändert“: geänderte Felder (Schlüssel aus tenantData.fields)
+  fields: string[]
 }
 
 export type TenantDetail = {
@@ -86,6 +92,7 @@ export type TenantDetail = {
   status: TenantDisplayStatus
   inviteState: InviteState | null
   createdAt: string
+  masterData: TenantMasterData
   members: OperatorMember[]
   invitations: Invitation[]
   log: OperatorLogEntry[]

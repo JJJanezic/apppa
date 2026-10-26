@@ -1,6 +1,6 @@
 # PROJ-28: Kundenstammdaten
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-10-26
 **Last Updated:** 2026-10-26
 
@@ -244,6 +244,17 @@ Die Übersichtsabfrage des Betreibers liefert zusätzlich den Ort. Suche und Bl�
 
 ### Abhängigkeiten (Pakete)
 Keine neuen Pakete.
+
+### Umsetzung Frontend (2026-10-26)
+- **Gemeinsames Formular** `src/components/tenant/tenant-master-data-form.tsx` für Inhaber (*Einstellungen → Kunde*) und Betreiber (Detailseite, Abschnitt „Stammdaten“ ganz oben). Bei deaktiviertem Kunden sind alle Felder gesperrt, ohne Speichern-Schaltfläche, mit Hinweis.
+- **Ersetzt** das bisherige Namensformular (`tenant-name-form.tsx`, `updateTenantName`, `tenantNameSchema` entfernt). Erfolgsmeldung jetzt „Kundendaten gespeichert.“ (E2E PROJ-4 angepasst).
+- **Prüfregeln** `src/lib/validation/tenant.ts` und Regeln/Typen `src/lib/tenant-master-data.ts` (UID-Format, Längen, leer = null), Unit-Tests `tenant.test.ts`.
+- **Aktionen:** `updateTenantMasterData` (Inhaber) und `adminUpdateTenantMasterData` (Betreiber) rufen beide die Datenbank-Funktion `update_tenant_master_data` über `src/lib/tenant-master-data-save.ts` auf. Fehlercodes: P0016 = inzwischen geändert, P0017 = deaktiviert, P0011 = Kunde weg, 42501 = keine Rechte/Sitzung.
+- **Konflikt:** Hinweis mit „Aktuelle Fassung laden“; die Seite setzt den Formular-Schlüssel auf „zuletzt geändert am“, damit nach dem Neuladen der neue Stand erscheint.
+- **Kundenübersicht:** Ort klein unter dem Namen (Tabelle und Handy-Karten).
+- **Betreiber-Protokoll:** neue Eintragsart `master_data` mit Feldliste („Stammdaten geändert: UID, Ort“).
+- **Datentypen** (`src/types/database.ts`) von Hand um die neuen Spalten, `changed_fields`, `city` in der Übersicht und die neue Funktion ergänzt; `/backend` erzeugt sie nach der Migration neu.
+- **Offen für /backend:** Migration (Spalten + Prüfregeln, Funktion `update_tenant_master_data`, direktes Namens-Update schließen, `operator_log` um `master_data` und `changed_fields` erweitern, `admin_tenant_overview` liefert `city`). Ohne Migration schlagen die Seiten *Einstellungen → Kunde* und die Betreiber-Detailseite beim Laden fehl.
 
 ## QA Test Results
 _To be added by /qa_

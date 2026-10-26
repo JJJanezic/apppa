@@ -55,6 +55,7 @@ export function TenantList({ page }: { page: TenantPage }) {
                 >
                   {row.name}
                 </Link>
+                {row.city && <span className="block text-[13px] font-normal text-ds-neutral-700">{row.city}</span>}
               </TableCell>
               <TableCell>
                 <TenantStatusBadge status={row.status} inviteState={row.inviteState} />
@@ -76,7 +77,10 @@ export function TenantList({ page }: { page: TenantPage }) {
               className="flex flex-col gap-2 rounded-lg bg-ds-surface p-4 hover:bg-ds-neutral-200"
             >
               <span className="flex items-start justify-between gap-3">
-                <span className="min-w-0 break-words text-lg font-semibold">{row.name}</span>
+                <span className="flex min-w-0 flex-col">
+                  <span className="break-words text-lg font-semibold">{row.name}</span>
+                  {row.city && <span className="text-[13px] text-ds-neutral-700">{row.city}</span>}
+                </span>
                 <TenantStatusBadge status={row.status} inviteState={row.inviteState} />
               </span>
               <span className="text-sm">{owners(row)}</span>

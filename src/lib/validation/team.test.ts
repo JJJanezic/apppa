@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import messages from '../../../messages/de.json'
-import { inviteSchema, tenantNameSchema } from './team'
+import { inviteSchema } from './team'
 
 const v = messages.team.validation as Record<string, string>
 const t = (key: string) => v[key] ?? key
@@ -20,13 +20,5 @@ describe('Einladen', () => {
 
   it('verlangt Inhaber oder Mitarbeiter', () => {
     expect(firstError(inviteSchema(t).safeParse({ email: 'a@b.at', role: 'admin' }))).toBe(v.roleRequired)
-  })
-})
-
-describe('Kundenname', () => {
-  it('1 bis 200 Zeichen, Leerzeichen am Rand werden entfernt', () => {
-    expect(tenantNameSchema(t).safeParse({ name: '  Pichler Ferienwohnungen ' }).data).toEqual({ name: 'Pichler Ferienwohnungen' })
-    expect(firstError(tenantNameSchema(t).safeParse({ name: '   ' }))).toBe(v.nameRequired)
-    expect(firstError(tenantNameSchema(t).safeParse({ name: 'a'.repeat(201) }))).toBe(v.nameTooLong)
   })
 })
