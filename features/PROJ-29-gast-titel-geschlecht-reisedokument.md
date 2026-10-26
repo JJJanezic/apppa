@@ -1,6 +1,6 @@
 # PROJ-29: Gast-Erweiterung: Titel, Geschlecht, Reisedokument
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-10-26
 **Last Updated:** 2026-10-26
 
@@ -36,7 +36,7 @@ Der Hauptgast bekommt zusätzliche Angaben: akademische Grade vor und nach dem N
 „Sobald ein Dokument erfasst wird“ heißt: Wird irgendeine Angabe des Dokuments ausgefüllt oder ein Bild hochgeladen, müssen Art und Nummer ausgefüllt sein. Sind alle Angaben leer und keine Bilder vorhanden, hat der Gast kein Reisedokument.
 
 **Bilder:**
-- Zulässig sind alle gängigen Bildformate, insbesondere Handyfotos: JPEG, PNG, HEIC/HEIF (iPhone), WebP, GIF (erstes Bild), TIFF, BMP. Am Handy kann direkt fotografiert oder ein Bild aus der Galerie gewählt werden.
+- Zulässig sind alle gängigen Bildformate, insbesondere Handyfotos: JPEG, PNG, HEIC/HEIF (iPhone), WebP, GIF (erstes Bild), BMP; TIFF nur in Browsern, die es selbst lesen können (Safari). Am Handy kann direkt fotografiert oder ein Bild aus der Galerie gewählt werden.
 - Beim Hochladen wandelt die App jedes Bild in ein gut lesbares JPEG um (längste Seite etwa 2.000 Pixel) und dreht es nach der Kamera-Ausrichtung richtig. Das Original wird nicht aufbewahrt.
 - Abrufen: Das Gast-Detail zeigt kleine Vorschauen. Ein Klick öffnet das Bild groß, von dort kann es heruntergeladen werden.
 - Ein neues Bild ersetzt das bisherige auf demselben Platz (Vorderseite bzw. Rückseite). Einzelne Bilder können entfernt werden.
@@ -174,12 +174,158 @@ In Safari öffnet ein Klick auf eine beliebige Zeile der Gästeliste immer den l
 ### Technical Decisions
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Ausweisbilder in privatem Supabase-Storage-Bereich, ein Ordner je Kunde, zufällige Dateinamen | Bereits im Projekt enthalten, EU-Region, Zugriffsregeln wie bei den Tabellen; keine sprechenden Dateinamen mit Personendaten | 2026-10-26 |
+| Dokumentangaben als Felder am Gast statt eigener Tabelle | Höchstens ein Dokument je Gast; Zusammenführen, Anonymisieren und Protokoll funktionieren ohne Zusatzaufwand | 2026-10-26 |
+| Umwandlung (Drehen, Verkleinern, JPEG) im Browser | Die Bildbibliothek auf Vercel kann HEIC nicht; spart Upload-Zeit am Handy; entfernt versteckte Fotodaten (GPS) | 2026-10-26 |
+| HEIC-Dekoder `heic-to` nur bei Bedarf nachladen | Safari kann HEIC selbst; die übrigen Browser brauchen ihn nur in diesem Moment, die App bleibt sonst schlank | 2026-10-26 |
+| Upload direkt vom Browser in den Speicher, nicht über den App-Server | Vercel begrenzt Server-Anfragen auf 4,5 MB; Zugriffsregeln des Speichers prüfen Kunde und Format | 2026-10-26 |
+| Bild wird erst beim Speichern am Gast eingetragen; Datenbank prüft Ordner, Existenz und Eindeutigkeit | Mitarbeiter können Bilder nur über „Buchung mit neuem Gast“ wirksam machen; kein Einhängen fremder Dateien | 2026-10-26 |
+| Lesen nur für Bilder, die an einem Gast hängen (plus eigener frischer Upload) | Ersetzte und entfernte Bilder sind sofort nicht mehr abrufbar (Akzeptanzkriterium), auch bevor die Datei gelöscht ist | 2026-10-26 |
+| Kurzlebige Abruf-Links (10 Minuten), vom Server erzeugt | Kein dauerhaft gültiger Link auf Ausweisbilder | 2026-10-26 |
+| Löschen von Dateien nur durch den Server nach Meldung der Datenbank; tägliche Bereinigung per Vercel Cron | Datenbank-Funktionen können Speicherdateien nicht selbst löschen; der Zeitplan fängt abgebrochene Uploads und Fehler ab | 2026-10-26 |
+| Formate: JPEG, PNG, HEIC/HEIF, WebP, GIF, BMP; TIFF nur, wo der Browser es selbst lesen kann (Safari) | Handys liefern kein TIFF; ein eigener TIFF-Dekoder wäre Aufwand ohne Praxisnutzen | 2026-10-26 |
+| Eingangsdateien bis 30 MB, gespeicherte Bilder höchstens 2 MB | Deckt alle Handyfotos ab; größere Dateien bringen Handys beim Umwandeln an die Speichergrenze | 2026-10-26 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### Ausgangslage (bereits vorhanden)
+- **Gast-Tabelle (PROJ-7)** mit Zugriffsregeln: Lesen Mitglieder und Betreiber-Admin, Ändern nur Inhaber, nicht bei anonymisierten Gästen. Eine Datenbank-Prüfung beim Speichern pflegt den Suchtext und prüft das Geburtsdatum.
+- **Geschützte Datenbank-Funktionen:** Zusammenführen, Anonymisieren, Löschen (PROJ-7, erweitert in PROJ-8) und Buchung speichern (legt bei Bedarf den neuen Gast im selben Vorgang an, auch für Mitarbeiter).
+- **Bausteine:** Gast-Formular (`guest-fields`, im Gast-Panel und im Buchungsformular), Länderauswahl, Zusammenführen-Dialog, zentrale Namensanzeige `guestDisplayName` (genutzt in Gast-Detail, Gästeliste, Buchungs-Detail, Kalender, Gastauswahl).
+- **Supabase Storage** ist im Projekt eingeschaltet, wird aber noch nicht genutzt. PROJ-29 ist der erste Datei-Upload der App.
+- **Betreiber-Löschfunktion** für Kunden (PROJ-5) läuft als Datenbank-Funktion. Dateien kennt sie bisher nicht.
+
+### A) Seiten und Bausteine
+
+```
+Gast-Formular (Gast-Panel „Gast anlegen/bearbeiten“ und Buchungsformular bei neuem Gast)
++-- Titel vorangestellt · Vorname · Nachname · Titel nachgestellt
++-- Geschlecht (Auswahl, vorbelegt „keine Angabe“)
++-- … bisherige Felder unverändert …
++-- Abschnitt „Reisedokument“ (aufklappbar, wie „Firma“)
+    +-- Art (Auswahl) · Nummer · Ausstellungsdatum · Behörde · Staat (Länderauswahl)
+    +-- Bildplatz „Vorderseite“ und Bildplatz „Rückseite“
+    |   +-- leer: Knopf „Bild hinzufügen“ (am Handy: Kamera oder Galerie)
+    |   +-- während Umwandeln/Hochladen: Fortschrittsanzeige
+    |   +-- gefüllt: Vorschau + „Ersetzen“ + „Entfernen“
+    +-- Hinweis, wenn sich die Art ändert und schon Bilder vorhanden sind
+
+Gast-Detail (/gaeste/[id])
++-- Kopf: voller Name mit Titeln
++-- Stammdaten zusätzlich: Geschlecht
++-- Abschnitt „Reisedokument“ (nur wenn vorhanden): Angaben + zwei Vorschaubilder
+    +-- Klick auf Vorschau → Bildansicht (Dialog) groß, mit „Herunterladen“
+    +-- Bearbeiten weiterhin nur über das Gast-Panel (nur Inhaber)
+
+Zusammenführen-Dialog
++-- neue Zeilen „Titel“, „Geschlecht“, „Reisedokument“ (als Ganzes, mit kleinen Vorschauen)
+
+Gästeliste
++-- Name mit Titeln; nur der unterstrichene Name ist Link (Safari-Fix, wie Kundenliste)
+
+Buchungs-Detail, Kalender, Gastauswahl
++-- Name mit Titeln (über die zentrale Namensanzeige, keine eigenen Änderungen)
+```
+
+### B) Datenmodell (in Worten)
+
+**Gast** (bestehende Tabelle, neue Felder):
+- Titel vorangestellt, Titel nachgestellt (je höchstens 50 Zeichen, leer statt leerem Text)
+- Geschlecht: einer von sechs festen Werten (männlich, weiblich, divers, inter, offen, keine Angabe), immer gesetzt, Standard „keine Angabe“. Bestehende Gäste bekommen beim Einspielen „keine Angabe“
+- Reisedokument: Art (einer von drei festen Werten), Nummer (höchstens 30 Zeichen), Ausstellungsdatum, Behörde (höchstens 100 Zeichen), Staat (Ländercode)
+- Bild Vorderseite, Bild Rückseite: jeweils der Speicherort der Datei, keine Bilddaten in der Tabelle
+
+Da es höchstens ein Reisedokument je Gast gibt, liegen die Angaben direkt am Gast und nicht in einer eigenen Tabelle.
+
+**Regeln in der Datenbank** (nicht nur in der Oberfläche):
+- Sind irgendeine Dokumentangabe oder ein Bild vorhanden, müssen Art und Nummer gesetzt sein
+- Das Ausstellungsdatum liegt nicht in der Zukunft
+- Ein Bild darf nur am Gast hängen, wenn die Datei im Ordner desselben Kunden liegt, wirklich existiert und an keinem anderen Gast hängt
+- Ein anonymisierter Gast hat keine Titel, kein Dokument, keine Bilder und das Geschlecht „keine Angabe“
+
+**Ausweisbilder** liegen in einem **privaten Speicherbereich** („Gast-Dokumente“) in Supabase Storage (EU, eu-west-1):
+- ein Ordner je Kunde, Dateiname zufällig (keine Namen oder Nummern im Dateinamen)
+- nur JPEG, höchstens 2 MB je Datei (nach dem Umwandeln sind es typischerweise 0,3–0,8 MB)
+- kein öffentlicher Zugriff
+
+**Suchtext:** Titel und Dokumentnummer kommen nicht in die Suche (Spec: keine Suche nach Titel/Dokument).
+
+### C) Rechte
+
+| Aktion | Inhaber | Mitarbeiter | Betreiber-Admin (2FA) |
+|---|---|---|---|
+| Titel, Geschlecht, Dokument lesen | ✓ | ✓ | ✓ (wie alle Kundendaten) |
+| Bilder ansehen/herunterladen | ✓ | ✓ | ✓ |
+| Bild hochladen | ✓ | ✓, aber nur wirksam beim Anlegen eines neuen Gastes in einer Buchung | – |
+| Felder/Bilder am bestehenden Gast ändern | ✓ | – | – |
+
+- **Ansehen:** Ein Bild ist nur abrufbar, wenn es an einem Gast des eigenen Kunden hängt (bzw. für die Person, die es gerade hochgeladen hat, zur Vorschau vor dem Speichern). Ersetzte oder entfernte Bilder sind dadurch sofort nicht mehr abrufbar.
+- **Abruf-Links** erzeugt der Server beim Öffnen des Gast-Details. Sie gelten nur kurz (10 Minuten) und funktionieren nur mit Anmeldung im richtigen Kunden.
+- **Hochladen** dürfen alle Mitglieder in den Ordner ihres eigenen Kunden. Am Gast „wirksam“ wird ein Bild aber nur über die bestehenden Wege: Gast speichern (nur Inhaber) oder Buchung mit neuem Gast speichern (auch Mitarbeiter). Ein Bild, das nie gespeichert wird, räumt die tägliche Bereinigung weg.
+- **Löschen von Dateien** macht nur der Server mit dem geheimen Schlüssel, und nur für Dateien, die die Datenbank vorher als „nicht mehr verwendet“ gemeldet hat.
+
+### D) Bild hochladen: Ablauf
+
+1. Nutzer wählt ein Bild (am Handy: Kamera oder Galerie).
+2. **Der Browser wandelt das Bild um:** richtig drehen, längste Seite höchstens 2.000 Pixel, JPEG in guter Qualität. Dabei gehen auch versteckte Fotodaten (z. B. GPS-Standort, Kameramodell) verloren, was beim Datenschutz hilft.
+   - HEIC/HEIF: Safari kann das selbst. Für Chrome, Firefox und Edge lädt die App erst in diesem Moment einen HEIC-Dekoder nach (nicht bei jedem Seitenaufruf).
+   - JPEG, PNG, WebP, GIF, BMP: können alle Browser selbst.
+   - Eingangsdateien bis 30 MB. Größere Dateien lehnt die App mit Hinweis auf die Höchstgröße ab.
+3. Das fertige JPEG geht **direkt vom Browser an den privaten Speicher**, nicht über den App-Server. Vercel begrenzt Server-Anfragen auf 4,5 MB, und so bleibt der Server schlank.
+4. Das Formular merkt sich den Speicherort. Erst beim **Speichern** wird das Bild am Gast eingetragen, im selben Vorgang wie die übrigen Angaben.
+
+### E) Wann Dateien gelöscht werden
+Die Datenbank-Funktionen geben nach dem Speichern die Speicherorte zurück, die nicht mehr verwendet werden. Der Server löscht diese Dateien sofort:
+- Gast speichern mit ersetztem oder entferntem Bild
+- Zusammenführen: die Bilder des nicht gewählten Dokuments
+- Gast löschen oder anonymisieren: alle Bilder des Gastes
+- Kunde löschen (Betreiber): der ganze Ordner des Kunden
+
+**Tägliche Bereinigung als Sicherheitsnetz:** Ein Zeitplan (Vercel Cron, einmal pro Tag, im Einstiegstarif möglich) löscht alle Dateien, die älter als 24 Stunden sind und an keinem Gast hängen. Das betrifft Uploads ohne Speichern, abgebrochene Löschungen und Reste gelöschter Kunden. Der Zeitplan ist mit einem geheimen Schlüssel gegen fremde Aufrufe geschützt.
+
+### F) Anpassungen an bestehenden Datenbank-Funktionen
+- **Buchung speichern:** Ein neuer Gast übernimmt auch Titel, Geschlecht, Dokument und Bilder, mit denselben Regeln. Bei bestehenden Gästen ändert sich nichts.
+- **Zusammenführen:** neue Wahlmöglichkeiten „Titel“ (beide Titel zusammen), „Geschlecht“ und „Reisedokument“ (alle Angaben und beide Bilder als Ganzes). Die Funktion gibt die Bilder des nicht gewählten Dokuments zum Löschen zurück.
+- **Anonymisieren/Löschen:** leert die neuen Felder bzw. setzt das Geschlecht auf „keine Angabe“, bereinigt wie bisher das Änderungsprotokoll und gibt die Bilder zum Löschen zurück.
+- **Gästeliste:** liefert zusätzlich die Titel für die Namensanzeige.
+- **Kunde löschen (Betreiber):** Nach erfolgreichem Löschen entfernt der Server den Ordner des Kunden.
+
+### G) Änderungsprotokoll
+Die neuen Felder laufen automatisch ins bestehende Protokoll der Gast-Tabelle. Beim Bild steht dort nur der Speicherort, das Bild selbst nicht. So ist „Bild Vorderseite hochgeladen/ersetzt/entfernt“ mit Person und Zeitpunkt nachvollziehbar. Beim Anonymisieren werden diese Altwerte wie bisher entfernt.
+
+### H) Namensanzeige
+Die zentrale Namensanzeige bekommt die beiden Titel dazu („Dr. Anna Huber, LL.M.“, „Huber, MSc“). Alle Stellen, die sie schon verwenden, zeigen dann automatisch den vollen Namen. Sortiert wird weiter nach Nachname, Vorname.
+
+### I) Safari-Fehler Gästeliste
+Gleiche Lösung wie in der Betreiber-Kundenliste: Die unsichtbare Klickfläche über der Zeile entfällt, der unterstrichene Name ist der Link. Die Handy-Karten bleiben unverändert.
+
+### J) Tests
+- **Integrationstests gegen „apppa-dev“:**
+  - Pflichtregel Art + Nummer, Ausstellungsdatum, Längen, feste Werte für Geschlecht und Art;
+  - Mitarbeiter können bestehende Gäste nicht ändern, aber per Buchung einen neuen Gast mit Dokument und Bild anlegen;
+  - Bilder: Kunde B kann Bilder von Kunde A weder lesen noch an eigene Gäste hängen; ohne Anmeldung kein Abruf; ersetzte Bilder sofort nicht mehr abrufbar;
+  - Zusammenführen mit Dokumentwahl; Anonymisieren und Löschen leeren Felder und melden die Bilder zum Löschen;
+  - Bereinigung löscht nur unverwendete Dateien, die älter als 24 Stunden sind.
+- **E2E:** Titel und Geschlecht anlegen und anzeigen, Name mit Titeln in Liste, Buchung und Kalender, Reisedokument mit Bild (JPEG, PNG und ein HEIC-Beispielbild), Bild groß öffnen und herunterladen, ersetzen, entfernen, Fehlermeldung bei PDF, Mitarbeiter ohne Bearbeiten-Knöpfe, Mitarbeiter legt Buchung mit neuem Gast und Bild an, Zusammenführen, Anonymisieren, Handy-Ansicht, axe.
+- **Unit-Tests:** Namensanzeige mit Titeln, Prüfregeln (Pflicht Art + Nummer, Datum, Längen), Umwandlung (Größe, Ausrichtung, Formatprüfung).
+- **Manuell:** Safari (Mac und iPhone): Zeilenklick in der Gästeliste, Kamera-Upload, HEIC. Playwright testet nur Chrome.
+
+### K) Was sich an Sicherheit und Datenbank ändert (Freigabe nötig)
+- **Gast-Tabelle:** neue Felder und Prüfregeln; bestehende Gäste erhalten „keine Angabe“ beim Geschlecht.
+- **Neuer privater Speicherbereich „Gast-Dokumente“** mit Zugriffsregeln:
+  - Hochladen durch Mitglieder nur in den eigenen Kunden-Ordner, nur JPEG, höchstens 2 MB;
+  - Lesen nur für Bilder, die an einem Gast des eigenen Kunden hängen (plus eigener frischer Upload), Betreiber-Admin lesend;
+  - kein Löschen oder Überschreiben durch Nutzer, nur durch den Server.
+- **Geänderte geschützte Funktionen:** Buchung speichern, Zusammenführen, Anonymisieren, Löschen, Gästeliste. Neu ist eine Funktion für die Bereinigung, die nur der Server aufrufen darf.
+- **Erster Zeitplan (Vercel Cron)** mit neuer Umgebungsvariable für den geheimen Aufruf-Schlüssel (`CRON_SECRET`), in Dev, Staging und Production einzutragen.
+- **Bestehende Regeln für Gäste bleiben unverändert.**
+
+### L) Abhängigkeiten
+- **`heic-to`:** wandelt HEIC/HEIF-Fotos im Browser um (für Chrome, Firefox, Edge). Wird nur geladen, wenn tatsächlich ein HEIC-Bild gewählt wird. Ein Umwandeln auf dem Server scheidet aus, weil die Bildbibliothek auf Vercel HEIC aus Lizenzgründen nicht kann.
+- Sonst keine neuen Pakete. Drehen, Verkleinern und JPEG-Erzeugung macht der Browser selbst. Die Bildansicht nutzt den vorhandenen shadcn-Dialog.
 
 ## QA Test Results
 _To be added by /qa_
