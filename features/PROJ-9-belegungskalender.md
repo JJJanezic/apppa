@@ -1,6 +1,6 @@
 # PROJ-9: Belegungskalender
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-10-25
 **Last Updated:** 2026-10-26
 
@@ -598,4 +598,10 @@ Der Punkt „Belegung“ wird freigeschaltet. Am Handy steht er in der unteren L
 - **Production Ready: YES.** Status **Approved**.
 
 ## Deployment
-_To be added by /deploy_
+_Stand 2026-10-26 (/deploy, Tag `v1.4.0`)_
+
+- **Staging:** https://staging.apppa.at (Vercel `apppa-staging`, Supabase `iikzjqjjxoznrkkixfqa`), vom Nutzer anhand der Checkliste geprüft und freigegeben
+- **Production:** https://app.apppa.at (Vercel `apppa`, Supabase `ahclrqbhfpidxjzbpfgb`), Commit `07e9940`, 2026-10-26; vom Nutzer geprüft (Build „Ready“, Anmeldung, Kalender mit bestehenden Buchungen)
+- **Vor dem Release:** Lint, 362 Vitest-Tests (inkl. Integration gegen Dev) und Build grün; Secret-Scan des Release-Bereichs ohne Treffer
+- **Migrationen:** keine (Kalender liest die bestehenden Tabellen aus PROJ-8); kein `db push`, kein `config push`
+- Keine neuen Umgebungsvariablen
