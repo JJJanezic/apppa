@@ -238,7 +238,7 @@ test.describe('Buchung anlegen (Inhaber)', () => {
     await panel(page).getByRole('button', { name: /Neuen Vorschlag .*480.* übernehmen/ }).click()
     await expect(panel(page).getByLabel('Übernachtungspreis (€)')).toHaveValue('480')
 
-    await pickGuest(page, 'Huber', /Huber, Anna/)
+    await pickGuest(page, 'Huber', /Anna Huber/)
     await panel(page).getByLabel('Erwachsene').fill('2')
     await panel(page).getByRole('button', { name: 'Kind hinzufügen' }).click()
     await panel(page).getByLabel('Alter von Kind 1 bei Anreise').fill('4')
@@ -357,7 +357,7 @@ test.describe('Mitarbeiter', () => {
     await setPeriod(page, day(2, FUTURE), day(5, FUTURE))
     await panel(page).getByLabel('Erwachsene').fill('5')
     const alert = panel(page).getByRole('alert')
-    await expect(alert.getByText(/Überschneidung mit Buchung · .* · Huber, Anna/)).toBeVisible()
+    await expect(alert.getByText(/Überschneidung mit Buchung · .* · Anna Huber/)).toBeVisible()
     await expect(alert.getByText('5 Personen, die Wohnung ist für höchstens 4 ausgelegt.')).toBeVisible()
     await expect(alert.getByText(/So lässt sich nicht speichern/)).toBeVisible()
     await expect(panel(page).getByLabel('Trotzdem speichern')).toHaveCount(0)
@@ -402,7 +402,7 @@ test.describe('Konflikte', () => {
     await newBooking(page)
     await chooseApartment(page, 'Haus See · Top 1')
     await setPeriod(page, day(4, FUTURE), day(10, FUTURE))
-    await pickGuest(page, 'Huber', /Huber, Anna/)
+    await pickGuest(page, 'Huber', /Anna Huber/)
     await expect(panel(page).getByText('6 Nächte')).toBeVisible()
     await page.waitForTimeout(800) // Vorschau der Prüfung abwarten
     await expect(panel(page).getByRole('alert')).toHaveCount(0)
@@ -415,7 +415,7 @@ test.describe('Konflikte', () => {
     await newBooking(page)
     await chooseApartment(page, 'Haus See · Top 1')
     await setPeriod(page, day(2, FUTURE), day(6, FUTURE))
-    await pickGuest(page, 'Huber', /Huber, Anna/)
+    await pickGuest(page, 'Huber', /Anna Huber/)
     await expect(panel(page).getByRole('alert').getByText(/Überschneidung mit Buchung/)).toHaveCount(2)
     await expect(panel(page).getByRole('button', { name: 'Buchung speichern' })).toBeDisabled()
     await panel(page).getByLabel(/Trotzdem speichern/).click()
@@ -467,7 +467,7 @@ test.describe('Optionen und Stornieren', () => {
     await expect(panel(page).getByLabel('Option gilt bis')).toHaveValue(day(7))
     await chooseApartment(page, 'Haus See · Top 1')
     await setPeriod(page, FUTURE, day(2, FUTURE))
-    await pickGuest(page, 'Huber', /Huber, Anna/)
+    await pickGuest(page, 'Huber', /Anna Huber/)
     await submit(page, 'Option speichern')
     await expect(page).toHaveURL(/\/buchungen\/[0-9a-f-]{36}$/)
     const number = `${FUTURE.slice(0, 4)}-0001`
@@ -643,8 +643,8 @@ test.describe('Liste', () => {
     await openList(page, `?monat=${month(FUTURE)}`)
     await expect(page.getByText('3 Einträge in diesem Monat')).toBeVisible()
     const rows = page.getByRole('table').getByRole('row')
-    await expect(rows.nth(1)).toContainText('Müller, René')
-    await expect(rows.nth(2)).toContainText('Huber, Anna')
+    await expect(rows.nth(1)).toContainText('René Müller')
+    await expect(rows.nth(2)).toContainText('Anna Huber')
     await expect(rows.nth(2)).toContainText(later.number!)
     await expect(rows.nth(2)).toContainText(money('240'))
     await expect(rows.nth(3)).toContainText('Renovierung')
@@ -665,7 +665,7 @@ test.describe('Liste', () => {
     await expect(page.getByText('2 Treffer in allen Monaten')).toBeVisible()
     await page.getByRole('searchbox', { name: 'Buchungen durchsuchen' }).fill(later.number!)
     await expect(page.getByText('1 Treffer in allen Monaten')).toBeVisible()
-    await expect(page.getByRole('table').getByText('Huber, Anna')).toBeVisible()
+    await expect(page.getByRole('table').getByText('Anna Huber')).toBeVisible()
   })
 })
 
@@ -691,7 +691,7 @@ test.describe('Anschluss an Gäste und Wohnungen', () => {
 
     await page.goto('/gaeste?sortierung=aufenthalt')
     await ready(page)
-    await expect(page.getByRole('table').getByRole('link')).toHaveText(['Huber, Anna', 'Adam, Eva'])
+    await expect(page.getByRole('table').getByRole('link')).toHaveText(['Anna Huber', 'Eva Adam'])
 
     await page.goto(`/gaeste/${huber}`)
     await ready(page)

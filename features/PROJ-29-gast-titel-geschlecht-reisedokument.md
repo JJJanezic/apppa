@@ -1,6 +1,6 @@
 # PROJ-29: Gast-Erweiterung: Titel, Geschlecht, Reisedokument
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-10-26
 **Last Updated:** 2026-10-26
 
@@ -387,7 +387,113 @@ Gleiche Lösung wie in der Betreiber-Kundenliste: Die unsichtbare Klickfläche �
 - Neu `src/app/api/cron/ausweisbilder/route.test.ts` (4 Tests). Alle 400 Unit- und Integrationstests grün; E2E-Stichprobe PROJ-7 (Leerzustand, Anlegen, Bearbeiten) grün. Advisors: nur die zwei bekannten Auth-Hinweise.
 
 ## QA Test Results
-_To be added by /qa_
+
+**Tested:** 2026-10-26
+**App URL:** http://localhost:3000 (gebaute Version `npm run start`, Supabase „apppa-dev“; Testhelfer verweigern Staging/Produktion über `assertTestableProject`)
+**Tester:** QA Engineer (AI)
+**Automatisiert:** `tests/PROJ-29-gast-titel-geschlecht-reisedokument.spec.ts` (14 Abläufe, Desktop; Barrierefreiheit in 375/768/1440 px), `supabase/tests/guest-documents.integration.test.ts` (14), `src/app/api/cron/ausweisbilder/route.test.ts` (4), Unit-Tests `src/lib/document-image.test.ts`, `src/lib/guests.test.ts`, `src/lib/validation/guests.test.ts`. Testbilder in `tests/fixtures` (JPEG 3000×2000, PNG mit Transparenz, HEIC aus macOS, PDF).
+
+### Acceptance Criteria Status
+
+#### Titel und Geschlecht
+- [x] Felder „Titel vorangestellt“, „Titel nachgestellt“, „Geschlecht“ im Formular; Geschlecht vorbelegt mit „keine Angabe“
+- [x] Auswahl enthält genau männlich, weiblich, divers, inter, offen, keine Angabe
+- [x] Bestehende Gäste: „keine Angabe“, Titel leer
+- [x] „Dr. Anna Huber, LL.M.“ in Detail, Gästeliste, Gastauswahl, Buchungsliste, Buchungs-Detail und Kalender (Ausnahme Konfliktwarnung, siehe BUG-1)
+- [x] Nur nachgestellter Titel ohne Vorname: „Huber, MSc“
+- [x] Titel über 50 Zeichen: Eingabe begrenzt, Formular und Datenbank lehnen ab
+- [x] Sortierung weiter nach Nachname, nicht nach Titel
+
+#### Reisedokument erfassen
+- [x] Ohne Angaben kein Reisedokument
+- [x] Nur Behörde/Staat oder nur Bild → Fehlermeldung bei Art und Nummer, nichts gespeichert
+- [x] Arten genau Reisepass, Personalausweis, Führerschein
+- [x] Ausstellungsdatum in der Zukunft → Fehlermeldung (Formular und Datenbank)
+- [x] Staat: dieselbe Länderauswahl, ohne Vorauswahl
+- [x] Abschnitt „Reisedokument“ im Detail mit allen Angaben, Datum österreichisch („15. März 2021“)
+- [x] Alles leeren und Bilder entfernen → kein Reisedokument mehr
+
+#### Bilder
+- [ ] Am Handy direkt fotografieren oder Galerie: **nicht automatisch prüfbar**, manuell am iPhone/Android prüfen (Dateiauswahl `accept="image/*,.heic,.heif"`, ohne `capture`, damit beides angeboten wird)
+- [x] HEIC-Foto in Chrome: über den nachgeladenen Dekoder umgewandelt, richtig angezeigt, 2.000 px breit. Firefox/Safari zeigen das gespeicherte JPEG ohnehin; Umwandlung in Safari (eingebaut) nicht automatisiert geprüft
+- [x] JPEG, PNG → Vorschau beim jeweiligen Platz; JPEG 3000×2000 → 2000×1333
+- [x] Vorschau groß öffnen und herunterladen (Dateiname z. B. `Reisepass-Bild-Vorderseite.jpg`)
+- [x] Ersetzen: altes Bild sofort nicht mehr abrufbar und aus dem Speicher gelöscht
+- [x] Rückseite entfernen: gelöscht, Vorderseite bleibt
+- [x] PDF → „Diese Datei ist kein lesbares Bild …“, bisheriges Bild bleibt
+- [x] Upload-Abbruch: Fehlermeldung, Eingaben bleiben, bisheriges Bild bleibt (im Code geprüft, `uploadFailed`; nicht per E2E simuliert)
+- [x] Fremder Kunde: kein Lesen, kein Hochladen in fremden Ordner, kein Einhängen fremder Bilder (Integrationstests)
+- [x] Ohne Anmeldung: kein Bild, kein öffentlicher Abruf („Bucket not found“), keine Dateiliste
+
+#### Rollen
+- [x] Mitarbeiter sieht Angaben, öffnet und lädt Bilder herunter, keine Knöpfe zum Bearbeiten/Hochladen
+- [x] Mitarbeiter ändert bestehenden Gast nicht (Datenbank lehnt ab)
+- [x] Mitarbeiter legt Buchung mit neuem Gast samt Titel, Geschlecht, Dokument und Bild an
+- [x] Mitarbeiter wählt bestehenden Gast → dessen Angaben unverändert (Buchung speichert nur `guest_id`)
+
+#### Änderungsprotokoll, Zusammenführen, Löschen
+- [x] Änderungen an Titel, Geschlecht, Dokument im Protokoll mit Person und Zeitpunkt
+- [x] Bild hochgeladen/ersetzt/entfernt: im Protokoll nur der Speicherort (Vorder-/Rückseite), kein Bild (Abfrage in Dev geprüft)
+- [x] Zusammenführen: Titel und Geschlecht einzeln, Dokument als Ganzes; Bilder des nicht gewählten Dokuments gelöscht
+- [x] Gast ohne Buchungen löschen: Bilder endgültig entfernt
+- [x] Anonymisieren: Titel und Dokument leer, Geschlecht „keine Angabe“, Bilder gelöscht, Altwerte aus dem Protokoll entfernt
+
+#### Fehlerbehebung Gästeliste
+- [ ] Klick in Safari (Mac, iPhone, iPad): **manuell zu prüfen.** Die Ursache (unsichtbare Klickfläche `after:inset-0` an `<tr>`) ist entfernt, nur der Name ist Link, wie in der behobenen Kundenliste. In Chrome geprüft; die WebKit-Engine von Playwright ist auf dem Rechner nicht installiert
+- [x] Tastatur: Tab zum Namen, Enter öffnet genau diesen Gast
+
+### Edge Cases Status
+- [x] Großes Foto: verkleinert; Eingang über 30 MB → Meldung mit Höchstgröße (Code; kein 30-MB-Testbild)
+- [x] Ausrichtung nach Kamera-Angabe (`imageOrientation: 'from-image'`), kein Drehen von Hand
+- [x] Bild hochgeladen, nicht gespeichert: bleibt nicht am Gast; Datei räumt die tägliche Bereinigung weg (Datenbankfunktion nur für den Server, Integrationstest)
+- [x] Gleichzeitiges Bearbeiten: bestehender Schutz „inzwischen geändert“ (PROJ-7-Regression grün)
+- [x] Art geändert, alte Bilder bleiben → Hinweis erscheint
+- [x] Mehrere Titel / Sonderzeichen („Univ.-Prof. DI Dr.“) zulässig
+- [x] Anonymisierter Gast: keine Titel, kein Dokument, keine Bilder, nicht bearbeitbar
+- [x] Kunde gelöscht: Ordner wird von `deleteTenant` entfernt (Code; Reste fängt die Bereinigung)
+- [x] Zusätzlich: Speichern während eines laufenden Uploads ist gesperrt („Bitte warte, bis das Bild hochgeladen ist.“, Unit-Test)
+- [x] Zusätzlich: Dateiname mit Personendaten (`ausweis-huber.jpg`) wird vom Speicher abgelehnt
+
+### Security Audit Results
+- [x] Authentifizierung: Ohne Anmeldung kein Bild, keine Liste, kein Upload; private Ablage ohne öffentliche Adresse
+- [x] Autorisierung: Kunde B kann Bilder von Kunde A weder lesen noch in dessen Ordner hochladen noch an eigene Gäste hängen; Mitarbeiter ändern keine bestehenden Gäste; Nutzer können Dateien weder löschen noch überschreiben
+- [x] Ersetzte/entfernte Bilder sofort unlesbar (Lese-Regel prüft die Verwendung am Gast)
+- [x] Bereinigungs-Route: ohne oder mit falschem Schlüssel 401, ohne gesetzten `CRON_SECRET` immer 401, zeitkonstanter Vergleich; POST 405
+- [x] Datenbank-Bereinigungsfunktion nur für `service_role`
+- [x] Eingaben: Prüfregeln im Browser, auf dem Server (Zod) und in der Datenbank (Längen, feste Werte, Speicherort im eigenen Ordner); React gibt Titel/Behörde als Text aus (kein XSS); Download-Dateiname bereinigt
+- [x] Datensparsamkeit: Original nicht gespeichert, versteckte Fotodaten (GPS) durch Neu-Kodierung entfernt
+- [ ] Hinweis (kein Fehler): Abruf-Links sind 10 Minuten für jeden gültig, der sie kennt (gewollt, Tech Design)
+- [ ] Hinweis (kein Fehler): Mitglieder können beliebig viele Bilder hochladen, die nie gespeichert werden (bis zur Bereinigung nach 24 h, je ≤ 2 MB). Für die Pilotphase vertretbar
+- [ ] Hinweis: Die App sendet `Permissions-Policy: camera=()`. Das betrifft die Kamera-API im Browser, nach heutigem Stand nicht die Dateiauswahl mit Kamera. Bei der manuellen Prüfung am Handy mit bestätigen
+
+### Regression
+- E2E (Desktop) grün: PROJ-7 (alle 13), PROJ-8 (alle 20; BUG-1 betrifft einen Test), PROJ-9 (alle Abläufe inkl. Detailpanel und Anlegen per Klick; Layout-Test nicht wiederholt), PROJ-27 (Buchung mit Personenpreisen, Mitarbeiter; Wohnungs-Konfiguration nicht wiederholt, von PROJ-29 nicht berührt); Barrierefreiheit von PROJ-7/PROJ-8 in allen drei Breiten
+- Erwartungen in älteren E2E-Tests angepasst (gewollte Spec-Änderung): Hauptgäste heißen jetzt „Anna Huber“ statt „Huber, Anna“ (PROJ-7, PROJ-8, PROJ-9, PROJ-27). Mitreisende bleiben „Huber, Max“
+- Unit- und Integrationstests: 399/400 im Gesamtlauf. `rls.integration.test.ts` „Person ohne Mitgliedschaft …“ lief einmal in die 5-Sekunden-Grenze (Abfrage auf das Änderungsprotokoll unter Last), im Einzellauf grün; nicht durch PROJ-29 verursacht
+- Testläufe gegen die gebaute Version im Hintergrund statt `npm run dev`: keine Abbrüche (Exit 137) mehr
+
+### Bugs Found
+
+#### BUG-1: Konfliktwarnung zeigt den Gast im alten Format ohne Titel
+- **Severity:** Low
+- **Steps to Reproduce:**
+  1. Gast „Dr. Anna Huber, LL.M.“ mit Buchung 1.–5. Dez.
+  2. Neue Buchung in derselben Wohnung, überschneidender Zeitraum
+  3. Erwartet: „Überschneidung mit Buchung · 2026-0101 · Dr. Anna Huber, LL.M.“
+  4. Tatsächlich: „… · Huber, Anna“ (ohne Titel, Nachname zuerst)
+- **Ursache:** Der Name kommt aus der Datenbank-Funktion `booking_warnings_for` (`guest_name`), die PROJ-29 nicht angepasst hat
+- **Test:** `tests/PROJ-8-manuelle-buchungen.spec.ts:360` erwartet bereits das neue Format und schlägt bis zur Behebung fehl
+- **Priority:** Fix before deployment (klein, eine Datenbank-Funktion)
+
+#### Beobachtung (kein Bug, Entscheidung offen): Reihenfolge der Gästeliste
+- Die Liste ist nach Nachname sortiert, zeigt aber „Eva Bauer, René Müller, Zeller“. Das entspricht der Spec („voller Name überall“), liest sich alphabetisch aber ungewohnt. Alternative: in Listen „Bauer, Eva“ bzw. „Huber, Dr. Anna, LL.M.“
+
+### Summary
+- **Acceptance Criteria:** 33/35 bestanden, 2 manuell zu prüfen (Kamera am Handy, Zeilenklick in Safari), 0 fehlgeschlagen
+- **Bugs Found:** 1 (0 critical, 0 high, 0 medium, 1 low)
+- **Security:** bestanden, drei Hinweise ohne Handlungsbedarf
+- **Production Ready:** YES (nach manueller Prüfung in Safari und am Handy)
+- **Recommendation:** BUG-1 kurz beheben, dann deployen
 
 ## Deployment
 _To be added by /deploy_
