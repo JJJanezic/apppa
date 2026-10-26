@@ -1186,6 +1186,7 @@ export type Database = {
         Args: { p_booking_id: string; p_companions: Json; p_updated_at: string }
         Returns: undefined
       }
+      unused_guest_documents: { Args: { p_limit?: number }; Returns: string[] }
       update_tenant_master_data: {
         Args: {
           p_data: Json

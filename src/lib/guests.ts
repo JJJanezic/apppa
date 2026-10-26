@@ -7,6 +7,7 @@ export type GuestErrorCode =
   | 'guestAnonymized'
   | 'mergeInvalid'
   | 'ownerOnly'
+  | 'documentImageMissing'
 
 export const GUEST_PAGE_SIZE = 50
 

@@ -228,3 +228,11 @@ Die Gemeinden (Auswahl bei Objekten, später Grundlage der Tourismusabgabe) stam
    join public.municipalities m on m.code = p.municipality_code where m.valid_until is not null;
    ```
    Nachfolger in einer eigenen Migration setzen (`update public.municipalities set successor_code = '…' where code = '…'`) und die betroffenen Objekte auf die Nachfolgegemeinde umhängen (`update public.properties set municipality_code = '…' where municipality_code = '…'`). Das Änderungsprotokoll hält die Umstellung fest; ab PROJ-16 vorher prüfen, ob für den laufenden Monat schon Abgaben gemeldet sind.
+
+## 14. Ausweisbilder (PROJ-29)
+- **Speicherbereich** `guest-documents` (privat, nur JPEG, höchstens 2 MB) legt die Migration `20261026181450_guest_titles_gender_documents.sql` an. Ablage: `<Kunden-ID>/<Zufalls-ID>.jpg`; die Zuordnung zum Gast steht nur in der Tabelle `guests` (`document_front_path`, `document_back_path`).
+- **Zugriff:** Hochladen nur Mitglieder in den eigenen Ordner; Lesen nur, wenn das Bild an einem Gast des Kunden hängt (oder der eigene frische Upload ist), Betreiber-Admin mit 2FA lesend. Löschen und Überschreiben nur mit dem geheimen Schlüssel.
+- **Löschen:** Die Server-Aktionen löschen ersetzte, entfernte und nicht gewählte Bilder sofort, beim Löschen eines Kunden den ganzen Ordner.
+- **Tägliche Bereinigung:** Vercel Cron ruft täglich um 03:00 UTC `/api/cron/ausweisbilder` auf (`vercel.json`) und löscht Dateien, die älter als 24 Stunden sind und an keinem Gast hängen (`public.unused_guest_documents`, nur `service_role`).
+- **Umgebungsvariable `CRON_SECRET`:** zufälliger Wert (z. B. `openssl rand -hex 32`), in jedem Vercel-Projekt und jeder Umgebung eintragen (`apppa` Production + Preview, `apppa-staging` Production). Vercel schickt ihn als `Authorization: Bearer …`. Ohne Wert lehnt die Route jeden Aufruf ab (401); lokal ist er nur zum Testen der Route nötig.
+- **Manuell bereinigen:** `curl -H "Authorization: Bearer $CRON_SECRET" https://<app>/api/cron/ausweisbilder` → `{ "removed": n, "failed": false }`.

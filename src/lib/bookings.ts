@@ -16,6 +16,7 @@ export type BookingErrorCode =
   | 'guestAnonymized'
   | 'notActive'
   | 'tooManyCompanions'
+  | 'documentImageMissing'
 
 // Buchung (bestätigt), Option (vorgemerkt mit Ablaufdatum) oder Sperre (ohne Gast und Preis)
 export const BOOKING_KINDS = ['booking', 'option', 'block'] as const

@@ -189,6 +189,9 @@ In Safari öffnet ein Klick auf eine beliebige Zeile der Gästeliste immer den l
 | Upload über einmaligen Upload-Schlüssel vom Server (`prepareDocumentUpload`), Speicherort `<Kunde>/<zufällig>.jpg` | Der Browser braucht die Kundenkennung nicht; Speicherort und Ordner legt der Server fest | 2026-10-26 |
 | Dateien löschen die Server-Aktionen selbst (Speicherorte vor/nach der Änderung vergleichen) | Die Datenbank-Funktionen für Löschen und Zusammenführen müssen dafür keine Speicherorte zurückgeben | 2026-10-26 |
 | Name mit Titeln auch in Listen „Dr. Anna Huber, LL.M.“ statt „Huber, Anna“ | Spec: voller Name überall; Mitreisende bleiben „Nachname, Vorname“ | 2026-10-26 |
+| Zusammenführen löscht den anderen Gast vor dem Aktualisieren | Ein Bild darf nur an einem Gast hängen; so kann das gewählte Dokument samt Bildern übernommen werden | 2026-10-26 |
+| Lese-Regel über Verwendung am Gast statt nur über den Ordner | Ersetzte/entfernte Bilder sind sofort unlesbar, auch bevor die Datei gelöscht ist; eigener Upload bleibt für die Vorschau lesbar | 2026-10-26 |
+| Bereinigungs-Route mit `CRON_SECRET`, ohne Schlüssel immer 401 | Vercel-Cron-Standard; kein öffentlicher Aufruf möglich | 2026-10-26 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
@@ -359,6 +362,29 @@ Gleiche Lösung wie in der Betreiber-Kundenliste: Die unsichtbare Klickfläche �
 - `save_booking` (neuer Gast mit neuen Spalten), `merge_guests` (Wahl `titles`, `gender`, `document`), `anonymize_guest` (neue Felder leeren, Geschlecht zurücksetzen), `guest_list` (Titel zurückgeben).
 - Kunde löschen: Ordner des Kunden im Speicher entfernen; tägliche Bereinigung (Vercel Cron, `CRON_SECRET`).
 - Integrationstests laut Tech Design J.
+
+## Implementation Notes (Backend)
+**Stand 2026-10-26.** Migration `supabase/migrations/20261026181450_guest_titles_gender_documents.sql`, eingespielt in Dev („apppa-dev“).
+
+**Datenbank**
+- `guests`: zehn neue Spalten mit Prüfregeln (Titel 1–50 Zeichen, Geschlecht `not null default 'unspecified'` mit festen Werten, Dokumentart fest, Nummer 1–30, Behörde 1–100, Staat als Ländercode, Ausstellungsdatum ab 1900). Speicherort nur `<eigener Kunde>/<uuid>.jpg`. „Art + Nummer Pflicht, sobald etwas erfasst ist“, Vorder- ≠ Rückseite, anonymisierte Gäste ohne Titel/Dokument. Eindeutigkeit je Bildplatz per Index; Spalten-Rechte für Anlegen/Ändern ergänzt (RLS unverändert: nur Inhaber).
+- Trigger `guests_before_write` ergänzt: Ausstellungsdatum nicht in der Zukunft (23514); neu eingetragene Bilder müssen im Speicher liegen und dürfen an keinem anderen Gast hängen (auch Kreuzprüfung Vorder-/Rückseite) → Fehlercode **P0705** (Meldung „Ausweisbild nicht mehr verfügbar“ in Gäste- und Buchungsaktionen).
+- `save_booking`: neuer Gast mit allen neuen Spalten (auch Mitarbeiter). `merge_guests`: Wahl `titles`, `gender`, `document` (als Ganzes); hängt jetzt erst die Buchungen um und löscht den anderen Gast **vor** dem Aktualisieren, damit dessen Bilder zum verbleibenden Gast wandern können. `anonymize_guest`: leert Titel und Dokument, Geschlecht auf „keine Angabe“. `guest_list`: liefert `title_prefix`/`title_suffix` (Rückgabetyp geändert → neu angelegt, Rechte neu gesetzt).
+
+**Speicher (Supabase Storage)**
+- Privater Bereich `guest-documents`, nur `image/jpeg`, höchstens 2 MB.
+- Regeln auf `storage.objects`: Hochladen nur Mitglieder in den eigenen Kunden-Ordner mit gültigem Dateinamen (`private.document_tenant`); Lesen über `private.can_read_document`: Mitglied oder Admin mit 2FA **und** das Bild hängt an einem Gast des Kunden, oder es ist der eigene frische Upload (`owner_id`). Keine Regeln für Ändern/Löschen → nur der Server mit geheimem Schlüssel.
+- `public.unused_guest_documents(limit)`: Dateien älter als 24 Stunden ohne Gast, nur `service_role`.
+
+**Server**
+- `src/lib/guest-documents.ts`: `removeTenantDocuments` (beim Löschen eines Kunden in `deleteTenant`), `removeUnusedDocuments` (tägliche Bereinigung).
+- Route `src/app/api/cron/ausweisbilder/route.ts` (GET, `Authorization: Bearer CRON_SECRET`, zeitkonstanter Vergleich, ohne gesetzten Schlüssel immer 401), Zeitplan in `vercel.json` täglich 03:00 UTC.
+- Runbook `docs/runbooks/supabase.md`, Abschnitt 14.
+- **Neue Umgebungsvariable `CRON_SECRET`:** vor dem nächsten `/deploy` in allen Vercel-Umgebungen eintragen und in `.env.local.example` mit Platzhalter dokumentieren (Datei war für den Agenten gesperrt).
+
+**Tests**
+- Neu `supabase/tests/guest-documents.integration.test.ts` (14 Tests): Standard/Prüfregeln Titel und Geschlecht, Titel in `guest_list`, Pflicht Art + Nummer, Ausstellungsdatum, Mitarbeiter ändern nicht; Upload nur eigener Ordner/nur JPEG/gültiger Name, Upload-Schlüssel nur eigener Ordner; Bild nur existierend, nie an zwei Gästen, nicht aus fremdem Ordner; Lesen (eigener frischer Upload, Mitglieder, fremder Kunde, ersetzte Bilder sofort nicht mehr); kein Löschen/Überschreiben durch Nutzer; Mitarbeiter-Buchung mit neuem Gast samt Dokument und Bild; Zusammenführen mit Dokumentwahl; Anonymisieren; Bereinigung nur für den Server.
+- Neu `src/app/api/cron/ausweisbilder/route.test.ts` (4 Tests). Alle 400 Unit- und Integrationstests grün; E2E-Stichprobe PROJ-7 (Leerzustand, Anlegen, Bearbeiten) grün. Advisors: nur die zwei bekannten Auth-Hinweise.
 
 ## QA Test Results
 _To be added by /qa_

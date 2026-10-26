@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import type { ActionResult, CommonErrorCode } from '@/lib/auth/result'
 import { getSessionUser, pendingMfaStep, type SessionUser } from '@/lib/auth/session'
 import { type OperatorErrorCode, tenantHref } from '@/lib/operator'
+import { removeTenantDocuments } from '@/lib/guest-documents'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { cleanupUnusedAccount, deliverInvitation } from '@/lib/team-invite'
@@ -206,6 +207,8 @@ export async function deleteTenant(values: { tenantId: string; confirmName: stri
     p_confirm_name: values.confirmName,
   })
   if (error) return dbFail(error, 'Kunde nicht gelöscht')
+  // Ausweisbilder der Gäste (PROJ-29); Reste entfernt die tägliche Bereinigung
+  await removeTenantDocuments(values.tenantId)
 
   const admin = createAdminClient()
   let accountsLeft = 0

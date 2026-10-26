@@ -52,6 +52,9 @@ function dbFail(error: DbError, context: string): Failure {
       return fail('guestAnonymized')
     case 'P0704':
       return fail('mergeInvalid')
+    // PROJ-29: Ausweisbild fehlt im Speicher oder gehört schon einem anderen Gast
+    case 'P0705':
+      return fail('documentImageMissing')
   }
   console.error(`[gaeste] ${context}`, error.code, error.message)
   return fail('unknown')
