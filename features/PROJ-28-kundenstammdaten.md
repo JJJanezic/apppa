@@ -1,6 +1,6 @@
 # PROJ-28: Kundenstammdaten
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-10-26
 **Last Updated:** 2026-10-26
 
@@ -150,12 +150,100 @@ Leere Felder werden als „nicht angegeben“ gespeichert, nicht als leerer Text
 ### Technical Decisions
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Eine gemeinsame geschützte Speicherfunktion für Inhaber und Betreiber | Rechte, Aktiv-Prüfung, Konfliktschutz und Protokoll an einer Stelle; keine zwei Wege mit unterschiedlichen Regeln | 2026-10-26 |
+| Bisheriges direktes Namens-Update für Inhaber schließen | Sonst ließe sich der Konfliktschutz und das Protokoll umgehen | 2026-10-26 |
+| Neue Felder direkt an der Kundentabelle statt eigener Tabelle | Genau ein Datensatz je Kunde; einfaches Lesen; vorhandenes Änderungsprotokoll greift automatisch | 2026-10-26 |
+| Konfliktschutz über „zuletzt geändert am“ | Gleiches Verfahren wie bei den Gästen (PROJ-7); Feld existiert schon | 2026-10-26 |
+| Stammdaten-Änderungen im Betreiber-Protokoll mit Feldliste (ohne Werte) | Betreiber sieht auf der Detailseite, wer was geändert hat; Werte stehen ohnehin im allgemeinen Änderungsprotokoll | 2026-10-26 |
+| Länder als internationaler Code mit vorhandener Länderauswahl | Einheitlich mit den Gästen; deutsche Namen ohne eigene Liste | 2026-10-26 |
+| Prüfregeln doppelt: im Formular und in der Datenbank | Sofortige Rückmeldung für Nutzer; Datenbank weist trotzdem fehlerhafte Anfragen ab | 2026-10-26 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### A) Überblick
+Kein neues Paket, keine neue Seite. Erweitert werden:
+- die bestehende Kundentabelle (neue Felder),
+- das Namensformular unter *Einstellungen → Kunde* (wird zum Stammdaten-Formular),
+- die Kunden-Detailseite des Betreibers (neuer Abschnitt),
+- die Kundenübersicht des Betreibers (Ort unter dem Namen),
+- das Betreiber-Protokoll (neuer Eintrag „Stammdaten geändert“).
+
+Inhaber und Betreiber speichern über **dieselbe geschützte Speicherfunktion in der Datenbank**. Sie prüft Rechte, Zustand des Kunden, gleichzeitige Änderungen und schreibt das Protokoll. Dadurch gelten die Regeln an genau einer Stelle, egal wer speichert.
+
+### B) Oberfläche (Komponenten)
+```
+Einstellungen → Kunde (nur Inhaber)
++-- Stammdaten-Formular (ersetzt das bisherige Namensformular)
+    +-- Kundenname (Pflicht)
+    +-- Namenszeile 2
+    +-- Adresszeile 1, Adresszeile 2
+    +-- PLZ | Ort (nebeneinander ab Tablet, untereinander am Handy)
+    +-- Staat (Länderauswahl aus PROJ-7, mit „Keine Angabe“)
+    +-- UID | Steuernummer | Registernummer
+    +-- Hinweis „inzwischen geändert“ + „Aktuelle Fassung laden“ (nur bei Konflikt)
+    +-- Speichern
+
+Betreiber → Kunden-Detailseite
++-- NEU ganz oben: Abschnitt „Stammdaten“
+|   +-- dasselbe Stammdaten-Formular (bei deaktiviertem Kunden: nur lesbar, ohne Speichern)
++-- Mitglieder, Einladungen, Protokoll, Gefahrenzone (unverändert)
+    +-- Protokoll zeigt neu „Stammdaten geändert: UID, Ort“ mit Person und Zeitpunkt
+
+Betreiber → Kundenübersicht
++-- Tabelle: unter dem Namen klein der Ort (falls vorhanden)
++-- Karten (Handy): ebenso
+```
+- **Ein Formular-Baustein für beide Seiten.** Er bekommt mit, ob er für den Inhaber oder den Betreiber speichert und ob er nur lesbar ist. So sehen beide Seiten gleich aus und haben dieselben Prüfregeln.
+- **Länderauswahl:** der vorhandene Baustein aus der Gäste-Datenbank (mit „Keine Angabe“) wird wiederverwendet. Ohne gespeicherten Staat ist „Österreich“ vorausgewählt.
+- **Prüfregeln** (Längen, UID-Format, Leerzeichen entfernen, Großschreibung der UID) liegen an einer Stelle und werden in Formular und Server gleich verwendet.
+
+### C) Datenmodell (in Worten)
+**Kunde (bestehende Tabelle) bekommt neun optionale Felder:**
+- Namenszeile 2 (bis 200 Zeichen)
+- Adresszeile 1 und 2 (je bis 200 Zeichen)
+- Postleitzahl (bis 10 Zeichen)
+- Ort (bis 100 Zeichen)
+- Staat (internationaler Ländercode wie bei den Gästen, z. B. AT)
+- UID (Format AT: ATU + 8 Ziffern; sonst Länderkürzel + 2–13 Buchstaben/Ziffern; nur Großbuchstaben, keine Leerzeichen)
+- Steuernummer, Registernummer (je bis 30 Zeichen)
+
+Leer bedeutet „nicht angegeben“. Die Datenbank prüft Längen und UID-Format zusätzlich selbst, damit auch fehlerhafte Anfragen abgewiesen werden. Bestehende Kunden behalten alle Daten; die neuen Felder sind bei ihnen leer.
+
+**„Zuletzt geändert am“** gibt es am Kunden schon. Es dient als Stand für den Schutz vor gleichzeitigem Überschreiben (wie bei den Gästen).
+
+**Betreiber-Protokoll** bekommt die neue Art „Stammdaten geändert“ und dazu die Liste der geänderten Felder (z. B. „UID, Ort“). Der Eintrag entsteht für Änderungen durch Inhaber und Betreiber. Das allgemeine Änderungsprotokoll aus PROJ-1 hält zusätzlich wie bisher alte und neue Werte fest.
+
+### D) Speichern: eine geschützte Funktion
+Ablauf beim Speichern (für Inhaber und Betreiber gleich):
+1. **Rechte prüfen:** Inhaber dieses Kunden oder Betreiber-Admin (mit bestätigter Zwei-Faktor-Anmeldung, wie im übrigen Betreiber-Bereich). Mitarbeiter und Inhaber anderer Kunden werden abgewiesen.
+2. **Kunde muss aktiv sein**, sonst Meldung „Kunde ist deaktiviert“.
+3. **Stand vergleichen:** Hat sich „zuletzt geändert am“ seit dem Öffnen geändert, wird nichts gespeichert und das Formular zeigt „Die Kundendaten wurden inzwischen geändert“.
+4. **Werte bereinigen und speichern** (Leerzeichen, UID-Schreibweise, leer = nicht angegeben).
+5. **Protokoll:** Nur wenn sich wirklich etwas geändert hat, entsteht ein Eintrag „Stammdaten geändert“ mit den Feldnamen.
+
+Der bisherige direkte Weg, mit dem Inhaber nur den Namen ändern, wird durch diese Funktion ersetzt und danach geschlossen. So gibt es keinen zweiten Weg, der Konfliktschutz und Protokoll umgeht.
+
+### E) Kundenübersicht
+Die Übersichtsabfrage des Betreibers liefert zusätzlich den Ort. Suche und Blättern bleiben unverändert (Suche nur nach Name und E-Mail).
+
+### F) Tests
+- **Unit-Tests:** Prüfregeln (UID AT/andere Länder/ohne Kürzel, Leerzeichen und Kleinbuchstaben, Längen, nur Leerzeichen = leer).
+- **E2E:** Inhaber speichert alle Felder; nur Name; Feld leeren; UID-Fehler; Mitarbeiter „Seite nicht gefunden“ und direkte Änderung abgewiesen; Betreiber bearbeitet inkl. Name; deaktivierter Kunde nur lesbar und Speichern abgewiesen; Ort in der Übersicht; Protokolleintrag; Konflikt Betreiber ↔ Inhaber mit „Aktuelle Fassung laden“; Handy-Breite; axe.
+- **Sicherheit:** Inhaber von Kunde A kann Kunde B weder lesen noch ändern; Mitarbeiter kann die Speicherfunktion nicht nutzen.
+
+### G) Was sich an Sicherheit und Datenbank ändert (Freigabe nötig)
+- **Neue Felder** an der Kundentabelle mit Prüfregeln.
+- **Neue geschützte Speicherfunktion** für Stammdaten (prüft Rolle selbst).
+- **Direktes Ändern des Kundennamens durch Inhaber wird geschlossen** (läuft künftig über die Funktion).
+- **Betreiber-Protokoll:** neue Eintragsart und Feldliste; Einträge entstehen künftig auch, wenn ein Inhaber speichert (nur über die Funktion, weiterhin nur für den Admin lesbar).
+- **Übersichtsabfrage des Betreibers** liefert zusätzlich den Ort.
+- Lesen bleibt wie bisher: Mitglieder des Kunden und der Admin. Mitarbeiter könnten die Felder technisch lesen (wie heute den Namen), die Oberfläche zeigt sie ihnen aber nicht.
+
+### Abhängigkeiten (Pakete)
+Keine neuen Pakete.
 
 ## QA Test Results
 _To be added by /qa_
