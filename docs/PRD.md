@@ -29,7 +29,7 @@ Die App wird als Mehrmandanten-SaaS betrieben: Jeder Kunde (Vermieter) hat ein e
 | P0 (Pilot) | Channex-Anbindung: Buchungsimport von booking.com/Airbnb und Verfügbarkeitssperren | Roadmap |
 | P0 (Pilot) | Zahlungserfassung je Buchung, Dashboard | Roadmap |
 | P0 (Pilot) | Tourismusabgabe: Regeln je Gemeinde, Berechnung und Monatsbericht | Roadmap |
-| P0 (Pilot) | Gast-Erweiterung: Titel, Geschlecht, Reisedokument | In Progress (PROJ-29) |
+| P0 (Pilot) | Gast-Erweiterung: Titel, Geschlecht, Reisedokument | Deployed (PROJ-29) |
 | P0 (Pilot) | Gästeblatt (Meldewesen) | Roadmap (PROJ-26) |
 | P0 (Pilot) | Kalender-Abo-Link für Outlook/M365 und Google Calendar | Roadmap |
 | P0 (MVP-Abschluss) | Statistische Auswertungen (Auslastung, Umsatz, Gästeherkunft, Kanäle) | Roadmap |

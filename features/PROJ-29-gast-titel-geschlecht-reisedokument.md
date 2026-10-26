@@ -1,6 +1,6 @@
 # PROJ-29: Gast-Erweiterung: Titel, Geschlecht, Reisedokument
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-10-26
 **Last Updated:** 2026-10-26
 
@@ -503,4 +503,11 @@ Gleiche Lösung wie in der Betreiber-Kundenliste: Die unsichtbare Klickfläche �
 - **Recommendation:** Deployen (nach manueller Prüfung in Safari und am Handy)
 
 ## Deployment
-_To be added by /deploy_
+_Stand 2026-10-26 (/deploy, Tag `v1.6.0`)_
+
+- **Staging:** https://staging.apppa.at (Vercel `apppa-staging`, Supabase `iikzjqjjxoznrkkixfqa`), Build vom Nutzer als „Ready“ bestätigt; der Nutzer hat die Auslieferung nach Production freigegeben. Die manuelle Prüfung in Safari (Zeilenklick) und am Handy (Kamera-Upload) wurde nicht zurückgemeldet
+- **Production:** https://app.apppa.at (Vercel `apppa`, Supabase `ahclrqbhfpidxjzbpfgb`), Commit `11818bc`, 2026-10-26
+- **Migrationen** in Staging und Production eingespielt: `20261026181450_guest_titles_gender_documents.sql` (Spalten, Speicherbereich `guest-documents` mit Zugriffsregeln, Funktionen), `20261026192619_guest_list_name_in_warnings.sql` (BUG-1)
+- **Advisors:** kein Befund zur Datenbank. Nur bekannte Auth-Hinweise (Staging: Gültigkeit der Mail-Links, Passwort-Leak-Prüfung; Production: Gültigkeit der Mail-Links)
+- **Neue Umgebungsvariable `CRON_SECRET`** vom Nutzer in `apppa` (Production, Preview) und `apppa-staging` (Production) gesetzt; tägliche Bereinigung über `vercel.json` (03:00 UTC, läuft nur in Production-Deployments)
+- Kein `config push`
