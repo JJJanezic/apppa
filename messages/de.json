@@ -448,7 +448,7 @@
       "reactivated": "Kunde reaktiviert",
       "deleted": "Kunde gelöscht",
       "by": "{date} · {actor}",
-      "masterData": "Stammdaten geändert: {fields}"
+      "master_data": "Stammdaten geändert: {fields}"
     },
     "done": {
       "created": "Kunde „{tenant}“ angelegt. Die Einladung an {email} ist unterwegs.",

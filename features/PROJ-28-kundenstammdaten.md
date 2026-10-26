@@ -1,6 +1,6 @@
 # PROJ-28: Kundenstammdaten
 
-## Status: In Review
+## Status: Approved
 **Created:** 2026-10-26
 **Last Updated:** 2026-10-26
 
@@ -276,7 +276,7 @@ Keine neuen Pakete.
 **Tested:** 2026-10-26
 **App URL:** http://localhost:3000 (Supabase „apppa-dev“; Testhelfer verweigern Staging/Produktion über `assertTestableProject`)
 **Tester:** QA Engineer (AI)
-**Automatisiert:** `tests/PROJ-28-kundenstammdaten.spec.ts` (21 Tests), Unit-Tests `src/lib/validation/tenant.test.ts`
+**Automatisiert:** `tests/PROJ-28-kundenstammdaten.spec.ts` (17 Tests), Unit-Tests `src/lib/validation/tenant.test.ts`
 
 ### Acceptance Criteria Status
 
@@ -313,7 +313,7 @@ Keine neuen Pakete.
 - [x] Inhaber speichert, während der Betreiber offen hat → Betreiber erhält „Die Kundendaten wurden inzwischen geändert.“, nichts überschrieben
 - [x] Eigene Eingaben bleiben bis „Aktuelle Fassung laden“; danach neuer Stand, Hinweis weg
 - [x] Allgemeines Änderungsprotokoll: wer/wann/alt/neu (`audit_log`, Integrationstest); Betreiber-Protokoll mit Feldliste in der Datenbank
-- [ ] **BUG-1:** Betreiber-Protokoll auf der Detailseite zeigt den Rohschlüssel `operator.log.master_data` statt „Stammdaten geändert: …“ (Änderungen durch Inhaber und Betreiber)
+- [x] ~~**BUG-1:**~~ (behoben) Betreiber-Protokoll auf der Detailseite zeigte den Rohschlüssel `operator.log.master_data` statt „Stammdaten geändert: …“ (Änderungen durch Inhaber und Betreiber)
 
 #### Allgemein
 - [x] Keine Verbindung → „Keine Verbindung …“, Eingaben bleiben, nichts gespeichert
@@ -327,7 +327,7 @@ Keine neuen Pakete.
 - [x] UID passt nicht zum Staat (DE-UID bei Staat Deutschland bzw. beliebig) → keine Querprüfung
 - [x] Umbenennen ohne Dublettenprüfung (wie bisher)
 - [x] Kunde während der Bearbeitung deaktiviert → Betreiber erhält „Der Kunde ist deaktiviert …“
-- [ ] **BUG-2:** Kunde während der Bearbeitung deaktiviert → Inhaber erhält nur „Etwas ist schiefgelaufen. Bitte versuche es erneut.“
+- [x] ~~**BUG-2:**~~ (behoben) Kunde während der Bearbeitung deaktiviert → Inhaber erhielt nur „Etwas ist schiefgelaufen. Bitte versuche es erneut.“
 - [x] Speichern ohne Änderung → kein Fehler, kein Protokolleintrag
 - [x] Sonderzeichen/Umlaute unverändert (Unit-Test, „Müller-Öztürk & Söhne“)
 
@@ -377,11 +377,16 @@ Keine neuen Pakete.
 - **Priority:** Nice to have (selten; Inhaber deaktivierter Kunden werden ohnehin gesperrt)
 
 ### Summary
-- **Acceptance Criteria:** 30/31 passed (1 Medium-Bug)
-- **Bugs Found:** 2 total (0 critical, 0 high, 1 medium, 1 low)
+- **Acceptance Criteria:** 31/31 passed (nach Behebung von BUG-1)
+- **Bugs Found:** 2 total (0 critical, 0 high, 1 medium, 1 low), beide behoben
 - **Security:** Pass
-- **Production Ready:** formal JA (keine Critical/High-Bugs), empfohlen aber erst nach Behebung von BUG-1 (sichtbarer Rohtext im Betreiber-Bereich, Zwei-Minuten-Korrektur)
-- **Recommendation:** BUG-1 beheben (klein), BUG-2 optional mitnehmen, dann `/qa` erneut
+- **Production Ready:** JA
+- **Recommendation:** Deploy (Safari vorher kurz manuell prüfen)
+
+### Bugfixes und Nachtest (2026-10-26)
+- **BUG-1 behoben:** Text in `messages/de.json` liegt jetzt unter `operator.log.master_data` (passend zur Eintragsart der Datenbank).
+- **BUG-2 behoben:** Das Formular schickt den Kunden mit, die Inhaber-Aktion gleicht ihn mit dem gewählten Kunden ab. Fehlt er (deaktiviert), kommt „Der Kunde ist deaktiviert …“. Damit kann ein Inhaber mit mehreren Kunden nach einer Deaktivierung auch nicht versehentlich einen anderen Kunden treffen (neuer Test „Inhaber mit zwei Kunden“).
+- **Nachtest:** PROJ-28 komplett grün (17 Tests desktop, Layout in Handy/Tablet), PROJ-4 „Kundenname ändern“ und „Kundenwechsel“ grün, 267 Unit-Tests grün, Lint sauber.
 
 ## Deployment
 _To be added by /deploy_

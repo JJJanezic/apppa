@@ -327,8 +327,9 @@ test.describe('Betreiber', () => {
     await page.getByRole('button', { name: 'Speichern' }).click()
     await expect(page.getByText('Kundendaten gespeichert.')).toBeVisible()
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(`${name} GmbH`)
-    await expect(page.getByText('Stammdaten geändert: Kundenname, Ort')).toBeVisible()
-    await expect(page.getByText(/Ada Admin/).first()).toBeVisible()
+    const entry = page.getByRole('listitem').filter({ hasText: 'Stammdaten geändert: Kundenname, Ort' })
+    await expect(entry).toBeVisible()
+    await expect(entry).toContainText('· Ada Admin')
 
     // Inhaber sieht den neuen Stand
     const ownerClient = await signedIn(owner)
@@ -350,8 +351,9 @@ test.describe('Betreiber', () => {
     expect(r.error).toBeNull()
     await asAdmin(page, users)
     await page.goto(`/betreiber/kunden/${tenant}`)
-    await expect(page.getByText('Stammdaten geändert: UID')).toBeVisible()
-    await expect(page.getByText(/Olga Owner/)).toBeVisible()
+    const entry = page.getByRole('listitem').filter({ hasText: 'Stammdaten geändert: UID' })
+    await expect(entry).toBeVisible()
+    await expect(entry).toContainText('· Olga Owner')
   })
 
   test('AC: Deaktivierter Kunde: Stammdaten nur lesbar, kein Speichern; Änderung wird abgewiesen', async ({ page, users }) => {
@@ -480,6 +482,28 @@ test.describe('Edge Cases', () => {
     // Erwartung laut Spec: verständliche Meldung, keine Weiterleitung zur Anmeldung
     await expect(page).toHaveURL(/\/einstellungen\/kunde/)
     await expect(page.getByText('Der Kunde ist deaktiviert. Die Stammdaten lassen sich nicht ändern.')).toBeVisible()
+  })
+
+  test('Edge: Inhaber mit zwei Kunden – geöffneter Kunde wird deaktiviert → Meldung, der andere Kunde bleibt unverändert', async ({
+    page,
+    users,
+  }) => {
+    desktopOnly()
+    const owner = await users()
+    const name = unique('Zwei')
+    // Kundenauswahl sortiert nach Name: A ist vorausgewählt
+    const first = await createTenant(`${name} A`, [{ user: owner, role: 'owner' }])
+    const second = await createTenant(`${name} B`, [{ user: owner, role: 'owner' }])
+    await signInAs(page, owner)
+    await page.goto('/einstellungen/kunde')
+    await ready(page)
+    await expect(field(page, 'Kundenname')).toHaveValue(`${name} A`)
+    await service().from('tenants').update({ status: 'deactivated' }).eq('id', first)
+    await field(page, 'Ort').fill('Wien')
+    await page.getByRole('button', { name: 'Speichern' }).click()
+    await expect(page.getByText('Der Kunde ist deaktiviert. Die Stammdaten lassen sich nicht ändern.')).toBeVisible()
+    expect((await current(first)).city).toBeNull()
+    expect(await current(second)).toMatchObject({ name: `${name} B`, city: null })
   })
 
   test('Sicherheit: zusätzliche Felder in der Anfrage werden ignoriert; HTML bleibt Text', async ({ page, users }) => {

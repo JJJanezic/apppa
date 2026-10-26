@@ -7,7 +7,7 @@ import { getSessionUser, pendingMfaStep, type SessionUser } from '@/lib/auth/ses
 import { createClient } from '@/lib/supabase/server'
 import { MAX_INVITES_PER_HOUR, type TeamErrorCode } from '@/lib/team'
 import { cleanupUnusedAccount, deliverInvitation, invitationKindFor } from '@/lib/team-invite'
-import { getTenantContext, rememberTenant, type TenantSummary } from '@/lib/tenant'
+import { belongsToDeactivatedTenant, getTenantContext, rememberTenant, type TenantSummary } from '@/lib/tenant'
 import { saveTenantMasterData } from '@/lib/tenant-master-data-save'
 import type { TenantMasterDataErrorCode } from '@/lib/tenant-master-data'
 import { inviteSchema, type InviteInput } from '@/lib/validation/team'
@@ -239,13 +239,18 @@ export async function leaveTenant(): Promise<Result> {
 }
 
 // Stammdaten speichern (PROJ-28): eine Datenbank-Funktion prüft Rolle, Aktiv-Status und Stand und schreibt das Protokoll
+// tenantId: Kunde, dessen Formular offen ist. Wurde er inzwischen deaktiviert, fehlt er in der Kundenauswahl;
+// ohne diesen Abgleich würde die Aktion sonst den nächsten aktiven Kunden der Person treffen.
 export async function updateTenantMasterData(
-  values: TenantMasterDataInput & { updatedAt: string }
+  values: TenantMasterDataInput & { tenantId: string; updatedAt: string }
 ): Promise<ActionResult<undefined, TeamErrorCode | TenantMasterDataErrorCode>> {
   const parsed = tenantMasterDataSchema(key).safeParse(values)
-  if (!parsed.success || typeof values?.updatedAt !== 'string') return fail('unknown')
+  if (!parsed.success || typeof values?.updatedAt !== 'string' || typeof values?.tenantId !== 'string') return fail('unknown')
   const guard = await requireOwner()
-  if (!guard.ok) return guard.result
+  if (!guard.ok && !guard.result.ok && guard.result.error === 'sessionExpired') return guard.result
+  if (!guard.ok || guard.tenant.id !== values.tenantId) {
+    return { ok: false, error: (await belongsToDeactivatedTenant()) ? 'tenantDeactivated' : 'unknown' }
+  }
 
   const supabase = await createClient()
   const result = await saveTenantMasterData(supabase, guard.tenant.id, values.updatedAt, parsed.data)

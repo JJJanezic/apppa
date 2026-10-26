@@ -56,9 +56,9 @@ export function TenantMasterDataForm({ data, mode, readOnly = false }: TenantMas
 
   async function onSubmit(values: TenantMasterDataInput) {
     setError(null)
-    const payload = { ...values, updatedAt: data.updatedAt }
+    const payload = { ...values, tenantId: data.id, updatedAt: data.updatedAt }
     const result = await callAction(() =>
-      mode === 'operator' ? adminUpdateTenantMasterData({ tenantId: data.id, ...payload }) : updateTenantMasterData(payload)
+      mode === 'operator' ? adminUpdateTenantMasterData(payload) : updateTenantMasterData(payload)
     )
     if (!result.ok) {
       if (result.error === 'staleTenant') setStale(true)
