@@ -146,7 +146,7 @@ Der Betreiber-Admin sieht Gästedaten von Kunden nicht über diese Bereiche. Gä
 - [x] Meldewesen / Gästeblatt → eigenes Feature PROJ-26, vor dem Pilot (geklärt 2026-10-26)
 - [x] Import bestehender Gästelisten → nicht nötig (geklärt 2026-10-26)
 - [x] Marketing-Quellen → Standardliste plus eigener Freitext (geklärt 2026-10-26)
-- [ ] Welche Angaben verlangt das Gästeblatt vom Hauptgast zusätzlich (z. B. Geburtsdatum, Staatsangehörigkeit, Ausweis)? Klärt PROJ-26. Werden sie Pflicht, ergänzt /refine PROJ-7 die Felder
+- [x] Welche Angaben verlangt das Gästeblatt vom Hauptgast zusätzlich? → Titel, Geschlecht und Reisedokument kommen mit PROJ-29; weitere Gastangaben sind nicht nötig (2026-10-26)
 
 ## Decision Log
 
