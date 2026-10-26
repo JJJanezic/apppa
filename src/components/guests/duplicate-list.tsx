@@ -10,7 +10,7 @@ import { callAction } from '@/components/auth/form-error'
 import { MergeDialog } from '@/components/guests/merge-dialog'
 import { useTeamAction } from '@/components/settings/use-team-action'
 import { Button } from '@/components/ui/button'
-import { countryName, type DuplicatePair, type Guest, guestHref, type GuestRow, guestDisplayName } from '@/lib/guests'
+import { countryName, type DuplicatePair, type Guest, guestHref, type GuestRow, guestSortName } from '@/lib/guests'
 
 // Vorschlagsliste „Mögliche Dubletten“ (PROJ-7, nur Inhaber): je Paar Zusammenführen oder „Kein Doppeleintrag“
 export function DuplicateList({ pairs }: { pairs: DuplicatePair[] }) {
@@ -36,7 +36,7 @@ export function DuplicateList({ pairs }: { pairs: DuplicatePair[] }) {
   const guestLine = (g: GuestRow) => (
     <span className="flex min-w-0 flex-col">
       <Link href={guestHref(g.id)} className="break-words font-medium text-ds-accent-700 underline-offset-[3px] hover:underline">
-        {guestDisplayName(g)}
+        {guestSortName(g)}
       </Link>
       <span className="text-[13px] text-ds-neutral-700">{[g.companyName, countryName(g.country, locale)].filter(Boolean).join(' · ')}</span>
     </span>

@@ -190,14 +190,17 @@ export type MergeChoice = Record<MergeField, 'a' | 'b'>
 
 export const guestHref = (id: string) => `/gaeste/${id}`
 
-// „Huber, Anna“ (Mitreisende); nur Nachname, wenn kein Vorname (z. B. „Familie Berger“)
-export function guestSortName(g: { lastName: string; firstName: string | null }): string {
-  return g.firstName ? `${g.lastName}, ${g.firstName}` : g.lastName
-}
-
 type NameParts = { lastName: string; firstName: string | null; titlePrefix?: string | null; titleSuffix?: string | null }
 
-// Voller Name eines Gastes überall in der App (PROJ-29): „Dr. Anna Huber, LL.M.“, „Huber, MSc“, „Anna Huber“
+// Listen (Gäste, Gastauswahl, Buchungen, Mitreisende): Nachname zuerst, dann Titel und Vorname (PROJ-29):
+// „Huber, Dr. Anna, LL.M.“, „Huber, Anna“, „Huber, MSc“; nur Nachname, wenn sonst nichts (z. B. „Familie Berger“).
+// Gleiche Schreibweise liefert die Datenbank in den Buchungswarnungen (private.booking_warnings_for).
+export function guestSortName(g: NameParts): string {
+  const given = [g.titlePrefix, g.firstName].filter(Boolean).join(' ')
+  return [g.lastName, given, g.titleSuffix].filter(Boolean).join(', ')
+}
+
+// Voller Name in Überschriften und Fließtext (Gast-Detail, Buchung, Kalender): „Dr. Anna Huber, LL.M.“, „Anna Huber“
 export function guestDisplayName(g: NameParts): string {
   const name = [g.titlePrefix, g.firstName, g.lastName].filter(Boolean).join(' ')
   return g.titleSuffix ? `${name}, ${g.titleSuffix}` : name

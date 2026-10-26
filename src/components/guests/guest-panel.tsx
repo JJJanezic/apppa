@@ -16,7 +16,7 @@ import { GuestFields } from '@/components/guests/guest-fields'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Form } from '@/components/ui/form'
-import { countryName, type DuplicateMatch, type Guest, guestDisplayName, guestHref } from '@/lib/guests'
+import { countryName, type DuplicateMatch, type Guest, guestDisplayName, guestHref, guestSortName } from '@/lib/guests'
 import { EMPTY_GUEST_INPUT, guestInput, type GuestInput, guestSchema } from '@/lib/validation/guests'
 
 interface GuestPanelProps {
@@ -113,7 +113,7 @@ export function GuestPanel({ open, onOpenChange, guest }: GuestPanelProps) {
                   {duplicates.map((m) => (
                     <li key={m.guest.id} className="flex flex-col">
                       <Link href={guestHref(m.guest.id)} className="font-medium text-ds-accent-700 underline underline-offset-[3px]">
-                        {guestDisplayName(m.guest)}
+                        {guestSortName(m.guest)}
                       </Link>
                       <span className="text-[13px] text-ds-neutral-800">
                         {countryName(m.guest.country, locale)} · {m.reasons.map((r) => t(`reason.${r}`)).join(', ')}

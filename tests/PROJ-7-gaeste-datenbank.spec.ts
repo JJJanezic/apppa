@@ -110,15 +110,15 @@ test.describe('Liste, Suche und Filter', () => {
     await addGuest(tenantId, { last_name: 'Zeller', country: 'DE', marketing_custom: 'Messe Graz 2026' })
 
     await openList(page)
-    await expect(page.getByRole('table').getByRole('link')).toHaveText(['Eva Bauer', 'René Müller', 'Zeller'])
+    await expect(page.getByRole('table').getByRole('link')).toHaveText(['Bauer, Eva', 'Müller, René', 'Zeller'])
     await expect(page.getByRole('table').getByText('Bau GmbH')).toBeVisible()
 
     await page.getByRole('searchbox', { name: 'Gäste durchsuchen' }).fill('rene muller')
     await expect(page).toHaveURL(/q=rene\+muller|q=rene%20muller/)
-    await expect(page.getByRole('table').getByRole('link')).toHaveText(['René Müller'])
+    await expect(page.getByRole('table').getByRole('link')).toHaveText(['Müller, René'])
 
     await openList(page, '?land=DE&quelle=instagram')
-    await expect(page.getByRole('table').getByRole('link')).toHaveText(['Eva Bauer'])
+    await expect(page.getByRole('table').getByRole('link')).toHaveText(['Bauer, Eva'])
     await openList(page, '?quelle=custom')
     await expect(page.getByRole('table').getByRole('link')).toHaveText(['Zeller'])
 
@@ -242,7 +242,7 @@ test.describe('Dubletten', () => {
     await ready(page)
     await page.getByRole('button', { name: 'Mit anderem Gast zusammenführen' }).click()
     await panel(page).getByRole('combobox').fill('huber')
-    await page.getByRole('option', { name: /Anna Huber/ }).click()
+    await page.getByRole('option', { name: /Huber, Anna/ }).click()
     await expect(panel(page).getByText('(von Plattform übernommen)')).toBeVisible()
     await panel(page).getByLabel(/anna@example\.at/).check()
     await panel(page).getByLabel(/Stammgast/).check()

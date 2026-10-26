@@ -19,7 +19,7 @@ import {
   todayIso,
   totalCents,
 } from '@/lib/bookings'
-import { guestDisplayName, searchKey } from '@/lib/guests'
+import { guestSortName, searchKey } from '@/lib/guests'
 import type { Role } from '@/lib/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getTenantContext } from '@/lib/tenant'
@@ -30,10 +30,10 @@ import { getTenantContext } from '@/lib/tenant'
 // Datenbank liefert Uhrzeiten als „15:00:00“
 const hhmm = (value: string | null) => (value ? value.slice(0, 5) : '')
 
-// Voller Name mit Titeln (PROJ-29)
+// Listen-Schreibweise mit Titeln (PROJ-29): „Huber, Dr. Anna, LL.M.“
 type GuestNameColumns = { last_name: string; first_name: string | null; title_prefix: string | null; title_suffix: string | null }
 const guestName = (g: GuestNameColumns) =>
-  guestDisplayName({ lastName: g.last_name, firstName: g.first_name, titlePrefix: g.title_prefix, titleSuffix: g.title_suffix })
+  guestSortName({ lastName: g.last_name, firstName: g.first_name, titlePrefix: g.title_prefix, titleSuffix: g.title_suffix })
 const LIST_LIMIT = 1000
 const SEARCH_LIMIT = 50
 

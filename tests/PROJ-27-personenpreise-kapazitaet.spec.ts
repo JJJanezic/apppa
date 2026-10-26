@@ -227,7 +227,7 @@ test.describe('Buchung mit Personenpreisen', () => {
     await panel(page).getByPlaceholder('Betrag (€)').nth(1).fill('15')
     await expect(panel(page).getByRole('button', { name: /Neuen Vorschlag .*510.* übernehmen/ })).toBeVisible()
     await panel(page).getByLabel('Gast suchen').fill('Huber')
-    await page.getByRole('option', { name: /Anna Huber/ }).click()
+    await page.getByRole('option', { name: /Huber, Anna/ }).click()
     // Kapazität: 2 Erwachsene + 3 Kinder = 5 ≤ 6, Erwachsene 2 ≤ 2 → keine Warnung
     await page.waitForTimeout(800)
     await expect(panel(page).getByRole('alert')).toHaveCount(0)
@@ -320,7 +320,7 @@ test.describe('Mitarbeiter und bestehende Buchungen', () => {
     await panel(page).getByLabel('Erwachsene').fill('2')
     await addChildren(page, [1, 8, 14])
     await panel(page).getByLabel('Gast suchen').fill('Huber')
-    await page.getByRole('option', { name: /Anna Huber/ }).click()
+    await page.getByRole('option', { name: /Huber, Anna/ }).click()
     await page.waitForTimeout(800)
     await expect(panel(page).getByRole('alert')).toHaveCount(0)
     await panel(page).getByRole('button', { name: 'Buchung speichern' }).click()

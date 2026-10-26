@@ -39,7 +39,7 @@ import {
   suggestedNightsCents,
 } from '@/lib/bookings'
 import { formatCurrency } from '@/lib/format'
-import { countryName, type DuplicateMatch, guestDisplayName } from '@/lib/guests'
+import { countryName, type DuplicateMatch, guestSortName } from '@/lib/guests'
 import { type BookingInput, bookingSchema } from '@/lib/validation/bookings'
 import { EMPTY_GUEST_INPUT, type GuestInput, guestSchema } from '@/lib/validation/guests'
 
@@ -415,7 +415,7 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
                     {picked ? (
                       <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-ds-surface px-4 py-3">
                         <span className="flex flex-col">
-                          <span className="font-medium">{guestDisplayName(picked)}</span>
+                          <span className="font-medium">{guestSortName(picked)}</span>
                           <span className="text-[13px] text-ds-neutral-700">{countryName(picked.country, locale)}</span>
                         </span>
                         <Button
@@ -460,7 +460,7 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
                         {visibleDuplicates.map((m) => (
                           <li key={m.guest.id} className="flex flex-wrap items-center justify-between gap-2">
                             <span className="flex flex-col">
-                              <span className="font-medium">{guestDisplayName(m.guest)}</span>
+                              <span className="font-medium">{guestSortName(m.guest)}</span>
                               <span className="text-[13px] text-ds-neutral-800">
                                 {countryName(m.guest.country, locale)} · {m.reasons.map((r) => tg(`reason.${r}`)).join(', ')}
                               </span>

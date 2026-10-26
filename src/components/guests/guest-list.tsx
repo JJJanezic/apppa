@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Pagination, PaginationContent, PaginationItem } from '@/components/ui/pagination'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { formatNumber } from '@/lib/format'
-import { countryName, guestHref, guestListHref, type GuestPage, type GuestRow, guestDisplayName } from '@/lib/guests'
+import { countryName, guestHref, guestListHref, type GuestPage, type GuestRow, guestSortName } from '@/lib/guests'
 
 const DATE = { day: 'numeric', month: 'short', year: 'numeric' } as const
 
@@ -45,7 +45,7 @@ export function GuestList({ page }: { page: GuestPage }) {
                 <span className="flex flex-wrap items-center gap-2">
                   {/* Nur der Name ist der Link: Safari kann Klickflächen über die ganze Zeile (after:inset-0) nicht an <tr> verankern */}
                   <Link href={guestHref(row.id)} className="font-medium text-ds-accent-700 underline underline-offset-[3px] hover:decoration-2">
-                    {guestDisplayName(row)}
+                    {guestSortName(row)}
                   </Link>
                   {anonymizedBadge(row)}
                 </span>
@@ -64,7 +64,7 @@ export function GuestList({ page }: { page: GuestPage }) {
           <li key={row.id}>
             <Link href={guestHref(row.id)} className="flex flex-col gap-1 rounded-lg bg-ds-surface p-4 hover:bg-ds-neutral-200">
               <span className="flex items-start justify-between gap-3">
-                <span className="min-w-0 break-words text-lg font-semibold">{guestDisplayName(row)}</span>
+                <span className="min-w-0 break-words text-lg font-semibold">{guestSortName(row)}</span>
                 {anonymizedBadge(row)}
               </span>
               {row.companyName && <span className="break-words text-sm text-ds-neutral-800">{row.companyName}</span>}

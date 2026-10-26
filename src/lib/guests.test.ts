@@ -65,6 +65,13 @@ describe('Namen', () => {
     expect(guestSortName({ lastName: 'Familie Berger', firstName: null })).toBe('Familie Berger')
     expect(guestDisplayName({ lastName: 'Familie Berger', firstName: null })).toBe('Familie Berger')
   })
+  it('Listen: Nachname zuerst, dann Titel und Vorname, nachgestellter Titel am Ende (PROJ-29)', () => {
+    expect(guestSortName({ lastName: 'Huber', firstName: 'Anna', titlePrefix: 'Dr.', titleSuffix: 'LL.M.' })).toBe('Huber, Dr. Anna, LL.M.')
+    expect(guestSortName({ lastName: 'Huber', firstName: null, titlePrefix: 'Dr.', titleSuffix: null })).toBe('Huber, Dr.')
+    expect(guestSortName({ lastName: 'Huber', firstName: null, titlePrefix: null, titleSuffix: 'MSc' })).toBe('Huber, MSc')
+    expect(guestSortName({ lastName: 'Huber', firstName: 'Anna', titlePrefix: null, titleSuffix: 'MSc' })).toBe('Huber, Anna, MSc')
+  })
+
   it('stellt akademische Grade voran bzw. nach (PROJ-29)', () => {
     expect(guestDisplayName({ lastName: 'Huber', firstName: 'Anna', titlePrefix: 'Dr.', titleSuffix: 'LL.M.' })).toBe('Dr. Anna Huber, LL.M.')
     expect(guestDisplayName({ lastName: 'Huber', firstName: null, titlePrefix: null, titleSuffix: 'MSc' })).toBe('Huber, MSc')

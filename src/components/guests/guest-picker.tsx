@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react'
 import { searchGuests } from '@/app/(app)/gaeste/actions'
 import { callAction } from '@/components/auth/form-error'
 import { Command, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
-import { countryName, type GuestRow, guestDisplayName } from '@/lib/guests'
+import { countryName, type GuestRow, guestSortName } from '@/lib/guests'
 
 const DELAY_MS = 200
 
@@ -58,7 +58,7 @@ export function GuestPicker({ excludeId, onSelect, label }: GuestPickerProps) {
           <CommandGroup>
             {rows.map((row) => (
               <CommandItem key={row.id} value={row.id} onSelect={() => onSelect(row)} className="min-h-11 flex-col items-start gap-0">
-                <span className="font-medium">{guestDisplayName(row)}</span>
+                <span className="font-medium">{guestSortName(row)}</span>
                 <span className="text-[13px] text-ds-neutral-700">
                   {[row.companyName, countryName(row.country, locale)].filter(Boolean).join(' · ')}
                 </span>

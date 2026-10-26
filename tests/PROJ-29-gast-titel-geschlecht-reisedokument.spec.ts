@@ -112,7 +112,7 @@ test.beforeEach(() => {
 })
 
 test.describe('Titel und Geschlecht', () => {
-  test('AC: Felder im Formular, Geschlecht vorbelegt, sechs Werte; voller Name mit Titeln in Detail und Liste', async ({ page, users, tenants }) => {
+  test('AC: Felder im Formular, Geschlecht vorbelegt, sechs Werte; voller Name mit Titeln im Detail, Liste mit Nachname zuerst', async ({ page, users, tenants }) => {
     desktopOnly()
     await setup(page, users, tenants)
     await page.goto('/gaeste')
@@ -140,10 +140,10 @@ test.describe('Titel und Geschlecht', () => {
     await expect(page.getByText('weiblich')).toBeVisible()
     await page.goto('/gaeste')
     await ready(page)
-    await expect(page.getByRole('table').getByRole('link')).toHaveText(['Dr. Anna Huber, LL.M.'])
+    await expect(page.getByRole('table').getByRole('link')).toHaveText(['Huber, Dr. Anna, LL.M.'])
   })
 
-  test('AC: bestehender Gast hat „keine Angabe“; nur nachgestellter Titel ohne Vorname; Sortierung nach Nachname', async ({ page, users, tenants }) => {
+  test('AC: bestehender Gast hat „keine Angabe“; nur nachgestellter Titel ohne Vorname; Liste mit Nachname zuerst, sortiert nach Nachname', async ({ page, users, tenants }) => {
     desktopOnly()
     const { tenantId } = await setup(page, users, tenants)
     const id = await addGuest(tenantId, { last_name: 'Huber', title_suffix: 'MSc' })
@@ -153,7 +153,7 @@ test.describe('Titel und Geschlecht', () => {
     await expect(page.getByText('keine Angabe')).toBeVisible()
     await page.goto('/gaeste')
     await ready(page)
-    await expect(page.getByRole('table').getByRole('link')).toHaveText(['Univ.-Prof. DI Dr. Zoe Adler', 'Huber, MSc'])
+    await expect(page.getByRole('table').getByRole('link')).toHaveText(['Adler, Univ.-Prof. DI Dr. Zoe', 'Huber, MSc'])
   })
 })
 
@@ -362,7 +362,7 @@ test.describe('Zusammenführen und Löschen', () => {
     await openGuest(page, keep)
     await page.getByRole('button', { name: 'Mit anderem Gast zusammenführen' }).click()
     await panel(page).getByRole('combobox').fill('doppel')
-    await page.getByRole('option', { name: /Dr\. Dora Doppel/ }).click()
+    await page.getByRole('option', { name: /Doppel, Dr\. Dora/ }).click()
     await expect(panel(page).getByText(/Die Bilder des anderen Dokuments werden gelöscht/)).toBeVisible()
     await panel(page).getByLabel(/Personalausweis, BBB/).check()
     await panel(page).getByRole('button', { name: 'Zusammenführen' }).click()
@@ -443,11 +443,11 @@ test.describe('Gästeliste', () => {
     await addGuest(tenantId, { last_name: 'Zander', first_name: 'Zora' })
     await page.goto('/gaeste')
     await ready(page)
-    await page.getByRole('table').getByRole('link', { name: 'Anton Aal' }).click()
+    await page.getByRole('table').getByRole('link', { name: 'Aal, Anton' }).click()
     await expect(page).toHaveURL(`/gaeste/${first}`)
     await page.goBack()
     await ready(page)
-    await page.getByRole('table').getByRole('link', { name: 'Anton Aal' }).focus()
+    await page.getByRole('table').getByRole('link', { name: 'Aal, Anton' }).focus()
     await page.keyboard.press('Enter')
     await expect(page).toHaveURL(`/gaeste/${first}`)
   })

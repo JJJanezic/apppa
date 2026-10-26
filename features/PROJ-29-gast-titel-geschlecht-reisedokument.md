@@ -20,7 +20,10 @@ Der Hauptgast bekommt zusätzliche Angaben: akademische Grade vor und nach dem N
 | Titel nachgestellt | nein | Freitext, höchstens 50 Zeichen, z. B. „LL.M.“, „MSc“, „PhD“ |
 | Geschlecht | ja, mit Standard | Auswahl: männlich, weiblich, divers, inter, offen, keine Angabe. Vorbelegt mit **„keine Angabe“**. Bestehende Gäste erhalten „keine Angabe“ |
 
-**Anzeige des Namens:** Überall, wo der volle Name eines Gastes steht (Gast-Detail, Gästeliste, Buchungen, Kalender, Gastauswahl), lautet er „Titel vorangestellt Vorname Nachname, Titel nachgestellt“, z. B. „Dr. Anna Huber, LL.M.“. Fehlende Teile entfallen samt Leerzeichen bzw. Komma. Sortiert wird weiterhin nach Nachname, Vorname.
+**Anzeige des Namens:**
+- **Überschriften und Fließtext** (Gast-Detail, Buchungs-Detail, Kalender): „Titel vorangestellt Vorname Nachname, Titel nachgestellt“, z. B. „Dr. Anna Huber, LL.M.“
+- **Listen** (Gästeliste, Gastauswahl, Dubletten, Buchungsliste, Überschneidungs-Warnungen, Mitreisende): Nachname zuerst, danach Titel und Vorname, der nachgestellte Titel am Ende, z. B. „Huber, Dr. Anna, LL.M.“, „Huber, Anna“, „Huber, MSc“
+- Fehlende Teile entfallen samt Leerzeichen bzw. Komma. Sortiert wird weiterhin nach Nachname, Vorname. (Geändert am 2026-10-26 nach QA, Wunsch des Nutzers)
 
 ### Reisedokument (höchstens eines je Gast)
 | Angabe | Pflicht | Regeln |
@@ -85,8 +88,9 @@ In Safari öffnet ein Klick auf eine beliebige Zeile der Gästeliste immer den l
 - [ ] Angenommen ein Inhaber öffnet „Gast anlegen“, wenn das Formular erscheint, dann gibt es die Felder „Titel vorangestellt“, „Titel nachgestellt“ und „Geschlecht“, und das Geschlecht ist mit „keine Angabe“ vorbelegt
 - [ ] Angenommen ein Inhaber öffnet die Geschlechtsauswahl, wenn die Liste erscheint, dann enthält sie genau „männlich“, „weiblich“, „divers“, „inter“, „offen“ und „keine Angabe“
 - [ ] Angenommen es gab Gäste vor dieser Erweiterung, wenn ein Nutzer einen davon öffnet, dann steht beim Geschlecht „keine Angabe“ und die Titel sind leer
-- [ ] Angenommen ein Gast heißt Anna Huber mit „Dr.“ vorangestellt und „LL.M.“ nachgestellt, wenn der Gast im Detail, in der Gästeliste, in einer Buchung, im Kalender oder in der Gastauswahl erscheint, dann lautet der Name „Dr. Anna Huber, LL.M.“
-- [ ] Angenommen ein Gast hat nur einen nachgestellten Titel und keinen Vornamen, wenn sein Name angezeigt wird, dann steht „Huber, MSc“ ohne überzählige Leerzeichen
+- [ ] Angenommen ein Gast heißt Anna Huber mit „Dr.“ vorangestellt und „LL.M.“ nachgestellt, wenn der Gast im Gast-Detail, im Buchungs-Detail oder im Kalender erscheint, dann lautet der Name „Dr. Anna Huber, LL.M.“
+- [ ] Angenommen derselbe Gast, wenn er in der Gästeliste, der Gastauswahl, der Buchungsliste oder einer Überschneidungs-Warnung erscheint, dann lautet der Name „Huber, Dr. Anna, LL.M.“
+- [ ] Angenommen ein Gast hat nur einen nachgestellten Titel und keinen Vornamen, wenn sein Name angezeigt wird, dann steht „Huber, MSc“ ohne überzählige Leerzeichen (in Überschriften und Listen)
 - [ ] Angenommen ein Inhaber gibt einen Titel mit mehr als 50 Zeichen ein, wenn er speichert, dann erscheint beim Feld eine Fehlermeldung und nichts wird gespeichert
 - [ ] Angenommen Gäste haben Titel, wenn die Gästeliste nach Name sortiert ist, dann richtet sich die Reihenfolge weiter nach Nachname und Vorname, nicht nach dem Titel
 
@@ -158,6 +162,7 @@ In Safari öffnet ein Klick auf eine beliebige Zeile der Gästeliste immer den l
 | Eigene Spec PROJ-29 statt PROJ-7 erweitern | Vom Nutzer entschieden; wie bei PROJ-27/28 bleibt das ausgelieferte Feature unverändert, die Erweiterung ist eigenständig testbar und auslieferbar | 2026-10-26 |
 | Akademische Grade als zwei Freitextfelder (je max. 50 Zeichen) | Vom Nutzer entschieden; Grade sind sehr vielfältig, eine Auswahlliste wäre nie vollständig | 2026-10-26 |
 | Voller Name mit Graden überall angezeigt | Vom Nutzer entschieden; korrekte Anrede in Buchungen und Kalender. Sortierung bleibt nach Nachname | 2026-10-26 |
+| Listen zeigen den Nachnamen zuerst („Huber, Dr. Anna, LL.M.“), Überschriften den vollen Namen („Dr. Anna Huber, LL.M.“) | Vom Nutzer nach QA entschieden: Listen sind nach Nachname sortiert und sollen so auch gelesen werden | 2026-10-26 |
 | Geschlecht als feste Liste, Standard „keine Angabe“ | Vom Nutzer vorgegeben; Werte entsprechen dem österreichischen Personenstandsrecht. Kein Raten, keine Pflichtauswahl | 2026-10-26 |
 | Höchstens ein Reisedokument je Gast | Vom Nutzer entschieden; Datensparsamkeit (DSGVO), einfache Erfassung | 2026-10-26 |
 | Art und Nummer Pflicht, sobald ein Dokument erfasst wird; Rest freiwillig | Vom Nutzer entschieden; ein Dokument ohne Art und Nummer ist wertlos, die übrigen Angaben fehlen auf manchen Dokumenten oder sind schlecht lesbar | 2026-10-26 |
@@ -188,7 +193,7 @@ In Safari öffnet ein Klick auf eine beliebige Zeile der Gästeliste immer den l
 | `heic-to` (LGPL-3.0) über den Next.js-Einstieg `heic-to/next`, dynamisch nachgeladen | Jeder HEIC-Dekoder im Browser beruht auf libheif (LGPL); als eigene, nachgeladene Datei unproblematisch | 2026-10-26 |
 | Upload über einmaligen Upload-Schlüssel vom Server (`prepareDocumentUpload`), Speicherort `<Kunde>/<zufällig>.jpg` | Der Browser braucht die Kundenkennung nicht; Speicherort und Ordner legt der Server fest | 2026-10-26 |
 | Dateien löschen die Server-Aktionen selbst (Speicherorte vor/nach der Änderung vergleichen) | Die Datenbank-Funktionen für Löschen und Zusammenführen müssen dafür keine Speicherorte zurückgeben | 2026-10-26 |
-| Name mit Titeln auch in Listen „Dr. Anna Huber, LL.M.“ statt „Huber, Anna“ | Spec: voller Name überall; Mitreisende bleiben „Nachname, Vorname“ | 2026-10-26 |
+| ~~Name mit Titeln auch in Listen „Dr. Anna Huber, LL.M.“~~ → ersetzt: Listen über `guestSortName` mit Titeln („Huber, Dr. Anna, LL.M.“), gleiche Schreibweise in `private.booking_warnings_for` | Nutzerentscheidung nach QA; eine Funktion für alle Listen, die Datenbank-Warnung schreibt den Namen gleich | 2026-10-26 |
 | Zusammenführen löscht den anderen Gast vor dem Aktualisieren | Ein Bild darf nur an einem Gast hängen; so kann das gewählte Dokument samt Bildern übernommen werden | 2026-10-26 |
 | Lese-Regel über Verwendung am Gast statt nur über den Ordner | Ersetzte/entfernte Bilder sind sofort unlesbar, auch bevor die Datei gelöscht ist; eigener Upload bleibt für die Vorschau lesbar | 2026-10-26 |
 | Bereinigungs-Route mit `CRON_SECRET`, ohne Schlüssel immer 401 | Vercel-Cron-Standard; kein öffentlicher Aufruf möglich | 2026-10-26 |
@@ -474,8 +479,9 @@ Gleiche Lösung wie in der Betreiber-Kundenliste: Die unsichtbare Klickfläche �
 
 ### Bugs Found
 
-#### BUG-1: Konfliktwarnung zeigt den Gast im alten Format ohne Titel
+#### BUG-1: Konfliktwarnung zeigt den Gast im alten Format ohne Titel — BEHOBEN (2026-10-26)
 - **Severity:** Low
+- **Behebung:** Migration `20261026192619_guest_list_name_in_warnings.sql` (in Dev eingespielt): `guest_name` jetzt in der Listen-Schreibweise mit Titeln („Huber, Dr. Anna, LL.M.“). Test `PROJ-8 … Überschneidung und Überbelegung` grün
 - **Steps to Reproduce:**
   1. Gast „Dr. Anna Huber, LL.M.“ mit Buchung 1.–5. Dez.
   2. Neue Buchung in derselben Wohnung, überschneidender Zeitraum
@@ -485,15 +491,16 @@ Gleiche Lösung wie in der Betreiber-Kundenliste: Die unsichtbare Klickfläche �
 - **Test:** `tests/PROJ-8-manuelle-buchungen.spec.ts:360` erwartet bereits das neue Format und schlägt bis zur Behebung fehl
 - **Priority:** Fix before deployment (klein, eine Datenbank-Funktion)
 
-#### Beobachtung (kein Bug, Entscheidung offen): Reihenfolge der Gästeliste
+#### Beobachtung: Reihenfolge der Gästeliste — ENTSCHIEDEN (2026-10-26): Listen zeigen den Nachnamen zuerst
 - Die Liste ist nach Nachname sortiert, zeigt aber „Eva Bauer, René Müller, Zeller“. Das entspricht der Spec („voller Name überall“), liest sich alphabetisch aber ungewohnt. Alternative: in Listen „Bauer, Eva“ bzw. „Huber, Dr. Anna, LL.M.“
 
 ### Summary
 - **Acceptance Criteria:** 33/35 bestanden, 2 manuell zu prüfen (Kamera am Handy, Zeilenklick in Safari), 0 fehlgeschlagen
-- **Bugs Found:** 1 (0 critical, 0 high, 0 medium, 1 low)
+- **Bugs Found:** 1 (0 critical, 0 high, 0 medium, 1 low), behoben
+- **Nachtest nach Behebung (2026-10-26):** Listen-Schreibweise und BUG-1. E2E Desktop grün: PROJ-29 (Titel/Geschlecht, Rollen, Zusammenführen/Löschen, Gästeliste), PROJ-8 (Überschneidung, Konflikte, Monatsliste, Anschluss an Gäste), PROJ-7 (Liste, Doppeleintrag, Zusammenführen), PROJ-9 (Detailpanel, Anlegen per Klick), PROJ-27 (Buchungen); Unit-Tests 287/287. Die zuvor an das Format „Anna Huber“ angepassten älteren Tests erwarten wieder „Huber, Anna“
 - **Security:** bestanden, drei Hinweise ohne Handlungsbedarf
 - **Production Ready:** YES (nach manueller Prüfung in Safari und am Handy)
-- **Recommendation:** BUG-1 kurz beheben, dann deployen
+- **Recommendation:** Deployen (nach manueller Prüfung in Safari und am Handy)
 
 ## Deployment
 _To be added by /deploy_
