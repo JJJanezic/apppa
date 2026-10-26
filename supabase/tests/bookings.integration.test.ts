@@ -451,6 +451,40 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-8 Manuelle Buchungen', () => {
     })
   })
 
+  describe('Belegungskalender (PROJ-9)', () => {
+    // Gleiche Spalten wie src/lib/calendar-data.ts: bewusst ohne Beträge
+    const CALENDAR_COLUMNS =
+      'id, kind, channel, apartment_id, arrival, departure, adults, child_ages, block_reason, option_until, cancelled_at, guest:guests(last_name, first_name)'
+
+    it('Mitarbeiter lesen die Einträge des eigenen Kunden im Bereich; fremde Kunden sehen nichts', async () => {
+      const apt = await apartment(tenantA, 'Kalender')
+      const g = await guest(tenantA, 'Kalender')
+      const id = savedId(await save(ownerA, bookingInput(tenantA, apt, g, '2028-05-10', '2028-05-14')))
+      const range = (client: Client, tenantId: string) =>
+        client.from('bookings').select(CALENDAR_COLUMNS).eq('tenant_id', tenantId).is('cancelled_at', null).lt('arrival', '2028-05-15').gte('departure', '2028-05-14')
+      const staff = await range(staffA, tenantA)
+      expect(staff.error).toBeNull()
+      expect(staff.data?.map((b) => b.id)).toContain(id)
+      expect(staff.data?.find((b) => b.id === id)?.guest?.last_name).toBe('Kalender')
+      // Fremder Inhaber: weder über die Kundenkennung noch über die Buchung
+      expect((await range(ownerB, tenantA)).data ?? []).toHaveLength(0)
+      expect((await ownerB.from('bookings').select('id').eq('id', id)).data ?? []).toHaveLength(0)
+      expect((await ownerB.from('apartments').select('id').eq('id', apt)).data ?? []).toHaveLength(0)
+    })
+
+    it('Beträge gelangen nicht an Mitarbeiter, auch nicht über eingebettete Abfragen', async () => {
+      const apt = await apartment(tenantA, 'Kalender Preise')
+      const g = await guest(tenantA, 'Preis')
+      const id = savedId(await save(ownerA, bookingInput(tenantA, apt, g, '2028-06-10', '2028-06-12')))
+      const embedded = await staffA.from('bookings').select('id, amounts:booking_amounts(nights_cents), charges:booking_charges(amount_cents)').eq('id', id).single()
+      expect(embedded.data?.amounts ?? []).toHaveLength(0)
+      expect(embedded.data?.charges ?? []).toHaveLength(0)
+      expect((await staffA.from('booking_amounts').select('nights_cents').eq('id', id)).data ?? []).toHaveLength(0)
+      const owner = await ownerA.from('booking_amounts').select('nights_cents').eq('id', id).single()
+      expect(owner.data?.nights_cents).toBe(30000)
+    })
+  })
+
   describe('Gäste (PROJ-7) mit Buchungen', () => {
     it('Zusammenführen hängt Buchungen um; Löschen anonymisiert und entfernt Mitreisende; Gästeliste zählt Aufenthalte', async () => {
       const apt = await apartment(tenantA, 'Gäste')

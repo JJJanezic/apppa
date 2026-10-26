@@ -1,6 +1,6 @@
 # PROJ-9: Belegungskalender
 
-## Status: In Progress
+## Status: In Review
 **Created:** 2026-10-25
 **Last Updated:** 2026-10-26
 
@@ -421,7 +421,142 @@ Der Punkt „Belegung“ wird freigeschaltet. Am Handy steht er in der unteren L
 - Integrationstests gegen „apppa-dev“ scheiterten in diesem Lauf an der Rate-Grenze von Supabase, nicht an der Änderung.
 
 ## QA Test Results
-_To be added by /qa_
+
+**Tested:** 2026-10-26
+**App URL:** http://localhost:3000 (Dev, Supabase „apppa-dev“)
+**Tester:** QA Engineer (AI)
+
+**Umgebung:**
+- **`.env.local`:** Die Prüfung per `grep` wurde abgelehnt (Dateizugriff gesperrt). Die Test-Helfer brechen bei Staging- oder Produktions-Refs ab (`assertTestableProject`).
+- **Browser:** nur Chromium (installiertes Chrome). Firefox und WebKit sind auf diesem Rechner nicht installiert (wie bei PROJ-27). Breiten 375, 768 und 1440 px.
+
+**Automatische Tests**
+- **Vitest Unit:** 262/262 grün, davon 20 für `src/lib/calendar.ts`.
+- **Integration** (`bookings.integration.test.ts`): 24/24 grün. Neu für PROJ-9:
+  - die Kalenderabfrage liefert Mitarbeitern die Einträge des eigenen Kunden, einem fremden Inhaber nichts;
+  - Beträge erreichen Mitarbeiter auch über eingebettete Abfragen nicht.
+- **E2E** `tests/PROJ-9-belegungskalender.spec.ts`: 22 Tests; Abläufe im Projekt „desktop“, Layout/axe in allen drei Breiten. Alle Abläufe grün. Der axe-Test scheitert absichtlich an BUG-1; ohne diese Regel ist er in allen Breiten grün.
+- **Regression (desktop):**
+  - PROJ-2: 19 grün, 4 übersprungen (nur Handy/Tablet). Angepasst, weil das Dashboard jetzt „Belegung“ zeigt und `/belegung` erreichbar ist.
+  - PROJ-8: alle Tests in 5 Paketen grün; die Bausteine wurden für den Kalender erweitert.
+  - Ein Paket wurde abgebrochen (Exit 137), weil drei Läufe gleichzeitig gestartet waren. Ein liegen gebliebener Testnutzer wurde gelöscht, und die Pakete liefen danach einzeln grün.
+
+### Acceptance Criteria Status
+
+#### Orte und Navigation (4/4)
+- [x] Dashboard zeigt „Belegung“ mit 14 Tagen ab heute − 2
+- [x] „Vollbild“ öffnet `/belegung` mit derselben Ansicht und demselben Objektfilter
+- [x] Navigationspunkt „Belegung“ (Desktop; am Handy in der unteren Leiste, Sichtprüfung)
+- [x] Vollbild am Desktop: 28 Tage
+
+#### Zeitleiste (10/10)
+- [x] Buchung gefüllt in `neutral-800` mit „Nachname · Personen“
+- [x] Option umrandet, Label beginnt mit „Option“
+- [x] Sperre schraffiert mit Grund
+- [x] Stornierte Buchungen und verfallene Optionen fehlen
+- [x] Wechseltag: beide Balken sichtbar, ohne Überdeckung, kein Warnsymbol
+- [x] Überschneidung: Balken untereinander, Warnsymbol „Überschneidung“ an der Wohnung
+- [x] „Weiter“ +7 Tage, „Heute“ zurück auf heute − 2 (siehe BUG-2 bei schnellem Doppelklick)
+- [x] Datumswähler springt zum gewählten Datum
+- [x] Einträge über den Rand hinaus abgeschnitten und anklickbar
+- [x] Handy: Zeitleiste seitlich scrollbar, Namensspalte bleibt, die Seite scrollt nicht seitlich (Darstellungsfehler siehe BUG-3, BUG-4)
+
+#### Monatsansicht (5/5)
+- [x] Aktueller Monat, Mo–So, heute gewählt
+- [x] „x/y“ zählt Buchungen, Optionen und Sperren, ohne archivierte Wohnungen
+- [x] „n An“/„n Ab“ ohne Sperren
+- [x] Tagesliste mit „Anreise“, „Abreise“, „bis {Datum}“; Klick öffnet das Panel
+- [x] Leerer Tag: „Keine Belegung an diesem Tag.“
+
+#### Detailpanel (5/5)
+- [x] Klick auf Balken oder Tagesliste öffnet das volle Detail rechts (Handy bildschirmfüllend)
+- [x] Mitarbeiter: kein Preis, kein „Stornieren“
+- [x] Bearbeiten: Balken verschiebt sich sofort, Ansicht und Zeitraum bleiben
+- [x] Stornieren: Panel schließt, Balken verschwindet; „Sperre löschen“ ebenso
+- [x] Betreiber-Admin ohne Aktionen: nur per Code-Review. Der Admin hat ohne Mitgliedschaft keinen Kundenkontext; der Kalender erscheint dann nicht, wie bei PROJ-8.
+
+#### Anlegen (4/4)
+- [x] Freie Zelle → „Neue Buchung“ mit Wohnung, Anreise = Tag, Abreise = Tag + 1 (auch für Mitarbeiter)
+- [x] Nach dem Speichern sofort als Balken sichtbar, der Kalender bleibt offen
+- [x] Zeile einer archivierten Wohnung: Klick bewirkt nichts
+- [x] „Neue Sperre“ öffnet das Sperren-Formular
+
+#### Filter und gemerkte Einstellungen (3/3)
+- [x] Chips nur ab zwei Objekten
+- [x] Objektfilter wirkt auf Zeitleiste und Monat (inkl. x/y)
+- [x] Ansicht und Filter bleiben nach Neuladen und im Vollbild; der Zeitraum beginnt wieder bei heute
+
+#### Archivierte Wohnungen und Leerzustände (4/4)
+- [x] Archivierte Wohnung nur mit Eintrag im Bereich, mit Hinweis „archiviert“
+- [x] Keine Wohnung: Inhaber mit Link zur Wohnungsverwaltung, Mitarbeiter mit Hinweis
+- [x] Wohnungen ohne Einträge: leere Zeilen statt Leerzustand
+- [x] Ladefehler: Fehlermeldung mit „Erneut versuchen“, nur der Abschnitt; per Code-Review, nicht automatisch provoziert
+
+### Edge Cases Status
+- [ ] **Langer Aufenthalt:** Das Label bleibt beim seitlichen Scrollen am Handy *nicht* sichtbar (BUG-3). Am Desktop beginnt der Balken am Rand, dort ist das Label sichtbar.
+- [x] **Kurzer Balken:** Label gekürzt, Tooltip und Panel vollständig
+- [x] **Mehr als zwei Überschneidungen:** weitere Spuren (Unit-Test, 3 Ebenen)
+- [x] **Option verfällt:** fehlt beim nächsten Laden (verfallene Option nicht sichtbar)
+- [x] **Gleichzeitige Änderung:** Panel zeigt den aktuellen Stand, Schutz aus PROJ-8 (Regression grün)
+- [x] **Klick auf freie Zelle in einer Zeile mit Überschneidung:** Anlegen wie gewohnt, Warnung aus PROJ-8
+- [x] **Klick auf einen Tag in der Vergangenheit:** Formular öffnet vorbelegt, Prüfregeln erlauben Nacherfassung
+- [x] **Monat mit 6 Wochenzeilen:** Raster wächst (Unit-Test: Vorlauftage + Tage)
+- [x] **Gemerkter Filter zeigt auf ein fremdes oder nicht mehr vorhandenes Objekt:** „Alle“ (E2E)
+- [x] **Zusätzlich:** Alter oder fremder Eintrag in der Adresse → Hinweis „nicht gefunden“, kein Panel, keine fremden Daten
+
+### Security Audit Results
+- [x] **Ohne Anmeldung:** `/belegung` führt zur Anmeldung
+- [x] **Abschottung:** Fremde Einträge über `?eintrag=` sind nicht erreichbar (E2E). Fremde Inhaber lesen weder Einträge noch Wohnungen (Integration).
+- [x] **Beträge:** Die Kalenderabfrage enthält keine. Mitarbeiter erhalten sie auch nicht eingebettet (Integration). Im Seiten-Payload eines Mitarbeiters stehen keine Buchungsbeträge (geprüft).
+- [x] **Eingaben:**
+  - Ungültige Adress-Parameter und manipulierte Cookies fallen auf Standardwerte zurück.
+  - HTML in Gast-, Objekt- und Wohnungsnamen wird als Text angezeigt; kein Skript läuft, kein Dialog.
+- [x] **Rechte:** keine neuen Tabellen, Funktionen oder RLS-Regeln.
+- [ ] **Hinweis (Low, bestehend seit PROJ-8):** Der Standardpreis der Wohnungen (`priceCents`) steht für Mitarbeiter im Seiten-Payload. Er stammt aus den Wohnungsdaten für „Neue Buchung“. `/buchungen` liefert ihn seit PROJ-8 ebenso. Es sind keine Buchungsbeträge. Klären, ob Mitarbeiter Standardpreise sehen dürfen.
+
+### Bugs Found
+
+#### BUG-1: Ansichts-Umschalter verweist auf nicht vorhandene Inhalte (axe-Verstoß)
+- **Severity:** Medium
+- **Steps to Reproduce:**
+  1. Dashboard oder `/belegung` öffnen
+  2. axe (WCAG 2.1 AA) ausführen
+  3. Expected: keine Verstöße
+  4. Actual: `aria-valid-attr-value` am aktiven Tab „Zeitleiste“/„Monat“. Die shadcn-Tabs setzen `aria-controls` auf einen Inhaltsbereich (`TabsContent`), den es nicht gibt. Gilt in allen drei Breiten.
+- **Priority:** Fix before deployment (alle bisherigen Features sind axe-frei; der E2E-Test schlägt bis dahin fehl)
+
+#### BUG-2: Schneller Doppelklick auf „Zurück“/„Weiter“ blättert nur einmal
+- **Severity:** Low
+- **Steps to Reproduce:**
+  1. Zeitleiste öffnen (Start heute − 2)
+  2. „Zurück“ doppelt klicken, bevor die Seite neu geladen ist
+  3. Expected: zwei Wochen zurück (heute − 16)
+  4. Actual: nur eine Woche (heute − 9). Der zweite Klick rechnet vom noch alten Zustand aus.
+- **Priority:** Nice to have
+
+#### BUG-3: Label eines langen Aufenthalts verschwindet beim seitlichen Scrollen (Handy)
+- **Severity:** Low
+- **Steps to Reproduce:**
+  1. Handy (375 px), Wohnung mit Aufenthalt über die ganze Zeitleiste
+  2. Zeitleiste nach rechts scrollen
+  3. Expected (Spec, Edge Cases): Das Label bleibt am linken Rand sichtbar
+  4. Actual: Das Label scrollt mit hinaus (gemessen bei −191 px); der Balken ist ohne Beschriftung
+- **Priority:** Fix in next sprint
+
+#### BUG-4: Links neben der stehenden Namensspalte scrollen Inhalte durch (Handy)
+- **Severity:** Low
+- **Steps to Reproduce:**
+  1. Handy (375 px), Zeitleiste nach rechts scrollen
+  2. Expected: Die Namensspalte deckt alles links von ihr ab
+  3. Actual: In einem etwa 16 px breiten Streifen am linken Rand sind Tageszahlen und Balkenreste sichtbar („I 2“, „R(“). Die Spalte steht erst nach dem Seitenabstand.
+- **Priority:** Fix in next sprint
+
+### Summary
+- **Acceptance Criteria:** 35/35 bestanden, davon 2 nur per Code-Review (Admin ohne Aktionen, Ladefehler)
+- **Bugs Found:** 4 (0 critical, 0 high, 1 medium, 3 low), dazu 1 bestehender Sicherheits-Hinweis (Low)
+- **Security:** Pass (Hinweis zu Standardpreisen offen)
+- **Production Ready:** YES nach Definition (keine Critical/High)
+- **Recommendation:** BUG-1 vor dem Deployment beheben (kleiner Eingriff, sonst bleibt der axe-Test rot). BUG-3 und BUG-4 betreffen dieselbe Stelle und lassen sich gemeinsam beheben.
 
 ## Deployment
 _To be added by /deploy_
