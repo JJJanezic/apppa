@@ -13,7 +13,7 @@ import { type OwnerSummary, tenantHref, type TenantPage, type TenantRow } from '
 const DATE = { day: 'numeric', month: 'short', year: 'numeric' } as const
 const DATE_TIME = { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' } as const
 
-// Kundenliste: ab 768 px Tabelle (ganze Zeile klickbar über den Namen), darunter Karten
+// Kundenliste: ab 768 px Tabelle (Name als Link), darunter Karten
 export function TenantList({ page }: { page: TenantPage }) {
   const t = useTranslations('operator')
   const format = useFormatter()
@@ -46,12 +46,12 @@ export function TenantList({ page }: { page: TenantPage }) {
         </TableHeader>
         <TableBody>
           {page.rows.map((row) => (
-            <TableRow key={row.id} className="relative">
+            <TableRow key={row.id}>
               <TableCell className="font-medium">
-                {/* Link über die ganze Zeile (after:inset-0), bleibt aber ein einzelner Tab-Stopp */}
+                {/* Nur der Name ist der Link: Safari kann Klickflächen über die ganze Zeile (after:inset-0) nicht an <tr> verankern */}
                 <Link
                   href={tenantHref(row.id)}
-                  className="underline-offset-[3px] hover:underline after:absolute after:inset-0 after:content-['']"
+                  className="text-ds-accent-700 underline underline-offset-[3px] hover:decoration-2"
                 >
                   {row.name}
                 </Link>
