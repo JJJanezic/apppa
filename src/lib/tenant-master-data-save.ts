@@ -12,8 +12,9 @@ import type { TenantMasterDataValues } from '@/lib/validation/tenant'
 const DB_ERRORS: Record<string, TenantMasterDataErrorCode | CommonErrorCode> = {
   '42501': 'sessionExpired',
   P0011: 'tenantGone',
-  P0016: 'staleTenant',
-  P0017: 'tenantDeactivated',
+  // P0016 kommt aus private.lock_tenant (wie im Betreiber-Bereich)
+  P0016: 'tenantDeactivated',
+  P0017: 'staleTenant',
 }
 
 export async function saveTenantMasterData(

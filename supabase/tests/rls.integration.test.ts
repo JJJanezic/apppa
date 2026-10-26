@@ -212,7 +212,7 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-1 Zugriffsregeln (RLS)', () => {
       expect(log.data!.length).toBeGreaterThan(0)
     })
 
-    it('der Admin kann ohne Mitgliedschaft nichts ändern', async () => {
+    it('der Admin kann ohne Mitgliedschaft nichts direkt ändern', async () => {
       await adminAal2.from('tenants').update({ name: 'Vom Admin' }).eq('id', t1)
       expect(await tenantName(t1)).toBe('Test-Mandant 1')
 
@@ -239,7 +239,15 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-1 Zugriffsregeln (RLS)', () => {
     it('Standardfelder und Protokoll werden bei Änderungen geschrieben', async () => {
       const before = await service.from('tenants').select('created_at, created_by').eq('id', t1).single()
 
-      const { error } = await a.from('tenants').update({ name: 'Test-Mandant 1 (neu)' }).eq('id', t1)
+      // Inhaber ändern den Kunden über die Speicherfunktion (PROJ-28); direktes Ändern ist geschlossen
+      const direct = await a.from('tenants').update({ name: 'Direkt' }).eq('id', t1)
+      expect(direct.error?.code).toBe('42501')
+      const { data: stand } = await service.from('tenants').select('updated_at').eq('id', t1).single()
+      const { error } = await a.rpc('update_tenant_master_data', {
+        p_tenant_id: t1,
+        p_expected_updated_at: stand!.updated_at,
+        p_data: { name: 'Test-Mandant 1 (neu)' },
+      })
       expect(error).toBeNull()
 
       const after = await service.from('tenants').select('*').eq('id', t1).single()

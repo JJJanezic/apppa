@@ -249,12 +249,27 @@ Keine neuen Pakete.
 - **Gemeinsames Formular** `src/components/tenant/tenant-master-data-form.tsx` für Inhaber (*Einstellungen → Kunde*) und Betreiber (Detailseite, Abschnitt „Stammdaten“ ganz oben). Bei deaktiviertem Kunden sind alle Felder gesperrt, ohne Speichern-Schaltfläche, mit Hinweis.
 - **Ersetzt** das bisherige Namensformular (`tenant-name-form.tsx`, `updateTenantName`, `tenantNameSchema` entfernt). Erfolgsmeldung jetzt „Kundendaten gespeichert.“ (E2E PROJ-4 angepasst).
 - **Prüfregeln** `src/lib/validation/tenant.ts` und Regeln/Typen `src/lib/tenant-master-data.ts` (UID-Format, Längen, leer = null), Unit-Tests `tenant.test.ts`.
-- **Aktionen:** `updateTenantMasterData` (Inhaber) und `adminUpdateTenantMasterData` (Betreiber) rufen beide die Datenbank-Funktion `update_tenant_master_data` über `src/lib/tenant-master-data-save.ts` auf. Fehlercodes: P0016 = inzwischen geändert, P0017 = deaktiviert, P0011 = Kunde weg, 42501 = keine Rechte/Sitzung.
+- **Aktionen:** `updateTenantMasterData` (Inhaber) und `adminUpdateTenantMasterData` (Betreiber) rufen beide die Datenbank-Funktion `update_tenant_master_data` über `src/lib/tenant-master-data-save.ts` auf. Fehlercodes: P0016 = deaktiviert (aus `private.lock_tenant`), P0017 = inzwischen geändert, P0011 = Kunde weg, 42501 = keine Rechte/Sitzung.
 - **Konflikt:** Hinweis mit „Aktuelle Fassung laden“; die Seite setzt den Formular-Schlüssel auf „zuletzt geändert am“, damit nach dem Neuladen der neue Stand erscheint.
 - **Kundenübersicht:** Ort klein unter dem Namen (Tabelle und Handy-Karten).
 - **Betreiber-Protokoll:** neue Eintragsart `master_data` mit Feldliste („Stammdaten geändert: UID, Ort“).
 - **Datentypen** (`src/types/database.ts`) von Hand um die neuen Spalten, `changed_fields`, `city` in der Übersicht und die neue Funktion ergänzt; `/backend` erzeugt sie nach der Migration neu.
 - **Offen für /backend:** Migration (Spalten + Prüfregeln, Funktion `update_tenant_master_data`, direktes Namens-Update schließen, `operator_log` um `master_data` und `changed_fields` erweitern, `admin_tenant_overview` liefert `city`). Ohne Migration schlagen die Seiten *Einstellungen → Kunde* und die Betreiber-Detailseite beim Laden fehl.
+
+### Umsetzung Backend (2026-10-26)
+- **Migration** `supabase/migrations/20261026163631_tenant_master_data.sql`, eingespielt in Dev:
+  - `tenants`: neun Spalten `name_line2`, `address_line1`, `address_line2`, `postal_code`, `city`, `country`, `vat_id`, `tax_number`, `register_number` mit Prüfregeln (Längen, Ländercode, UID-Format wie im Formular).
+  - `private.update_tenant_master_data(p_tenant_id, p_expected_updated_at, p_data)` + öffentliche Hülle: Inhaber des aktiven Kunden oder Admin mit 2FA (sonst 42501), Kunde gesperrt und aktiv (`private.lock_tenant`: P0011/P0016), Stand-Vergleich (P0017), Bereinigung (Trim, leer = null, UID ohne Leerzeichen in Großbuchstaben), Update nur bei echter Änderung, Eintrag `master_data` mit `changed_fields` im Betreiber-Protokoll.
+  - Direktes Ändern durch Inhaber geschlossen: `update (name)`-Recht entzogen, Policy „Inhaber ändern ihren Mandanten“ entfernt.
+  - `operator_log`: Spalte `changed_fields`, Eintragsart `master_data`.
+  - `admin_tenant_overview` liefert zusätzlich `city` (neu angelegt, da sich der Rückgabetyp ändert).
+- **Fehlercodes im Frontend korrigiert:** P0016 = deaktiviert (bestehender Code aus `lock_tenant`), P0017 = inzwischen geändert.
+- **Typen** mit `npm run db:types` neu erzeugt. Advisors: nur die zwei im Runbook als bekannt und akzeptiert vermerkten Auth-Hinweise.
+- **Tests:**
+  - neu `tests/PROJ-28-kundenstammdaten.spec.ts`: Speicherfunktion (Bereinigung, Protokoll, keine Änderung → kein Eintrag, alter Stand → P0017), Sicherheit (Mitarbeiter/fremder Inhaber 42501, fremder Kunde unsichtbar, direktes Update 42501, ungültige UID scheitert), Inhaber-Ablauf im Formular.
+  - angepasst `supabase/tests/rls.integration.test.ts` (Nachvollziehbarkeit über die Speicherfunktion statt direktem Update).
+  - Regression: PROJ-4 „Kundenname ändern“, PROJ-5 Liste/Deaktivieren/Sicherheit/WCAG grün.
+  - Alle Datenbank-Integrationstests (`supabase/tests`, 100 Tests in 8 Dateien) und alle 267 Unit-Tests grün.
 
 ## QA Test Results
 _To be added by /qa_

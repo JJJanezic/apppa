@@ -1155,7 +1155,11 @@ export type Database = {
         Returns: undefined
       }
       update_tenant_master_data: {
-        Args: { p_data: Json; p_expected_updated_at: string; p_tenant_id: string }
+        Args: {
+          p_data: Json
+          p_expected_updated_at: string
+          p_tenant_id: string
+        }
         Returns: undefined
       }
     }
