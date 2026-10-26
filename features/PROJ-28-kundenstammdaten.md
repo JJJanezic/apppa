@@ -1,6 +1,6 @@
 # PROJ-28: Kundenstammdaten
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-10-26
 **Last Updated:** 2026-10-26
 
@@ -389,4 +389,11 @@ Keine neuen Pakete.
 - **Nachtest:** PROJ-28 komplett grün (17 Tests desktop, Layout in Handy/Tablet), PROJ-4 „Kundenname ändern“ und „Kundenwechsel“ grün, 267 Unit-Tests grün, Lint sauber.
 
 ## Deployment
-_To be added by /deploy_
+_Stand 2026-10-26 (/deploy, Tag `v1.5.0`)_
+
+- **Staging:** https://staging.apppa.at (Vercel `apppa-staging`, Supabase `iikzjqjjxoznrkkixfqa`), vom Nutzer anhand der Checkliste geprüft und freigegeben
+- **Production:** https://app.apppa.at (Vercel `apppa`, Supabase `ahclrqbhfpidxjzbpfgb`), Commit `a6092a6`, 2026-10-26
+- **Migrationen** in Staging und Production eingespielt: `20261026163631_tenant_master_data.sql`
+- **Advisors:** kein Befund zur Datenbank. Es bleiben nur die bekannten Auth-Hinweise: in Staging Gültigkeit der Mail-Links und die dort nicht eingeschaltete Passwort-Leak-Prüfung, in Production nur die Gültigkeit der Mail-Links.
+- Keine neuen Umgebungsvariablen, kein `config push`.
+- Mit ausgeliefert: PROJ-5-Fix `ba7744e` (Kundenübersicht: nur der Name ist Link, behebt Safari-Fehler).
