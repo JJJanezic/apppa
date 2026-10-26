@@ -43,7 +43,7 @@
 | PROJ-26 | Gästeblatt (Meldewesen) | Gesetzliche Gästemeldung je Aufenthalt mit Hauptgast und Mitreisenden | P0 | PROJ-1, PROJ-6, PROJ-7, PROJ-8 | Roadmap | – | 2026-10-26 |
 | PROJ-27 | Personenpreise und Kapazität nach Erwachsenen | Kapazität „gesamt, davon max. Erwachsene“; Preisart je Wohnung (Wohnungs- oder Personenpreis mit Kinder-Altersstufen); Preisvorschlag und Warnung in Buchungen | P0 | PROJ-6, PROJ-8 | Deployed | [Spec](PROJ-27-personenpreise-kapazitaet.md) | 2026-10-25 |
 | PROJ-28 | Kundenstammdaten | Zweite Namenszeile, Adresse, Staat, UID, Steuernummer, Registernummer je Kunde; editierbar durch Betreiber und Inhaber | P0 | PROJ-4, PROJ-5 | Deployed | [Spec](PROJ-28-kundenstammdaten.md) | 2026-10-26 |
-| PROJ-29 | Gast-Erweiterung: Titel, Geschlecht, Reisedokument | Akademische Grade vor/nach dem Namen, Geschlecht, ein Reisedokument mit Bildern (Vorder-/Rückseite); Safari-Zeilenklick in der Gästeliste | P0 | PROJ-4, PROJ-7, PROJ-8 | Architected | [Spec](PROJ-29-gast-titel-geschlecht-reisedokument.md) | 2026-10-26 |
+| PROJ-29 | Gast-Erweiterung: Titel, Geschlecht, Reisedokument | Akademische Grade vor/nach dem Namen, Geschlecht, ein Reisedokument mit Bildern (Vorder-/Rückseite); Safari-Zeilenklick in der Gästeliste | P0 | PROJ-4, PROJ-7, PROJ-8 | In Progress | [Spec](PROJ-29-gast-titel-geschlecht-reisedokument.md) | 2026-10-26 |
 
 <!-- Add features above this line -->
 

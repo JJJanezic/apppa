@@ -19,7 +19,7 @@ import {
   todayIso,
   totalCents,
 } from '@/lib/bookings'
-import { guestSortName, searchKey } from '@/lib/guests'
+import { guestDisplayName, searchKey } from '@/lib/guests'
 import type { Role } from '@/lib/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getTenantContext } from '@/lib/tenant'
@@ -29,6 +29,11 @@ import { getTenantContext } from '@/lib/tenant'
 
 // Datenbank liefert Uhrzeiten als „15:00:00“
 const hhmm = (value: string | null) => (value ? value.slice(0, 5) : '')
+
+// Voller Name mit Titeln (PROJ-29)
+type GuestNameColumns = { last_name: string; first_name: string | null; title_prefix: string | null; title_suffix: string | null }
+const guestName = (g: GuestNameColumns) =>
+  guestDisplayName({ lastName: g.last_name, firstName: g.first_name, titlePrefix: g.title_prefix, titleSuffix: g.title_suffix })
 const LIST_LIMIT = 1000
 const SEARCH_LIMIT = 50
 
@@ -71,7 +76,7 @@ export const getBookableApartments = cache(async (): Promise<BookableApartment[]
 })
 
 const ROW_COLUMNS =
-  'id, kind, number, apartment_id, arrival, departure, adults, child_ages, block_reason, option_until, cancelled_at, price_review, guest:guests(id, last_name, first_name), apartment:apartments!inner(name, property:properties!inner(name)), amounts:booking_amounts(nights_cents), charges:booking_charges(amount_cents)'
+  'id, kind, number, apartment_id, arrival, departure, adults, child_ages, block_reason, option_until, cancelled_at, price_review, guest:guests(id, last_name, first_name, title_prefix, title_suffix), apartment:apartments!inner(name, property:properties!inner(name)), amounts:booking_amounts(nights_cents), charges:booking_charges(amount_cents)'
 
 type ListDbRow = {
   id: string
@@ -86,7 +91,7 @@ type ListDbRow = {
   option_until: string | null
   cancelled_at: string | null
   price_review: boolean
-  guest: { id: string; last_name: string; first_name: string | null } | null
+  guest: { id: string; last_name: string; first_name: string | null; title_prefix: string | null; title_suffix: string | null } | null
   apartment: { name: string; property: { name: string } }
   // eine Zeile je Buchung; PostgREST liefert sie als Liste (Verweis über id + tenant_id)
   amounts: { nights_cents: number }[]
@@ -99,7 +104,7 @@ async function activeOccupancy(tenantId: string, apartmentIds: string[], from: s
   const supabase = await createClient()
   const { data, error } = await supabase
     .from('bookings')
-    .select('id, kind, number, apartment_id, arrival, departure, block_reason, option_until, cancelled_at, guest:guests(last_name, first_name)')
+    .select('id, kind, number, apartment_id, arrival, departure, block_reason, option_until, cancelled_at, guest:guests(last_name, first_name, title_prefix, title_suffix)')
     .eq('tenant_id', tenantId)
     .in('apartment_id', apartmentIds)
     .is('cancelled_at', null)
@@ -118,7 +123,7 @@ async function activeOccupancy(tenantId: string, apartmentIds: string[], from: s
       cancelledAt: o.cancelled_at,
       optionUntil: o.option_until,
       blockReason: o.block_reason as BlockReason | null,
-      guestName: o.guest ? guestSortName({ lastName: o.guest.last_name, firstName: o.guest.first_name }) : null,
+      guestName: o.guest ? guestName(o.guest) : null,
     }))
     .filter((o) => bookingState(o, today) === 'active')
 }
@@ -145,7 +150,7 @@ function toRow(r: ListDbRow, owner: boolean, today: string, occupancy: Occupancy
     apartmentLabel: apartmentLabel(r.apartment.property.name, r.apartment.name),
     arrival: r.arrival,
     departure: r.departure,
-    guestName: r.guest ? guestSortName({ lastName: r.guest.last_name, firstName: r.guest.first_name }) : null,
+    guestName: r.guest ? guestName(r.guest) : null,
     blockReason: r.block_reason as BlockReason | null,
     persons: kind === 'block' ? 0 : personCount(r.adults ?? 0, r.child_ages),
     state,
@@ -237,7 +242,7 @@ export const findBooking = cache(async (id: string): Promise<Booking | null> => 
   const { data: b, error } = await supabase
     .from('bookings')
     .select(
-      'id, kind, channel, number, apartment_id, arrival, departure, check_in, check_out, adults, child_ages, block_reason, option_until, note, cancelled_at, cancelled_by, cancel_reason, override_by, price_review, updated_at, guest:guests(id, last_name, first_name, country, anonymized_at), apartment:apartments!inner(name, max_guests, archived_at, property:properties!inner(name)), companions:booking_companions(position, first_name, last_name, birth_date), amounts:booking_amounts(nights_cents, cancellation_fee_cents), charges:booking_charges(position, label, amount_cents)'
+      'id, kind, channel, number, apartment_id, arrival, departure, check_in, check_out, adults, child_ages, block_reason, option_until, note, cancelled_at, cancelled_by, cancel_reason, override_by, price_review, updated_at, guest:guests(id, last_name, first_name, title_prefix, title_suffix, country, anonymized_at), apartment:apartments!inner(name, max_guests, archived_at, property:properties!inner(name)), companions:booking_companions(position, first_name, last_name, birth_date), amounts:booking_amounts(nights_cents, cancellation_fee_cents), charges:booking_charges(position, label, amount_cents)'
     )
     .eq('id', id)
     .eq('tenant_id', tenantId)
@@ -274,6 +279,8 @@ export const findBooking = cache(async (id: string): Promise<Booking | null> => 
       id: b.guest.id,
       lastName: b.guest.last_name,
       firstName: b.guest.first_name,
+      titlePrefix: b.guest.title_prefix,
+      titleSuffix: b.guest.title_suffix,
       country: b.guest.country,
       anonymized: b.guest.anonymized_at !== null,
     },

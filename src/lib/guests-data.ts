@@ -1,10 +1,16 @@
 import 'server-only'
 
 import { notFound } from 'next/navigation'
+import { getTranslations } from 'next-intl/server'
 import { cache } from 'react'
 
 import {
   type ContactSource,
+  DOCUMENT_BUCKET,
+  DOCUMENT_SIDES,
+  type DocumentImage,
+  type DocumentSide,
+  type DocumentType,
   type DuplicatePair,
   type DuplicateReason,
   type Guest,
@@ -13,6 +19,7 @@ import {
   type GuestPage,
   type GuestRow,
   type GuestStays,
+  type Gender,
   type Language,
   type MarketingSource,
 } from '@/lib/guests'
@@ -20,14 +27,46 @@ import type { Role } from '@/lib/navigation'
 import { createClient } from '@/lib/supabase/server'
 import type { Database } from '@/types/database'
 import { getTenantContext } from '@/lib/tenant'
+import type { GuestValues } from '@/lib/validation/guests'
 
 // Lesefunktionen der Gäste-Datenbank (PROJ-7) für alle Mitglieder des gewählten Kunden.
 // Rechte prüft die Datenbank zusätzlich (RLS: Lesen für Mitglieder, Dubletten nur für Inhaber).
 
 type GuestDbRow = Database['public']['Tables']['guests']['Row']
 
+// Spalten eines Gastes aus geprüften Formularwerten (Gast-Aktionen und Buchung mit neuem Gast)
+export const guestDbColumns = (v: GuestValues) => ({
+  last_name: v.lastName,
+  first_name: v.firstName,
+  country: v.country,
+  email: v.email,
+  phone: v.phone,
+  language: v.language,
+  birth_date: v.birthDate,
+  street: v.street,
+  postal_code: v.postalCode,
+  city: v.city,
+  address_country: v.addressCountry,
+  marketing_source: v.marketingSource,
+  marketing_custom: v.marketingCustom,
+  company_name: v.companyName,
+  company_vat_id: v.companyVatId,
+  company_billing_address: v.companyBillingAddress,
+  note: v.note,
+  title_prefix: v.titlePrefix,
+  title_suffix: v.titleSuffix,
+  gender: v.gender,
+  document_type: v.documentType,
+  document_number: v.documentNumber,
+  document_issued_on: v.documentIssuedOn,
+  document_authority: v.documentAuthority,
+  document_country: v.documentCountry,
+  document_front_path: v.documentFrontPath,
+  document_back_path: v.documentBackPath,
+})
+
 export const GUEST_COLUMNS =
-  'id, last_name, first_name, country, email, email_source, phone, phone_source, language, birth_date, street, postal_code, city, address_country, marketing_source, marketing_custom, company_name, company_vat_id, company_billing_address, note, anonymized_at, updated_at'
+  'id, last_name, first_name, country, email, email_source, phone, phone_source, language, birth_date, street, postal_code, city, address_country, marketing_source, marketing_custom, company_name, company_vat_id, company_billing_address, note, title_prefix, title_suffix, gender, document_type, document_number, document_issued_on, document_authority, document_country, document_front_path, document_back_path, anonymized_at, updated_at'
 
 // Aufenthalte werden aus den Buchungen berechnet (PROJ-8), nicht am Gast gespeichert
 const NO_STAYS: GuestStays = { count: 0, bookings: 0, last: null, next: null, channels: [] }
@@ -83,6 +122,17 @@ export function toGuest(g: Pick<GuestDbRow, Exclude<keyof GuestDbRow, 'tenant_id
     companyVatId: g.company_vat_id,
     companyBillingAddress: g.company_billing_address,
     note: g.note,
+    titlePrefix: g.title_prefix,
+    titleSuffix: g.title_suffix,
+    gender: g.gender as Gender,
+    documentType: g.document_type as DocumentType | null,
+    documentNumber: g.document_number,
+    documentIssuedOn: g.document_issued_on,
+    documentAuthority: g.document_authority,
+    documentCountry: g.document_country,
+    documentFrontPath: g.document_front_path,
+    documentBackPath: g.document_back_path,
+    documentImages: {},
     anonymizedAt: g.anonymized_at,
     updatedAt: g.updated_at,
     stays: NO_STAYS,
@@ -93,6 +143,8 @@ export const toRow = (g: Guest): GuestRow => ({
   id: g.id,
   lastName: g.lastName,
   firstName: g.firstName,
+  titlePrefix: g.titlePrefix,
+  titleSuffix: g.titleSuffix,
   companyName: g.companyName,
   country: g.country,
   stayCount: g.stays.count,
@@ -104,6 +156,8 @@ type ListRow = {
   id: string
   last_name: string
   first_name: string | null
+  title_prefix: string | null
+  title_suffix: string | null
   company_name: string | null
   country: string
   anonymized_at: string | null
@@ -112,10 +166,12 @@ type ListRow = {
   total: number
 }
 
-const listRow = (r: ListRow): GuestRow => ({
+export const listRow = (r: Omit<ListRow, 'total'>): GuestRow => ({
   id: r.id,
   lastName: r.last_name,
   firstName: r.first_name,
+  titlePrefix: r.title_prefix,
+  titleSuffix: r.title_suffix,
   companyName: r.company_name,
   country: r.country,
   stayCount: r.stay_count,
@@ -167,8 +223,47 @@ export const getGuest = cache(async (id: string): Promise<Guest> => {
   const { data, error } = await supabase.from('guests').select(GUEST_COLUMNS).eq('id', id).eq('tenant_id', tenantId).maybeSingle()
   if (error) console.error('[gaeste] Gast nicht lesbar', error.message)
   if (!data) notFound()
-  return { ...toGuest(data), stays: await guestStays(tenantId, id) }
+  const guest = toGuest(data)
+  const [stays, documentImages] = await Promise.all([guestStays(tenantId, id), documentImageLinks(guest)])
+  return { ...guest, stays, documentImages }
 })
+
+// Abruf-Links der Ausweisbilder (PROJ-29): 10 Minuten gültig, nur mit Anmeldung im richtigen Kunden
+// (Zugriffsregeln des Speichers). Zusätzlich ein Link zum Herunterladen mit lesbarem Dateinamen.
+export const DOCUMENT_LINK_SECONDS = 600
+
+export async function documentImageLinks(guest: Guest): Promise<Guest['documentImages']> {
+  const paths: Record<DocumentSide, string | null> = { front: guest.documentFrontPath, back: guest.documentBackPath }
+  if (!paths.front && !paths.back) return {}
+  const t = await getTranslations('guests')
+  const supabase = await createClient()
+  const storage = supabase.storage.from(DOCUMENT_BUCKET)
+  // Dateiname nur aus Buchstaben, Ziffern und Bindestrichen, z. B. „Reisepass-Huber-Vorderseite.jpg“
+  const fileName = (side: DocumentSide) =>
+    [guest.documentType ? t(`documentType.${guest.documentType}`) : t('document.title'), guest.lastName, t(`document.side.${side}`)]
+      .join('-')
+      .normalize('NFD')
+      .replace(/\p{Diacritic}/gu, '')
+      .replace(/[^A-Za-z0-9-]+/g, '-')
+      .replace(/-+/g, '-')
+      .concat('.jpg')
+  const entries = await Promise.all(
+    DOCUMENT_SIDES.map(async (side): Promise<[DocumentSide, DocumentImage | null]> => {
+      const path = paths[side]
+      if (!path) return [side, null]
+      const [view, download] = await Promise.all([
+        storage.createSignedUrl(path, DOCUMENT_LINK_SECONDS),
+        storage.createSignedUrl(path, DOCUMENT_LINK_SECONDS, { download: fileName(side) }),
+      ])
+      if (view.error || download.error) {
+        console.error('[gaeste] Ausweisbild nicht abrufbar', (view.error ?? download.error)?.message)
+        return [side, null]
+      }
+      return [side, { view: view.data.signedUrl, download: download.data.signedUrl }]
+    })
+  )
+  return Object.fromEntries(entries.filter((e): e is [DocumentSide, DocumentImage] => e[1] !== null))
+}
 
 // Mögliche Dubletten (nur Inhaber): Paare mit gleicher E-Mail, Telefonnummer oder gleichem Vor- und Nachnamen
 export async function getDuplicatePairs(): Promise<DuplicatePair[]> {

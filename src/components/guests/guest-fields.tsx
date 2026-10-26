@@ -6,25 +6,66 @@ import { useState } from 'react'
 import { useFormContext, useWatch } from 'react-hook-form'
 
 import { CountryPicker } from '@/components/guests/country-picker'
+import { DocumentImageField } from '@/components/guests/document-image-field'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import { LANGUAGES, languageName, LIMITS, MARKETING_CUSTOM, MARKETING_NONE, MARKETING_SOURCES } from '@/lib/guests'
+import {
+  DOCUMENT_SIDES,
+  DOCUMENT_TYPES,
+  type DocumentSide,
+  GENDERS,
+  type Guest,
+  LANGUAGES,
+  languageName,
+  LIMITS,
+  MARKETING_CUSTOM,
+  MARKETING_NONE,
+  MARKETING_SOURCES,
+} from '@/lib/guests'
 import type { GuestInput } from '@/lib/validation/guests'
 
 // Leerer Sprachwert im Select (Radix erlaubt keinen leeren String als Wert)
 const NO_LANGUAGE = '__keine'
+const NO_DOCUMENT_TYPE = '__keine'
+
+const PATH_FIELD: Record<DocumentSide, 'documentFrontPath' | 'documentBackPath'> = { front: 'documentFrontPath', back: 'documentBackPath' }
+
+interface GuestFieldsProps {
+  // Abruf-Links der gespeicherten Ausweisbilder (Bearbeiten eines Gastes, PROJ-29)
+  documentImages?: Guest['documentImages']
+}
 
 // Felder eines Gastes (PROJ-7). Wiederverwendbar: Gast-Panel und später das Buchungsformular (PROJ-8).
 // Muss innerhalb eines react-hook-form <Form> mit GuestInput-Werten stehen.
-export function GuestFields() {
+export function GuestFields({ documentImages = {} }: GuestFieldsProps) {
   const t = useTranslations('guests.panel')
   const tm = useTranslations('guests.marketing')
+  const tg = useTranslations('guests.gender')
+  const td = useTranslations('guests.document')
+  const tdt = useTranslations('guests.documentType')
   const locale = useLocale()
-  const { control, getValues } = useFormContext<GuestInput>()
+  const { control, getValues, formState } = useFormContext<GuestInput>()
   const marketing = useWatch({ control, name: 'marketing' })
+  const [documentType, frontPath, backPath] = useWatch({ control, name: ['documentType', 'documentFrontPath', 'documentBackPath'] })
+  const initial = formState.defaultValues
+  // Reisedokument aufgeklappt, wenn schon Angaben oder Bilder vorhanden sind
+  const [documentOpen, setDocumentOpen] = useState(() => {
+    const v = getValues()
+    return Boolean(
+      v.documentType || v.documentNumber || v.documentIssuedOn || v.documentAuthority || v.documentCountry || v.documentFrontPath || v.documentBackPath
+    )
+  })
+  // Fehler im zugeklappten Abschnitt (z. B. Art/Nummer fehlen) sichtbar machen
+  const documentError = Boolean(formState.errors.documentType || formState.errors.documentNumber || formState.errors.documentIssuedOn)
+  // Hinweis: Art geändert, die bisherigen Bilder gehören womöglich zum alten Dokument (Spec, Edge Cases)
+  const oldImagesKept =
+    Boolean(initial?.documentType && documentType && documentType !== initial.documentType) &&
+    ((Boolean(initial?.documentFrontPath) && frontPath === initial?.documentFrontPath) ||
+      (Boolean(initial?.documentBackPath) && backPath === initial?.documentBackPath))
   // Firma aufgeklappt, wenn schon Firmenangaben vorhanden sind
   const [companyOpen, setCompanyOpen] = useState(() => {
     const v = getValues()
@@ -61,6 +102,36 @@ export function GuestFields() {
         {text('lastName', t('lastName'), { max: LIMITS.nameMax, hint: t('lastNameHint'), autoComplete: 'off' })}
         {text('firstName', t('firstName'), { max: LIMITS.nameMax })}
       </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        {text('titlePrefix', t('titlePrefix'), { max: LIMITS.titleMax, hint: t('titlePrefixHint') })}
+        {text('titleSuffix', t('titleSuffix'), { max: LIMITS.titleMax, hint: t('titleSuffixHint') })}
+      </div>
+
+      <FormField
+        control={control}
+        name="gender"
+        render={({ field }) => (
+          <FormItem className="sm:max-w-[calc(50%-0.5rem)]">
+            <FormLabel>{t('gender')}</FormLabel>
+            <Select value={field.value} onValueChange={field.onChange}>
+              <FormControl>
+                <SelectTrigger className="min-h-11">
+                  <SelectValue />
+                </SelectTrigger>
+              </FormControl>
+              <SelectContent>
+                {GENDERS.map((g) => (
+                  <SelectItem key={g} value={g} className="min-h-11">
+                    {tg(g)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
 
       <FormField
         control={control}
@@ -194,6 +265,98 @@ export function GuestFields() {
               </FormItem>
             )}
           />
+        </CollapsibleContent>
+      </Collapsible>
+
+      <Collapsible open={documentOpen || documentError} onOpenChange={setDocumentOpen} className="rounded-lg border">
+        <CollapsibleTrigger className="flex min-h-11 w-full items-center justify-between gap-3 px-4 py-2 text-left">
+          <span className="flex flex-col">
+            <span className="text-sm font-semibold">{td('title')}</span>
+            <span className="text-[13px] text-ds-neutral-700">{td('hint')}</span>
+          </span>
+          <CaretDown size={16} aria-hidden="true" className={documentOpen || documentError ? 'rotate-180 transition-transform' : 'transition-transform'} />
+        </CollapsibleTrigger>
+        <CollapsibleContent className="flex flex-col gap-4 px-4 pb-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <FormField
+              control={control}
+              name="documentType"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{td('type')}</FormLabel>
+                  <Select value={field.value || NO_DOCUMENT_TYPE} onValueChange={(v) => field.onChange(v === NO_DOCUMENT_TYPE ? '' : v)}>
+                    <FormControl>
+                      <SelectTrigger className="min-h-11">
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value={NO_DOCUMENT_TYPE} className="min-h-11">
+                        {td('typeNone')}
+                      </SelectItem>
+                      {DOCUMENT_TYPES.map((type) => (
+                        <SelectItem key={type} value={type} className="min-h-11">
+                          {tdt(type)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            {text('documentNumber', td('number'), { max: LIMITS.documentNumberMax })}
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {text('documentIssuedOn', td('issuedOn'), { max: 10, type: 'date' })}
+            {text('documentAuthority', td('authority'), { max: LIMITS.documentAuthorityMax, hint: td('authorityHint') })}
+          </div>
+          <FormField
+            control={control}
+            name="documentCountry"
+            render={({ field, fieldState }) => (
+              <FormItem>
+                <FormLabel>{td('country')}</FormLabel>
+                <FormControl>
+                  <CountryPicker value={field.value} onChange={field.onChange} clearable invalid={Boolean(fieldState.error)} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {oldImagesKept && (
+            <Alert className="border-ds-accent-700/40 bg-ds-accent-100">
+              <AlertDescription>{td('typeChangedHint')}</AlertDescription>
+            </Alert>
+          )}
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            {DOCUMENT_SIDES.map((side) => {
+              const savedPath = initial?.[PATH_FIELD[side]]
+              const savedImage = documentImages[side]
+              return (
+                <FormField
+                  key={side}
+                  control={control}
+                  name={PATH_FIELD[side]}
+                  render={({ field, fieldState }) => (
+                    <FormItem>
+                      <DocumentImageField
+                        side={side}
+                        value={field.value}
+                        onChange={field.onChange}
+                        saved={savedPath && savedImage ? { path: savedPath, image: savedImage } : undefined}
+                        invalid={Boolean(fieldState.error)}
+                      />
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )
+            })}
+          </div>
+          <p className="text-[13px] text-ds-neutral-700">{td('imagesHint')}</p>
         </CollapsibleContent>
       </Collapsible>
 

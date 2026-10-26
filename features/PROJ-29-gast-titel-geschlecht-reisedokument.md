@@ -1,6 +1,6 @@
 # PROJ-29: Gast-Erweiterung: Titel, Geschlecht, Reisedokument
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-10-26
 **Last Updated:** 2026-10-26
 
@@ -185,6 +185,10 @@ In Safari öffnet ein Klick auf eine beliebige Zeile der Gästeliste immer den l
 | Löschen von Dateien nur durch den Server nach Meldung der Datenbank; tägliche Bereinigung per Vercel Cron | Datenbank-Funktionen können Speicherdateien nicht selbst löschen; der Zeitplan fängt abgebrochene Uploads und Fehler ab | 2026-10-26 |
 | Formate: JPEG, PNG, HEIC/HEIF, WebP, GIF, BMP; TIFF nur, wo der Browser es selbst lesen kann (Safari) | Handys liefern kein TIFF; ein eigener TIFF-Dekoder wäre Aufwand ohne Praxisnutzen | 2026-10-26 |
 | Eingangsdateien bis 30 MB, gespeicherte Bilder höchstens 2 MB | Deckt alle Handyfotos ab; größere Dateien bringen Handys beim Umwandeln an die Speichergrenze | 2026-10-26 |
+| `heic-to` (LGPL-3.0) über den Next.js-Einstieg `heic-to/next`, dynamisch nachgeladen | Jeder HEIC-Dekoder im Browser beruht auf libheif (LGPL); als eigene, nachgeladene Datei unproblematisch | 2026-10-26 |
+| Upload über einmaligen Upload-Schlüssel vom Server (`prepareDocumentUpload`), Speicherort `<Kunde>/<zufällig>.jpg` | Der Browser braucht die Kundenkennung nicht; Speicherort und Ordner legt der Server fest | 2026-10-26 |
+| Dateien löschen die Server-Aktionen selbst (Speicherorte vor/nach der Änderung vergleichen) | Die Datenbank-Funktionen für Löschen und Zusammenführen müssen dafür keine Speicherorte zurückgeben | 2026-10-26 |
+| Name mit Titeln auch in Listen „Dr. Anna Huber, LL.M.“ statt „Huber, Anna“ | Spec: voller Name überall; Mitreisende bleiben „Nachname, Vorname“ | 2026-10-26 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
@@ -326,6 +330,35 @@ Gleiche Lösung wie in der Betreiber-Kundenliste: Die unsichtbare Klickfläche �
 ### L) Abhängigkeiten
 - **`heic-to`:** wandelt HEIC/HEIF-Fotos im Browser um (für Chrome, Firefox, Edge). Wird nur geladen, wenn tatsächlich ein HEIC-Bild gewählt wird. Ein Umwandeln auf dem Server scheidet aus, weil die Bildbibliothek auf Vercel HEIC aus Lizenzgründen nicht kann.
 - Sonst keine neuen Pakete. Drehen, Verkleinern und JPEG-Erzeugung macht der Browser selbst. Die Bildansicht nutzt den vorhandenen shadcn-Dialog.
+
+## Implementation Notes (Frontend)
+**Stand 2026-10-26.** Die Oberfläche ist fertig. **Ohne die Migration aus `/backend` schlagen Gästeliste, Gast-Detail, Buchungen und Kalender beim Laden fehl**, weil sie die neuen Spalten abfragen (wie bei PROJ-28).
+
+**Daten und Regeln**
+- `src/lib/guests.ts`: Geschlecht (`male`, `female`, `diverse`, `inter`, `open`, `unspecified`), Dokumentarten (`passport`, `id_card`, `driving_licence`), Bildplätze `front`/`back`, Speicherbereich `guest-documents`, Prüfung des Speicherorts `<Kunde>/<uuid>.jpg`. `guestDisplayName` mit Titeln; neue Zusammenführ-Angaben `titles`, `gender`, `document` (Dokument als Ganzes).
+- `src/lib/validation/guests.ts`: Titel je 50 Zeichen, Geschlecht Pflicht mit Standard, Dokument (Art und Nummer Pflicht, sobald etwas erfasst ist; Ausstellungsdatum nicht in der Zukunft; Staat; Speicherorte). Platzhalter `uploading` blockiert das Speichern während eines Uploads.
+- `src/lib/document-image.ts`: Umwandlung im Browser (drehen, längste Seite 2.000 px, JPEG ≤ 2 MB, weißer Hintergrund für Transparenz), HEIC über `heic-to/next` nur bei Bedarf, Eingang bis 30 MB, Fehlercodes `imageTooLarge`, `imageUnsupported`, `imageFailed`.
+- Spalten: `title_prefix`, `title_suffix`, `gender`, `document_type`, `document_number`, `document_issued_on`, `document_authority`, `document_country`, `document_front_path`, `document_back_path`. `src/types/database.ts` von Hand ergänzt (inkl. `title_prefix`/`title_suffix` in `guest_list`); `/backend` erzeugt die Typen neu.
+
+**Oberfläche**
+- Gast-Formular (`guest-fields.tsx`, auch im Buchungsformular): Titel vor/nach, Geschlecht, aufklappbarer Abschnitt „Reisedokument“ mit zwei Bildplätzen (`document-image-field.tsx`: hinzufügen, ersetzen, entfernen, Vorschau, Fortschritt, Fehlermeldungen). Hinweis, wenn sich die Art ändert und alte Bilder bleiben. Der Abschnitt klappt bei Fehlern auf.
+- Gast-Detail: Geschlecht unter „Weitere Angaben“, Abschnitt „Reisedokument“ mit Vorschauen; Bildansicht mit „Herunterladen“ (`document-images.tsx`, `document-image-viewer.tsx`).
+- Zusammenführen: Zeilen Titel, Geschlecht und Reisedokument (mit kleinen Vorschauen und Hinweis, dass die Bilder des anderen Dokuments gelöscht werden).
+- Name mit Titeln in Gästeliste, Gastauswahl, Dubletten, Buchungsliste, Buchungs-Detail, Konfliktliste und Kalender.
+- Safari-Fix Gästeliste: nur der unterstrichene Name ist Link (wie Kundenliste).
+
+**Server-Aktionen**
+- `createGuest`/`updateGuest` und „Buchung mit neuem Gast“ speichern die neuen Spalten (gemeinsame Zuordnung `guestDbColumns` in `guests-data.ts`).
+- `prepareDocumentUpload` (alle Mitglieder): Speicherort im Kunden-Ordner + einmaliger Upload-Schlüssel (`createSignedUploadUrl`); der Browser lädt mit `uploadToSignedUrl`.
+- Bilder löschen (`src/lib/guest-documents.ts`, mit geheimem Schlüssel): nach `updateGuest` (ersetzt/entfernt), `deleteGuest` (gelöscht oder anonymisiert) und `mergeGuests` (nicht gewähltes Dokument). Grundlage ist der Vergleich der Speicherorte vor und nach der Änderung.
+- Abruf-Links: `documentImageLinks` erzeugt je Bild einen Anzeige- und einen Download-Link (10 Minuten, Dateiname z. B. `Reisepass-Huber-Vorderseite.jpg`); auch für den zweiten Gast beim Zusammenführen.
+
+**Offen für /backend**
+- Migration: neue Spalten mit Prüfregeln (Längen, feste Werte, Art + Nummer Pflicht, Datum, Ländercode, Speicherort im eigenen Kunden-Ordner, existiert, an keinem anderen Gast), Geschlecht `not null default 'unspecified'`.
+- Speicherbereich `guest-documents` (privat, nur `image/jpeg`, 2 MB) mit Regeln: Hochladen für Mitglieder nur in den eigenen Ordner; Lesen nur, wenn das Bild an einem Gast des Kunden hängt oder selbst hochgeladen wurde; Betreiber-Admin lesend; kein Ändern/Löschen durch Nutzer.
+- `save_booking` (neuer Gast mit neuen Spalten), `merge_guests` (Wahl `titles`, `gender`, `document`), `anonymize_guest` (neue Felder leeren, Geschlecht zurücksetzen), `guest_list` (Titel zurückgeben).
+- Kunde löschen: Ordner des Kunden im Speicher entfernen; tägliche Bereinigung (Vercel Cron, `CRON_SECRET`).
+- Integrationstests laut Tech Design J.
 
 ## QA Test Results
 _To be added by /qa_

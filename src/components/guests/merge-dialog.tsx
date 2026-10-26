@@ -18,6 +18,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import {
   countryName,
   defaultMergeChoice,
+  DOCUMENT_SIDES,
   type Guest,
   guestDisplayName,
   guestHref,
@@ -41,6 +42,8 @@ interface MergeDialogProps {
 export function MergeDialog({ open, onOpenChange, guest, presetOtherId }: MergeDialogProps) {
   const t = useTranslations('guests')
   const tm = useTranslations('guests.marketing')
+  const tg = useTranslations('guests.gender')
+  const tdt = useTranslations('guests.documentType')
   const format = useFormatter()
   const locale = useLocale()
   const router = useRouter()
@@ -91,7 +94,11 @@ export function MergeDialog({ open, onOpenChange, guest, presetOtherId }: MergeD
     const join = (...parts: (string | null)[]) => parts.filter(Boolean).join(', ')
     switch (field) {
       case 'name':
-        return guestDisplayName(g)
+        return guestDisplayName({ lastName: g.lastName, firstName: g.firstName })
+      case 'titles':
+        return join(g.titlePrefix, g.titleSuffix)
+      case 'gender':
+        return tg(g.gender)
       case 'country':
         return countryName(g.country, locale)
       case 'email':
@@ -110,7 +117,32 @@ export function MergeDialog({ open, onOpenChange, guest, presetOtherId }: MergeD
         return join(g.companyName, g.companyVatId, g.companyBillingAddress)
       case 'note':
         return g.note ?? ''
+      case 'document': {
+        const images = [g.documentFrontPath, g.documentBackPath].filter(Boolean).length
+        return join(
+          g.documentType ? tdt(g.documentType) : null,
+          g.documentNumber,
+          g.documentIssuedOn ? format.dateTime(new Date(`${g.documentIssuedOn}T12:00:00`), { day: 'numeric', month: 'long', year: 'numeric' }) : null,
+          g.documentAuthority,
+          g.documentCountry ? countryName(g.documentCountry, locale) : null,
+          images ? t('merge.documentImages', { count: images }) : null
+        )
+      }
     }
+  }
+
+  // Kleine Vorschauen der Ausweisbilder beim Reisedokument
+  const thumbnails = (g: Guest) => {
+    const images = DOCUMENT_SIDES.map((side) => g.documentImages[side]).filter((i) => i !== undefined)
+    if (!images.length) return null
+    return (
+      <span className="mt-1 flex gap-2">
+        {images.map((image) => (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img key={image.view} src={image.view} alt="" className="h-14 w-auto rounded border bg-ds-surface object-contain" />
+        ))}
+      </span>
+    )
   }
   const valueOrDash = (value: string) => value || t('merge.empty')
 
@@ -162,6 +194,7 @@ export function MergeDialog({ open, onOpenChange, guest, presetOtherId }: MergeD
                     ) : (
                       <fieldset className="flex flex-col gap-2">
                         <legend className="mb-2 text-sm font-semibold">{t(`merge.field.${field}`)}</legend>
+                        {field === 'document' && <p className="-mt-1 mb-1 text-[13px] text-ds-neutral-700">{t('merge.documentHint')}</p>}
                         <RadioGroup
                           value={choice[field]}
                           onValueChange={(v) => setChoice({ ...choice, [field]: v === 'b' ? 'b' : 'a' })}
@@ -173,6 +206,7 @@ export function MergeDialog({ open, onOpenChange, guest, presetOtherId }: MergeD
                               <Label htmlFor={`merge-${field}-${side}`} className="flex cursor-pointer flex-col gap-0.5 font-normal">
                                 <span className="text-[12px] text-ds-neutral-700">{side === 'a' ? t('merge.guestA') : t('merge.guestB')}</span>
                                 <span className="break-words">{valueOrDash(display(side === 'a' ? guest : other, field))}</span>
+                                {field === 'document' && thumbnails(side === 'a' ? guest : other)}
                               </Label>
                             </div>
                           ))}

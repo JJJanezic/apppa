@@ -72,7 +72,15 @@ export type BookableApartment = ApartmentPricing & {
   archived: boolean
 }
 
-export type BookingGuest = { id: string; lastName: string; firstName: string | null; country: string; anonymized: boolean }
+export type BookingGuest = {
+  id: string
+  lastName: string
+  firstName: string | null
+  titlePrefix: string | null
+  titleSuffix: string | null
+  country: string
+  anonymized: boolean
+}
 
 // Anderer Eintrag, mit dem sich ein Zeitraum überschneidet
 export type Conflict = {

@@ -495,10 +495,18 @@ export type Database = {
           country: string
           created_at: string
           created_by: string | null
+          document_authority: string | null
+          document_back_path: string | null
+          document_country: string | null
+          document_front_path: string | null
+          document_issued_on: string | null
+          document_number: string | null
+          document_type: string | null
           email: string | null
           email_key: string | null
           email_source: string
           first_name: string | null
+          gender: string
           id: string
           language: string | null
           last_name: string
@@ -513,6 +521,8 @@ export type Database = {
           search_text: string
           street: string | null
           tenant_id: string
+          title_prefix: string | null
+          title_suffix: string | null
           updated_at: string
           updated_by: string | null
         }
@@ -527,10 +537,18 @@ export type Database = {
           country: string
           created_at?: string
           created_by?: string | null
+          document_authority?: string | null
+          document_back_path?: string | null
+          document_country?: string | null
+          document_front_path?: string | null
+          document_issued_on?: string | null
+          document_number?: string | null
+          document_type?: string | null
           email?: string | null
           email_key?: string | null
           email_source?: string
           first_name?: string | null
+          gender?: string
           id?: string
           language?: string | null
           last_name: string
@@ -545,6 +563,8 @@ export type Database = {
           search_text?: string
           street?: string | null
           tenant_id: string
+          title_prefix?: string | null
+          title_suffix?: string | null
           updated_at?: string
           updated_by?: string | null
         }
@@ -559,10 +579,18 @@ export type Database = {
           country?: string
           created_at?: string
           created_by?: string | null
+          document_authority?: string | null
+          document_back_path?: string | null
+          document_country?: string | null
+          document_front_path?: string | null
+          document_issued_on?: string | null
+          document_number?: string | null
+          document_type?: string | null
           email?: string | null
           email_key?: string | null
           email_source?: string
           first_name?: string | null
+          gender?: string
           id?: string
           language?: string | null
           last_name?: string
@@ -577,6 +605,8 @@ export type Database = {
           search_text?: string
           street?: string | null
           tenant_id?: string
+          title_prefix?: string | null
+          title_suffix?: string | null
           updated_at?: string
           updated_by?: string | null
         }
@@ -1115,6 +1145,8 @@ export type Database = {
           last_name: string
           last_stay: string
           stay_count: number
+          title_prefix: string
+          title_suffix: string
           total: number
         }[]
       }

@@ -38,6 +38,17 @@ const guest = (over: Partial<Guest> = {}): Guest => ({
   companyVatId: null,
   companyBillingAddress: null,
   note: null,
+  titlePrefix: null,
+  titleSuffix: null,
+  gender: 'unspecified',
+  documentType: null,
+  documentNumber: null,
+  documentIssuedOn: null,
+  documentAuthority: null,
+  documentCountry: null,
+  documentFrontPath: null,
+  documentBackPath: null,
+  documentImages: {},
   anonymizedAt: null,
   updatedAt: '2026-10-20T09:00:00.000Z',
   stays: { count: 0, bookings: 0, last: null, next: null, channels: [] },
@@ -53,6 +64,11 @@ describe('Namen', () => {
   it('kommt ohne Vornamen aus (z. B. „Familie Berger“)', () => {
     expect(guestSortName({ lastName: 'Familie Berger', firstName: null })).toBe('Familie Berger')
     expect(guestDisplayName({ lastName: 'Familie Berger', firstName: null })).toBe('Familie Berger')
+  })
+  it('stellt akademische Grade voran bzw. nach (PROJ-29)', () => {
+    expect(guestDisplayName({ lastName: 'Huber', firstName: 'Anna', titlePrefix: 'Dr.', titleSuffix: 'LL.M.' })).toBe('Dr. Anna Huber, LL.M.')
+    expect(guestDisplayName({ lastName: 'Huber', firstName: null, titlePrefix: null, titleSuffix: 'MSc' })).toBe('Huber, MSc')
+    expect(guestDisplayName({ lastName: 'Huber', firstName: null, titlePrefix: 'DI Dr.', titleSuffix: null })).toBe('DI Dr. Huber')
   })
 })
 
@@ -158,5 +174,13 @@ describe('Zusammenführen', () => {
     expect(choice.email).toBe('b')
     expect(choice.phone).toBe('a')
     expect(choice.name).toBe('a')
+  })
+  it('wählt das Reisedokument als Ganzes und das Geschlecht nur, wenn angegeben (PROJ-29)', () => {
+    const doc = { documentType: 'passport', documentNumber: 'P1' } as const
+    expect(sameMergeValue(guest(doc), guest({ ...doc, documentFrontPath: 'x' }), 'document')).toBe(false)
+    const choice = defaultMergeChoice(guest(), guest({ ...doc, gender: 'female' }))
+    expect(choice.document).toBe('b')
+    expect(choice.gender).toBe('b')
+    expect(defaultMergeChoice(guest({ gender: 'male' }), guest({ gender: 'female' })).gender).toBe('a')
   })
 })

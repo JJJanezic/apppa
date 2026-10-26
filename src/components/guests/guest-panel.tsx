@@ -16,7 +16,7 @@ import { GuestFields } from '@/components/guests/guest-fields'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Form } from '@/components/ui/form'
-import { countryName, type DuplicateMatch, type Guest, guestDisplayName, guestHref, guestSortName } from '@/lib/guests'
+import { countryName, type DuplicateMatch, type Guest, guestDisplayName, guestHref } from '@/lib/guests'
 import { EMPTY_GUEST_INPUT, guestInput, type GuestInput, guestSchema } from '@/lib/validation/guests'
 
 interface GuestPanelProps {
@@ -63,7 +63,12 @@ export function GuestPanel({ open, onOpenChange, guest }: GuestPanelProps) {
       else setError(result.error)
       return
     }
-    const name = guestDisplayName({ lastName: values.lastName.trim(), firstName: values.firstName.trim() || null })
+    const name = guestDisplayName({
+      lastName: values.lastName.trim(),
+      firstName: values.firstName.trim() || null,
+      titlePrefix: values.titlePrefix.trim() || null,
+      titleSuffix: values.titleSuffix.trim() || null,
+    })
     toast.success(guest ? t('done.saved') : t('done.created', { name }))
     onOpenChange(false)
     if (!guest && result.data && 'id' in result.data) router.push(guestHref(result.data.id))
@@ -96,7 +101,7 @@ export function GuestPanel({ open, onOpenChange, guest }: GuestPanelProps) {
             </Alert>
           )}
 
-          <GuestFields />
+          <GuestFields documentImages={guest?.documentImages} />
 
           {duplicates && (
             <Alert role="alert" className="border-ds-accent-700/40 bg-ds-accent-100">
@@ -108,7 +113,7 @@ export function GuestPanel({ open, onOpenChange, guest }: GuestPanelProps) {
                   {duplicates.map((m) => (
                     <li key={m.guest.id} className="flex flex-col">
                       <Link href={guestHref(m.guest.id)} className="font-medium text-ds-accent-700 underline underline-offset-[3px]">
-                        {guestSortName(m.guest)}
+                        {guestDisplayName(m.guest)}
                       </Link>
                       <span className="text-[13px] text-ds-neutral-800">
                         {countryName(m.guest.country, locale)} · {m.reasons.map((r) => t(`reason.${r}`)).join(', ')}

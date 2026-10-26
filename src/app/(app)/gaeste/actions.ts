@@ -4,11 +4,12 @@ import { revalidatePath } from 'next/cache'
 
 import type { ActionResult, CommonErrorCode } from '@/lib/auth/result'
 import { getSessionUser, pendingMfaStep } from '@/lib/auth/session'
-import { type DuplicateMatch, type DuplicateReason, type Guest, type GuestErrorCode, type GuestRow, MERGE_FIELDS, type MergeChoice } from '@/lib/guests'
-import { GUEST_COLUMNS, guestStays, toGuest, toRow } from '@/lib/guests-data'
+import { DOCUMENT_BUCKET, type DuplicateMatch, type DuplicateReason, type Guest, type GuestErrorCode, type GuestRow, MERGE_FIELDS, type MergeChoice } from '@/lib/guests'
+import { removeDocumentFiles, unusedPaths } from '@/lib/guest-documents'
+import { documentImageLinks, GUEST_COLUMNS, guestDbColumns, guestStays, listRow, toGuest, toRow } from '@/lib/guests-data'
 import { createClient } from '@/lib/supabase/server'
 import { getTenantContext, type TenantSummary } from '@/lib/tenant'
-import { guestSchema, type GuestInput, type GuestValues } from '@/lib/validation/guests'
+import { guestSchema, type GuestInput } from '@/lib/validation/guests'
 
 // Server-Aktionen der Gäste-Datenbank (PROJ-7). Lesen: alle Mitglieder; Anlegen, Ändern, Zusammenführen und
 // Löschen: nur Inhaber (Mitarbeiter legen Gäste nur zusammen mit einer Buchung an, PROJ-8).
@@ -56,25 +57,10 @@ function dbFail(error: DbError, context: string): Failure {
   return fail('unknown')
 }
 
-const columns = (v: GuestValues) => ({
-  last_name: v.lastName,
-  first_name: v.firstName,
-  country: v.country,
-  email: v.email,
-  phone: v.phone,
-  language: v.language,
-  birth_date: v.birthDate,
-  street: v.street,
-  postal_code: v.postalCode,
-  city: v.city,
-  address_country: v.addressCountry,
-  marketing_source: v.marketingSource,
-  marketing_custom: v.marketingCustom,
-  company_name: v.companyName,
-  company_vat_id: v.companyVatId,
-  company_billing_address: v.companyBillingAddress,
-  note: v.note,
-})
+
+const DOCUMENT_PATHS = 'document_front_path, document_back_path'
+type DocumentPaths = { document_front_path: string | null; document_back_path: string | null }
+const pathsOf = (g: DocumentPaths | null | undefined) => (g ? [g.document_front_path, g.document_back_path] : [])
 
 const revalidate = (id?: string) => {
   revalidatePath(LIST)
@@ -115,7 +101,7 @@ export async function createGuest(values: GuestInput): Promise<Result<{ id: stri
   const supabase = await createClient()
   const { data, error } = await supabase
     .from('guests')
-    .insert({ tenant_id: guard.tenant.id, ...columns(parsed.data) })
+    .insert({ tenant_id: guard.tenant.id, ...guestDbColumns(parsed.data) })
     .select('id')
     .single()
   if (error || !data) return dbFail(error ?? {}, 'Gast nicht angelegt')
@@ -133,7 +119,7 @@ export async function updateGuest(values: { id: string; updatedAt: string } & Gu
   // Selbst geänderte Kontaktangaben gelten als „direkt erfasst“, auch wenn der alte Wert von der Plattform kam
   const { data: before } = await supabase
     .from('guests')
-    .select('email, phone')
+    .select(`email, phone, ${DOCUMENT_PATHS}`)
     .eq('id', values.id)
     .eq('tenant_id', guard.tenant.id)
     .maybeSingle()
@@ -143,7 +129,7 @@ export async function updateGuest(values: { id: string; updatedAt: string } & Gu
   }
   const { data, error } = await supabase
     .from('guests')
-    .update({ ...columns(parsed.data), ...sources })
+    .update({ ...guestDbColumns(parsed.data), ...sources })
     .eq('id', values.id)
     .eq('tenant_id', guard.tenant.id)
     .eq('updated_at', values.updatedAt)
@@ -160,6 +146,8 @@ export async function updateGuest(values: { id: string; updatedAt: string } & Gu
     if (!current) return fail('notFound')
     return fail(current.anonymized_at ? 'guestAnonymized' : 'staleGuest')
   }
+  // Ersetzte oder entfernte Ausweisbilder sofort löschen (PROJ-29)
+  await removeDocumentFiles(unusedPaths(pathsOf(before), [parsed.data.documentFrontPath, parsed.data.documentBackPath]))
   revalidate(values.id)
   return { ok: true }
 }
@@ -170,8 +158,11 @@ export async function deleteGuest(values: { id: string }): Promise<Result<{ mode
   const guard = await requireOwner()
   if (!guard.ok) return guard
   const supabase = await createClient()
+  const { data: before } = await supabase.from('guests').select(DOCUMENT_PATHS).eq('id', values.id).eq('tenant_id', guard.tenant.id).maybeSingle()
   const { data, error } = await supabase.rpc('delete_guest', { p_guest_id: values.id })
   if (error) return dbFail(error, 'Gast nicht gelöscht')
+  // Gelöscht oder anonymisiert: Ausweisbilder endgültig entfernen (PROJ-29)
+  await removeDocumentFiles(pathsOf(before))
   if (data === 'anonymized') {
     revalidate(values.id)
     return { ok: true, data: { mode: 'anonymized' } }
@@ -192,8 +183,16 @@ export async function mergeGuests(values: { keepId: string; removeId: string; ch
   if (!guard.ok) return guard
   const supabase = await createClient()
   const cleanChoice = Object.fromEntries(MERGE_FIELDS.map((f) => [f, choice[f]]))
+  const { data: before } = await supabase
+    .from('guests')
+    .select(DOCUMENT_PATHS)
+    .in('id', [values.keepId, values.removeId])
+    .eq('tenant_id', guard.tenant.id)
   const { error } = await supabase.rpc('merge_guests', { p_keep: values.keepId, p_remove: values.removeId, p_choice: cleanChoice })
   if (error) return dbFail(error, 'Zusammenführen fehlgeschlagen')
+  // Bilder des nicht gewählten Reisedokuments löschen (PROJ-29)
+  const { data: kept } = await supabase.from('guests').select(DOCUMENT_PATHS).eq('id', values.keepId).maybeSingle()
+  await removeDocumentFiles(unusedPaths((before ?? []).flatMap(pathsOf), pathsOf(kept)))
   revalidate(values.keepId)
   revalidatePath(`${LIST}/dubletten`)
   return { ok: true }
@@ -232,18 +231,7 @@ export async function searchGuests(values: { query: string; excludeId?: string }
   const rows = (data ?? [])
     .filter((r) => r.id !== values?.excludeId && r.anonymized_at === null)
     .slice(0, SEARCH_LIMIT)
-    .map(
-      (r): GuestRow => ({
-        id: r.id,
-        lastName: r.last_name,
-        firstName: r.first_name,
-        companyName: r.company_name,
-        country: r.country,
-        stayCount: r.stay_count,
-        lastStay: r.last_stay,
-        anonymized: false,
-      })
-    )
+    .map((r): GuestRow => listRow(r))
   return { ok: true, data: rows }
 }
 
@@ -255,5 +243,24 @@ export async function loadGuest(values: { id: string }): Promise<Result<Guest>> 
   const supabase = await createClient()
   const { data, error } = await supabase.from('guests').select(GUEST_COLUMNS).eq('id', values.id).eq('tenant_id', guard.tenant.id).maybeSingle()
   if (error) return dbFail(error, 'Gast nicht lesbar')
-  return data ? { ok: true, data: { ...toGuest(data), stays: await guestStays(guard.tenant.id, data.id) } } : fail('notFound')
+  if (!data) return fail('notFound')
+  const guest = toGuest(data)
+  const [stays, documentImages] = await Promise.all([guestStays(guard.tenant.id, data.id), documentImageLinks(guest)])
+  return { ok: true, data: { ...guest, stays, documentImages } }
+}
+
+// Ausweisbild hochladen (PROJ-29), alle Mitglieder: Der Server vergibt Speicherort und einmaligen Upload-Schlüssel
+// im Ordner des eigenen Kunden; der Browser lädt das umgewandelte JPEG direkt in den privaten Speicher.
+// Am Gast wirksam wird das Bild erst beim Speichern (Gast: nur Inhaber; Buchung mit neuem Gast: alle Mitglieder).
+export async function prepareDocumentUpload(): Promise<Result<{ path: string; token: string }>> {
+  const guard = await requireMember()
+  if (!guard.ok) return guard
+  const path = `${guard.tenant.id}/${crypto.randomUUID()}.jpg`
+  const supabase = await createClient()
+  const { data, error } = await supabase.storage.from(DOCUMENT_BUCKET).createSignedUploadUrl(path)
+  if (error || !data) {
+    console.error('[gaeste] Upload nicht vorbereitet', error?.message)
+    return fail('unknown')
+  }
+  return { ok: true, data: { path: data.path, token: data.token } }
 }

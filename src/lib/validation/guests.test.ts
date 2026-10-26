@@ -59,4 +59,54 @@ describe('guestSchema', () => {
   it('begrenzt die Notiz auf 2.000 Zeichen', () => {
     expect(errors({ note: 'x'.repeat(2001) })).toEqual(['tooLong'])
   })
+
+  describe('Titel und Geschlecht (PROJ-29)', () => {
+    it('setzt das Geschlecht standardmäßig auf „keine Angabe“ und Titel auf leer', () => {
+      const result = schema.parse(valid)
+      expect(result.gender).toBe('unspecified')
+      expect(result.titlePrefix).toBeNull()
+      expect(result.titleSuffix).toBeNull()
+    })
+
+    it('begrenzt Titel auf 50 Zeichen und lehnt unbekannte Geschlechtswerte ab', () => {
+      expect(errors({ titlePrefix: 'x'.repeat(51) })).toEqual(['tooLong'])
+      expect(errors({ titleSuffix: ' LL.M. ' })).toEqual([])
+      expect(schema.parse({ ...valid, titleSuffix: ' LL.M. ' }).titleSuffix).toBe('LL.M.')
+      expect(errors({ gender: 'x' as never })).toEqual(['unknown'])
+    })
+  })
+
+  describe('Reisedokument (PROJ-29)', () => {
+    const path = '11111111-1111-4111-8111-111111111111/22222222-2222-4222-8222-222222222222.jpg'
+
+    it('ist ohne Angaben kein Dokument', () => {
+      const result = schema.parse(valid)
+      expect(result.documentType).toBeNull()
+      expect(result.documentFrontPath).toBeNull()
+    })
+
+    it('verlangt Art und Nummer, sobald etwas erfasst ist', () => {
+      expect(errors({ documentAuthority: 'BH Graz-Umgebung' })).toEqual(['documentTypeRequired', 'documentNumberRequired'])
+      expect(errors({ documentFrontPath: path })).toEqual(['documentTypeRequired', 'documentNumberRequired'])
+      expect(errors({ documentType: 'passport' })).toEqual(['documentNumberRequired'])
+      expect(errors({ documentType: 'passport', documentNumber: 'P1234567', documentBackPath: path })).toEqual([])
+    })
+
+    it('lehnt Ausstellungsdaten in der Zukunft ab', () => {
+      const doc = { documentType: 'id_card', documentNumber: '123' }
+      expect(errors({ ...doc, documentIssuedOn: '2999-01-01' })).toEqual(['issuedOnFuture'])
+      expect(errors({ ...doc, documentIssuedOn: '2020-05-04' })).toEqual([])
+    })
+
+    it('lehnt unbekannte Arten, Staaten und Speicherorte ab', () => {
+      const doc = { documentType: 'passport', documentNumber: '1' }
+      expect(errors({ ...doc, documentType: 'visa' })).toContain('unknown')
+      expect(errors({ ...doc, documentCountry: 'XX' })).toEqual(['unknown'])
+      expect(errors({ ...doc, documentFrontPath: '../fremd.jpg' })).toEqual(['unknown'])
+    })
+
+    it('blockiert das Speichern, solange ein Bild hochgeladen wird', () => {
+      expect(errors({ documentType: 'passport', documentNumber: '1', documentBackPath: 'uploading' })).toEqual(['documentUploading'])
+    })
+  })
 })

@@ -127,7 +127,7 @@ export async function BookingDetail({ booking, apartments, owner, today, layout,
               <DetailSection title={t('detail.guest')} headingSize={headingSize}>
                 <Fact label={t('detail.guest')}>
                   <Link href={guestHref(booking.guest.id)} className="text-ds-accent-700 underline-offset-[3px] hover:underline">
-                    {guestSortName(booking.guest)}
+                    {guestDisplayName(booking.guest)}
                   </Link>
                 </Fact>
                 <Fact label={t('detail.country')}>{countryName(booking.guest.country, locale)}</Fact>

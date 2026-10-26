@@ -722,7 +722,8 @@
       "edit": "Bearbeiten",
       "merge": "Mit anderem Gast zusammenführen",
       "delete": "Gast löschen",
-      "bookings": "Buchungen"
+      "bookings": "Buchungen",
+      "gender": "Geschlecht"
     },
     "panel": {
       "createTitle": "Gast anlegen",
@@ -757,7 +758,12 @@
       "note": "Notiz",
       "noteHint": "Nur intern sichtbar.",
       "save": "Speichern",
-      "createSubmit": "Gast anlegen"
+      "createSubmit": "Gast anlegen",
+      "titlePrefix": "Titel vorangestellt",
+      "titlePrefixHint": "z. B. „Dr.“, „Mag.“, „DI Dr.“",
+      "titleSuffix": "Titel nachgestellt",
+      "titleSuffixHint": "z. B. „LL.M.“, „MSc“, „PhD“",
+      "gender": "Geschlecht"
     },
     "countryPicker": {
       "placeholder": "Land wählen",
@@ -812,7 +818,10 @@
         "address": "Adresse",
         "marketing": "Marketing-Quelle",
         "company": "Firma",
-        "note": "Notiz"
+        "note": "Notiz",
+        "titles": "Titel",
+        "gender": "Geschlecht",
+        "document": "Reisedokument"
       },
       "same": "bei beiden gleich",
       "empty": "–",
@@ -822,7 +831,9 @@
       "change": "Anderen Gast wählen",
       "cancel": "Abbrechen",
       "confirmTitle": "Gäste wirklich zusammenführen?",
-      "confirmText": "„{removed}“ wird entfernt; seine Aufenthalte gehören danach zu „{kept}“. Das lässt sich nicht rückgängig machen."
+      "confirmText": "„{removed}“ wird entfernt; seine Aufenthalte gehören danach zu „{kept}“. Das lässt sich nicht rückgängig machen.",
+      "documentImages": "{count, plural, one {# Bild} other {# Bilder}}",
+      "documentHint": "Das Reisedokument wird als Ganzes übernommen. Die Bilder des anderen Dokuments werden gelöscht."
     },
     "delete": {
       "title": "„{name}“ löschen?",
@@ -859,7 +870,59 @@
       "birthDateInvalid": "Bitte ein gültiges Datum eingeben.",
       "birthDateFuture": "Das Geburtsdatum darf nicht in der Zukunft liegen.",
       "tooLong": "Dieser Text ist zu lang.",
-      "unknown": "Bitte einen Wert aus der Liste wählen."
+      "unknown": "Bitte einen Wert aus der Liste wählen.",
+      "dateInvalid": "Bitte ein gültiges Datum eingeben.",
+      "issuedOnFuture": "Das Ausstellungsdatum darf nicht in der Zukunft liegen.",
+      "documentTypeRequired": "Bitte die Art des Dokuments wählen.",
+      "documentNumberRequired": "Bitte die Nummer des Dokuments eingeben.",
+      "documentUploading": "Bitte warte, bis das Bild hochgeladen ist."
+    },
+    "gender": {
+      "male": "männlich",
+      "female": "weiblich",
+      "diverse": "divers",
+      "inter": "inter",
+      "open": "offen",
+      "unspecified": "keine Angabe"
+    },
+    "documentType": {
+      "passport": "Reisepass",
+      "id_card": "Personalausweis",
+      "driving_licence": "Führerschein"
+    },
+    "document": {
+      "title": "Reisedokument",
+      "hint": "Reisepass, Personalausweis oder Führerschein, mit Bildern.",
+      "type": "Art des Dokuments",
+      "typeNone": "Kein Dokument",
+      "number": "Nummer des Dokuments",
+      "issuedOn": "Ausstellungsdatum",
+      "authority": "Behörde",
+      "authorityHint": "z. B. „BH Graz-Umgebung“",
+      "country": "Staat",
+      "images": "Bilder",
+      "side": {
+        "front": "Vorderseite",
+        "back": "Rückseite"
+      },
+      "add": "Bild hinzufügen",
+      "replace": "Ersetzen",
+      "remove": "Entfernen",
+      "uploading": "Bild wird vorbereitet und hochgeladen …",
+      "present": "Bild vorhanden",
+      "open": "{side} groß ansehen",
+      "imagesHint": "Am Handy kannst du direkt fotografieren oder ein Bild aus der Galerie wählen. Alle gängigen Bildformate, auch iPhone-Fotos (HEIC), bis 30 MB. Das Bild wird verkleinert und als JPEG gespeichert.",
+      "typeChangedHint": "Die Art des Dokuments hat sich geändert. Die vorhandenen Bilder gehören möglicherweise noch zum bisherigen Dokument. Ersetze oder entferne sie bei Bedarf.",
+      "viewerHint": "Nur für dein Team sichtbar. Der Link gilt wenige Minuten.",
+      "download": "Herunterladen",
+      "close": "Schließen",
+      "unavailable": "Die Bilder sind gerade nicht abrufbar. Bitte lade die Seite neu.",
+      "errors": {
+        "imageTooLarge": "Das Bild ist zu groß. Erlaubt sind Dateien bis 30 MB.",
+        "imageUnsupported": "Diese Datei ist kein lesbares Bild. Bitte wähle ein Foto (z. B. JPEG, PNG oder HEIC).",
+        "imageFailed": "Das Bild konnte nicht verarbeitet werden. Bitte versuche es mit einem anderen Foto.",
+        "uploadFailed": "Das Bild konnte nicht hochgeladen werden. Bitte prüfe deine Internetverbindung und versuche es erneut."
+      }
     }
   },
   "bookings": {

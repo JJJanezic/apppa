@@ -22,7 +22,32 @@ export const LIMITS = {
   vatIdMax: 30,
   billingAddressMax: 500,
   noteMax: 2000,
+  // PROJ-29
+  titleMax: 50,
+  documentNumberMax: 30,
+  documentAuthorityMax: 100,
 } as const
+
+// Geschlecht (PROJ-29), Texte: guests.gender.*; Standard „keine Angabe“
+export const GENDERS = ['male', 'female', 'diverse', 'inter', 'open', 'unspecified'] as const
+export type Gender = (typeof GENDERS)[number]
+export const GENDER_DEFAULT: Gender = 'unspecified'
+
+// Art des Reisedokuments (PROJ-29), Texte: guests.documentType.*
+export const DOCUMENT_TYPES = ['passport', 'id_card', 'driving_licence'] as const
+export type DocumentType = (typeof DOCUMENT_TYPES)[number]
+
+// Bildplätze des Reisedokuments
+export const DOCUMENT_SIDES = ['front', 'back'] as const
+export type DocumentSide = (typeof DOCUMENT_SIDES)[number]
+
+// Speicherort eines Ausweisbildes im privaten Bereich „guest-documents“: <Kunde>/<zufällig>.jpg
+export const DOCUMENT_BUCKET = 'guest-documents'
+const DOCUMENT_PATH = /^[0-9a-f-]{36}\/[0-9a-f-]{36}\.jpg$/
+export const isDocumentPath = (value: string): boolean => DOCUMENT_PATH.test(value)
+
+// Kurzlebige Abruf-Links eines Ausweisbildes (vom Server beim Laden erzeugt, 10 Minuten gültig)
+export type DocumentImage = { view: string; download: string }
 
 // „Wie kam der Gast erstmals zu uns?“ – Standardwerte (Texte: guests.marketing.*); dazu eine eigene Angabe als Freitext
 export const MARKETING_SOURCES = ['website', 'instagram', 'google_ads', 'newsletter', 'referral', 'platform_search'] as const
@@ -91,6 +116,19 @@ export type Guest = {
   companyVatId: string | null
   companyBillingAddress: string | null
   note: string | null
+  // PROJ-29
+  titlePrefix: string | null
+  titleSuffix: string | null
+  gender: Gender
+  documentType: DocumentType | null
+  documentNumber: string | null
+  documentIssuedOn: string | null
+  documentAuthority: string | null
+  documentCountry: string | null
+  documentFrontPath: string | null
+  documentBackPath: string | null
+  // nur beim Laden eines einzelnen Gastes gefüllt (Gast-Detail)
+  documentImages: Partial<Record<DocumentSide, DocumentImage>>
   anonymizedAt: string | null
   // Stand beim Laden; schützt beim Speichern vor dem Überschreiben fremder Änderungen
   updatedAt: string
@@ -101,6 +139,8 @@ export type GuestRow = {
   id: string
   lastName: string
   firstName: string | null
+  titlePrefix: string | null
+  titleSuffix: string | null
   companyName: string | null
   country: string
   stayCount: number
@@ -131,6 +171,8 @@ export type DuplicateMatch = { guest: GuestRow; reasons: DuplicateReason[] }
 // Angaben, die beim Zusammenführen einzeln gewählt werden (Reihenfolge = Anzeige)
 export const MERGE_FIELDS = [
   'name',
+  'titles',
+  'gender',
   'country',
   'email',
   'phone',
@@ -140,20 +182,24 @@ export const MERGE_FIELDS = [
   'marketing',
   'company',
   'note',
+  'document',
 ] as const
 export type MergeField = (typeof MERGE_FIELDS)[number]
 export type MergeChoice = Record<MergeField, 'a' | 'b'>
 
 export const guestHref = (id: string) => `/gaeste/${id}`
 
-// „Huber, Anna“ für Listen; nur Nachname, wenn kein Vorname (z. B. „Familie Berger“)
+// „Huber, Anna“ (Mitreisende); nur Nachname, wenn kein Vorname (z. B. „Familie Berger“)
 export function guestSortName(g: { lastName: string; firstName: string | null }): string {
   return g.firstName ? `${g.lastName}, ${g.firstName}` : g.lastName
 }
 
-// „Anna Huber“ für Überschriften
-export function guestDisplayName(g: { lastName: string; firstName: string | null }): string {
-  return g.firstName ? `${g.firstName} ${g.lastName}` : g.lastName
+type NameParts = { lastName: string; firstName: string | null; titlePrefix?: string | null; titleSuffix?: string | null }
+
+// Voller Name eines Gastes überall in der App (PROJ-29): „Dr. Anna Huber, LL.M.“, „Huber, MSc“, „Anna Huber“
+export function guestDisplayName(g: NameParts): string {
+  const name = [g.titlePrefix, g.firstName, g.lastName].filter(Boolean).join(' ')
+  return g.titleSuffix ? `${name}, ${g.titleSuffix}` : name
 }
 
 // Vereinheitlichung für Suche und Dublettenvergleich: Kleinbuchstaben, ohne Akzente, Leerraum zusammengefasst.
@@ -258,6 +304,10 @@ export function mergeFieldValues(g: Guest, field: MergeField): Partial<Guest> {
   switch (field) {
     case 'name':
       return { lastName: g.lastName, firstName: g.firstName }
+    case 'titles':
+      return { titlePrefix: g.titlePrefix, titleSuffix: g.titleSuffix }
+    case 'gender':
+      return { gender: g.gender }
     case 'country':
       return { country: g.country }
     case 'email':
@@ -276,6 +326,16 @@ export function mergeFieldValues(g: Guest, field: MergeField): Partial<Guest> {
       return { companyName: g.companyName, companyVatId: g.companyVatId, companyBillingAddress: g.companyBillingAddress }
     case 'note':
       return { note: g.note }
+    case 'document':
+      return {
+        documentType: g.documentType,
+        documentNumber: g.documentNumber,
+        documentIssuedOn: g.documentIssuedOn,
+        documentAuthority: g.documentAuthority,
+        documentCountry: g.documentCountry,
+        documentFrontPath: g.documentFrontPath,
+        documentBackPath: g.documentBackPath,
+      }
   }
 }
 
@@ -286,7 +346,7 @@ export function sameMergeValue(a: Guest, b: Guest, field: MergeField): boolean {
 
 // Vorbelegung beim Zusammenführen: Wert von A, außer A ist leer und B nicht
 export function defaultMergeChoice(a: Guest, b: Guest): MergeChoice {
-  const isEmpty = (g: Guest, field: MergeField) => Object.values(mergeFieldValues(g, field)).every((v) => v === null || v === '' || v === 'direct')
+  const isEmpty = (g: Guest, field: MergeField) => Object.values(mergeFieldValues(g, field)).every((v) => v === null || v === '' || v === 'direct' || v === GENDER_DEFAULT)
   return Object.fromEntries(
     MERGE_FIELDS.map((field) => [field, isEmpty(a, field) && !isEmpty(b, field) ? 'b' : 'a'])
   ) as MergeChoice

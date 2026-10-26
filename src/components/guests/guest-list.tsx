@@ -9,11 +9,11 @@ import { Button } from '@/components/ui/button'
 import { Pagination, PaginationContent, PaginationItem } from '@/components/ui/pagination'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { formatNumber } from '@/lib/format'
-import { countryName, guestHref, guestListHref, type GuestPage, type GuestRow, guestSortName } from '@/lib/guests'
+import { countryName, guestHref, guestListHref, type GuestPage, type GuestRow, guestDisplayName } from '@/lib/guests'
 
 const DATE = { day: 'numeric', month: 'short', year: 'numeric' } as const
 
-// Gästeliste (PROJ-7): ab 768 px Tabelle (ganze Zeile klickbar über den Namen), darunter Karten
+// Gästeliste (PROJ-7): ab 768 px Tabelle (der Name ist der Link), darunter Karten
 export function GuestList({ page }: { page: GuestPage }) {
   const t = useTranslations('guests')
   const format = useFormatter()
@@ -40,15 +40,12 @@ export function GuestList({ page }: { page: GuestPage }) {
         </TableHeader>
         <TableBody>
           {page.rows.map((row) => (
-            <TableRow key={row.id} className="relative">
+            <TableRow key={row.id}>
               <TableCell className="max-w-[420px]">
                 <span className="flex flex-wrap items-center gap-2">
-                  {/* Link über die ganze Zeile (after:inset-0), bleibt aber ein einzelner Tab-Stopp */}
-                  <Link
-                    href={guestHref(row.id)}
-                    className="font-medium underline-offset-[3px] hover:underline after:absolute after:inset-0 after:content-['']"
-                  >
-                    {guestSortName(row)}
+                  {/* Nur der Name ist der Link: Safari kann Klickflächen über die ganze Zeile (after:inset-0) nicht an <tr> verankern */}
+                  <Link href={guestHref(row.id)} className="font-medium text-ds-accent-700 underline underline-offset-[3px] hover:decoration-2">
+                    {guestDisplayName(row)}
                   </Link>
                   {anonymizedBadge(row)}
                 </span>
@@ -67,7 +64,7 @@ export function GuestList({ page }: { page: GuestPage }) {
           <li key={row.id}>
             <Link href={guestHref(row.id)} className="flex flex-col gap-1 rounded-lg bg-ds-surface p-4 hover:bg-ds-neutral-200">
               <span className="flex items-start justify-between gap-3">
-                <span className="min-w-0 break-words text-lg font-semibold">{guestSortName(row)}</span>
+                <span className="min-w-0 break-words text-lg font-semibold">{guestDisplayName(row)}</span>
                 {anonymizedBadge(row)}
               </span>
               {row.companyName && <span className="break-words text-sm text-ds-neutral-800">{row.companyName}</span>}

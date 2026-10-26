@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import type { ActionResult, CommonErrorCode } from '@/lib/auth/result'
 import { getSessionUser, pendingMfaStep } from '@/lib/auth/session'
 import { type BlockReason, type BookingErrorCode, type BookingKind, type BookingWarnings, isIsoDate, LIMITS } from '@/lib/bookings'
+import { guestDbColumns } from '@/lib/guests-data'
 import { createClient } from '@/lib/supabase/server'
 import { getTenantContext, type TenantSummary } from '@/lib/tenant'
 import {
@@ -156,30 +157,12 @@ export async function saveBooking(input: SaveBooking): Promise<Result<{ id: stri
   if (input.id !== undefined && !isId(input.id)) return fail('notFound')
   const v = parsed.data
 
-  let newGuest: Record<string, string | null> | null = null
+  let newGuest: ReturnType<typeof guestDbColumns> | null = null
   if (input.values.guestMode === 'new') {
     const guest = guestSchema(key).safeParse(input.newGuest)
     if (!guest.success) return fail('unknown')
-    const g = guest.data
-    newGuest = {
-      last_name: g.lastName,
-      first_name: g.firstName,
-      country: g.country,
-      email: g.email,
-      phone: g.phone,
-      language: g.language,
-      birth_date: g.birthDate,
-      street: g.street,
-      postal_code: g.postalCode,
-      city: g.city,
-      address_country: g.addressCountry,
-      marketing_source: g.marketingSource,
-      marketing_custom: g.marketingCustom,
-      company_name: g.companyName,
-      company_vat_id: g.companyVatId,
-      company_billing_address: g.companyBillingAddress,
-      note: g.note,
-    }
+    // Gleiche Spalten wie beim Anlegen in der Gäste-Datenbank, inkl. Titel, Geschlecht und Reisedokument (PROJ-29)
+    newGuest = guestDbColumns(guest.data)
   }
 
   const supabase = await createClient()

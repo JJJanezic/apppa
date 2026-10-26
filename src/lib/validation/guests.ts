@@ -1,6 +1,18 @@
 import { z } from 'zod'
 
-import { type Guest, isCountry, LANGUAGES, LIMITS, MARKETING_CUSTOM, MARKETING_NONE, MARKETING_SOURCES } from '@/lib/guests'
+import {
+  DOCUMENT_TYPES,
+  GENDER_DEFAULT,
+  GENDERS,
+  type Guest,
+  isCountry,
+  isDocumentPath,
+  LANGUAGES,
+  LIMITS,
+  MARKETING_CUSTOM,
+  MARKETING_NONE,
+  MARKETING_SOURCES,
+} from '@/lib/guests'
 
 // Prüfregeln für Gäste (PROJ-7). Browser und Server-Aktionen nutzen dieselben Schemas.
 // Meldungen kommen über `t` aus messages/de.json („guests.validation“).
@@ -18,11 +30,25 @@ const optional = (t: T, max: number) =>
 // Heutiges Datum in Wien (JJJJ-MM-TT), damit ein Geburtsdatum „heute“ nicht wegen der Zeitzone abgelehnt wird
 const todayInVienna = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Vienna' })
 
+// Platzhalter im Formular, solange ein Ausweisbild noch umgewandelt bzw. hochgeladen wird (blockiert das Speichern)
+export const DOCUMENT_UPLOADING = 'uploading'
+
+// Speicherort eines Ausweisbildes: leer oder <Kunde>/<zufällig>.jpg
+const documentPath = (t: T) =>
+  z
+    .string()
+    .refine((v) => v !== DOCUMENT_UPLOADING, t('documentUploading'))
+    .refine((v) => v === '' || v === DOCUMENT_UPLOADING || isDocumentPath(v), t('unknown'))
+    .transform((v) => v || null)
+
 export const guestSchema = (t: T) =>
   z
     .object({
       lastName: z.string().trim().min(1, t('lastNameRequired')).max(LIMITS.nameMax, t('tooLong')),
       firstName: optional(t, LIMITS.nameMax),
+      titlePrefix: optional(t, LIMITS.titleMax),
+      titleSuffix: optional(t, LIMITS.titleMax),
+      gender: z.enum(GENDERS, t('unknown')),
       country: z.string().refine(isCountry, t('countryRequired')),
       email: z
         .string()
@@ -60,6 +86,40 @@ export const guestSchema = (t: T) =>
       companyVatId: optional(t, LIMITS.vatIdMax),
       companyBillingAddress: optional(t, LIMITS.billingAddressMax),
       note: optional(t, LIMITS.noteMax),
+      // Reisedokument (PROJ-29): höchstens eines je Gast
+      documentType: z
+        .string()
+        .refine((v) => v === '' || (DOCUMENT_TYPES as readonly string[]).includes(v), t('unknown'))
+        .transform((v) => (v || null) as (typeof DOCUMENT_TYPES)[number] | null),
+      documentNumber: optional(t, LIMITS.documentNumberMax),
+      documentIssuedOn: z
+        .string()
+        .refine((v) => v === '' || (/^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(v))), t('dateInvalid'))
+        .refine((v) => v === '' || v <= todayInVienna(), t('issuedOnFuture'))
+        .refine((v) => v === '' || v >= '1900-01-01', t('dateInvalid'))
+        .transform((v) => v || null),
+      documentAuthority: optional(t, LIMITS.documentAuthorityMax),
+      documentCountry: z
+        .string()
+        .refine((v) => v === '' || isCountry(v), t('unknown'))
+        .transform((v) => v || null),
+      documentFrontPath: documentPath(t),
+      documentBackPath: documentPath(t),
+    })
+    // Sobald irgendeine Angabe des Dokuments oder ein Bild vorhanden ist, sind Art und Nummer Pflicht (Spec)
+    .superRefine((v, ctx) => {
+      const started = [
+        v.documentType,
+        v.documentNumber,
+        v.documentIssuedOn,
+        v.documentAuthority,
+        v.documentCountry,
+        v.documentFrontPath,
+        v.documentBackPath,
+      ].some((x) => x !== null)
+      if (!started) return
+      if (!v.documentType) ctx.addIssue({ code: 'custom', path: ['documentType'], message: t('documentTypeRequired') })
+      if (!v.documentNumber) ctx.addIssue({ code: 'custom', path: ['documentNumber'], message: t('documentNumberRequired') })
     })
     // Freitext gilt nur bei „Eigene Angabe“; leer = keine Angabe (Spec)
     .transform(({ marketing, marketingCustom, ...rest }) => ({
@@ -74,6 +134,9 @@ export type GuestValues = z.infer<ReturnType<typeof guestSchema>>
 export const EMPTY_GUEST_INPUT: GuestInput = {
   lastName: '',
   firstName: '',
+  titlePrefix: '',
+  titleSuffix: '',
+  gender: GENDER_DEFAULT,
   country: '',
   email: '',
   phone: '',
@@ -89,6 +152,13 @@ export const EMPTY_GUEST_INPUT: GuestInput = {
   companyVatId: '',
   companyBillingAddress: '',
   note: '',
+  documentType: '',
+  documentNumber: '',
+  documentIssuedOn: '',
+  documentAuthority: '',
+  documentCountry: '',
+  documentFrontPath: '',
+  documentBackPath: '',
 }
 
 // Formularwerte eines bestehenden Gastes (Bearbeiten)
@@ -96,6 +166,9 @@ export function guestInput(g: Guest): GuestInput {
   return {
     lastName: g.lastName,
     firstName: g.firstName ?? '',
+    titlePrefix: g.titlePrefix ?? '',
+    titleSuffix: g.titleSuffix ?? '',
+    gender: g.gender,
     country: g.country,
     email: g.email ?? '',
     phone: g.phone ?? '',
@@ -111,5 +184,12 @@ export function guestInput(g: Guest): GuestInput {
     companyVatId: g.companyVatId ?? '',
     companyBillingAddress: g.companyBillingAddress ?? '',
     note: g.note ?? '',
+    documentType: g.documentType ?? '',
+    documentNumber: g.documentNumber ?? '',
+    documentIssuedOn: g.documentIssuedOn ?? '',
+    documentAuthority: g.documentAuthority ?? '',
+    documentCountry: g.documentCountry ?? '',
+    documentFrontPath: g.documentFrontPath ?? '',
+    documentBackPath: g.documentBackPath ?? '',
   }
 }

@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { getFormatter, getLocale, getTranslations } from 'next-intl/server'
 
 import { BookingList } from '@/components/bookings/booking-list'
+import { DocumentImages } from '@/components/guests/document-images'
 import { GuestActions } from '@/components/guests/guest-actions'
 import { PageHeader } from '@/components/page-header'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -47,6 +48,8 @@ export default async function GuestDetailPage({ params }: { params: Params }) {
     .filter(Boolean)
   const marketing = guest.marketingSource ? t(`marketing.${guest.marketingSource}`) : guest.marketingCustom
   const hasCompany = Boolean(guest.companyName || guest.companyVatId || guest.companyBillingAddress)
+  const hasDocument = Boolean(guest.documentType || guest.documentNumber || guest.documentFrontPath || guest.documentBackPath)
+  const imageCount = [guest.documentFrontPath, guest.documentBackPath].filter(Boolean).length
 
   return (
     <>
@@ -127,6 +130,7 @@ export default async function GuestDetailPage({ params }: { params: Params }) {
         )}
 
         <DetailSection title={t('detail.more')}>
+          <Fact label={t('detail.gender')}>{t(`gender.${guest.gender}`)}</Fact>
           <Fact label={t('detail.marketing')}>{marketing ?? missing}</Fact>
           <Fact label={t('detail.birthDate')}>{guest.birthDate ? date(guest.birthDate) : missing}</Fact>
           <Fact label={t('detail.note')}>{guest.note ? <span className="whitespace-pre-line break-words">{guest.note}</span> : missing}</Fact>
@@ -138,6 +142,25 @@ export default async function GuestDetailPage({ params }: { params: Params }) {
             <Fact label={t('detail.vatId')}>{guest.companyVatId ?? missing}</Fact>
             <Fact label={t('detail.billingAddress')}>
               {guest.companyBillingAddress ? <span className="whitespace-pre-line">{guest.companyBillingAddress}</span> : missing}
+            </Fact>
+          </DetailSection>
+        )}
+        {hasDocument && (
+          <DetailSection title={t('document.title')}>
+            <Fact label={t('document.type')}>{guest.documentType ? t(`documentType.${guest.documentType}`) : missing}</Fact>
+            <Fact label={t('document.number')}>{guest.documentNumber ?? missing}</Fact>
+            <Fact label={t('document.issuedOn')}>{guest.documentIssuedOn ? date(guest.documentIssuedOn) : missing}</Fact>
+            <Fact label={t('document.authority')}>{guest.documentAuthority ?? missing}</Fact>
+            <Fact label={t('document.country')}>{guest.documentCountry ? countryName(guest.documentCountry, locale) : missing}</Fact>
+            <Fact label={t('document.images')}>
+              {imageCount === 0 ? (
+                missing
+              ) : Object.keys(guest.documentImages).length > 0 ? (
+                <DocumentImages images={guest.documentImages} />
+              ) : (
+                // Speicher nicht erreichbar: Bilder vorhanden, aber gerade nicht abrufbar
+                <span className="text-ds-neutral-800">{t('document.unavailable')}</span>
+              )}
             </Fact>
           </DetailSection>
         )}

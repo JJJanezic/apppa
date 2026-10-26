@@ -25,7 +25,7 @@ export async function getCalendarData(range: { from: string; to: string }): Prom
     supabase.from('apartments').select('id, name, archived_at, property:properties!inner(id, name)').eq('tenant_id', active.id).limit(500),
     supabase
       .from('bookings')
-      .select('id, kind, channel, apartment_id, arrival, departure, adults, child_ages, block_reason, option_until, cancelled_at, guest:guests(last_name, first_name)')
+      .select('id, kind, channel, apartment_id, arrival, departure, adults, child_ages, block_reason, option_until, cancelled_at, guest:guests(last_name, first_name, title_prefix, title_suffix)')
       .eq('tenant_id', active.id)
       .is('cancelled_at', null)
       .lt('arrival', range.to)
@@ -61,7 +61,7 @@ export async function getCalendarData(range: { from: string; to: string }): Prom
         arrival: e.arrival,
         departure: e.departure,
         guestLastName: e.guest?.last_name ?? null,
-        guestName: e.guest ? guestDisplayName({ lastName: e.guest.last_name, firstName: e.guest.first_name }) : null,
+        guestName: e.guest ? guestDisplayName({ lastName: e.guest.last_name, firstName: e.guest.first_name, titlePrefix: e.guest.title_prefix, titleSuffix: e.guest.title_suffix }) : null,
         persons: e.kind === 'block' ? 0 : personCount(e.adults ?? 0, e.child_ages),
         blockReason: e.block_reason as BlockReason | null,
       })
