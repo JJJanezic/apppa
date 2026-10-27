@@ -66,6 +66,9 @@ function dbFail(error: DbError, context: string): Failure {
       return fail('apartmentArchived')
     case 'P0808':
       return fail('tooManyCompanions')
+    // PROJ-30: hochgerechneter Übernachtungspreis über dem Höchstbetrag
+    case 'P0809':
+      return fail('billedTooHigh')
     // PROJ-29: Ausweisbild des neuen Gastes fehlt im Speicher oder gehört schon einem anderen Gast
     case 'P0705':
       return fail('documentImageMissing')

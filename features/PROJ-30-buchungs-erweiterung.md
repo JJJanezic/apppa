@@ -209,6 +209,8 @@ Der **Belegungskalender bleibt unverändert**.
 | Sprungauswahl als gemeinsamer Baustein für Kalender und Buchungsliste | Einheitliche Bedienung, eine Stelle für Pflege; Kalender-E2E-Tests sichern Unverändertheit | 2026-10-27 |
 | Ganzzahlige Cent-Rechnung, kaufmännisch gerundet, gleiche Regel in Browser und Server | Identische Werte in Vorschau und gespeichertem Betrag | 2026-10-27 |
 | Sperren: geplante = tatsächliche Abreise, Quelle „none“, keine Nummer, per Datenbankregel | Spec: neue Felder nicht für Sperren; Regel verhindert inkonsistente Daten | 2026-10-27 |
+| Keine erneute Gästeblatt-Warnung, wenn die bearbeitete Buchung die Nummer schon trägt | Die Doppelung wurde beim ersten Speichern bestätigt; sonst bei jeder Änderung erneut bestätigen | 2026-10-27 |
+| Trigger setzt geplante = tatsächliche Abreise für Sperren und bei fehlender Angabe | `save_block` bleibt unverändert; direktes Schreiben (Import PROJ-11) bleibt gültig | 2026-10-27 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
@@ -341,11 +343,28 @@ Keine neuen Pakete. Genutzt werden vorhandene shadcn/ui-Bausteine (Popover, Sele
 - `saveBooking` übergibt `planned_departure`, `departure`, `guest_sheet_number`, `confirm_guest_sheet_number`, `residence_registered`, `source`, `source_custom` und den vereinbarten Preis. Liefert die Datenbank nur die Gästeblatt-Warnung, lautet der Fehler `guestSheetDuplicate` (für alle bestätigbar).
 - `checkBookingWarnings` übergibt `p_guest_sheet_number` und liest `guest_sheet_duplicates`.
 
-**Offen für /backend**
+**Offen für /backend** (erledigt, siehe Implementation Notes (Backend))
 - Migration: Spalten mit Prüfregeln (Abreise geplant nach Anreise, ≤ 365 Nächte; Nummer ≤ 30 Zeichen, getrimmt, nicht leer; Quelle-Werte; Freitext genau bei `custom`, ≤ 100; Sperren: geplant = tatsächlich, Quelle `none`, keine Nummer, Häkchen aus). Befüllen: `planned_departure = departure`, `billed_nights_cents = nights_cents`. Index auf `(tenant_id, lower(guest_sheet_number))`.
 - `save_booking`: neue Felder; `billed_nights_cents` für Inhaber und Mitarbeiter berechnen; Vorschlag mit geplanten Nächten; „Preis prüfen“ nur bei Änderung von Anreise, geplanter Abreise, Wohnung bzw. Personen (Personenpreis); Gästeblatt-Doppelung als Warnung `guest_sheet_duplicates`, übergehbar mit `confirm_guest_sheet_number` (alle Mitglieder), Überschneidung weiter nur Inhaber.
 - `save_block`: geplante = tatsächliche Abreise setzen. `public.booking_warnings`/`private.booking_warnings_for`: Parameter `p_guest_sheet_number`, Ergebnis `guest_sheet_duplicates` (`id, kind, number, guest_name, cancelled`, nur eigenes Konto, auch storniert, ohne die eigene Buchung).
 - Bestehende E2E-Tests (PROJ-8, PROJ-9, PROJ-27, PROJ-29) füllen „Abreise“ als einziges Abreisefeld bzw. nutzen `getByLabel('Abreise')` ohne `exact`: in `/qa` auf „Abreise geplant“ umstellen.
+
+## Implementation Notes (Backend)
+**Stand 2026-10-27.** Migration `supabase/migrations/20261027063426_booking_extension.sql`, auf Dev („apppa-dev“) angewendet; Typen neu erzeugt (identisch mit der Handfassung). Advisors: nur die bekannten Auth-Hinweise (OTP-Laufzeit, Leaked-Password-Schutz), nichts aus der Migration.
+
+**Schema**
+- `bookings`: `planned_departure` (Pflicht, nach Anreise, ≤ 365 Nächte), `guest_sheet_number` (getrimmt, 1–30 Zeichen oder leer), `residence_registered` (Standard nein), `source` (feste Werte, Standard `none`), `source_custom` (getrimmt, 1–100, genau bei `custom`). Regel für Sperren: geplante = tatsächliche Abreise, Quelle `none`, keine Nummer, Häkchen aus. Bestand: `planned_departure = departure`.
+- Trigger `bookings_departure_defaults`: Sperren und Einträge ohne geplante Abreise erhalten die tatsächliche (auch bei direktem Schreiben, z. B. späterer Import).
+- Index `bookings_guest_sheet_idx` auf `(tenant_id, lower(guest_sheet_number))`.
+- `booking_amounts.billed_nights_cents` (0–100.000.000), Bestand = `nights_cents`; neue Zeilen starten mit dem vereinbarten Preis (Trigger).
+
+**Funktionen**
+- `private.billed_nights_cents` (anteilig, `round(numeric)`; über dem Höchstbetrag Fehler `P0809` → Meldung `billedTooHigh`) und `private.refresh_billed_nights` (nach jedem `save_booking`, für Inhaber und Mitarbeiter).
+- `private.guest_sheet_duplicates`: andere Buchungen/Optionen des Kunden mit derselben Nummer (Groß/Klein egal, auch storniert). **Abweichung zum Design:** Trägt die bearbeitete Buchung die Nummer bereits, gibt es keine erneute Warnung (sonst müsste man bei jeder Änderung neu bestätigen).
+- `booking_warnings` (public/private) mit neuem Parameter `p_guest_sheet_number`; Ergebnis zusätzlich `guest_sheet_duplicates`. Alte Signatur entfernt.
+- `save_booking`: neue Felder; Pflichtfeld `planned_departure` (fehlt es → `P0807`); Freitext nur bei `custom`; Vorschlag und „Preis prüfen“ mit der geplanten Abreise; Gästeblatt-Warnung mit eigener Bestätigung `confirm_guest_sheet_number` (alle Mitglieder), Überschneidungen weiter nur Inhaber. `save_block` und `confirm_option` unverändert (Trigger bzw. keine Datumsänderung).
+
+**Tests** (`supabase/tests/bookings.integration.test.ts`, Block „Buchungs-Erweiterung (PROJ-30)“): Bestand und Standardwerte, Pflicht der geplanten Abreise, Verlängerung 500 € → 600 € und zurück, frühere Abreise gibt frei, erneute Verlängerung warnt, Rundung 333,33 € → 444,44 €, Zusatzkosten unverändert, Mitarbeiter-Verlängerung ohne „Preis prüfen“ und ohne Beträge, Planänderung setzt „Preis prüfen“, Gästeblatt-Doppelung (Schreibweise, fremdes Konto, storniert, Bestätigung durch Mitarbeiter, Vorschau, unveränderte Nummer, 31 Zeichen), Quelle/Freitext/Häkchen, ungültige Werte, Option → Buchung, Sperren. 43 Tests in Buchungs- und Reisedokument-Suite grün.
 
 ## QA Test Results
 _To be added by /qa_

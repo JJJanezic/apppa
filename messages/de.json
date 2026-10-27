@@ -1204,7 +1204,8 @@
       "unknown": "Etwas ist schiefgelaufen. Bitte versuche es erneut.",
       "tooManyCompanions": "Es sind mehr Mitreisende erfasst, als die Personenzahl zulässt. Bitte zuerst Mitreisende entfernen.",
       "documentImageMissing": "Ein Ausweisbild ist nicht mehr verfügbar. Bitte lade es erneut hoch und speichere noch einmal.",
-      "guestSheetDuplicate": "Die Gästeblattnummer ist bereits vergeben. Bitte prüfen und „Trotzdem speichern“ bestätigen."
+      "guestSheetDuplicate": "Die Gästeblattnummer ist bereits vergeben. Bitte prüfen und „Trotzdem speichern“ bestätigen.",
+      "billedTooHigh": "Der hochgerechnete Übernachtungspreis übersteigt den Höchstbetrag von € 1.000.000. Bitte den vereinbarten Preis oder die Abreise prüfen."
     },
     "validation": {
       "apartmentRequired": "Bitte eine Wohnung wählen.",

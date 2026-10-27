@@ -195,6 +195,7 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-29 Titel, Geschlecht, Reisedokument', () 
         kind: 'booking',
         apartment_id: apt!.id,
         arrival: '2027-05-01',
+        planned_departure: '2027-05-03',
         departure: '2027-05-03',
         check_in: '15:00',
         check_out: '10:00',

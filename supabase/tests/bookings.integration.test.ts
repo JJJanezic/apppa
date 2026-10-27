@@ -8,7 +8,9 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type { Json } from '../../src/types/database'
 import { type Client, createTestUser, hasSupabaseEnv, serviceClient, signIn, type TestUser } from './helpers'
 
-type Saved = { status: 'saved'; id: string } | { status: 'warnings'; warnings: { conflicts: { id: string }[]; over_capacity: unknown } }
+type Saved =
+  | { status: 'saved'; id: string }
+  | { status: 'warnings'; warnings: { conflicts: { id: string }[]; over_capacity: unknown; guest_sheet_duplicates?: { id: string; cancelled: boolean }[] } }
 
 describe.skipIf(!hasSupabaseEnv)('PROJ-8 Manuelle Buchungen', () => {
   let service: Client
@@ -81,6 +83,8 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-8 Manuelle Buchungen', () => {
     kind: 'booking',
     apartment_id: apartmentId,
     arrival,
+    // PROJ-30: geplante Abreise wie die tatsächliche, außer im Test angegeben
+    planned_departure: departure,
     departure,
     check_in: '15:00',
     check_out: '10:00',
@@ -482,6 +486,144 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-8 Manuelle Buchungen', () => {
       expect((await staffA.from('booking_amounts').select('nights_cents').eq('id', id)).data ?? []).toHaveLength(0)
       const owner = await ownerA.from('booking_amounts').select('nights_cents').eq('id', id).single()
       expect(owner.data?.nights_cents).toBe(30000)
+    })
+  })
+
+  describe('Buchungs-Erweiterung (PROJ-30)', () => {
+    const billed = async (id: string) => (await service.from('booking_amounts').select('nights_cents, billed_nights_cents').eq('id', id).single()).data
+    const duplicates = (r: { result: Saved | null }) =>
+      r.result?.status === 'warnings' ? (r.result.warnings.guest_sheet_duplicates ?? []) : []
+
+    it('Bestand: geplante = tatsächliche Abreise, Quelle „Keine Angabe“, Häkchen nicht gesetzt, abgerechnet = vereinbart', async () => {
+      const { data } = await service.from('bookings').select('planned_departure, departure, source, residence_registered').limit(500)
+      expect(data!.every((b) => b.planned_departure !== null)).toBe(true)
+      const { count: wrongAmounts } = await service
+        .from('booking_amounts')
+        .select('id', { count: 'exact', head: true })
+        .lt('billed_nights_cents', 0)
+      expect(wrongAmounts).toBe(0)
+      const apt = await apartment(tenantA, 'Bestand 30')
+      const g = await guest(tenantA, 'Bestand')
+      // geplante Abreise ist Pflicht
+      expect((await save(ownerA, bookingInput(tenantA, apt, g, '2029-01-01', '2029-01-04', { planned_departure: undefined }))).error?.code).toBe('P0807')
+      const id = savedId(await save(ownerA, bookingInput(tenantA, apt, g, '2029-01-01', '2029-01-04')))
+      // ohne Angabe von Quelle und Häkchen: Standardwerte
+      expect(await row(id)).toMatchObject({ planned_departure: '2029-01-04', departure: '2029-01-04', source: 'none', residence_registered: false, guest_sheet_number: null })
+    })
+
+    it('Verlängerung rechnet den Preis anteilig hoch, frühere Abreise nicht; zurück auf geplant = vereinbart', async () => {
+      const apt = await apartment(tenantA, 'Verlängerung')
+      const g = await guest(tenantA, 'Lang')
+      const input = (departure: string, extra: Record<string, unknown> = {}) =>
+        bookingInput(tenantA, apt, g, '2029-02-01', departure, { planned_departure: '2029-02-06', amounts: { nights_cents: 50000, charges: [{ label: 'Reinigung', amount_cents: 6000 }] }, ...extra })
+      const id = savedId(await save(ownerA, input('2029-02-06')))
+      expect(await billed(id)).toEqual({ nights_cents: 50000, billed_nights_cents: 50000 })
+
+      savedId(await save(ownerA, { ...input('2029-02-07'), id, updated_at: (await row(id)).updated_at }))
+      expect(await billed(id)).toEqual({ nights_cents: 50000, billed_nights_cents: 60000 })
+      // Zusatzkosten bleiben unverändert
+      expect((await service.from('booking_charges').select('amount_cents').eq('booking_id', id)).data).toEqual([{ amount_cents: 6000 }])
+
+      savedId(await save(ownerA, { ...input('2029-02-04'), id, updated_at: (await row(id)).updated_at }))
+      expect(await billed(id)).toEqual({ nights_cents: 50000, billed_nights_cents: 50000 })
+      // Belegung nach der tatsächlichen Abreise: ab dem 4. frei
+      const free = savedId(await save(ownerA, bookingInput(tenantA, apt, g, '2029-02-04', '2029-02-06')))
+
+      // wieder verlängert über die neue Buchung hinaus: Überschneidung wie bei jeder Buchung
+      const clash = await save(ownerA, { ...input('2029-02-07'), id, updated_at: (await row(id)).updated_at })
+      expect(clash.result?.status).toBe('warnings')
+      expect((clash.result as { warnings: { conflicts: { id: string }[] } }).warnings.conflicts.map((c) => c.id)).toEqual([free])
+
+      // Rundung auf Cent: 333,33 € für 3 Nächte, 1 Nacht länger → 444,44 €
+      const odd = savedId(
+        await save(ownerA, bookingInput(tenantA, apt, g, '2029-03-01', '2029-03-05', { planned_departure: '2029-03-04', amounts: { nights_cents: 33333, charges: [] } }))
+      )
+      expect(await billed(odd)).toEqual({ nights_cents: 33333, billed_nights_cents: 44444 })
+    })
+
+    it('Mitarbeiter verlängern: Preis wird hochgerechnet, ohne „Preis prüfen“; geänderte Planung setzt „Preis prüfen“', async () => {
+      const apt = await apartment(tenantA, 'Verlängerung Staff')
+      const g = await guest(tenantA, 'Staffverlängerung')
+      const id = savedId(
+        await save(ownerA, bookingInput(tenantA, apt, g, '2029-04-01', '2029-04-06', { amounts: { nights_cents: 50000, charges: [] } }))
+      )
+      savedId(await save(staffA, { ...bookingInput(tenantA, apt, g, '2029-04-01', '2029-04-07', { planned_departure: '2029-04-06' }), id, updated_at: (await row(id)).updated_at }))
+      expect(await billed(id)).toEqual({ nights_cents: 50000, billed_nights_cents: 60000 })
+      expect((await row(id)).price_review).toBe(false)
+
+      savedId(await save(staffA, { ...bookingInput(tenantA, apt, g, '2029-04-01', '2029-04-08'), id, updated_at: (await row(id)).updated_at }))
+      expect((await row(id)).price_review).toBe(true)
+      // Mitarbeiter sehen keine Beträge
+      expect((await staffA.from('booking_amounts').select('billed_nights_cents').eq('id', id)).data ?? []).toHaveLength(0)
+    })
+
+    it('Gästeblattnummer: Warnung bei Doppelung (Groß/Klein, auch storniert, nur eigenes Konto), alle dürfen bestätigen', async () => {
+      const apt = await apartment(tenantA, 'Gästeblatt')
+      const g = await guest(tenantA, 'Blatt')
+      const sheet = `A-${runId}`
+      const first = savedId(await save(ownerA, bookingInput(tenantA, apt, g, '2029-05-01', '2029-05-03', { guest_sheet_number: `  ${sheet}  ` })))
+      expect((await row(first)).guest_sheet_number).toBe(sheet)
+
+      // fremdes Konto mit derselben Nummer: keine Warnung
+      const tB = (await service.from('memberships').select('tenant_id').neq('tenant_id', tenantA).in('tenant_id', tenants).limit(1).single()).data!.tenant_id
+      const aptB = await apartment(tB, 'Fremd')
+      const gB = await guest(tB, 'Fremd')
+      savedId(await save(ownerB, bookingInput(tB, aptB, gB, '2029-05-01', '2029-05-03', { guest_sheet_number: sheet })))
+
+      // Mitarbeiter, andere Schreibweise: Warnung mit der ersten Buchung; bestätigt wird gespeichert
+      const second = bookingInput(tenantA, apt, g, '2029-05-03', '2029-05-05', { guest_sheet_number: sheet.toLowerCase() })
+      const warned = await save(staffA, second)
+      expect(warned.result?.status).toBe('warnings')
+      expect(duplicates(warned).map((d) => d.id)).toEqual([first])
+      const secondId = savedId(await save(staffA, { ...second, confirm_guest_sheet_number: true }))
+
+      // Vorschau zeigt dieselbe Warnung; erneutes Speichern der Buchung mit unveränderter Nummer warnt nicht
+      const preview = await staffA.rpc('booking_warnings', {
+        p_tenant_id: tenantA, p_apartment_id: apt, p_arrival: '2029-06-01', p_departure: '2029-06-02', p_persons: 1, p_guest_sheet_number: sheet,
+      })
+      expect(((preview.data as { guest_sheet_duplicates: { id: string }[] }).guest_sheet_duplicates).map((d) => d.id).sort()).toEqual([first, secondId].sort())
+      savedId(await save(staffA, { ...second, id: secondId, updated_at: (await row(secondId)).updated_at, note: 'geändert' }))
+
+      // stornierte Buchung zählt weiter
+      expect((await ownerA.rpc('cancel_booking', { p_booking_id: first })).error).toBeNull()
+      const third = await save(ownerA, bookingInput(tenantA, apt, g, '2029-07-01', '2029-07-02', { guest_sheet_number: sheet }))
+      expect(duplicates(third).find((d) => d.id === first)?.cancelled).toBe(true)
+
+      // höchstens 30 Zeichen
+      const long = await save(ownerA, bookingInput(tenantA, apt, g, '2029-08-01', '2029-08-02', { guest_sheet_number: 'x'.repeat(31) }))
+      expect(long.error?.code).toBe('23514')
+    })
+
+    it('Quelle, eigener Freitext und „Wohnsitz angemeldet“; Prüfregeln auch bei direktem Aufruf', async () => {
+      const apt = await apartment(tenantA, 'Quelle')
+      const g = await guest(tenantA, 'Quelle')
+      const id = savedId(
+        await save(staffA, bookingInput(tenantA, apt, g, '2029-09-01', '2029-09-03', { source: 'booking_com', residence_registered: true, source_custom: 'verworfen' }))
+      )
+      expect(await row(id)).toMatchObject({ source: 'booking_com', source_custom: null, residence_registered: true })
+      const custom = savedId(await save(ownerA, bookingInput(tenantA, apt, g, '2029-09-03', '2029-09-05', { source: 'custom', source_custom: ' Messe ' })))
+      expect((await row(custom)).source_custom).toBe('Messe')
+
+      expect((await save(ownerA, bookingInput(tenantA, apt, g, '2029-09-05', '2029-09-06', { source: 'custom', source_custom: ' ' }))).error?.code).toBe('23514')
+      expect((await save(ownerA, bookingInput(tenantA, apt, g, '2029-09-05', '2029-09-06', { source: 'airbnb' }))).error?.code).toBe('23514')
+      expect((await save(ownerA, bookingInput(tenantA, apt, g, '2029-09-05', '2029-09-06', { planned_departure: '2029-09-05' }))).error?.code).toBe('23514')
+
+      // Option → Buchung behält Abreisen und Quelle
+      const option = savedId(
+        await save(ownerA, bookingInput(tenantA, apt, g, '2029-10-01', '2029-10-05', { kind: 'option', option_until: '2029-09-01', planned_departure: '2029-10-04', source: 'website' }))
+      )
+      expect((await ownerA.rpc('confirm_option', { p_booking_id: option })).error).toBeNull()
+      expect(await row(option)).toMatchObject({ kind: 'booking', planned_departure: '2029-10-04', departure: '2029-10-05', source: 'website' })
+
+      // Sperren: geplante = tatsächliche Abreise, keine Quelle, keine Nummer
+      const block = await ownerA.rpc('save_block', {
+        p_input: { tenant_id: tenantA, apartment_id: apt, arrival: '2029-08-10', departure: '2029-08-12', block_reason: 'renovation', note: null } as Json,
+      })
+      expect(block.error).toBeNull()
+      const blockId = (block.data as unknown as { id: string }).id
+      expect(await row(blockId)).toMatchObject({ planned_departure: '2029-08-12', source: 'none', guest_sheet_number: null, residence_registered: false })
+      const sneaky = await service.from('bookings').update({ source: 'booking_com' }).eq('id', blockId)
+      expect(sneaky.error?.code).toBe('23514')
     })
   })
 

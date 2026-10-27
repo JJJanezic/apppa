@@ -341,8 +341,8 @@ export type Database = {
           created_at: string
           created_by: string | null
           departure: string
-          guest_sheet_number: string | null
           guest_id: string | null
+          guest_sheet_number: string | null
           id: string
           kind: string
           note: string | null
@@ -350,9 +350,9 @@ export type Database = {
           number_seq: number | null
           number_year: number | null
           option_until: string | null
-          planned_departure: string
           override_at: string | null
           override_by: string | null
+          planned_departure: string
           price_review: boolean
           residence_registered: boolean
           source: string
@@ -376,8 +376,8 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           departure: string
-          guest_sheet_number?: string | null
           guest_id?: string | null
+          guest_sheet_number?: string | null
           id?: string
           kind: string
           note?: string | null
@@ -385,9 +385,9 @@ export type Database = {
           number_seq?: number | null
           number_year?: number | null
           option_until?: string | null
-          planned_departure: string
           override_at?: string | null
           override_by?: string | null
+          planned_departure: string
           price_review?: boolean
           residence_registered?: boolean
           source?: string
@@ -411,8 +411,8 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           departure?: string
-          guest_sheet_number?: string | null
           guest_id?: string | null
+          guest_sheet_number?: string | null
           id?: string
           kind?: string
           note?: string | null
@@ -420,9 +420,9 @@ export type Database = {
           number_seq?: number | null
           number_year?: number | null
           option_until?: string | null
-          planned_departure?: string
           override_at?: string | null
           override_by?: string | null
+          planned_departure?: string
           price_review?: boolean
           residence_registered?: boolean
           source?: string
