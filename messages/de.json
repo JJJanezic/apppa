@@ -944,7 +944,7 @@
       "label": "Angezeigter Monat",
       "pickDate": "Monat wählen",
       "pickDateLabel": "Springen zu",
-      "jump": "Springen"
+      "jump": "Anzeigen"
     },
     "searchLabel": "Buchungen durchsuchen",
     "searchPlaceholder": "Gast, Buchungs- oder Gästeblattnummer",

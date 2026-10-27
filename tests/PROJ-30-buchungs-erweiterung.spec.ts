@@ -381,6 +381,12 @@ test.describe('Gästeblattnummer, Wohnsitz und Quelle', () => {
     await page.getByLabel('Buchungen durchsuchen').fill('gb-77')
     await expect(page).toHaveURL(/q=gb-77/)
     await expect(page.getByRole('table').getByRole('link')).toHaveText(['Huber, Anna'])
+
+    // BUG-1: Nummer mit Schrägstrich und Punkt
+    await service().from('bookings').update({ guest_sheet_number: 'GB/2026.17' }).eq('id', custom.id)
+    await openList(page)
+    await page.getByLabel('Buchungen durchsuchen').fill('gb/2026.17')
+    await expect(page.getByRole('table').getByRole('link')).toHaveText(['Huber, Anna'])
   })
 
   test('AC: booking.com-Buchung in Accent-700, Option mit Rahmen in Accent-700, andere Quelle „Direkt“; Legende', async ({ page, users }) => {
@@ -421,14 +427,14 @@ test.describe('Monatsauswahl', () => {
     const field = page.getByLabel('Springen zu')
     await expect(field).toHaveValue(`${month(FUTURE)}-01`)
     await field.fill('')
-    await expect(page.getByRole('button', { name: 'Springen', exact: true })).toBeDisabled()
+    await expect(page.getByRole('button', { name: 'Anzeigen', exact: true })).toBeDisabled()
     await page.keyboard.press('Escape')
     await expect(field).toBeHidden()
     await expect(page).toHaveURL(new RegExp(`monat=${month(FUTURE)}`))
 
     await trigger.click()
     await field.fill('2027-03-14')
-    await page.getByRole('button', { name: 'Springen', exact: true }).click()
+    await page.getByRole('button', { name: 'Anzeigen', exact: true }).click()
     await expect(page).toHaveURL(/monat=2027-03/)
     await expect(page).toHaveURL(new RegExp(`wohnung=${apt}`))
     await expect(page).toHaveURL(/quelle=keine/)

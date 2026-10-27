@@ -56,7 +56,7 @@ Eigene Liste der Buchung, **unabhängig** von der Marketing-Quelle der Gäste (d
 Im Formular „Mitreisende“ stehen die Felder in der Reihenfolge **Nachname, Vorname**, Geburtsdatum, wie beim Hauptgast. Die Grenze (Personen der Buchung minus Hauptgast) bleibt unverändert.
 
 ### Monatsauswahl in der Buchungsübersicht
-Die Buchungsübersicht bekommt **dieselbe Sprungauswahl wie der Belegungskalender** (PROJ-9). Ein Klick auf die Monatsanzeige (z. B. „Oktober 2026“) öffnet ein Aufklappfeld mit der Beschriftung „Springen zu“, einem Datumsfeld und dem Knopf „Springen“. Die Liste springt in den Monat des gewählten Datums, das Feld schließt sich. Ohne gültiges Datum ist der Knopf deaktiviert. Vorbelegt ist der 1. des angezeigten Monats. Pfeile vor/zurück und „Heute“ bleiben erhalten. Bedienbar mit Tastatur und auf dem Handy.
+Die Buchungsübersicht bekommt **dieselbe Sprungauswahl wie der Belegungskalender** (PROJ-9). Ein Klick auf die Monatsanzeige (z. B. „Oktober 2026“) öffnet ein Aufklappfeld mit der Beschriftung „Springen zu“, einem Datumsfeld und dem Knopf „Anzeigen“ (wie im Kalender). Die Liste springt in den Monat des gewählten Datums, das Feld schließt sich. Ohne gültiges Datum ist der Knopf deaktiviert. Vorbelegt ist der 1. des angezeigten Monats. Pfeile vor/zurück und „Heute“ bleiben erhalten. Bedienbar mit Tastatur und auf dem Handy.
 
 Der **Belegungskalender bleibt unverändert**.
 
@@ -141,9 +141,9 @@ Der **Belegungskalender bleibt unverändert**.
 - [ ] Angenommen ein Gast hat eine Marketing-Quelle, wenn eine Buchung für ihn angelegt wird, dann wird die Buchungsquelle davon nicht beeinflusst
 
 ### Monatsauswahl
-- [ ] Angenommen die Buchungsübersicht zeigt „Oktober 2026“, wenn auf die Monatsanzeige geklickt wird, dann öffnet sich ein Feld „Springen zu“ mit Datumsfeld (vorbelegt 01.10.2026) und Knopf „Springen“, wie im Belegungskalender
-- [ ] Angenommen das Feld ist offen, wenn das Datum 14.03.2027 gewählt und „Springen“ geklickt wird, dann zeigt die Liste März 2027 und das Feld schließt sich
-- [ ] Angenommen das Datumsfeld ist leer oder ungültig, wenn das Feld offen ist, dann ist „Springen“ deaktiviert
+- [ ] Angenommen die Buchungsübersicht zeigt „Oktober 2026“, wenn auf die Monatsanzeige geklickt wird, dann öffnet sich ein Feld „Springen zu“ mit Datumsfeld (vorbelegt 01.10.2026) und Knopf „Anzeigen“, wie im Belegungskalender
+- [ ] Angenommen das Feld ist offen, wenn das Datum 14.03.2027 gewählt und „Anzeigen“ geklickt wird, dann zeigt die Liste März 2027 und das Feld schließt sich
+- [ ] Angenommen das Datumsfeld ist leer oder ungültig, wenn das Feld offen ist, dann ist „Anzeigen“ deaktiviert
 - [ ] Angenommen das Feld ist offen, wenn Escape gedrückt oder daneben geklickt wird, dann schließt es sich ohne Monatswechsel
 - [ ] Angenommen nur Tastatur, wenn die Monatsanzeige fokussiert und Enter gedrückt wird, dann öffnet sich das Feld, das Datum ist eingebbar und mit Enter wird gesprungen
 - [ ] Angenommen Filter für Wohnung, Art, Zustand oder Quelle sind gesetzt, wenn gesprungen wird, dann bleiben sie erhalten
@@ -227,7 +227,7 @@ Buchungsübersicht (/buchungen)
 +-- Filterleiste (booking-filters)
 |   +-- Monatsleiste: ‹ [Oktober 2026 ▾] › Heute
 |   |   +-- NEU: Sprungauswahl (gemeinsamer Baustein, auch im Kalender)
-|   |       +-- „Springen zu“ + Datumsfeld (vorbelegt 1. des Monats) + Knopf „Springen“
+|   |       +-- „Springen zu“ + Datumsfeld (vorbelegt 1. des Monats) + Knopf „Anzeigen“
 |   +-- Wohnung | Art | Zustand | NEU: Quelle   (alle in der Adresse)
 |   +-- Suche (findet jetzt auch die Gästeblattnummer)
 +-- Buchungsliste (booking-list)
@@ -428,7 +428,7 @@ Keine neuen Pakete. Genutzt werden vorhandene shadcn/ui-Bausteine (Popover, Sele
 - [x] Nummer nur aus Leerzeichen → leer; Groß/Klein gilt als gleich
 - [x] Gleichzeitige Bearbeitung: Hinweis „inzwischen geändert“ (PROJ-8-Test grün)
 - [x] Zusätzlich: erneutes Speichern mit unveränderter Nummer warnt nicht erneut (bewusste Entscheidung im Backend)
-- [ ] BUG-1: Gästeblattnummern mit Schrägstrich oder Punkt sind über die Suche nicht auffindbar (siehe unten)
+- [x] BUG-1 (behoben): Gästeblattnummern mit Schrägstrich oder Punkt werden über die Suche gefunden
 
 ### Security Audit Results
 - [x] Mandantentrennung: Doppelungsprüfung und Vorschau nur nach `is_member`; `p_exclude` einer fremden Buchung verrät nichts (Abfrage mit Kundenkennung)
@@ -447,8 +447,9 @@ Keine neuen Pakete. Genutzt werden vorhandene shadcn/ui-Bausteine (Popover, Sele
 
 ### Bugs Found
 
-#### BUG-1: Gästeblattnummer mit „/“ oder „.“ nicht über die Suche auffindbar
+#### BUG-1: Gästeblattnummer mit „/“ oder „.“ nicht über die Suche auffindbar — behoben 2026-10-27
 - **Severity:** Low
+- **Fix:** Eigene Bereinigung für die Nummernsuche (`cleanSheetQuery` in `src/lib/bookings-data.ts`, erlaubt zusätzlich „/“, „.“, „_“; Wert in der Abfrage in Anführungszeichen). E2E-Test sucht „gb/2026.17“.
 - **Steps to Reproduce:**
   1. Buchung mit Gästeblattnummer „GB/2026.17“ speichern
   2. In der Buchungsliste nach „GB/2026.17“ suchen
@@ -456,8 +457,9 @@ Keine neuen Pakete. Genutzt werden vorhandene shadcn/ui-Bausteine (Popover, Sele
   4. Actual: kein Treffer. Die Suche ersetzt Sonderzeichen durch Leerzeichen („GB 2026 17“), die Nummer enthält aber keine Leerzeichen
 - **Priority:** Nice to have (Nummern mit Bindestrich wie „A-123“ funktionieren)
 
-#### BUG-2: Knopf-Beschriftung weicht vom Belegungskalender ab
+#### BUG-2: Knopf-Beschriftung weicht vom Belegungskalender ab — behoben 2026-10-27
 - **Severity:** Low
+- **Fix:** Entscheidung des Nutzers: überall „Anzeigen“ (wie im Kalender); Buchungsübersicht angepasst, Spec-Text entsprechend.
 - **Steps to Reproduce:**
   1. Belegungskalender: Zeitraum anklicken → Knopf heißt „Anzeigen“
   2. Buchungsübersicht: Monat anklicken → Knopf heißt „Springen“
@@ -470,10 +472,10 @@ Das Detail zeigt weiterhin „Kanal: Direkt“ und darunter „Buchungsquelle: b
 
 ### Summary
 - **Acceptance Criteria:** 52/52 passed
-- **Bugs Found:** 2 total (0 critical, 0 high, 0 medium, 2 low)
+- **Bugs Found:** 2 total (0 critical, 0 high, 0 medium, 2 low), beide behoben
 - **Security:** Pass
 - **Production Ready:** YES
-- **Recommendation:** Deploy; die beiden Low-Punkte können später erledigt werden
+- **Recommendation:** Deploy
 
 ## Deployment
 _To be added by /deploy_

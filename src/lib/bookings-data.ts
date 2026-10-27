@@ -15,6 +15,7 @@ import {
   bookingState,
   type Conflict,
   findConflicts,
+  LIMITS,
   monthRange,
   personCount,
   todayIso,
@@ -171,6 +172,10 @@ export type BookingList = { rows: BookingRow[]; searching: boolean; truncated: b
 
 // Suchbegriff für die Adresse der Datenbank-Abfrage: nur Buchstaben, Ziffern, Leerzeichen und Bindestrich
 const cleanQuery = (value: string) => value.replace(/[^\p{L}\d\s-]/gu, ' ').replace(/\s+/g, ' ').trim()
+// Gästeblattnummer (PROJ-30, BUG-1): zusätzlich „/“, „.“ und „_“ erlaubt; der Wert steht in der Abfrage in
+// Anführungszeichen, damit PostgREST Punkt und Schrägstrich nicht als Trennzeichen liest
+const cleanSheetQuery = (value: string) =>
+  value.replace(/[^\p{L}\d\s\-/._]/gu, '').replace(/\s+/g, ' ').trim().slice(0, LIMITS.guestSheetNumberMax)
 
 // Monatsliste bzw. Suche über alle Monate (neueste zuerst, höchstens 50 Treffer). Ohne Zustandsfilter nur aktive Einträge.
 export async function getBookingList(filters: BookingFilters): Promise<BookingList> {
@@ -198,7 +203,8 @@ export async function getBookingList(filters: BookingFilters): Promise<BookingLi
     const { data: hits } = await guests.limit(200)
     const ids = (hits ?? []).map((g) => g.id)
     const number = query.replace(/\s/g, '')
-    const numbers = `number.ilike.%${number}%,guest_sheet_number.ilike.%${query}%`
+    const sheet = cleanSheetQuery(filters.query) || query
+    const numbers = `number.ilike.%${number}%,guest_sheet_number.ilike."%${sheet}%"`
     request = request.or(ids.length ? `${numbers},guest_id.in.(${ids.join(',')})` : numbers)
     request = request.order('arrival', { ascending: false }).limit(SEARCH_LIMIT + 1)
   } else {
