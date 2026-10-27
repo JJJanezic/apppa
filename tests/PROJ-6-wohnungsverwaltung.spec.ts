@@ -329,6 +329,24 @@ test.describe('Archivieren, Wiederherstellen, Löschen', () => {
   })
 })
 
+test.describe('Safari-Zeilenklick', () => {
+  test.skip(!hasSupabaseEnv, 'keine .env.local')
+
+  test('Tabelle: nur der Name ist der Knopf (keine Klickfläche über die Zeile); jeder Name öffnet seine eigene Wohnung', async ({ page, users }) => {
+    desktopOnly()
+    const { tenantId } = await ownerWithTenant(page, users)
+    const seeblick = await addProperty(tenantId, 'Haus Seeblick')
+    await addApartment(tenantId, seeblick, 'Top 1')
+    await addApartment(tenantId, seeblick, 'Top 2')
+    await openApartments(page)
+    const first = page.getByRole('table').getByRole('button', { name: 'Top 1 bearbeiten' })
+    // Safari verankert after:absolute nicht an <tr>: die Fläche darf es in der Tabelle nicht mehr geben
+    expect(await first.evaluate((el) => getComputedStyle(el, '::after').position)).not.toBe('absolute')
+    await first.click()
+    await expect(panel(page).getByRole('heading', { name: 'Haus Seeblick · Top 1' })).toBeVisible()
+  })
+})
+
 test.describe('Layout und Barrierefreiheit', () => {
   test.skip(!hasSupabaseEnv, 'keine .env.local')
 

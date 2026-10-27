@@ -50,12 +50,18 @@ export function ApartmentsOverview({ properties }: { properties: Property[] }) {
         {t('archived')}
       </Badge>
     ) : null
-  const nameButton = (a: Apartment) => (
+  // Tabelle: nur der Name ist der Knopf (Safari kann Klickflächen über die ganze Zeile nicht an <tr> verankern);
+  // Karten auf dem Handy: Klickfläche über die ganze Karte (<li> ist ein gültiger Bezug)
+  const nameButton = (a: Apartment, whole = false) => (
     <button
       type="button"
       onClick={() => open({ kind: 'apartment', apartment: a })}
       aria-label={t('openApartment', { name: a.name })}
-      className="text-left font-medium underline-offset-[3px] hover:underline after:absolute after:inset-0 after:content-['']"
+      className={
+        whole
+          ? "text-left font-medium underline-offset-[3px] hover:underline after:absolute after:inset-0 after:content-['']"
+          : 'text-left font-medium text-ds-accent-700 underline underline-offset-[3px] hover:decoration-2'
+      }
     >
       {a.name}
     </button>
@@ -131,7 +137,7 @@ export function ApartmentsOverview({ properties }: { properties: Property[] }) {
                   </TableHeader>
                   <TableBody>
                     {property.apartments.map((a) => (
-                      <TableRow key={a.id} className="relative">
+                      <TableRow key={a.id}>
                         <TableCell>{nameButton(a)}</TableCell>
                         <TableCell>{t(`kind.${a.kind}`)}</TableCell>
                         <TableCell className="text-right tabular-nums">
@@ -152,7 +158,7 @@ export function ApartmentsOverview({ properties }: { properties: Property[] }) {
                   {property.apartments.map((a) => (
                     <li key={a.id} className="relative flex flex-col gap-1 rounded-lg bg-ds-surface p-4">
                       <span className="flex items-start justify-between gap-2">
-                        {nameButton(a)}
+                        {nameButton(a, true)}
                         {archivedBadge(a)}
                       </span>
                       <span className="text-sm text-ds-neutral-800">
