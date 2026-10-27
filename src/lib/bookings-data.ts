@@ -11,6 +11,7 @@ import {
   type BookingFilters,
   type BookingKind,
   type BookingRow,
+  type BookingSource,
   bookingState,
   type Conflict,
   findConflicts,
@@ -76,7 +77,7 @@ export const getBookableApartments = cache(async (): Promise<BookableApartment[]
 })
 
 const ROW_COLUMNS =
-  'id, kind, number, apartment_id, arrival, departure, adults, child_ages, block_reason, option_until, cancelled_at, price_review, guest:guests(id, last_name, first_name, title_prefix, title_suffix), apartment:apartments!inner(name, property:properties!inner(name)), amounts:booking_amounts(nights_cents), charges:booking_charges(amount_cents)'
+  'id, kind, number, apartment_id, arrival, departure, adults, child_ages, block_reason, option_until, cancelled_at, price_review, guest_sheet_number, source, guest:guests(id, last_name, first_name, title_prefix, title_suffix), apartment:apartments!inner(name, property:properties!inner(name)), amounts:booking_amounts(billed_nights_cents), charges:booking_charges(amount_cents)'
 
 type ListDbRow = {
   id: string
@@ -91,10 +92,13 @@ type ListDbRow = {
   option_until: string | null
   cancelled_at: string | null
   price_review: boolean
+  guest_sheet_number: string | null
+  source: string
   guest: { id: string; last_name: string; first_name: string | null; title_prefix: string | null; title_suffix: string | null } | null
   apartment: { name: string; property: { name: string } }
   // eine Zeile je Buchung; PostgREST liefert sie als Liste (Verweis über id + tenant_id)
-  amounts: { nights_cents: number }[]
+  // abgerechneter Übernachtungspreis (PROJ-30)
+  amounts: { billed_nights_cents: number }[]
   charges: { amount_cents: number }[]
 }
 
@@ -152,10 +156,12 @@ function toRow(r: ListDbRow, owner: boolean, today: string, occupancy: Occupancy
     departure: r.departure,
     guestName: r.guest ? guestName(r.guest) : null,
     blockReason: r.block_reason as BlockReason | null,
+    guestSheetNumber: r.guest_sheet_number,
+    source: r.source as BookingSource,
     persons: kind === 'block' ? 0 : personCount(r.adults ?? 0, r.child_ages),
     state,
     optionUntil: r.option_until,
-    totalCents: owner && r.amounts[0] ? totalCents({ nightsCents: r.amounts[0].nights_cents, charges: r.charges.map((c) => ({ label: '', amountCents: c.amount_cents })) }) : null,
+    totalCents: owner && r.amounts[0] ? totalCents({ nightsCents: r.amounts[0].billed_nights_cents, charges: r.charges.map((c) => ({ label: '', amountCents: c.amount_cents })) }) : null,
     overlapping: state === 'active' && findConflicts({ id: r.id, apartmentId: r.apartment_id, arrival: r.arrival, departure: r.departure }, occupancy, today).length > 0,
     priceReview: r.price_review,
   }
@@ -178,19 +184,22 @@ export async function getBookingList(filters: BookingFilters): Promise<BookingLi
   let request = supabase.from('bookings').select(ROW_COLUMNS).eq('tenant_id', tenantId)
   if (filters.apartment) request = request.eq('apartment_id', filters.apartment)
   if (filters.kind) request = request.eq('kind', filters.kind)
+  // Quelle nur bei Buchungen und Optionen (Sperren haben „none“)
+  if (filters.source) request = request.eq('source', filters.source).neq('kind', 'block')
   if (filters.state === 'cancelled') request = request.not('cancelled_at', 'is', null)
   else if (filters.state === 'expired') request = request.eq('kind', 'option').is('cancelled_at', null).lt('option_until', today)
   else request = request.is('cancelled_at', null).or(`kind.neq.option,option_until.gte.${today}`)
 
   if (searching) {
-    // Gäste über den vereinheitlichten Suchtext (PROJ-7), dazu die Buchungsnummer
+    // Gäste über den vereinheitlichten Suchtext (PROJ-7), dazu Buchungs- und Gästeblattnummer (PROJ-30)
     const words = searchKey(query).split(' ').filter(Boolean)
     let guests = supabase.from('guests').select('id').eq('tenant_id', tenantId)
     for (const w of words) guests = guests.like('search_text', `%${w}%`)
     const { data: hits } = await guests.limit(200)
     const ids = (hits ?? []).map((g) => g.id)
     const number = query.replace(/\s/g, '')
-    request = request.or(ids.length ? `number.ilike.%${number}%,guest_id.in.(${ids.join(',')})` : `number.ilike.%${number}%`)
+    const numbers = `number.ilike.%${number}%,guest_sheet_number.ilike.%${query}%`
+    request = request.or(ids.length ? `${numbers},guest_id.in.(${ids.join(',')})` : numbers)
     request = request.order('arrival', { ascending: false }).limit(SEARCH_LIMIT + 1)
   } else {
     const { from, to } = monthRange(filters.month)
@@ -242,7 +251,7 @@ export const findBooking = cache(async (id: string): Promise<Booking | null> => 
   const { data: b, error } = await supabase
     .from('bookings')
     .select(
-      'id, kind, channel, number, apartment_id, arrival, departure, check_in, check_out, adults, child_ages, block_reason, option_until, note, cancelled_at, cancelled_by, cancel_reason, override_by, price_review, updated_at, guest:guests(id, last_name, first_name, title_prefix, title_suffix, country, anonymized_at), apartment:apartments!inner(name, max_guests, archived_at, property:properties!inner(name)), companions:booking_companions(position, first_name, last_name, birth_date), amounts:booking_amounts(nights_cents, cancellation_fee_cents), charges:booking_charges(position, label, amount_cents)'
+      'id, kind, channel, number, apartment_id, arrival, planned_departure, departure, check_in, check_out, adults, child_ages, block_reason, option_until, guest_sheet_number, residence_registered, source, source_custom, note, cancelled_at, cancelled_by, cancel_reason, override_by, price_review, updated_at, guest:guests(id, last_name, first_name, title_prefix, title_suffix, country, anonymized_at), apartment:apartments!inner(name, max_guests, archived_at, property:properties!inner(name)), companions:booking_companions(position, first_name, last_name, birth_date), amounts:booking_amounts(nights_cents, billed_nights_cents, cancellation_fee_cents), charges:booking_charges(position, label, amount_cents)'
     )
     .eq('id', id)
     .eq('tenant_id', tenantId)
@@ -272,6 +281,7 @@ export const findBooking = cache(async (id: string): Promise<Booking | null> => 
       archived: b.apartment.archived_at !== null,
     },
     arrival: b.arrival,
+    plannedDeparture: b.planned_departure,
     departure: b.departure,
     checkIn: hhmm(b.check_in),
     checkOut: hhmm(b.check_out),
@@ -288,6 +298,10 @@ export const findBooking = cache(async (id: string): Promise<Booking | null> => 
     childAges: b.child_ages,
     blockReason: b.block_reason as BlockReason | null,
     optionUntil: b.option_until,
+    guestSheetNumber: b.guest_sheet_number,
+    residenceRegistered: b.residence_registered,
+    source: b.source as BookingSource,
+    sourceCustom: b.source_custom,
     note: b.note,
     cancelledAt: b.cancelled_at,
     cancelledBy: b.cancelled_by ? (names.get(b.cancelled_by) ?? null) : null,
@@ -299,6 +313,7 @@ export const findBooking = cache(async (id: string): Promise<Booking | null> => 
       role === 'owner' && kind !== 'block'
         ? {
             nightsCents: amounts?.nights_cents ?? 0,
+            billedNightsCents: amounts?.billed_nights_cents ?? amounts?.nights_cents ?? 0,
             charges: byPosition(b.charges).map((c) => ({ label: c.label, amountCents: c.amount_cents })),
             cancellationFeeCents: amounts?.cancellation_fee_cents ?? null,
           }

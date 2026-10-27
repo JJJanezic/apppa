@@ -234,7 +234,7 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-8 Manuelle Buchungen', () => {
       // verfallene Option (Ablaufdatum gestern) direkt in der Datenbank
       const { data: n } = await service.from('booking_numbers').select('last_seq').eq('tenant_id', t).eq('year', 2027).single()
       await service.from('bookings').insert({
-        tenant_id: t, apartment_id: a, kind: 'option', number_year: 2027, number_seq: n!.last_seq + 100, arrival: '2027-11-02', departure: '2027-11-04',
+        tenant_id: t, apartment_id: a, kind: 'option', number_year: 2027, number_seq: n!.last_seq + 100, arrival: '2027-11-02', planned_departure: '2027-11-04', departure: '2027-11-04',
         guest_id: gg, adults: 1, option_until: '2020-01-01',
       })
       const preview = await staffA.rpc('booking_warnings', { p_tenant_id: t, p_apartment_id: a, p_arrival: '2027-11-01', p_departure: '2027-11-05', p_persons: 2 })

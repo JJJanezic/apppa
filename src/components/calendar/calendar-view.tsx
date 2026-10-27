@@ -12,12 +12,10 @@ import { NewBookingButtons } from '@/components/bookings/new-booking-buttons'
 import { CalendarMonth } from '@/components/calendar/calendar-month'
 import { CalendarTimeline } from '@/components/calendar/calendar-timeline'
 import { LEGEND_CLASSES } from '@/components/calendar/entry-style'
+import { DateJump } from '@/components/date-jump'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { addDays, type BookableApartment, isIsoDate, shiftMonth } from '@/lib/bookings'
+import { addDays, type BookableApartment, shiftMonth } from '@/lib/bookings'
 import {
   CALENDAR_COOKIE,
   CALENDAR_PATH,
@@ -71,8 +69,6 @@ export function CalendarView({ variant, state, today, apartments, entries, booka
   const [picked, setPicked] = useState<{ base: string; day: string } | null>(null)
   const day = picked?.base === state.day ? picked.day : state.day
   const [createAt, setCreateAt] = useState<{ apartmentId: string; arrival: string } | null>(null)
-  const [jumpOpen, setJumpOpen] = useState(false)
-  const [jumpDate, setJumpDate] = useState('')
 
   const properties = calendarProperties(apartments)
   const property = properties.some((p) => p.id === state.property) ? state.property : null
@@ -135,11 +131,8 @@ export function CalendarView({ variant, state, today, apartments, entries, booka
     window.history.replaceState(null, '', calendarHref(variant, { ...current, day: date, entry: null }))
   }
 
-  function jump(e: React.FormEvent) {
-    e.preventDefault()
-    if (!isIsoDate(jumpDate)) return
-    setJumpOpen(false)
-    go(state.view === 'timeline' ? { start: jumpDate } : { month: jumpDate.slice(0, 7), day: jumpDate })
+  function jump(date: string) {
+    go(state.view === 'timeline' ? { start: date } : { month: date.slice(0, 7), day: date })
   }
 
   const short = (iso: string) => format.dateTime(noon(iso), { day: 'numeric', month: 'short' })
@@ -169,22 +162,15 @@ export function CalendarView({ variant, state, today, apartments, entries, booka
             <Button variant="ghost" size="icon" className="size-11" onClick={() => go(step(requested.current ?? current, -1))} aria-label={t('prev')}>
               <CaretLeft size={18} aria-hidden="true" />
             </Button>
-            <Popover open={jumpOpen} onOpenChange={setJumpOpen}>
-              <PopoverTrigger asChild>
-                <Button variant="ghost" className="min-h-11 min-w-[11rem] px-2 font-normal tabular-nums" aria-label={`${periodLabel}. ${t('pickDate')}`}>
-                  {periodLabel}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto">
-                <form onSubmit={jump} className="flex flex-col gap-3">
-                  <Label htmlFor="belegung-datum">{t('pickDateLabel')}</Label>
-                  <Input id="belegung-datum" type="date" className="min-h-11 w-48" value={jumpDate} onChange={(e) => setJumpDate(e.target.value)} />
-                  <Button type="submit" className="min-h-11" disabled={!isIsoDate(jumpDate)}>
-                    {t('jump')}
-                  </Button>
-                </form>
-              </PopoverContent>
-            </Popover>
+            <DateJump
+              label={periodLabel}
+              ariaLabel={`${periodLabel}. ${t('pickDate')}`}
+              fieldLabel={t('pickDateLabel')}
+              submitLabel={t('jump')}
+              inputId="belegung-datum"
+              onJump={jump}
+              triggerClassName="min-w-[11rem]"
+            />
             <Button variant="ghost" size="icon" className="size-11" onClick={() => go(step(requested.current ?? current, 1))} aria-label={t('next')}>
               <CaretRight size={18} aria-hidden="true" />
             </Button>
@@ -227,6 +213,7 @@ export function CalendarView({ variant, state, today, apartments, entries, booka
           )}
           <ul aria-label={t('legendLabel')} className="flex flex-wrap gap-3 text-[13px] text-ds-neutral-700 sm:ml-auto">
             <LegendItem className={LEGEND_CLASSES.direct} label={t('channel.direct')} />
+            <LegendItem className={LEGEND_CLASSES.bookingCom} label={t('channel.bookingCom')} />
             <LegendItem className={LEGEND_CLASSES.option} label={t('legendOption')} />
             <LegendItem className={LEGEND_CLASSES.block} label={t('legendBlock')} />
           </ul>

@@ -4,7 +4,7 @@ import { getFormatter, getLocale, getTranslations } from 'next-intl/server'
 import { BookingActions } from '@/components/bookings/booking-actions'
 import { BookingBadges } from '@/components/bookings/booking-badges'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { type BookableApartment, type Booking, bookingState, nightsBetween, personCount, totalCents } from '@/lib/bookings'
+import { billableNights, type BookableApartment, type Booking, bookingState, nightsBetween, personCount, totalCents } from '@/lib/bookings'
 import { formatCurrency, formatNumber } from '@/lib/format'
 import { countryName, guestDisplayName, guestHref, guestSortName } from '@/lib/guests'
 import { cn } from '@/lib/utils'
@@ -49,6 +49,12 @@ export async function BookingDetail({ booking, apartments, owner, today, layout,
       ? `${t('kind.block')}${c.blockReason ? `: ${t(`blockReason.${c.blockReason}`)}` : ''}`
       : [t(`kind.${c.kind}`), c.number, c.guestName].filter(Boolean).join(' · ')
   const headingSize = layout === 'panel' ? 'text-xl' : 'text-2xl'
+  // PROJ-30: beide Abreisen nur zeigen, wenn sie abweichen; abgerechnet wird bis zur späteren
+  const departureDiffers = !isBlock && booking.plannedDeparture !== booking.departure
+  const stayNights = nightsBetween(booking.arrival, booking.departure)
+  const plannedNights = nightsBetween(booking.arrival, booking.plannedDeparture)
+  const billable = billableNights(booking)
+  const sourceLabel = booking.source === 'custom' && booking.sourceCustom ? booking.sourceCustom : t(`source.${booking.source}`)
 
   return (
     <>
@@ -96,11 +102,15 @@ export async function BookingDetail({ booking, apartments, owner, today, layout,
             {date(booking.arrival)}
             {!isBlock && <span className="text-ds-neutral-800"> · {booking.checkIn}</span>}
           </Fact>
+          {departureDiffers && <Fact label={t('detail.plannedDeparture')}>{date(booking.plannedDeparture)}</Fact>}
           <Fact label={t('detail.departure')}>
             {date(booking.departure)}
             {!isBlock && <span className="text-ds-neutral-800"> · {booking.checkOut}</span>}
           </Fact>
-          <Fact label={t('detail.nights')}>{formatNumber(nightsBetween(booking.arrival, booking.departure))}</Fact>
+          <Fact label={t('detail.nights')}>
+            {formatNumber(stayNights)}
+            {billable !== stayNights && <span className="text-ds-neutral-800"> · {t('detail.billableNights', { nights: billable })}</span>}
+          </Fact>
           {isBlock ? (
             <Fact label={t('detail.reason')}>{booking.blockReason ? t(`blockReason.${booking.blockReason}`) : missing}</Fact>
           ) : (
@@ -114,6 +124,9 @@ export async function BookingDetail({ booking, apartments, owner, today, layout,
                 <Fact label={t('detail.childAges')}>{t('detail.agesValue', { ages: booking.childAges.join(', ') })}</Fact>
               )}
               <Fact label={t('detail.channel')}>{t('detail.channelDirect')}</Fact>
+              <Fact label={t('detail.source')}>{booking.source === 'none' ? missing : <span className="break-words">{sourceLabel}</span>}</Fact>
+              <Fact label={t('detail.guestSheetNumber')}>{booking.guestSheetNumber ?? missing}</Fact>
+              {booking.residenceRegistered && <Fact label={t('detail.residence')}>{t('detail.residenceRegistered')}</Fact>}
             </>
           )}
           {booking.kind === 'option' && booking.optionUntil && <Fact label={t('detail.optionUntil')}>{date(booking.optionUntil)}</Fact>}
@@ -161,18 +174,23 @@ export async function BookingDetail({ booking, apartments, owner, today, layout,
                   </Alert>
                 )}
                 <dl className="flex flex-col divide-y rounded-lg bg-ds-surface px-4">
-                  <Money label={t('detail.nightsPrice')} cents={booking.amounts.nightsCents} />
+                  <Money label={t('detail.nightsPrice')} cents={booking.amounts.billedNightsCents} />
                   {booking.amounts.charges.map((c, i) => (
                     <Money key={i} label={c.label} cents={c.amountCents} />
                   ))}
                   <div className="flex items-baseline justify-between gap-4 py-3 font-semibold">
                     <dt>{t('detail.total')}</dt>
-                    <dd className="tabular-nums">{euro(totalCents(booking.amounts))}</dd>
+                    <dd className="tabular-nums">{euro(totalCents({ nightsCents: booking.amounts.billedNightsCents, charges: booking.amounts.charges }))}</dd>
                   </div>
                   {booking.amounts.cancellationFeeCents !== null && (
                     <Money label={t('detail.cancellationFee')} cents={booking.amounts.cancellationFeeCents} />
                   )}
                 </dl>
+                {booking.amounts.billedNightsCents !== booking.amounts.nightsCents && (
+                  <p className="text-[13px] text-ds-neutral-800">
+                    {t('detail.extension', { agreed: euro(booking.amounts.nightsCents), nights: plannedNights, billable })}
+                  </p>
+                )}
                 <p className="text-[13px] text-ds-neutral-700">{t('detail.taxNote')}</p>
               </section>
             )}

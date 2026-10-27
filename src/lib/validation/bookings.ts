@@ -3,6 +3,7 @@ import { z } from 'zod'
 import {
   addDays,
   BLOCK_REASONS,
+  BOOKING_SOURCES,
   type BookingAmounts,
   isIsoDate,
   LIMITS,
@@ -38,13 +39,21 @@ const amount = (t: T) =>
     return cents === null || (!Number.isNaN(cents) && cents <= LIMITS.amountMaxCents)
   }, t('amountInvalid'))
 
-// Zeitraum: Abreise nach Anreise, höchstens 365 Nächte, Anreise höchstens 3 Jahre in der Zukunft
-function checkPeriod(t: T, today: string, v: { arrival: string; departure: string }, ctx: z.RefinementCtx) {
-  if (!isIsoDate(v.arrival) || !isIsoDate(v.departure)) return
+// Zeitraum: Abreise nach Anreise, höchstens 365 Nächte, Anreise höchstens 3 Jahre in der Zukunft.
+// Buchungen prüfen geplante und tatsächliche Abreise je für sich (PROJ-30), die Anreise nur einmal.
+function checkPeriod(
+  t: T,
+  today: string,
+  v: { arrival: string; departure: string },
+  ctx: z.RefinementCtx,
+  { path = 'departure', beforeKey = 'departureBeforeArrival', arrival = true }: { path?: string; beforeKey?: string; arrival?: boolean } = {}
+) {
+  if (!isIsoDate(v.arrival)) return
+  if (arrival && v.arrival > addDays(today, 365 * LIMITS.yearsAhead + 1)) ctx.addIssue({ code: 'custom', path: ['arrival'], message: t('arrivalTooFar') })
+  if (!isIsoDate(v.departure)) return
   const nights = nightsBetween(v.arrival, v.departure)
-  if (nights < 1) ctx.addIssue({ code: 'custom', path: ['departure'], message: t('departureBeforeArrival') })
-  else if (nights > LIMITS.nightsMax) ctx.addIssue({ code: 'custom', path: ['departure'], message: t('tooManyNights') })
-  if (v.arrival > addDays(today, 365 * LIMITS.yearsAhead + 1)) ctx.addIssue({ code: 'custom', path: ['arrival'], message: t('arrivalTooFar') })
+  if (nights < 1) ctx.addIssue({ code: 'custom', path: [path], message: t(beforeKey) })
+  else if (nights > LIMITS.nightsMax) ctx.addIssue({ code: 'custom', path: [path], message: t('tooManyNights') })
 }
 
 export const bookingSchema = (t: T, { owner, today = todayIso() }: { owner: boolean; today?: string }) =>
@@ -53,6 +62,8 @@ export const bookingSchema = (t: T, { owner, today = todayIso() }: { owner: bool
       kind: z.enum(['booking', 'option']),
       apartmentId: id(t, 'apartmentRequired'),
       arrival: date(t, 'arrivalRequired'),
+      // „Abreise geplant“ (vereinbart) und „Abreise“ (tatsächlich, bestimmt die Belegung), PROJ-30
+      plannedDeparture: date(t, 'plannedDepartureRequired'),
       departure: date(t, 'departureRequired'),
       checkIn: time(t),
       checkOut: time(t),
@@ -75,6 +86,15 @@ export const bookingSchema = (t: T, { owner, today = todayIso() }: { owner: bool
         )
         .max(LIMITS.personsMax),
       optionUntil: z.string(),
+      // Meldedaten und Buchungsquelle (PROJ-30); nur Rand-Leerzeichen → leer
+      guestSheetNumber: z
+        .string()
+        .trim()
+        .max(LIMITS.guestSheetNumberMax, t('guestSheetNumberTooLong'))
+        .transform((v) => v || null),
+      residenceRegistered: z.boolean(),
+      source: z.enum(BOOKING_SOURCES),
+      sourceCustom: z.string().trim().max(LIMITS.sourceCustomMax, t('tooLong')),
       nightsPrice: z.string(),
       charges: z
         .array(
@@ -87,7 +107,12 @@ export const bookingSchema = (t: T, { owner, today = todayIso() }: { owner: bool
       note: note(t),
     })
     .superRefine((v, ctx) => {
-      checkPeriod(t, today, v, ctx)
+      checkPeriod(t, today, { arrival: v.arrival, departure: v.plannedDeparture }, ctx, {
+        path: 'plannedDeparture',
+        beforeKey: 'plannedDepartureBeforeArrival',
+      })
+      checkPeriod(t, today, v, ctx, { arrival: false })
+      if (v.source === 'custom' && !v.sourceCustom) ctx.addIssue({ code: 'custom', path: ['sourceCustom'], message: t('sourceCustomRequired') })
       if (v.guestMode === 'existing' && !/^[0-9a-f-]{36}$/i.test(v.guestId))
         ctx.addIssue({ code: 'custom', path: ['guestId'], message: t('guestRequired') })
       if (v.adults + v.children.length > LIMITS.personsMax)
@@ -110,9 +135,15 @@ export const bookingSchema = (t: T, { owner, today = todayIso() }: { owner: bool
       kind: v.kind,
       apartmentId: v.apartmentId,
       arrival: v.arrival,
+      plannedDeparture: v.plannedDeparture,
       departure: v.departure,
       checkIn: v.checkIn,
       checkOut: v.checkOut,
+      guestSheetNumber: v.guestSheetNumber,
+      residenceRegistered: v.residenceRegistered,
+      source: v.source,
+      // Freitext nur bei „Eigene Angabe“, sonst verworfen
+      sourceCustom: v.source === 'custom' ? v.sourceCustom : null,
       guestId: v.guestMode === 'existing' ? v.guestId : null,
       adults: v.adults,
       childAges: v.children.map((c) => Number(c.age)),

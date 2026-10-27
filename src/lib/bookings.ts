@@ -17,6 +17,7 @@ export type BookingErrorCode =
   | 'notActive'
   | 'tooManyCompanions'
   | 'documentImageMissing'
+  | 'guestSheetDuplicate'
 
 // Buchung (bestätigt), Option (vorgemerkt mit Ablaufdatum) oder Sperre (ohne Gast und Preis)
 export const BOOKING_KINDS = ['booking', 'option', 'block'] as const
@@ -31,6 +32,21 @@ export type BlockReason = (typeof BLOCK_REASONS)[number]
 
 // Von Hand erfasst wird nur „Direkt“; booking.com und Airbnb kommen mit dem Import (PROJ-11)
 export type BookingChannel = 'direct'
+
+// Buchungsquelle (PROJ-30): Angabe des Vermieters, unabhängig von Kanal und Marketing-Quelle des Gastes.
+// Texte: bookings.source.*; „custom“ mit Freitext, „none“ ist der Standard
+export const BOOKING_SOURCES = [
+  'website',
+  'instagram',
+  'google_ads',
+  'newsletter',
+  'referral',
+  'platform_search',
+  'booking_com',
+  'custom',
+  'none',
+] as const
+export type BookingSource = (typeof BOOKING_SOURCES)[number]
 
 // Vorschläge für Zusatzkosten (Texte: bookings.chargeSuggestions.*); gespeichert wird die angezeigte Bezeichnung
 export const CHARGE_SUGGESTIONS = ['cleaning', 'pet', 'breakfast', 'parking'] as const
@@ -48,12 +64,15 @@ export const LIMITS = {
   amountMaxCents: AMOUNT_MAX_CENTS,
   optionDefaultDays: 7,
   nameMax: 100,
+  guestSheetNumberMax: 30,
+  sourceCustomMax: 100,
 } as const
 
 export type Charge = { label: string; amountCents: number }
 
 // Beträge sehen nur Inhaber (eigene Tabellen, Tech Design C)
 export type BookingAmounts = {
+  // vereinbarter Übernachtungspreis für den geplanten Zeitraum (PROJ-30)
   nightsCents: number
   charges: Charge[]
   cancellationFeeCents: number | null
@@ -94,10 +113,21 @@ export type Conflict = {
   departure: string
 }
 
+// Andere Buchung mit derselben Gästeblattnummer (PROJ-30), auch storniert
+export type GuestSheetDuplicate = {
+  id: string
+  kind: BookingKind
+  number: string | null
+  guestName: string | null
+  cancelled: boolean
+}
+
 export type BookingWarnings = {
   conflicts: Conflict[]
   // Personen über der Kapazität bzw. Erwachsene über der Erwachsenen-Grenze der Wohnung (PROJ-27)
   overCapacity: { persons: number; maxGuests: number; adults: number; maxAdults: number | null } | null
+  // Übergehbar für Inhaber und Mitarbeiter (eigene Bestätigung)
+  guestSheetDuplicates: GuestSheetDuplicate[]
 }
 
 export type Booking = {
@@ -106,8 +136,10 @@ export type Booking = {
   channel: BookingChannel
   number: string | null
   apartment: { id: string; label: string; maxGuests: number; archived: boolean }
-  // ISO-Datum; die Abreise ist nicht mehr belegt (Wechseltag)
+  // ISO-Datum; die Abreise ist nicht mehr belegt (Wechseltag). `departure` ist die tatsächliche Abreise und
+  // bestimmt die Belegung; `plannedDeparture` die vereinbarte (PROJ-30). Bei Sperren gleich.
   arrival: string
+  plannedDeparture: string
   departure: string
   checkIn: string
   checkOut: string
@@ -116,6 +148,11 @@ export type Booking = {
   childAges: number[]
   blockReason: BlockReason | null
   optionUntil: string | null
+  // Meldedaten und Quelle (PROJ-30); bei Sperren leer bzw. Standard
+  guestSheetNumber: string | null
+  residenceRegistered: boolean
+  source: BookingSource
+  sourceCustom: string | null
   note: string | null
   cancelledAt: string | null
   cancelledBy: string | null
@@ -124,8 +161,8 @@ export type Booking = {
   overrideBy: string | null
   priceReview: boolean
   companions: Companion[]
-  // null für Mitarbeiter und bei Sperren
-  amounts: BookingAmounts | null
+  // null für Mitarbeiter und bei Sperren; dazu der abgerechnete Übernachtungspreis (vom Server berechnet)
+  amounts: (BookingAmounts & { billedNightsCents: number }) | null
   // Aktuelle Überschneidungen (berechnet)
   conflicts: Conflict[]
   updatedAt: string
@@ -141,6 +178,8 @@ export type BookingRow = {
   departure: string
   guestName: string | null
   blockReason: BlockReason | null
+  guestSheetNumber: string | null
+  source: BookingSource
   persons: number
   state: BookingState
   optionUntil: string | null
@@ -156,6 +195,7 @@ export type BookingFilters = {
   apartment: string | null
   kind: BookingKind | null
   state: BookingState | null
+  source: BookingSource | null
   query: string
 }
 
@@ -224,6 +264,25 @@ export function overCapacity(
   return tooMany ? { persons, maxGuests, adults, maxAdults } : null
 }
 
+// ---- Abreise geplant / tatsächlich (PROJ-30) ----------------------------------------------------
+
+// Abzurechnende Nächte: bis zur späteren der beiden Abreisen (frühere Abreise → voller gebuchter Zeitraum)
+export const billableNights = (b: { arrival: string; plannedDeparture: string; departure: string }) =>
+  nightsBetween(b.arrival, b.departure > b.plannedDeparture ? b.departure : b.plannedDeparture)
+
+// Ortstaxe-Nächte (für PROJ-16): bis zur tatsächlichen Abreise
+export const taxNights = (b: { arrival: string; departure: string }) => nightsBetween(b.arrival, b.departure)
+
+// Abgerechneter Übernachtungspreis: vereinbarter Preis anteilig auf die abzurechnenden Nächte, kaufmännisch auf Cent.
+// Gleiche Regel in der Datenbank (save_booking). Ganzzahlig gerechnet: 33333 × 4 / 3 = 44444.
+export function billedNightsCents(agreedCents: number, plannedNights: number, billable: number): number {
+  if (plannedNights < 1 || billable <= plannedNights) return agreedCents
+  return Math.round((agreedCents * billable) / plannedNights)
+}
+
+// Gästeblattnummer vergleichen: ohne Rand-Leerzeichen, Groß/Klein egal
+export const guestSheetKey = (value: string | null) => (value ?? '').trim().toLocaleLowerCase('de')
+
 export const chargesCents = (charges: readonly Charge[]) => charges.reduce((sum, c) => sum + c.amountCents, 0)
 
 // Endbetrag = Übernachtungen + Zusatzkosten (nie gespeichert; die Ortstaxe kommt in PROJ-16 dazu)
@@ -270,26 +329,40 @@ export const touchesMonth = (b: { arrival: string; departure: string }, month: s
 
 const isKind = (v: string): v is BookingKind => (BOOKING_KINDS as readonly string[]).includes(v)
 const isState = (v: string): v is BookingState => (BOOKING_STATES as readonly string[]).includes(v)
+const isSource = (v: string): v is BookingSource => (BOOKING_SOURCES as readonly string[]).includes(v)
 
 // Adresswerte (deutsch) ↔ interne Werte
 const KIND_PARAM: Record<BookingKind, string> = { booking: 'buchung', option: 'option', block: 'sperre' }
 const STATE_PARAM: Record<BookingState, string> = { active: 'aktiv', expired: 'verfallen', cancelled: 'storniert' }
+const SOURCE_PARAM: Record<BookingSource, string> = {
+  website: 'website',
+  instagram: 'instagram',
+  google_ads: 'google-ads',
+  newsletter: 'newsletter',
+  referral: 'empfehlung',
+  platform_search: 'plattform-suche',
+  booking_com: 'booking-com',
+  custom: 'eigene',
+  none: 'keine',
+}
 const fromParam = <K extends string>(map: Record<K, string>, value: string): K | null =>
   (Object.entries(map) as [K, string][]).find(([, v]) => v === value)?.[0] ?? null
 
-// Gelesene Filter aus der Adresse (?monat, wohnung, art, zustand, q) – ungültige Werte werden ignoriert
+// Gelesene Filter aus der Adresse (?monat, wohnung, art, zustand, quelle, q) – ungültige Werte werden ignoriert
 export function parseBookingFilters(params: Record<string, string | string[] | undefined>, today: string = todayIso()): BookingFilters {
   const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? ''
   const month = first(params.monat)
   const apartment = first(params.wohnung)
   const kind = fromParam(KIND_PARAM, first(params.art))
   const state = fromParam(STATE_PARAM, first(params.zustand))
+  const source = fromParam(SOURCE_PARAM, first(params.quelle))
   return {
     month: MONTH.test(month) ? month : currentMonth(today),
     apartment: /^[0-9a-f-]{36}$/i.test(apartment) ? apartment : null,
     kind: kind && isKind(kind) ? kind : null,
     // „aktiv“ ist der Standard (ohne Filter)
     state: state && isState(state) && state !== 'active' ? state : null,
+    source: source && isSource(source) ? source : null,
     query: first(params.q).trim().slice(0, 100),
   }
 }
@@ -301,6 +374,7 @@ export function bookingListHref(filters: Partial<BookingFilters>, today: string 
   if (filters.apartment) params.set('wohnung', filters.apartment)
   if (filters.kind) params.set('art', KIND_PARAM[filters.kind])
   if (filters.state) params.set('zustand', STATE_PARAM[filters.state])
+  if (filters.source) params.set('quelle', SOURCE_PARAM[filters.source])
   if (filters.query) params.set('q', filters.query)
   const search = params.toString()
   return search ? `/buchungen?${search}` : '/buchungen'
@@ -312,5 +386,7 @@ export function filterRows(rows: BookingRow[], filters: BookingFilters, allMonth
     .filter((r) => allMonths || touchesMonth(r, filters.month))
     .filter((r) => !filters.apartment || r.apartmentId === filters.apartment)
     .filter((r) => !filters.kind || r.kind === filters.kind)
+    // Quelle gibt es nur bei Buchungen und Optionen
+    .filter((r) => !filters.source || (r.kind !== 'block' && r.source === filters.source))
     .filter((r) => (filters.state ? r.state === filters.state : r.state === 'active'))
 }

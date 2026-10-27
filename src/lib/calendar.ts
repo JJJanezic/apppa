@@ -1,7 +1,7 @@
 // Belegungskalender (PROJ-9): Typen und reine Regeln für Browser und Server.
 // Lesefunktion: src/lib/calendar-data.ts (nur Server), Oberfläche: src/components/calendar/.
 
-import { addDays, type BlockReason, type BookingChannel, type BookingKind, currentMonth, isIsoDate, monthRange, nightsBetween } from '@/lib/bookings'
+import { addDays, type BlockReason, type BookingChannel, type BookingKind, type BookingSource, currentMonth, isIsoDate, monthRange, nightsBetween } from '@/lib/bookings'
 
 export type CalendarView = 'timeline' | 'month'
 // Dashboard-Abschnitt oder Vollbild-Seite /belegung
@@ -25,6 +25,8 @@ export type CalendarEntry = {
   apartmentId: string
   kind: BookingKind
   channel: BookingChannel
+  // Buchungsquelle (PROJ-30): „booking_com“ färbt den Eintrag in der booking.com-Farbe
+  source: BookingSource
   // ISO-Datum; die Abreise ist nicht mehr belegt (Wechseltag)
   arrival: string
   departure: string

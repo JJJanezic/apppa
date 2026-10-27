@@ -4,20 +4,21 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { Plus, Trash, WarningCircle } from '@phosphor-icons/react'
 import { useRouter } from 'next/navigation'
 import { useLocale, useTranslations } from 'next-intl'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useFieldArray, useForm, useWatch } from 'react-hook-form'
 import { toast } from 'sonner'
 
 import { saveBooking } from '@/app/(app)/buchungen/actions'
 import { checkGuestDuplicates } from '@/app/(app)/gaeste/actions'
 import { callAction, FormError } from '@/components/auth/form-error'
-import { BookingWarningsAlert, hasWarnings } from '@/components/bookings/booking-warnings'
+import { BookingWarningsAlert, GuestSheetWarning, hasGuestSheetDuplicates, hasWarnings } from '@/components/bookings/booking-warnings'
 import { useBookingWarnings } from '@/components/bookings/use-booking-warnings'
 import { DetailPanel } from '@/components/detail-panel'
 import { GuestFields } from '@/components/guests/guest-fields'
 import { GuestPicker } from '@/components/guests/guest-picker'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -28,9 +29,12 @@ import { personPriceGroups } from '@/lib/apartments'
 import {
   addDays,
   amountInput,
+  billableNights,
+  billedNightsCents,
   type BookableApartment,
   type Booking,
   bookingHref,
+  BOOKING_SOURCES,
   CHARGE_SUGGESTIONS,
   isIsoDate,
   LIMITS,
@@ -82,9 +86,14 @@ function initialValues(
       kind: booking.kind === 'option' ? 'option' : 'booking',
       apartmentId: booking.apartment.id,
       arrival: booking.arrival,
+      plannedDeparture: booking.plannedDeparture,
       departure: booking.departure,
       checkIn: booking.checkIn,
       checkOut: booking.checkOut,
+      guestSheetNumber: booking.guestSheetNumber ?? '',
+      residenceRegistered: booking.residenceRegistered,
+      source: booking.source,
+      sourceCustom: booking.sourceCustom ?? '',
       guestMode: 'existing',
       guestId: booking.guest?.id ?? '',
       adults: String(booking.adults),
@@ -102,9 +111,14 @@ function initialValues(
     kind: 'booking',
     apartmentId: only?.id ?? '',
     arrival: defaults?.arrival ?? '',
+    plannedDeparture: defaults ? addDays(defaults.arrival, 1) : '',
     departure: defaults ? addDays(defaults.arrival, 1) : '',
     checkIn: only?.checkIn ?? '15:00',
     checkOut: only?.checkOut ?? '10:00',
+    guestSheetNumber: '',
+    residenceRegistered: false,
+    source: 'none',
+    sourceCustom: '',
     guestMode: 'existing',
     guestId: '',
     adults: '1',
@@ -119,7 +133,8 @@ function initialValues(
 
 // Detail-Panel „Neue Buchung / Buchung bearbeiten“ (PROJ-8). Gast suchen oder neu anlegen (Bausteine aus PROJ-7),
 // Personen mit Kinderalter, Preis mit Vorschlag und Zusatzkosten (nur Inhaber), Warnung bei Überschneidung oder
-// Überbelegung (Inhaber dürfen bewusst übersteuern).
+// Überbelegung (Inhaber dürfen bewusst übersteuern). PROJ-30: geplante und tatsächliche Abreise, Gästeblattnummer
+// (Doppelung übergehbar für alle), „Wohnsitz angemeldet“ und Buchungsquelle.
 export function BookingPanel({ open, onOpenChange, apartments, booking, owner, today, defaults, afterCreate = 'open' }: BookingPanelProps) {
   const t = useTranslations('bookings')
   const tv = useTranslations('bookings.validation')
@@ -130,6 +145,9 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
   const [error, setError] = useState<string | null>(null)
   const [stale, setStale] = useState(false)
   const [override, setOverride] = useState<{ version: string } | null>(null)
+  const [sheetOverride, setSheetOverride] = useState<{ version: string } | null>(null)
+  // „Abreise“ läuft mit „Abreise geplant“ mit, bis sie von Hand geändert wird (beim Bearbeiten nur, wenn beide gleich sind)
+  const [departureFollows, setDepartureFollows] = useState(!booking || booking.departure === booking.plannedDeparture)
   const [picked, setPicked] = useState<PickedGuest | null>(booking?.guest ?? null)
   // Wurde der Preis von Hand geändert? Dann wird ein neuer Vorschlag nur angeboten (Spec)
   const [priceTouched, setPriceTouched] = useState(Boolean(booking))
@@ -147,10 +165,11 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
   const children = useFieldArray({ control: form.control, name: 'children' })
   const charges = useFieldArray({ control: form.control, name: 'charges' })
 
-  const [kind, apartmentId, arrival, departure, guestMode, adults, childRows, nightsPrice, chargeRows] = useWatch({
-    control: form.control,
-    name: ['kind', 'apartmentId', 'arrival', 'departure', 'guestMode', 'adults', 'children', 'nightsPrice', 'charges'],
-  })
+  const [kind, apartmentId, arrival, plannedDeparture, departure, guestMode, adults, childRows, nightsPrice, chargeRows, source, guestSheetNumber] =
+    useWatch({
+      control: form.control,
+      name: ['kind', 'apartmentId', 'arrival', 'plannedDeparture', 'departure', 'guestMode', 'adults', 'children', 'nightsPrice', 'charges', 'source', 'guestSheetNumber'],
+    })
   const guestValues = JSON.stringify(useWatch({ control: guestForm.control }))
   const visibleDuplicates = duplicates && duplicates.values === guestValues ? duplicates.matches : null
 
@@ -158,7 +177,11 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
   const options = apartments.filter((a) => !a.archived || a.id === booking?.apartment.id)
   const apartment = apartments.find((a) => a.id === apartmentId) ?? null
   const periodOk = isIsoDate(arrival) && isIsoDate(departure) && arrival < departure
-  const nights = periodOk ? nightsBetween(arrival, departure) : 0
+  const plannedOk = isIsoDate(arrival) && isIsoDate(plannedDeparture) && arrival < plannedDeparture
+  // Vorschlag und vereinbarter Preis gelten für den geplanten Zeitraum (PROJ-30)
+  const nights = plannedOk ? nightsBetween(arrival, plannedDeparture) : 0
+  const stayNights = periodOk ? nightsBetween(arrival, departure) : 0
+  const billable = plannedOk && periodOk ? billableNights({ arrival, plannedDeparture, departure }) : 0
   const adultCount = Number(adults) || 0
   const persons = adultCount + childRows.length
   // Alter der Kinder; solange eines fehlt oder ungültig ist, bleibt der bisherige Vorschlag stehen (undefined)
@@ -172,15 +195,29 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
   const tooHigh = hasPricing && nights > 0 && agesComplete && suggestion === null
   const groups = apartment?.priceMode === 'person' && agesComplete ? personPriceGroups(apartment, adultCount, childAges as number[]) : null
 
-  const { warnings, version, recheck } = useBookingWarnings({ id: booking?.id ?? null, apartmentId, arrival, departure, persons, adults: adultCount })
+  // Belegung nach der tatsächlichen Abreise
+  const { warnings, version, recheck } = useBookingWarnings({
+    id: booking?.id ?? null,
+    apartmentId,
+    arrival,
+    departure,
+    persons,
+    adults: adultCount,
+    guestSheetNumber,
+  })
   const warn = hasWarnings(warnings)
   const overrideOk = owner && override?.version === version
-  const blocked = warn && !overrideOk
+  const sheetWarn = hasGuestSheetDuplicates(warnings)
+  const sheetOk = sheetOverride?.version === version
+  const blocked = (warn && !overrideOk) || (sheetWarn && !sheetOk)
 
-  const total = useMemo(() => {
-    const cents = [nightsPrice, ...chargeRows.map((c) => c.amount)].map((v) => parseAmountCents(v ?? ''))
-    return cents.every((c) => c === null || !Number.isNaN(c)) ? cents.reduce<number>((s, c) => s + (c ?? 0), 0) : null
-  }, [nightsPrice, chargeRows])
+  // Vereinbarter Preis → abgerechneter Preis (anteilig bei Verlängerung); verbindlich rechnet der Server
+  const agreedCents = parseAmountCents(nightsPrice ?? '')
+  const billedCents =
+    agreedCents !== null && !Number.isNaN(agreedCents) && nights > 0 && billable > 0 ? billedNightsCents(agreedCents, nights, billable) : agreedCents
+  const extended = billable > nights && nights > 0
+  const totalParts = [billedCents, ...chargeRows.map((c) => parseAmountCents(c.amount ?? ''))]
+  const total = totalParts.every((c) => c === null || !Number.isNaN(c)) ? totalParts.reduce<number>((sum, c) => sum + (c ?? 0), 0) : null
 
   // Neuer Vorschlag nach Änderung von Wohnung, Zeitraum oder Personen: übernehmen, solange der Preis nicht von Hand
   // geändert wurde (sonst nur „Neuen Vorschlag übernehmen“). Wohnung ohne Preis oder Rechnung über dem Höchstbetrag:
@@ -208,8 +245,11 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
     }
   }
 
-  function onPeriod(field: 'arrival' | 'departure', value: string) {
-    form.setValue(field, value, { shouldValidate: form.formState.isSubmitted })
+  function onPeriod(field: 'arrival' | 'plannedDeparture' | 'departure', value: string) {
+    const validate = { shouldValidate: form.formState.isSubmitted }
+    form.setValue(field, value, validate)
+    if (field === 'plannedDeparture' && departureFollows) form.setValue('departure', value, validate)
+    if (field === 'departure') setDepartureFollows(false)
   }
 
   async function save(values: BookingInput, forceNewGuest = false) {
@@ -229,14 +269,14 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
     }
     if (blocked) return
     const result = await callAction(() =>
-      saveBooking({ id: booking?.id, updatedAt: booking?.updatedAt, values, newGuest, confirmOverride: overrideOk })
+      saveBooking({ id: booking?.id, updatedAt: booking?.updatedAt, values, newGuest, confirmOverride: overrideOk, confirmGuestSheet: sheetOk })
     )
     if (!result.ok) {
       if (result.error === 'staleBooking') setStale(true)
       else {
         setError(result.error)
         // Inzwischen neue Überschneidung (z. B. gleichzeitig angelegt): Warnung neu laden
-        if (result.error === 'warnings' || result.error === 'ownerOnly') recheck()
+        if (result.error === 'warnings' || result.error === 'ownerOnly' || result.error === 'guestSheetDuplicate') recheck()
       }
       return
     }
@@ -343,8 +383,9 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
             )}
           />
 
-          <div className="grid grid-cols-2 gap-3">
-            {(['arrival', 'departure'] as const).map((name) => (
+          {/* Reihenfolge Anreise → Abreise geplant → Abreise (PROJ-30) */}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {(['arrival', 'plannedDeparture', 'departure'] as const).map((name) => (
               <FormField
                 key={name}
                 control={form.control}
@@ -355,7 +396,7 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
                     <FormControl>
                       <Input
                         type="date"
-                        min={name === 'departure' && isIsoDate(arrival) ? addDays(arrival, 1) : undefined}
+                        min={name !== 'arrival' && isIsoDate(arrival) ? addDays(arrival, 1) : undefined}
                         className="min-h-11"
                         {...field}
                         onChange={(e) => onPeriod(name, e.target.value)}
@@ -366,6 +407,8 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
                 )}
               />
             ))}
+          </div>
+          <div className="grid grid-cols-2 gap-3">
             {(['checkIn', 'checkOut'] as const).map((name) => (
               <FormField
                 key={name}
@@ -383,11 +426,61 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
               />
             ))}
           </div>
-          {nights > 0 && (
+          {stayNights > 0 && (
             <p className="-mt-3 text-sm text-ds-neutral-800" aria-live="polite">
-              {t('nightsCount', { nights })}
+              {t('nightsCount', { nights: stayNights })}
+              {nights > 0 && departure !== plannedDeparture && <> · {t('panel.plannedNights', { nights })}</>}
             </p>
           )}
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <FormField
+              control={form.control}
+              name="source"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('panel.source')}</FormLabel>
+                  <Select
+                    value={field.value}
+                    onValueChange={(v) => {
+                      field.onChange(v)
+                      // Wechsel weg von „Eigene Angabe“ verwirft den Freitext
+                      if (v !== 'custom') form.setValue('sourceCustom', '')
+                    }}
+                  >
+                    <FormControl>
+                      <SelectTrigger className="min-h-11">
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {BOOKING_SOURCES.map((s) => (
+                        <SelectItem key={s} value={s} className="min-h-11">
+                          {t(`source.${s}`)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            {source === 'custom' && (
+              <FormField
+                control={form.control}
+                name="sourceCustom"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('panel.sourceCustom')}</FormLabel>
+                    <FormControl>
+                      <Input maxLength={LIMITS.sourceCustomMax} autoComplete="off" className="min-h-11" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+          </div>
 
           <fieldset className="flex flex-col gap-4">
             <legend className="mb-2 text-sm font-semibold">{t('panel.guest')}</legend>
@@ -526,6 +619,40 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
             </Button>
           </fieldset>
 
+          <fieldset className="flex flex-col gap-4">
+            <legend className="mb-2 text-sm font-semibold">{t('panel.registration')}</legend>
+            <FormField
+              control={form.control}
+              name="guestSheetNumber"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('panel.guestSheetNumber')}</FormLabel>
+                  <FormControl>
+                    {/* Ohne maxLength: zu lange Nummern meldet die Prüfung (Spec) */}
+                    <Input autoComplete="off" className="min-h-11 w-56" {...field} />
+                  </FormControl>
+                  <FormDescription>{t('panel.guestSheetNumberHint')}</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="residenceRegistered"
+              render={({ field }) => (
+                <FormItem className="flex items-start gap-3">
+                  <FormControl>
+                    <Checkbox checked={field.value} onCheckedChange={(v) => field.onChange(v === true)} className="mt-0.5 size-5" />
+                  </FormControl>
+                  <div className="flex flex-col gap-0.5">
+                    <FormLabel className="font-normal">{t('panel.residenceRegistered')}</FormLabel>
+                    <FormDescription>{t('panel.residenceRegisteredHint')}</FormDescription>
+                  </div>
+                </FormItem>
+              )}
+            />
+          </fieldset>
+
           {owner ? (
             <fieldset className="flex flex-col gap-4">
               <legend className="mb-2 text-sm font-semibold">{t('panel.price')}</legend>
@@ -562,6 +689,14 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
                       </FormDescription>
                     )}
                     {apartment && !hasPricing && <FormDescription>{t('panel.noDefaultPrice')}</FormDescription>}
+                    {extended && agreedCents !== null && !Number.isNaN(agreedCents) && billedCents !== null && (
+                      <FormDescription className="text-ds-text" aria-live="polite">
+                        {t('panel.extension', { agreed: euro(agreedCents), nights, billable, billed: euro(billedCents) })}
+                      </FormDescription>
+                    )}
+                    {!extended && nights > 0 && stayNights > 0 && stayNights < nights && (
+                      <FormDescription>{t('panel.earlyDeparture', { nights })}</FormDescription>
+                    )}
                     {tooHigh && <FormDescription>{t('panel.suggestionTooHigh')}</FormDescription>}
                     {priceTouched && typeof suggestion === 'number' && parseAmountCents(nightsPrice) !== suggestion && (
                       <Button
@@ -651,6 +786,14 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
               </FormItem>
             )}
           />
+
+          {sheetWarn && (
+            <GuestSheetWarning
+              duplicates={warnings.guestSheetDuplicates}
+              confirmed={sheetOk}
+              onConfirmedChange={(v) => setSheetOverride(v ? { version } : null)}
+            />
+          )}
 
           {warn && (
             <BookingWarningsAlert

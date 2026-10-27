@@ -1,6 +1,6 @@
 # PROJ-30: Buchungs-Erweiterung: Meldedaten, Buchungsquelle, Monatsauswahl
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-10-26
 **Last Updated:** 2026-10-27
 
@@ -319,6 +319,33 @@ Eine Migration: neue Spalten mit Standardwerten, Befüllen von „Abreise geplan
 
 ### F) Pakete
 Keine neuen Pakete. Genutzt werden vorhandene shadcn/ui-Bausteine (Popover, Select, Checkbox, Input, Label, Button).
+
+## Implementation Notes (Frontend)
+**Stand 2026-10-27.** Die Oberfläche ist fertig. **Ohne die Migration aus `/backend` schlagen Buchungsliste, Buchungs-Detail, Gast-Detail und Kalender beim Laden fehl**, weil sie die neuen Spalten abfragen (wie bei PROJ-28/29).
+
+**Daten und Regeln**
+- Spalten `bookings`: `planned_departure` (Abreise geplant), `departure` (bleibt, = tatsächliche Abreise), `guest_sheet_number`, `residence_registered`, `source`, `source_custom`; `booking_amounts.billed_nights_cents`. `src/types/database.ts` von Hand ergänzt (inkl. `p_guest_sheet_number` in `booking_warnings`); `/backend` erzeugt die Typen neu.
+- `src/lib/bookings.ts`: `BOOKING_SOURCES`, `billableNights` (bis zur späteren Abreise), `taxNights` (bis zur tatsächlichen, für PROJ-16), `billedNightsCents` (anteilig, kaufmännisch auf Cent), `guestSheetKey` (Groß/Klein, Rand-Leerzeichen egal), Filter `quelle` in der Adresse (`booking-com`, `google-ads`, `empfehlung`, `plattform-suche`, `eigene`, `keine` …). Der Quellen-Filter blendet Sperren immer aus.
+- `src/lib/validation/bookings.ts`: geplante und tatsächliche Abreise je nach der Anreise und höchstens 365 Nächte; Gästeblattnummer höchstens 30 Zeichen, leer → null; Quelle Pflicht mit Standard `none`; Freitext Pflicht bei `custom` (≤ 100), sonst verworfen; „Wohnsitz angemeldet“ als ja/nein.
+
+**Oberfläche**
+- Buchungsformular: Anreise → Abreise geplant → Abreise (Abreise läuft mit, bis sie von Hand geändert wird; beim Bearbeiten nur, wenn beide gleich sind). Buchungsquelle (Auswahl + „Eigene Quelle“), Abschnitt „Meldung“ mit Gästeblattnummer und „Wohnsitz angemeldet“. Preisvorschlag rechnet mit den geplanten Nächten. Bei Verlängerung Hinweis „vereinbart X für N Nächte, abzurechnen M Nächte: Y“, bei früherer Abreise Hinweis auf den vollen Zeitraum; der Endbetrag nutzt den abgerechneten Preis.
+- Warnung „Gästeblattnummer bereits vergeben“ (`GuestSheetWarning`) mit eigener Bestätigung für Inhaber **und** Mitarbeiter; Überschneidungen bleiben Inhabern vorbehalten.
+- Buchungs-Detail: „Abreise geplant“ nur bei Abweichung; Nächte mit „abgerechnet M Nächte“ bei Abweichung; Buchungsquelle (bei „Eigene Angabe“ der Freitext), Gästeblattnummer, „Wohnsitz angemeldet (keine Ortstaxe)“. Preis: abgerechneter Übernachtungspreis, darunter der vereinbarte bei Hochrechnung.
+- Buchungsliste: Gästeblattnummer neben der Buchungsnummer („Gästeblatt A-123“); Suche findet die Gästeblattnummer; neuer Filter „Quelle“.
+- Monatsauswahl: gemeinsamer Baustein `src/components/date-jump.tsx` (shadcn Popover). Buchungsübersicht: vorbelegt mit dem 1. des Monats, Sprung behält alle Filter. Der Belegungskalender nutzt denselben Baustein ohne Vorbelegung (Verhalten unverändert).
+- Kalender: Farbregel `colorChannel` in `entry-style.ts`: Quelle booking.com → Accent-700 (Option: Rahmen Accent-700); Legende „booking.com“.
+- Mitreisende: Reihenfolge Nachname, Vorname; nach „Person hinzufügen“ steht der Fokus im Vornamen (Nachname ist vorbelegt).
+
+**Server-Aktionen**
+- `saveBooking` übergibt `planned_departure`, `departure`, `guest_sheet_number`, `confirm_guest_sheet_number`, `residence_registered`, `source`, `source_custom` und den vereinbarten Preis. Liefert die Datenbank nur die Gästeblatt-Warnung, lautet der Fehler `guestSheetDuplicate` (für alle bestätigbar).
+- `checkBookingWarnings` übergibt `p_guest_sheet_number` und liest `guest_sheet_duplicates`.
+
+**Offen für /backend**
+- Migration: Spalten mit Prüfregeln (Abreise geplant nach Anreise, ≤ 365 Nächte; Nummer ≤ 30 Zeichen, getrimmt, nicht leer; Quelle-Werte; Freitext genau bei `custom`, ≤ 100; Sperren: geplant = tatsächlich, Quelle `none`, keine Nummer, Häkchen aus). Befüllen: `planned_departure = departure`, `billed_nights_cents = nights_cents`. Index auf `(tenant_id, lower(guest_sheet_number))`.
+- `save_booking`: neue Felder; `billed_nights_cents` für Inhaber und Mitarbeiter berechnen; Vorschlag mit geplanten Nächten; „Preis prüfen“ nur bei Änderung von Anreise, geplanter Abreise, Wohnung bzw. Personen (Personenpreis); Gästeblatt-Doppelung als Warnung `guest_sheet_duplicates`, übergehbar mit `confirm_guest_sheet_number` (alle Mitglieder), Überschneidung weiter nur Inhaber.
+- `save_block`: geplante = tatsächliche Abreise setzen. `public.booking_warnings`/`private.booking_warnings_for`: Parameter `p_guest_sheet_number`, Ergebnis `guest_sheet_duplicates` (`id, kind, number, guest_name, cancelled`, nur eigenes Konto, auch storniert, ohne die eigene Buchung).
+- Bestehende E2E-Tests (PROJ-8, PROJ-9, PROJ-27, PROJ-29) füllen „Abreise“ als einziges Abreisefeld bzw. nutzen `getByLabel('Abreise')` ohne `exact`: in `/qa` auf „Abreise geplant“ umstellen.
 
 ## QA Test Results
 _To be added by /qa_

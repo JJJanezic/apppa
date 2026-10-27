@@ -139,6 +139,7 @@ export type Database = {
       }
       booking_amounts: {
         Row: {
+          billed_nights_cents: number
           cancellation_fee_cents: number | null
           created_at: string
           created_by: string | null
@@ -149,6 +150,7 @@ export type Database = {
           updated_by: string | null
         }
         Insert: {
+          billed_nights_cents?: number
           cancellation_fee_cents?: number | null
           created_at?: string
           created_by?: string | null
@@ -159,6 +161,7 @@ export type Database = {
           updated_by?: string | null
         }
         Update: {
+          billed_nights_cents?: number
           cancellation_fee_cents?: number | null
           created_at?: string
           created_by?: string | null
@@ -338,6 +341,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           departure: string
+          guest_sheet_number: string | null
           guest_id: string | null
           id: string
           kind: string
@@ -346,9 +350,13 @@ export type Database = {
           number_seq: number | null
           number_year: number | null
           option_until: string | null
+          planned_departure: string
           override_at: string | null
           override_by: string | null
           price_review: boolean
+          residence_registered: boolean
+          source: string
+          source_custom: string | null
           tenant_id: string
           updated_at: string
           updated_by: string | null
@@ -368,6 +376,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           departure: string
+          guest_sheet_number?: string | null
           guest_id?: string | null
           id?: string
           kind: string
@@ -376,9 +385,13 @@ export type Database = {
           number_seq?: number | null
           number_year?: number | null
           option_until?: string | null
+          planned_departure: string
           override_at?: string | null
           override_by?: string | null
           price_review?: boolean
+          residence_registered?: boolean
+          source?: string
+          source_custom?: string | null
           tenant_id: string
           updated_at?: string
           updated_by?: string | null
@@ -398,6 +411,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           departure?: string
+          guest_sheet_number?: string | null
           guest_id?: string | null
           id?: string
           kind?: string
@@ -406,9 +420,13 @@ export type Database = {
           number_seq?: number | null
           number_year?: number | null
           option_until?: string | null
+          planned_departure?: string
           override_at?: string | null
           override_by?: string | null
           price_review?: boolean
+          residence_registered?: boolean
+          source?: string
+          source_custom?: string | null
           tenant_id?: string
           updated_at?: string
           updated_by?: string | null
@@ -1069,6 +1087,7 @@ export type Database = {
           p_arrival: string
           p_departure: string
           p_exclude?: string
+          p_guest_sheet_number?: string
           p_persons: number
           p_tenant_id: string
         }

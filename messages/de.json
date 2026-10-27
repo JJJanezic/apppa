@@ -941,16 +941,32 @@
       "previous": "Vorheriger Monat",
       "next": "Nächster Monat",
       "today": "Heute",
-      "label": "Angezeigter Monat"
+      "label": "Angezeigter Monat",
+      "pickDate": "Monat wählen",
+      "pickDateLabel": "Springen zu",
+      "jump": "Springen"
     },
     "searchLabel": "Buchungen durchsuchen",
-    "searchPlaceholder": "Gast oder Buchungsnummer",
+    "searchPlaceholder": "Gast, Buchungs- oder Gästeblattnummer",
     "filterApartment": "Wohnung",
     "allApartments": "Alle Wohnungen",
     "filterKind": "Art",
     "allKinds": "Alle Arten",
     "filterState": "Zustand",
     "onlyActive": "Nur aktive",
+    "filterSource": "Quelle",
+    "allSources": "Alle Quellen",
+    "source": {
+      "website": "Website",
+      "instagram": "Instagram",
+      "google_ads": "Google Ads",
+      "newsletter": "Newsletter",
+      "referral": "Empfehlung",
+      "platform_search": "Plattform-Suche",
+      "booking_com": "booking.com",
+      "custom": "Eigene Angabe",
+      "none": "Keine Angabe"
+    },
     "kind": {
       "booking": "Buchung",
       "option": "Option",
@@ -985,6 +1001,7 @@
     },
     "nightsCount": "{nights, plural, one {# Nacht} other {# Nächte}}",
     "personsCount": "{persons, plural, one {# Person} other {# Personen}}",
+    "guestSheetShort": "Gästeblatt {number}",
     "optionUntil": "Option bis {date}",
     "overlapping": "überschneidet sich",
     "priceReview": "Preis prüfen",
@@ -992,8 +1009,10 @@
     "detail": {
       "stay": "Aufenthalt",
       "arrival": "Anreise",
+      "plannedDeparture": "Abreise geplant",
       "departure": "Abreise",
       "nights": "Nächte",
+      "billableNights": "abgerechnet {nights, plural, one {# Nacht} other {# Nächte}}",
       "persons": "Personen",
       "personsValue": "{persons} ({adults} Erwachsene, {children, plural, one {# Kind} other {# Kinder}})",
       "personsAdultsOnly": "{persons, plural, one {# Erwachsener} other {# Erwachsene}}",
@@ -1001,6 +1020,10 @@
       "agesValue": "{ages} Jahre",
       "channel": "Kanal",
       "channelDirect": "Direkt",
+      "source": "Buchungsquelle",
+      "guestSheetNumber": "Gästeblattnummer",
+      "residence": "Wohnsitz",
+      "residenceRegistered": "Wohnsitz angemeldet (keine Ortstaxe)",
       "guest": "Hauptgast",
       "openGuest": "Gast öffnen",
       "country": "Herkunft",
@@ -1010,6 +1033,7 @@
       "editCompanions": "Mitreisende bearbeiten",
       "price": "Preis",
       "nightsPrice": "Übernachtungen",
+      "extension": "Vereinbart {agreed} für {nights, plural, one {# Nacht} other {# Nächte}}, anteilig auf {billable, plural, one {# Nacht} other {# Nächte}} hochgerechnet.",
       "total": "Endbetrag",
       "taxNote": "Die Ortstaxe kommt getrennt dazu.",
       "cancellationFee": "Stornogebühr",
@@ -1042,9 +1066,18 @@
       "apartmentPlaceholder": "Wohnung wählen",
       "archived": "{label} (archiviert)",
       "arrival": "Anreise",
+      "plannedDeparture": "Abreise geplant",
       "departure": "Abreise",
       "checkIn": "Check-in",
       "checkOut": "Check-out",
+      "plannedNights": "geplant {nights, plural, one {# Nacht} other {# Nächte}}",
+      "source": "Buchungsquelle",
+      "sourceCustom": "Eigene Quelle",
+      "registration": "Meldung",
+      "guestSheetNumber": "Gästeblattnummer (optional)",
+      "guestSheetNumberHint": "Kann jederzeit nachgetragen werden, z. B. beim Check-in.",
+      "residenceRegistered": "Wohnsitz angemeldet",
+      "residenceRegisteredHint": "Für diesen Aufenthalt ist keine Ortstaxe zu entrichten.",
       "guest": "Hauptgast",
       "guestExisting": "Bestehender Gast",
       "guestNew": "Neuer Gast",
@@ -1063,6 +1096,8 @@
       "suggestionPersons": "Vorschlag: {price} ({nights, plural, one {# Nacht} other {# Nächte}} × ({persons}))",
       "noDefaultPrice": "Die Wohnung hat keinen Preis hinterlegt. Bitte den Preis eingeben.",
       "suggestionTooHigh": "Der rechnerische Preis übersteigt den Höchstbetrag von € 1.000.000. Bitte den Preis eingeben.",
+      "extension": "Verlängert: vereinbart {agreed} für {nights, plural, one {# Nacht} other {# Nächte}}, abzurechnen {billable, plural, one {# Nacht} other {# Nächte}}: {billed}",
+      "earlyDeparture": "Frühere Abreise: abgerechnet wird der volle gebuchte Zeitraum ({nights, plural, one {# Nacht} other {# Nächte}}).",
       "takeSuggestion": "Neuen Vorschlag {price} übernehmen",
       "charges": "Zusatzkosten",
       "addCharge": "Position hinzufügen",
@@ -1091,7 +1126,10 @@
       "capacityAdults": "{adults, plural, one {# Erwachsener} other {# Erwachsene}}, die Wohnung ist für höchstens {max, plural, one {# Erwachsenen} other {# Erwachsene}} ausgelegt.",
       "override": "Trotzdem speichern",
       "overrideHint": "Ich habe die Warnung gelesen und speichere bewusst.",
-      "staffBlocked": "So lässt sich nicht speichern. Bitte Zeitraum oder Personen ändern oder den Inhaber fragen."
+      "staffBlocked": "So lässt sich nicht speichern. Bitte Zeitraum oder Personen ändern oder den Inhaber fragen.",
+      "guestSheetTitle": "Gästeblattnummer bereits vergeben",
+      "guestSheetText": "Diese Nummer ist in deinem Konto schon einer anderen Buchung zugeordnet:",
+      "guestSheetHint": "Ich habe die Nummer geprüft und speichere sie bewusst ein weiteres Mal."
     },
     "block": {
       "createTitle": "Neue Sperre",
@@ -1165,7 +1203,8 @@
       "notImplemented": "Diese Funktion wird gerade eingerichtet.",
       "unknown": "Etwas ist schiefgelaufen. Bitte versuche es erneut.",
       "tooManyCompanions": "Es sind mehr Mitreisende erfasst, als die Personenzahl zulässt. Bitte zuerst Mitreisende entfernen.",
-      "documentImageMissing": "Ein Ausweisbild ist nicht mehr verfügbar. Bitte lade es erneut hoch und speichere noch einmal."
+      "documentImageMissing": "Ein Ausweisbild ist nicht mehr verfügbar. Bitte lade es erneut hoch und speichere noch einmal.",
+      "guestSheetDuplicate": "Die Gästeblattnummer ist bereits vergeben. Bitte prüfen und „Trotzdem speichern“ bestätigen."
     },
     "validation": {
       "apartmentRequired": "Bitte eine Wohnung wählen.",
@@ -1194,7 +1233,11 @@
       "lastNameRequired": "Bitte den Nachnamen eingeben.",
       "birthDateFuture": "Das Geburtsdatum darf nicht in der Zukunft liegen.",
       "tooManyCompanions": "Zu viele Mitreisende für diese Personenzahl.",
-      "tooLong": "Dieser Text ist zu lang."
+      "tooLong": "Dieser Text ist zu lang.",
+      "plannedDepartureRequired": "Bitte die geplante Abreise eingeben.",
+      "plannedDepartureBeforeArrival": "Die geplante Abreise muss nach der Anreise liegen.",
+      "guestSheetNumberTooLong": "Höchstens 30 Zeichen.",
+      "sourceCustomRequired": "Bitte die Quelle eingeben."
     },
     "notePanel": {
       "title": "Notiz bearbeiten",
@@ -1221,7 +1264,8 @@
     "allProperties": "Alle",
     "legendLabel": "Legende",
     "channel": {
-      "direct": "Direkt"
+      "direct": "Direkt",
+      "bookingCom": "booking.com"
     },
     "legendOption": "Option",
     "legendBlock": "Gesperrt",

@@ -24,7 +24,7 @@ interface CompanionsPanelProps {
   today: string
 }
 
-// Detail-Panel „Mitreisende bearbeiten“ (PROJ-8): je Person Vor-, Nachname und Geburtsdatum,
+// Detail-Panel „Mitreisende bearbeiten“ (PROJ-8): je Person Nach-, Vorname und Geburtsdatum,
 // höchstens Personen minus Hauptgast; jederzeit nachtragbar (z. B. beim Check-in)
 export function CompanionsPanel({ open, onOpenChange, booking, today }: CompanionsPanelProps) {
   const t = useTranslations('bookings.companions')
@@ -69,7 +69,8 @@ export function CompanionsPanel({ open, onOpenChange, booking, today }: Companio
                   {t('person', { n: i + 1 })}
                 </legend>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  {(['firstName', 'lastName'] as const).map((name) => (
+                  {/* Reihenfolge wie beim Hauptgast: Nachname, Vorname (PROJ-30) */}
+                  {(['lastName', 'firstName'] as const).map((name) => (
                     <FormField
                       key={name}
                       control={form.control}
@@ -110,7 +111,10 @@ export function CompanionsPanel({ open, onOpenChange, booking, today }: Companio
                 type="button"
                 variant="outline"
                 className="min-h-11 self-start"
-                onClick={() => rows.append({ firstName: '', lastName: booking.guest?.lastName ?? '', birthDate: '' }, { shouldFocus: true })}
+                onClick={() =>
+                  // Nachname ist mit dem des Hauptgastes vorbelegt: gleich in den Vornamen springen
+                  rows.append({ firstName: '', lastName: booking.guest?.lastName ?? '', birthDate: '' }, { focusName: `companions.${rows.fields.length}.firstName` })
+                }
               >
                 <Plus size={16} aria-hidden="true" />
                 {t('add')}

@@ -4,12 +4,15 @@ import { personPriceGroups } from '@/lib/apartments'
 import {
   addDays,
   amountInput,
+  billableNights,
+  billedNightsCents,
   bookingListHref,
   bookingState,
   type BookingRow,
   filterRows,
   findConflicts,
   formatBookingNumber,
+  guestSheetKey,
   isIsoDate,
   monthRange,
   nightsBetween,
@@ -19,6 +22,7 @@ import {
   rangesOverlap,
   shiftMonth,
   suggestedNightsCents,
+  taxNights,
   todayIso,
   totalCents,
   touchesMonth,
@@ -195,7 +199,7 @@ describe('Monat und Filter', () => {
   })
 
   it('liest Filter aus der Adresse und ignoriert ungültige Werte', () => {
-    expect(parseBookingFilters({}, TODAY)).toEqual({ month: '2026-10', apartment: null, kind: null, state: null, query: '' })
+    expect(parseBookingFilters({}, TODAY)).toEqual({ month: '2026-10', apartment: null, kind: null, state: null, source: null, query: '' })
     expect(parseBookingFilters({ monat: '2027-02', art: 'sperre', zustand: 'storniert', q: ' Huber ' }, TODAY)).toMatchObject({
       month: '2027-02',
       kind: 'block',
@@ -226,6 +230,8 @@ describe('Monat und Filter', () => {
       departure: '2026-10-12',
       guestName: null,
       blockReason: null,
+      guestSheetNumber: null,
+      source: 'none',
       persons: 2,
       state: 'active',
       optionUntil: null,
@@ -240,5 +246,64 @@ describe('Monat und Filter', () => {
     expect(filterRows(rows, { ...base, state: 'cancelled' }, false).map((r) => r.id)).toEqual(['b'])
     expect(filterRows(rows, { ...base, apartment: 'w2' }, false).map((r) => r.id)).toEqual(['d'])
     expect(filterRows(rows, base, true).map((r) => r.id)).toEqual(['a', 'c', 'd'])
+  })
+
+  it('filtert nach Buchungsquelle, Sperren nie (PROJ-30)', () => {
+    const row = (id: string, over: Partial<BookingRow>): BookingRow => ({
+      id,
+      kind: 'booking',
+      number: null,
+      apartmentId: 'w1',
+      apartmentLabel: 'Haus · Top 1',
+      arrival: '2026-10-10',
+      departure: '2026-10-12',
+      guestName: null,
+      blockReason: null,
+      guestSheetNumber: null,
+      source: 'none',
+      persons: 2,
+      state: 'active',
+      optionUntil: null,
+      totalCents: null,
+      overlapping: false,
+      priceReview: false,
+      ...over,
+    })
+    const rows = [row('a', { source: 'booking_com' }), row('b', { kind: 'option', source: 'booking_com' }), row('c', {}), row('d', { kind: 'block' })]
+    const base = parseBookingFilters({}, TODAY)
+    expect(filterRows(rows, { ...base, source: 'booking_com' }, false).map((r) => r.id)).toEqual(['a', 'b'])
+    expect(filterRows(rows, { ...base, source: 'none' }, false).map((r) => r.id)).toEqual(['c'])
+  })
+
+  it('liest und schreibt die Quelle in der Adresse', () => {
+    expect(parseBookingFilters({ quelle: 'booking-com' }, TODAY).source).toBe('booking_com')
+    expect(parseBookingFilters({ quelle: 'airbnb' }, TODAY).source).toBeNull()
+    expect(bookingListHref({ month: '2026-11', source: 'google_ads', state: 'cancelled' }, TODAY)).toBe(
+      '/buchungen?monat=2026-11&zustand=storniert&quelle=google-ads'
+    )
+  })
+})
+
+describe('Abreise geplant / tatsächlich (PROJ-30)', () => {
+  const stay = { arrival: '2026-11-01', plannedDeparture: '2026-11-06' }
+
+  it('rechnet bis zur späteren Abreise ab, die Ortstaxe bis zur tatsächlichen', () => {
+    expect(billableNights({ ...stay, departure: '2026-11-06' })).toBe(5)
+    expect(billableNights({ ...stay, departure: '2026-11-07' })).toBe(6)
+    expect(billableNights({ ...stay, departure: '2026-11-04' })).toBe(5)
+    expect(taxNights({ arrival: stay.arrival, departure: '2026-11-04' })).toBe(3)
+  })
+
+  it('rechnet den vereinbarten Preis bei Verlängerung anteilig hoch, sonst bleibt er', () => {
+    expect(billedNightsCents(50000, 5, 6)).toBe(60000)
+    expect(billedNightsCents(50000, 5, 5)).toBe(50000)
+    expect(billedNightsCents(33333, 3, 4)).toBe(44444)
+    expect(billedNightsCents(10000, 3, 4)).toBe(13333)
+    expect(billedNightsCents(0, 3, 5)).toBe(0)
+  })
+
+  it('vergleicht Gästeblattnummern ohne Groß/Klein und Rand-Leerzeichen', () => {
+    expect(guestSheetKey(' a-123 ')).toBe(guestSheetKey('A-123'))
+    expect(guestSheetKey(null)).toBe('')
   })
 })

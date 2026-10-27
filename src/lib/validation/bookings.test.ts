@@ -11,9 +11,14 @@ const valid: BookingInput = {
   kind: 'booking',
   apartmentId: APARTMENT,
   arrival: '2026-11-01',
+  plannedDeparture: '2026-11-04',
   departure: '2026-11-04',
   checkIn: '15:00',
   checkOut: '10:00',
+  guestSheetNumber: '',
+  residenceRegistered: false,
+  source: 'none',
+  sourceCustom: '',
   guestMode: 'existing',
   guestId: GUEST,
   adults: '2',
@@ -43,18 +48,53 @@ describe('Buchung', () => {
   })
 
   it('verlangt Pflichtfelder beim leeren Formular', () => {
-    const empty = { ...valid, apartmentId: '', arrival: '', departure: '', guestId: '', nightsPrice: '' }
+    const empty = { ...valid, apartmentId: '', arrival: '', plannedDeparture: '', departure: '', guestId: '', nightsPrice: '' }
     expect(messages(empty)).toEqual(
-      expect.arrayContaining(['apartmentId:apartmentRequired', 'arrival:arrivalRequired', 'departure:departureRequired', 'nightsPrice:nightsPriceRequired'])
+      expect.arrayContaining([
+        'apartmentId:apartmentRequired',
+        'arrival:arrivalRequired',
+        'plannedDeparture:plannedDepartureRequired',
+        'departure:departureRequired',
+        'nightsPrice:nightsPriceRequired',
+      ])
     )
   })
 
   it('prüft den Zeitraum', () => {
     expect(messages({ ...valid, departure: '2026-11-01' })).toContain('departure:departureBeforeArrival')
     expect(messages({ ...valid, departure: '2027-11-02' })).toContain('departure:tooManyNights')
-    expect(messages({ ...valid, arrival: '2029-12-01', departure: '2029-12-03' })).toContain('arrival:arrivalTooFar')
+    expect(messages({ ...valid, arrival: '2029-12-01', plannedDeparture: '2029-12-03', departure: '2029-12-03' })).toEqual(['arrival:arrivalTooFar'])
     // Nachtragen vergangener Buchungen ist erlaubt
-    expect(messages({ ...valid, arrival: '2025-01-01', departure: '2025-01-03' })).toEqual([])
+    expect(messages({ ...valid, arrival: '2025-01-01', plannedDeparture: '2025-01-03', departure: '2025-01-03' })).toEqual([])
+  })
+
+  it('prüft geplante und tatsächliche Abreise je für sich (PROJ-30)', () => {
+    expect(messages({ ...valid, plannedDeparture: '2026-10-31' })).toEqual(['plannedDeparture:plannedDepartureBeforeArrival'])
+    expect(messages({ ...valid, departure: '2026-11-01' })).toEqual(['departure:departureBeforeArrival'])
+    // frühere und spätere tatsächliche Abreise sind erlaubt
+    expect(messages({ ...valid, departure: '2026-11-02' })).toEqual([])
+    expect(messages({ ...valid, departure: '2026-11-08' })).toEqual([])
+    const result = bookingSchema(t, { owner: true, today: TODAY }).parse({ ...valid, departure: '2026-11-05' })
+    expect(result).toMatchObject({ plannedDeparture: '2026-11-04', departure: '2026-11-05' })
+  })
+
+  it('Gästeblattnummer: optional, höchstens 30 Zeichen, ohne Rand-Leerzeichen (PROJ-30)', () => {
+    const parse = (guestSheetNumber: string) => bookingSchema(t, { owner: true, today: TODAY }).parse({ ...valid, guestSheetNumber }).guestSheetNumber
+    expect(parse('')).toBeNull()
+    expect(parse('   ')).toBeNull()
+    expect(parse(' A-123 ')).toBe('A-123')
+    expect(messages({ ...valid, guestSheetNumber: 'x'.repeat(30) })).toEqual([])
+    expect(messages({ ...valid, guestSheetNumber: 'x'.repeat(31) })).toEqual(['guestSheetNumber:guestSheetNumberTooLong'])
+  })
+
+  it('Buchungsquelle: Freitext Pflicht bei „Eigene Angabe“, sonst verworfen (PROJ-30)', () => {
+    expect(messages({ ...valid, source: 'custom', sourceCustom: '  ' })).toEqual(['sourceCustom:sourceCustomRequired'])
+    expect(messages({ ...valid, source: 'custom', sourceCustom: 'x'.repeat(101) })).toEqual(['sourceCustom:tooLong'])
+    expect(messages({ ...valid, source: 'airbnb' })).toHaveLength(1)
+    const parse = (input: Partial<BookingInput>) => bookingSchema(t, { owner: true, today: TODAY }).parse({ ...valid, ...input })
+    expect(parse({ source: 'custom', sourceCustom: ' Messe ' })).toMatchObject({ source: 'custom', sourceCustom: 'Messe' })
+    expect(parse({ source: 'booking_com', sourceCustom: 'Messe' })).toMatchObject({ source: 'booking_com', sourceCustom: null })
+    expect(parse({ residenceRegistered: true })).toMatchObject({ residenceRegistered: true })
   })
 
   it('verlangt einen Gast und mindestens einen Erwachsenen', () => {

@@ -1,7 +1,7 @@
 import 'server-only'
 
 import { apartmentLabel } from '@/lib/apartments'
-import { type BlockReason, type BookingChannel, type BookingKind, bookingState, personCount, todayIso } from '@/lib/bookings'
+import { type BlockReason, type BookingChannel, type BookingKind, type BookingSource, bookingState, personCount, todayIso } from '@/lib/bookings'
 import type { CalendarApartment, CalendarEntry } from '@/lib/calendar'
 import { guestDisplayName } from '@/lib/guests'
 import { createClient } from '@/lib/supabase/server'
@@ -25,7 +25,7 @@ export async function getCalendarData(range: { from: string; to: string }): Prom
     supabase.from('apartments').select('id, name, archived_at, property:properties!inner(id, name)').eq('tenant_id', active.id).limit(500),
     supabase
       .from('bookings')
-      .select('id, kind, channel, apartment_id, arrival, departure, adults, child_ages, block_reason, option_until, cancelled_at, guest:guests(last_name, first_name, title_prefix, title_suffix)')
+      .select('id, kind, channel, source, apartment_id, arrival, departure, adults, child_ages, block_reason, option_until, cancelled_at, guest:guests(last_name, first_name, title_prefix, title_suffix)')
       .eq('tenant_id', active.id)
       .is('cancelled_at', null)
       .lt('arrival', range.to)
@@ -58,6 +58,7 @@ export async function getCalendarData(range: { from: string; to: string }): Prom
         apartmentId: e.apartment_id,
         kind: e.kind as BookingKind,
         channel: e.channel as BookingChannel,
+        source: e.source as BookingSource,
         arrival: e.arrival,
         departure: e.departure,
         guestLastName: e.guest?.last_name ?? null,

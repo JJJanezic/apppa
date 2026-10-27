@@ -84,6 +84,8 @@ const revalidate = (id?: string) => {
 type DbWarnings = {
   conflicts: { id: string; kind: string; number: string | null; guest_name: string | null; block_reason: string | null; arrival: string; departure: string }[]
   over_capacity: { persons: number; max_guests: number; adults: number | null; max_adults: number | null } | null
+  // PROJ-30: andere Buchungen des Kunden mit derselben Gästeblattnummer (auch storniert)
+  guest_sheet_duplicates?: { id: string; kind: string; number: string | null; guest_name: string | null; cancelled: boolean }[]
 }
 
 const toWarnings = (w: DbWarnings): BookingWarnings => ({
@@ -104,6 +106,13 @@ const toWarnings = (w: DbWarnings): BookingWarnings => ({
         maxAdults: w.over_capacity.max_adults,
       }
     : null,
+  guestSheetDuplicates: (w?.guest_sheet_duplicates ?? []).map((d) => ({
+    id: d.id,
+    kind: d.kind as BookingKind,
+    number: d.number,
+    guestName: d.guest_name,
+    cancelled: d.cancelled,
+  })),
 })
 
 type SaveResult = { status: 'saved'; id: string } | { status: 'warnings'; warnings: DbWarnings }
@@ -112,21 +121,34 @@ type SaveResult = { status: 'saved'; id: string } | { status: 'warnings'; warnin
 function saved(data: unknown, owner: boolean): Result<{ id: string }> {
   const result = data as SaveResult | null
   if (result?.status === 'saved') return { ok: true, data: { id: result.id } }
+  // Nur die Gästeblattnummer ist doppelt: bestätigen dürfen alle (PROJ-30)
+  const w = result?.status === 'warnings' ? toWarnings(result.warnings) : null
+  if (w && w.conflicts.length === 0 && w.overCapacity === null && w.guestSheetDuplicates.length > 0) return fail('guestSheetDuplicate')
   // Inhaber bestätigen die Warnung, Mitarbeiter dürfen nicht übersteuern
   return fail(owner ? 'warnings' : 'ownerOnly')
 }
 
-type WarningQuery = { id?: string | null; apartmentId: string; arrival: string; departure: string; persons: number; adults: number }
+type WarningQuery = {
+  id?: string | null
+  apartmentId: string
+  arrival: string
+  departure: string
+  persons: number
+  adults: number
+  // PROJ-30: Doppelungsprüfung der Gästeblattnummer (leer = keine Prüfung)
+  guestSheetNumber?: string | null
+}
 
 // Vorschau im Formular: Überschneidungen und Überbelegung, sobald Wohnung und Zeitraum stehen
 export async function checkBookingWarnings(values: WarningQuery): Promise<Result<BookingWarnings>> {
   const guard = await requireMember()
   if (!guard.ok) return guard
-  const none = { ok: true as const, data: { conflicts: [], overCapacity: null } }
+  const none = { ok: true as const, data: { conflicts: [], overCapacity: null, guestSheetDuplicates: [] } }
   if (!isId(values?.apartmentId) || !isIsoDate(String(values.arrival)) || !isIsoDate(String(values.departure))) return none
   if (values.arrival >= values.departure) return none
   const persons = Math.max(0, Math.min(LIMITS.personsMax * 2, Math.floor(Number(values.persons) || 0)))
   const adults = Math.max(0, Math.min(LIMITS.personsMax * 2, Math.floor(Number(values.adults) || 0)))
+  const sheet = typeof values.guestSheetNumber === 'string' ? values.guestSheetNumber.trim().slice(0, LIMITS.guestSheetNumberMax) : ''
   const supabase = await createClient()
   const { data, error } = await supabase.rpc('booking_warnings', {
     p_tenant_id: guard.tenant.id,
@@ -136,6 +158,7 @@ export async function checkBookingWarnings(values: WarningQuery): Promise<Result
     p_persons: persons,
     p_adults: adults,
     p_exclude: isId(values.id) ? values.id : undefined,
+    p_guest_sheet_number: sheet || undefined,
   })
   if (error) return dbFail(error, 'Warnungen')
   return { ok: true, data: toWarnings(data as unknown as DbWarnings) }
@@ -149,6 +172,8 @@ type SaveBooking = {
   newGuest?: GuestInput
   // „Trotzdem speichern“ (zählt nur für Inhaber)
   confirmOverride?: boolean
+  // „Trotzdem speichern“ bei doppelter Gästeblattnummer (alle Mitglieder, PROJ-30)
+  confirmGuestSheet?: boolean
 }
 
 export async function saveBooking(input: SaveBooking): Promise<Result<{ id: string }>> {
@@ -177,15 +202,23 @@ export async function saveBooking(input: SaveBooking): Promise<Result<{ id: stri
       kind: v.kind,
       apartment_id: v.apartmentId,
       arrival: v.arrival,
+      // PROJ-30: departure = tatsächliche Abreise (Belegung), planned_departure = vereinbarte
+      planned_departure: v.plannedDeparture,
       departure: v.departure,
       check_in: v.checkIn,
       check_out: v.checkOut,
+      guest_sheet_number: v.guestSheetNumber,
+      confirm_guest_sheet_number: input.confirmGuestSheet === true,
+      residence_registered: v.residenceRegistered,
+      source: v.source,
+      source_custom: v.sourceCustom,
       guest_id: v.guestId,
       new_guest: newGuest,
       adults: v.adults,
       child_ages: v.childAges,
       option_until: v.optionUntil,
       note: v.note,
+      // vereinbarter Preis; den abgerechneten berechnet die Datenbank (auch bei Mitarbeiter-Änderungen)
       amounts: v.amounts && {
         nights_cents: v.amounts.nightsCents,
         charges: v.amounts.charges.map((c) => ({ label: c.label, amount_cents: c.amountCents })),

@@ -6,17 +6,20 @@ import { useRouter } from 'next/navigation'
 import { useFormatter, useTranslations } from 'next-intl'
 import { useEffect, useRef, useState, useTransition } from 'react'
 
+import { DateJump } from '@/components/date-jump'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
   BOOKING_KINDS,
+  BOOKING_SOURCES,
   BOOKING_STATES,
   type BookableApartment,
   type BookingFilters,
   type BookingKind,
   bookingListHref,
+  type BookingSource,
   type BookingState,
   currentMonth,
   shiftMonth,
@@ -32,7 +35,7 @@ interface BookingFilterBarProps {
   today: string
 }
 
-// Monatsleiste, Suche und Filter der Buchungsliste. Alles steht in der Adresse (teilbar, „Zurück“ funktioniert).
+// Monatsleiste (mit Sprungauswahl wie im Belegungskalender, PROJ-30), Suche und Filter der Buchungsliste. Alles steht in der Adresse (teilbar, „Zurück“ funktioniert).
 // Die Suche gilt für alle Monate; die Monatsleiste ist während einer Suche ausgeblendet.
 export function BookingFilterBar({ filters, apartments, today }: BookingFilterBarProps) {
   const t = useTranslations('bookings')
@@ -58,6 +61,8 @@ export function BookingFilterBar({ filters, apartments, today }: BookingFilterBa
   )
 
   const go = (next: Partial<BookingFilters>) => startTransition(() => router.replace(href(next), { scroll: false }))
+  // Sprung in den Monat des gewählten Datums; die übrigen Filter bleiben (wie die Pfeile ein neuer Verlaufseintrag)
+  const jump = (date: string) => startTransition(() => router.push(href({ month: date.slice(0, 7) }), { scroll: false }))
 
   function onSearch(next: string) {
     setValue(next)
@@ -78,7 +83,16 @@ export function BookingFilterBar({ filters, apartments, today }: BookingFilterBa
             </Link>
           </Button>
           <h2 className="min-w-44 text-center text-2xl" aria-live="polite">
-            {monthLabel}
+            <DateJump
+              label={monthLabel}
+              ariaLabel={`${monthLabel}. ${t('month.pickDate')}`}
+              fieldLabel={t('month.pickDateLabel')}
+              submitLabel={t('month.jump')}
+              inputId="buchungen-datum"
+              defaultDate={`${filters.month}-01`}
+              onJump={jump}
+              triggerClassName="w-full text-2xl font-semibold"
+            />
           </h2>
           <Button asChild variant="outline" size="icon" className="size-11">
             <Link href={href({ month: shiftMonth(filters.month, 1) })} aria-label={t('month.next')} scroll={false}>
@@ -114,7 +128,7 @@ export function BookingFilterBar({ filters, apartments, today }: BookingFilterBa
           />
         </div>
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:flex lg:flex-wrap">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:flex lg:flex-wrap">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="filter-wohnung" className="text-[13px] text-ds-neutral-800">
               {t('filterApartment')}
@@ -172,6 +186,27 @@ export function BookingFilterBar({ filters, apartments, today }: BookingFilterBa
                 {BOOKING_STATES.filter((s) => s !== 'active').map((state) => (
                   <SelectItem key={state} value={state} className="min-h-11">
                     {t(`state.${state}`)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="filter-quelle" className="text-[13px] text-ds-neutral-800">
+              {t('filterSource')}
+            </Label>
+            <Select value={filters.source ?? ALL} onValueChange={(v) => go({ source: v === ALL ? null : (v as BookingSource) })}>
+              <SelectTrigger id="filter-quelle" className="min-h-11 lg:w-48">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL} className="min-h-11">
+                  {t('allSources')}
+                </SelectItem>
+                {BOOKING_SOURCES.map((source) => (
+                  <SelectItem key={source} value={source} className="min-h-11">
+                    {t(`source.${source}`)}
                   </SelectItem>
                 ))}
               </SelectContent>

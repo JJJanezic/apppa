@@ -36,6 +36,7 @@ const entry = (id: string, arrival: string, departure: string, extra: Partial<Ca
   apartmentId: 'a1',
   kind: 'booking',
   channel: 'direct',
+  source: 'none',
   arrival,
   departure,
   guestLastName: 'Huber',

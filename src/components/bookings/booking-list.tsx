@@ -23,6 +23,8 @@ export function BookingList({ rows, showAmounts, withYear }: BookingListProps) {
   const period = (r: BookingRow) => `${day(r.arrival)} – ${day(r.departure)}`
   const title = (r: BookingRow) => r.guestName ?? (r.blockReason ? `${t('kind.block')}: ${t(`blockReason.${r.blockReason}`)}` : t('kind.block'))
   const amount = (r: BookingRow) => (r.totalCents === null ? '–' : formatCurrency(r.totalCents / 100, { cents: r.totalCents % 100 !== 0 }))
+  // Buchungs- und Gästeblattnummer (PROJ-30)
+  const numbers = (r: BookingRow) => [r.number, r.guestSheetNumber && t('guestSheetShort', { number: r.guestSheetNumber })].filter(Boolean).join(' · ')
   const badges = (r: BookingRow) => (
     <BookingBadges kind={r.kind} state={r.state} optionUntil={r.optionUntil} overlapping={r.overlapping} priceReview={showAmounts && r.priceReview} />
   )
@@ -53,7 +55,7 @@ export function BookingList({ rows, showAmounts, withYear }: BookingListProps) {
                 >
                   {title(r)}
                 </Link>
-                {r.number && <span className="block text-[13px] tabular-nums text-ds-neutral-700">{r.number}</span>}
+                {(r.number || r.guestSheetNumber) && <span className="block break-words text-[13px] tabular-nums text-ds-neutral-700">{numbers(r)}</span>}
               </TableCell>
               <TableCell className="max-w-[240px] break-words">{r.apartmentLabel}</TableCell>
               <TableCell className="text-right tabular-nums">{formatNumber(nightsBetween(r.arrival, r.departure))}</TableCell>
@@ -79,7 +81,7 @@ export function BookingList({ rows, showAmounts, withYear }: BookingListProps) {
               </span>
               <span className="break-words text-[13px] text-ds-neutral-800">
                 {r.apartmentLabel}
-                {r.number && <> · {r.number}</>}
+                {(r.number || r.guestSheetNumber) && <> · {numbers(r)}</>}
               </span>
               {badges(r)}
             </Link>

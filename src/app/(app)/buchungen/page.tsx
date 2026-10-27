@@ -87,7 +87,7 @@ export default async function BookingsPage({ searchParams }: { searchParams: Sea
             title={t('noResultsTitle')}
             text={list.searching ? t('noResultsSearch') : t('noResultsMonth')}
             action={
-              (filters.query || filters.apartment || filters.kind || filters.state) && (
+              (filters.query || filters.apartment || filters.kind || filters.state || filters.source) && (
                 <Button asChild variant="outline" className="min-h-11">
                   <Link href={bookingListHref({ month: filters.month }, today)}>{t('clearFilters')}</Link>
                 </Button>
