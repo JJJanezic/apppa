@@ -723,6 +723,23 @@ test.describe('Anschluss an Gäste und Wohnungen', () => {
   })
 })
 
+test.describe('Safari-Zeilenklick', () => {
+  test('Nur der Name ist der Link (keine Klickfläche über die Zeile); jeder Name öffnet seine eigene Buchung', async ({ page, users }) => {
+    desktopOnly()
+    const { tenantId } = await setup(page, users)
+    const { top1 } = await withApartments(tenantId)
+    const first = await addBooking(tenantId, top1, { guestId: await addGuest(tenantId, { last_name: 'Erste', first_name: 'Eva' }), arrival: FUTURE, departure: day(2, FUTURE) })
+    await addBooking(tenantId, top1, { guestId: await addGuest(tenantId, { last_name: 'Letzte', first_name: 'Lea' }), arrival: day(3, FUTURE), departure: day(5, FUTURE) })
+    await openList(page, `?monat=${month(FUTURE)}`)
+    const link = page.getByRole('table').getByRole('link', { name: 'Erste, Eva' })
+    // Safari verankert after:absolute nicht an <tr>: die Fläche darf es nicht mehr geben
+    const overlay = await link.evaluate((el) => getComputedStyle(el, '::after').position)
+    expect(overlay).not.toBe('absolute')
+    await link.click()
+    await expect(page).toHaveURL(new RegExp(`/buchungen/${first.id}$`))
+  })
+})
+
 test.describe('Layout und Barrierefreiheit', () => {
   test('Liste, Detail und Panel: keine automatisch erkennbaren WCAG-2.1-AA-Verstöße, kein seitliches Scrollen, Karten auf dem Handy', async ({ page, users }) => {
     const { tenantId } = await setup(page, users)

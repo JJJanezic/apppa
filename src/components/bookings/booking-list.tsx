@@ -14,7 +14,7 @@ interface BookingListProps {
   withYear: boolean
 }
 
-// Buchungsliste (PROJ-8): ab 768 px Tabelle (ganze Zeile klickbar über den Namen), darunter Karten
+// Buchungsliste (PROJ-8): ab 768 px Tabelle (der Name ist der Link), darunter Karten
 export function BookingList({ rows, showAmounts, withYear }: BookingListProps) {
   const t = useTranslations('bookings')
   const format = useFormatter()
@@ -45,14 +45,11 @@ export function BookingList({ rows, showAmounts, withYear }: BookingListProps) {
         </TableHeader>
         <TableBody>
           {rows.map((r) => (
-            <TableRow key={r.id} className={r.state === 'active' ? 'relative' : 'relative text-ds-neutral-800'}>
+            <TableRow key={r.id} className={r.state === 'active' ? undefined : 'text-ds-neutral-800'}>
               <TableCell className="whitespace-nowrap tabular-nums">{period(r)}</TableCell>
               <TableCell className="max-w-[320px]">
-                {/* Link über die ganze Zeile (after:inset-0), bleibt aber ein einzelner Tab-Stopp */}
-                <Link
-                  href={bookingHref(r.id)}
-                  className="font-medium underline-offset-[3px] hover:underline after:absolute after:inset-0 after:content-['']"
-                >
+                {/* Nur der Name ist der Link: Safari kann Klickflächen über die ganze Zeile (after:inset-0) nicht an <tr> verankern */}
+                <Link href={bookingHref(r.id)} className="font-medium text-ds-accent-700 underline underline-offset-[3px] hover:decoration-2">
                   {title(r)}
                 </Link>
                 {(r.number || r.guestSheetNumber) && <span className="block break-words text-[13px] tabular-nums text-ds-neutral-700">{numbers(r)}</span>}
