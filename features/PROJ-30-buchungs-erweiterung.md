@@ -1,8 +1,8 @@
 # PROJ-30: Buchungs-Erweiterung: Meldedaten, Buchungsquelle, Monatsauswahl
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-10-26
-**Last Updated:** 2026-10-26
+**Last Updated:** 2026-10-27
 
 ## Dependencies
 - Requires: PROJ-8 (Manuelle Buchungen): Buchungsformular, Buchungs-Detail, Buchungsliste mit Monatsleiste und Filtern, Mitreisende, Preisvorschlag
@@ -173,6 +173,7 @@ Der **Belegungskalender bleibt unverändert**.
 
 ## Open Questions
 - [ ] Wann wird die Marketing-Quelle bei den Gästen entfernt, und sollen bestehende Gäste-Quellen dabei auf ihre Buchungen übertragen werden?
+- [ ] Beim Bearbeiten: soll „Abreise“ weiter automatisch mitlaufen, wenn beide Daten beim Öffnen gleich sind? (Design-Annahme: ja)
 - [ ] Wie verhält sich die manuell gesetzte Quelle „booking.com“, wenn PROJ-11 Buchungen von booking.com importiert (Kanal vs. Quelle zusammenführen)?
 
 ## Decision Log
@@ -198,12 +199,126 @@ Der **Belegungskalender bleibt unverändert**.
 ### Technical Decisions
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Bestehende Spalte `departure` = tatsächliche Abreise, neue Spalte für geplante Abreise | Belegungsabfragen, Indizes, Konfliktprüfung und Kalender bleiben unverändert korrekt | 2026-10-27 |
+| Abgerechneter Nächtigungspreis als gespeicherter, serverseitig berechneter Wert neben dem vereinbarten | Fertiger Betrag für Liste, Detail, PROJ-13/18; Mitarbeiter-Änderungen rechnen mit, ohne Beträge zu sehen | 2026-10-27 |
+| Vereinbarter Preis bleibt im bisherigen Betragsfeld | Formular unverändert; Rücksetzen der Abreise stellt den vereinbarten Preis automatisch wieder her | 2026-10-27 |
+| Buchungsquelle als eigene Spalte, Kanal-Spalte bleibt für den Import | Klare Trennung Vermieter-Angabe vs. technischer Kanal; eine Farbregel vereint beide | 2026-10-27 |
+| Gästeblattnummer ohne Unique-Constraint, Index auf Kleinschreibung je Kunde | Doppelung ist nur Warnung; Index für Prüfung (Groß/Klein egal) und Suche | 2026-10-27 |
+| Nummer-Warnung mit eigener Bestätigung, für Inhaber und Mitarbeiter | Übersteuern von Überschneidungen bleibt Inhabern vorbehalten (PROJ-8); Nummer-Doppelung gefährdet keine Belegung | 2026-10-27 |
+| „Preis prüfen“ nicht bei reiner Änderung der tatsächlichen Abreise | Preis folgt automatisch anteilig; nur geänderte Planung braucht die Prüfung durch den Inhaber | 2026-10-27 |
+| Sprungauswahl als gemeinsamer Baustein für Kalender und Buchungsliste | Einheitliche Bedienung, eine Stelle für Pflege; Kalender-E2E-Tests sichern Unverändertheit | 2026-10-27 |
+| Ganzzahlige Cent-Rechnung, kaufmännisch gerundet, gleiche Regel in Browser und Server | Identische Werte in Vorschau und gespeichertem Betrag | 2026-10-27 |
+| Sperren: geplante = tatsächliche Abreise, Quelle „none“, keine Nummer, per Datenbankregel | Spec: neue Felder nicht für Sperren; Regel verhindert inkonsistente Daten | 2026-10-27 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### Überblick
+Reine Erweiterung bestehender Bausteine aus PROJ-8, PROJ-9 und PROJ-27. Keine neue Seite, keine neue Tabelle, keine neuen Pakete. Datenbank: neue Spalten an der Buchung und am Betrag, Anpassung der bestehenden Speicher- und Warnfunktionen. Oberfläche: Buchungsformular, Buchungs-Detail, Buchungsliste mit Filtern, Mitreisende, Kalenderfarben.
+
+### A) Komponenten-Struktur
+
+```
+Buchungsübersicht (/buchungen)
++-- Filterleiste (booking-filters)
+|   +-- Monatsleiste: ‹ [Oktober 2026 ▾] › Heute
+|   |   +-- NEU: Sprungauswahl (gemeinsamer Baustein, auch im Kalender)
+|   |       +-- „Springen zu“ + Datumsfeld (vorbelegt 1. des Monats) + Knopf „Springen“
+|   +-- Wohnung | Art | Zustand | NEU: Quelle   (alle in der Adresse)
+|   +-- Suche (findet jetzt auch die Gästeblattnummer)
++-- Buchungsliste (booking-list)
+    +-- Zeile: Nummer, NEU: Gästeblattnummer (klein, falls vorhanden), Gast, Zeitraum, Betrag
+
+Buchungsformular (booking-panel, Buchung und Option)
++-- Wohnung, Gast, Personen (unverändert)
++-- Zeitraum: Anreise → Abreise geplant → NEU: Abreise (läuft mit, bis von Hand geändert)
++-- NEU: Gästeblattnummer (optional)
++-- NEU: Buchungsquelle (Auswahl) + Freitext bei „Eigene Angabe“
++-- NEU: Häkchen „Wohnsitz angemeldet“
++-- Preis (nur Inhaber)
+|   +-- Nächtigungspreis = vereinbarter Preis für den geplanten Zeitraum (Preisvorschlag wie bisher)
+|   +-- NEU: Hinweis bei Verlängerung: „vereinbart X € für N Nächte · abzurechnen M Nächte · Y €“
+|   +-- Zusatzkosten (unverändert)
++-- Warnungen (booking-warnings)
+    +-- Überschneidung, Überbelegung (wie bisher)
+    +-- NEU: „Gästeblattnummer bereits vergeben bei Buchung 2026-0012 (Huber, Anna)“ + „Trotzdem speichern“
+
+Sperren-Formular (block-panel): unverändert, keine neuen Felder
+
+Buchungs-Detail (booking-detail)
++-- Abreise: ein Datum, wenn gleich; sonst „Abreise geplant“ und „Abreise“
++-- NEU: Gästeblattnummer, Buchungsquelle (bei „Eigene Angabe“ der Freitext), Hinweis „Wohnsitz angemeldet“
++-- Preis (nur Inhaber): abgerechneter Nächtigungspreis; bei Verlängerung zusätzlich der vereinbarte
+
+Mitreisende (companions-panel): Reihenfolge Nachname, Vorname, Geburtsdatum
+
+Belegungskalender (Dashboard + Vollbild)
++-- Farbregel (entry-style): Quelle booking.com → Accent-700 (Option: Rahmen Accent-700), sonst „Direkt“
++-- Legende: NEU „booking.com“
++-- Sprungauswahl nutzt denselben gemeinsamen Baustein, Verhalten unverändert
+```
+
+### B) Datenmodell (in Worten)
+
+**Buchung (bestehende Tabelle, neue bzw. umgedeutete Angaben):**
+- **Abreise (tatsächlich):** das bestehende Feld „Abreise“ bleibt technisch erhalten und bedeutet ab jetzt die tatsächliche Abreise. Dadurch rechnen Kalender, Konfliktprüfung, Kapazitätswarnung, Monatsliste und alle bestehenden Abfragen automatisch nach der tatsächlichen Abreise, ohne dass sie umgebaut werden müssen.
+- **Abreise geplant (neu):** Pflicht, muss nach der Anreise liegen, höchstens 365 Nächte. Beim Ausrollen mit dem bisherigen Abreisedatum befüllt.
+- **Gästeblattnummer (neu):** optional, höchstens 30 Zeichen, ohne Rand-Leerzeichen; nur Leerzeichen = leer. Nicht eindeutig (Doppelungen sind nur eine Warnung). Ein Suchindex über die Nummer in Kleinschreibung je Kunde macht die Doppelungsprüfung und die Suche schnell.
+- **Buchungsquelle (neu):** einer der Werte website, instagram, google_ads, newsletter, referral, platform_search, booking_com, custom, none; Standard none.
+- **Eigene Quelle (neu):** Freitext bis 100 Zeichen, genau dann gefüllt, wenn die Quelle „custom“ ist (Wechsel auf eine andere Quelle verwirft ihn).
+- **Wohnsitz angemeldet (neu):** ja/nein, Standard nein.
+- **Sperren:** Abreise geplant = Abreise, Quelle „none“, keine Gästeblattnummer, Häkchen nein; von der Datenbank erzwungen.
+- Das bestehende Feld **Kanal** bleibt unberührt und ist für den Import (PROJ-11) reserviert.
+
+**Beträge je Buchung (bestehende Tabelle, nur Inhaber lesbar):**
+- **Nächtigungspreis vereinbart:** das bestehende Feld, unverändert der Wert, den der Inhaber einträgt bzw. der Preisvorschlag; gilt für den geplanten Zeitraum.
+- **Nächtigungspreis abgerechnet (neu):** wird bei jedem Speichern vom Server berechnet: vereinbarter Preis ÷ geplante Nächte × abzurechnende Nächte, kaufmännisch auf Cent gerundet. Abzurechnende Nächte = Anreise bis zur späteren der beiden Abreisen. Beim Ausrollen = vereinbarter Preis.
+- Gesamtbetrag in Liste und Detail (und später Zahlungen PROJ-13) = abgerechneter Nächtigungspreis + Zusatzkosten.
+
+**Abgeleitete Größen (nicht gespeichert, gemeinsame Rechenregel in Browser und Server):**
+- Geplante Nächte = Anreise bis Abreise geplant
+- Abzurechnende Nächte = Anreise bis zur späteren Abreise
+- Ortstaxe-Nächte = Anreise bis tatsächliche Abreise (für PROJ-16 bereitgestellt)
+
+**Mandantentrennung:** Alle neuen Felder liegen in den bestehenden, bereits mandantengetrennten Tabellen (RLS-Muster PROJ-1). Die Doppelungsprüfung sucht nur im eigenen Kundenkonto.
+
+### C) Abläufe
+
+**Speichern einer Buchung/Option (bestehende Serverfunktion, erweitert):**
+1. Prüfregeln wie im Browser (beide Abreisen nach Anreise, Längen, Quelle/Freitext).
+2. Warnungen ermitteln: Überschneidung und Überbelegung mit der tatsächlichen Abreise (wie bisher), dazu neu „Gästeblattnummer schon vergeben“ (Groß/Klein egal, auch stornierte Buchungen, nicht die eigene).
+3. Zwei getrennte Bestätigungen: Überschneidung/Überbelegung darf wie bisher nur der Inhaber übersteuern. Die Gästeblattnummer-Warnung dürfen **Inhaber und Mitarbeiter** übergehen (keine Gefahr für die Belegung, Nummer wird meist vom Mitarbeiter beim Check-in eingetragen).
+4. Abgerechneten Preis neu berechnen, für Inhaber und Mitarbeiter gleich. Mitarbeiter ändern den vereinbarten Preis nie und sehen keine Beträge.
+5. „Preis prüfen“ für Mitarbeiter-Änderungen: nur noch bei Änderung von Anreise, **geplanter** Abreise, Wohnung oder (bei Personenpreisen) Personen. Eine reine Änderung der tatsächlichen Abreise löst es nicht aus, weil der Preis automatisch anteilig folgt.
+6. Preisvorschlag (PROJ-27) rechnet mit den geplanten Nächten.
+
+**Warnungs-Vorschau im Formular:** Die bestehende Vorschau bekommt zusätzlich die Gästeblattnummer und zeigt die Doppelung schon beim Tippen (verzögert, wie die bestehenden Warnungen).
+
+**Automatik „Abreise läuft mit“ (nur im Browser):** Neue Buchung: Abreise folgt der geplanten Abreise, bis sie von Hand geändert wird. Bearbeiten: sind beide beim Öffnen gleich, läuft sie weiter mit; weichen sie ab, bleibt sie fest.
+
+**Option → Buchung:** Umwandlung ändert keine Daten; beide Abreisen, Quelle, Nummer und Häkchen bleiben erhalten. Die Konfliktprüfung dabei nutzt die tatsächliche Abreise.
+
+**Kalenderfarbe:** Eine einzige Farbregel bestimmt den „Farbkanal“ eines Eintrags: Quelle booking.com (heute) bzw. importierter Kanal booking.com (später PROJ-11) → booking.com-Farbe, sonst „Direkt“. Damit greift sie überall, wo Kanalfarben vorkommen (Zeitleiste, Monatsansicht, Tagesliste, Detailpanel, Legende).
+
+**Monatsauswahl:** Die Sprungauswahl des Kalenders wird in einen kleinen gemeinsamen Baustein ausgelagert (shadcn Popover + Datumsfeld + Knopf). Die Buchungsübersicht setzt beim Springen nur den Monat in der Adresse; alle anderen Filter bleiben. Bei aktiver Suche bleibt die Monatsleiste ausgeblendet.
+
+### D) Technische Entscheidungen (Begründung)
+- **Bestehendes Feld „Abreise“ = tatsächliche Abreise, neues Feld für die geplante:** Belegung richtet sich nach der tatsächlichen Abreise. So bleiben Kalender, Konfliktprüfung, Monatsliste, Indizes und künftige Channex-Sperren ohne Umbau korrekt; nur Preis und Formular müssen die geplante Abreise kennen.
+- **Abgerechneter Preis wird gespeichert, nicht nur angezeigt:** Liste, Detail und später Zahlungen und Auswertungen lesen einen fertigen Betrag; Mitarbeiter-Änderungen rechnen serverseitig mit, ohne dass Beträge zum Mitarbeiter gelangen.
+- **Vereinbarter Preis bleibt im bisherigen Feld:** Das Formular schreibt und liest weiterhin genau den eingetippten Wert; Zurücksetzen auf das geplante Datum ergibt automatisch wieder den vereinbarten Preis.
+- **Buchungsquelle als eigenes Feld neben dem Kanal:** Kanal kommt technisch vom Import, Quelle ist eine Angabe des Vermieters. Getrennt bleiben beide klar; die Kalenderfarbe vereint sie an einer Stelle.
+- **Gästeblattnummer ohne Eindeutigkeitsregel, nur Warnung:** Vorgabe der Spec; ein Suchindex genügt für Prüfung und Suche.
+- **Getrennte Bestätigung für die Nummer-Warnung:** Übersteuern von Überschneidungen bleibt Inhabern vorbehalten (PROJ-8), die harmlose Nummer-Warnung können beide Rollen bestätigen.
+- **Gemeinsamer Sprung-Baustein:** Eine Bedienung für Kalender und Liste; die bestehenden Kalender-E2E-Tests sichern ab, dass sich der Kalender nicht ändert.
+- **Rundung:** Ganzzahlige Cent-Rechnung, kaufmännisch gerundet, in Browser und Server nach derselben Regel (Beispiel 333,33 € / 3 × 4 = 444,44 €).
+
+### E) Ausrollen
+Eine Migration: neue Spalten mit Standardwerten, Befüllen von „Abreise geplant“ mit der bisherigen Abreise und „abgerechnet“ mit dem vereinbarten Preis, danach Pflicht-Regeln aktivieren; Speicher-, Warn- und Vorschau-Funktion ersetzen. Keine Datenänderung an Belegung oder Preisen bestehender Buchungen. Danach Datenbank-Typen neu erzeugen.
+
+### F) Pakete
+Keine neuen Pakete. Genutzt werden vorhandene shadcn/ui-Bausteine (Popover, Select, Checkbox, Input, Label, Button).
 
 ## QA Test Results
 _To be added by /qa_
