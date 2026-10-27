@@ -806,3 +806,7 @@ _Stand 2026-10-25 (/deploy, Tag `v1.2.0`)_
 - **Beim Ausliefern aufgefallen:**
   - Der lokale Branch `staging` war veraltet, deshalb wurde der Push nach `production` abgelehnt. Ausgeliefert wurde `origin/staging` als Fast-Forward; Befehl in Runbook, Deploy-Skill und Git-Regel angepasst.
   - `apppa-staging` baute bei jedem Push auch Previews ohne Variablen, die scheiterten. Abhilfe „Ignored Build Step → Only build production“, im Runbook (Abschnitt 5) dokumentiert.
+
+### Nachtrag 2026-10-27 (Tag `v1.7.1`): Safari-Zeilenklick behoben
+- In Safari öffnete ein Klick in der Tabelle immer den untersten Eintrag (Klickfläche `after:inset-0` lässt sich in Safari nicht an `<tr>` verankern). Jetzt ist nur der Name der Link bzw. Knopf; Handy-Karten bleiben ganz anklickbar. Regressionstest „Safari-Zeilenklick“
+- Staging und Production mit Commit `60659ee`, ohne Migrationen

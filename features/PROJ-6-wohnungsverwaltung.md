@@ -478,3 +478,7 @@ _Stand 2026-10-25 (/deploy, erstes Release über Staging, Tag `v1.0.0`)_
 - **Staging:** https://staging.apppa.at (Vercel `apppa-staging`, Supabase `iikzjqjjxoznrkkixfqa`). Freigegeben nach Prüfung von Anmeldung mit 2FA, Betreiber-Bereich, Einladung, Team und Wohnungen
 - **Production:** https://app.apppa.at (Vercel `apppa`, Supabase `ahclrqbhfpidxjzbpfgb`), Commit `cedd560`, 2026-10-25
 - **Migrationen:** alle 13 bis `20261024140200_apartments_fk_indexes.sql` in Staging und Production eingespielt (2026-10-24), Advisors ohne Befund. Im Release selbst gab es keine neuen
+
+### Nachtrag 2026-10-27 (Tag `v1.7.1`): Safari-Zeilenklick behoben
+- In Safari öffnete ein Klick in der Tabelle immer den untersten Eintrag (Klickfläche `after:inset-0` lässt sich in Safari nicht an `<tr>` verankern). Jetzt ist nur der Name der Link bzw. Knopf; Handy-Karten bleiben ganz anklickbar. Regressionstest „Safari-Zeilenklick“
+- Staging und Production mit Commit `60659ee`, ohne Migrationen
