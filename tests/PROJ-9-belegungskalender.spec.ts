@@ -347,7 +347,7 @@ test.describe('Detailpanel', () => {
     await dialog(page).getByRole('button', { name: 'Bearbeiten', exact: true }).click()
     const edit = page.getByRole('dialog', { name: 'Buchung bearbeiten' })
     await expect(edit).toBeVisible()
-    await edit.getByLabel('Abreise', { exact: true }).fill(day(8))
+    await edit.getByLabel('Abreise geplant').fill(day(8))
     const save = edit.getByRole('button', { name: 'Änderungen speichern', exact: true })
     await save.scrollIntoViewIfNeeded()
     await save.click()

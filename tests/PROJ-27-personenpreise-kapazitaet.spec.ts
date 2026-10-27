@@ -98,7 +98,7 @@ async function newBooking(page: Page, apartmentLabel: string) {
   await panel(page).getByRole('combobox', { name: 'Wohnung' }).click()
   await page.getByRole('option', { name: apartmentLabel, exact: true }).click()
   await panel(page).getByLabel('Anreise', { exact: true }).fill(FUTURE)
-  await panel(page).getByLabel('Abreise', { exact: true }).fill(day(3))
+  await panel(page).getByLabel('Abreise geplant').fill(day(3))
 }
 
 async function addChildren(page: Page, ages: number[]) {

@@ -1,6 +1,6 @@
 # PROJ-30: Buchungs-Erweiterung: Meldedaten, Buchungsquelle, Monatsauswahl
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-10-26
 **Last Updated:** 2026-10-27
 
@@ -367,7 +367,113 @@ Keine neuen Pakete. Genutzt werden vorhandene shadcn/ui-Bausteine (Popover, Sele
 **Tests** (`supabase/tests/bookings.integration.test.ts`, Block „Buchungs-Erweiterung (PROJ-30)“): Bestand und Standardwerte, Pflicht der geplanten Abreise, Verlängerung 500 € → 600 € und zurück, frühere Abreise gibt frei, erneute Verlängerung warnt, Rundung 333,33 € → 444,44 €, Zusatzkosten unverändert, Mitarbeiter-Verlängerung ohne „Preis prüfen“ und ohne Beträge, Planänderung setzt „Preis prüfen“, Gästeblatt-Doppelung (Schreibweise, fremdes Konto, storniert, Bestätigung durch Mitarbeiter, Vorschau, unveränderte Nummer, 31 Zeichen), Quelle/Freitext/Häkchen, ungültige Werte, Option → Buchung, Sperren. 43 Tests in Buchungs- und Reisedokument-Suite grün.
 
 ## QA Test Results
-_To be added by /qa_
+
+**Tested:** 2026-10-27
+**App URL:** http://localhost:3000 (Produktions-Build, `npm run start`) gegen Supabase „apppa-dev“
+**Tester:** QA Engineer (AI)
+**Automatisiert:** `tests/PROJ-30-buchungs-erweiterung.spec.ts` (8 Tests desktop, Layout zusätzlich mobil), Integrationstests `supabase/tests/bookings.integration.test.ts` (Block PROJ-30), Unit-Tests `src/lib/bookings.test.ts`, `src/lib/validation/bookings.test.ts`
+
+### Acceptance Criteria Status
+
+#### Mitreisende (2/2)
+- [x] Nachname vor Vorname (Desktop links, Handy oben); Fokus springt nach „Person hinzufügen“ in den Vornamen
+- [x] Bei 5 Personen höchstens 4 Mitreisende
+
+#### Gästeblattnummer (9/9)
+- [x] Optionales Feld bei Buchung und Option, nicht bei Sperren
+- [x] Mehr als 30 Zeichen: Fehlermeldung, nichts gespeichert (Browser und Datenbank)
+- [x] Doppelung im eigenen Konto warnt mit der anderen Buchung, „Trotzdem speichern“ (auch Mitarbeiter)
+- [x] Gleiche Nummer nur in einem anderen Konto: keine Warnung (Integrationstest)
+- [x] Stornierte Buchung mit der Nummer: Warnung, als „storniert“ gekennzeichnet
+- [x] Nummer im Detail und in der Liste sichtbar; Suche nach „A-123“ findet die Buchung
+
+#### Abreise geplant / Abreise (10/10)
+- [x] Reihenfolge Anreise → Abreise geplant → Abreise
+- [x] Abreise läuft mit, bis sie von Hand geändert wird; danach bleibt sie fest
+- [x] Abreise bzw. geplante Abreise am/vor der Anreise: je eigene Fehlermeldung
+- [x] Frühere Abreise gibt die Wohnung im Kalender frei; spätere Abreise löst die Überschneidungswarnung aus
+- [x] Bestand: beide Felder mit dem bisherigen Datum
+- [x] Detail: ein Datum bei Gleichheit, beide bei Abweichung
+- [x] Option → Buchung behält beide Abreisen (Integrationstest)
+
+#### Preis bei Verlängerung und früherer Abreise (7/7)
+- [x] 500 € / 5 Nächte, 1 Tag länger → 600 €; 2 Tage früher → 500 €; zurück auf geplant → 500 €
+- [x] Formular zeigt vereinbarten Preis, abzurechnende Nächte und hochgerechneten Preis
+- [x] Zusatzkosten bleiben unverändert
+- [x] Mitarbeiter verlängert: Preis wird hochgerechnet, Mitarbeiter sieht keine Beträge, kein „Preis prüfen“
+- [x] Rundung 333,33 € / 3 Nächte, 1 Nacht länger → 444,44 €
+
+#### Wohnsitz angemeldet (4/4)
+- [x] Standard nicht angehakt (neu und Bestand); Hinweis im Detail; Inhaber und Mitarbeiter können es setzen
+
+#### Buchungsquelle (11/11)
+- [x] Standard „Keine Angabe“; Liste mit allen 9 Werten in der Spec-Reihenfolge
+- [x] „Eigene Angabe“ ohne Freitext: Fehlermeldung; Wechsel verwirft den Freitext
+- [x] booking.com: Balken Accent-700 (rgb 0,103,134) mit weißer Schrift, Option mit Rahmen Accent-700, andere Quellen „Direkt“; Legende mit „booking.com“ (Dashboard und Vollbild)
+- [x] Detail zeigt Quelle bzw. Freitext; Filter „Quelle“ in der Adresse (`quelle=booking-com`); Bestand „Keine Angabe“; Marketing-Quelle des Gastes ohne Einfluss
+
+#### Monatsauswahl (9/9)
+- [x] Klick auf die Monatsanzeige öffnet „Springen zu“, vorbelegt mit dem 1.; Sprung nach März 2027, Feld schließt sich
+- [x] Leeres Datum: Knopf deaktiviert; Escape schließt ohne Monatswechsel
+- [x] Tastatur: Enter öffnet, Fokus im Datumsfeld, Enter springt
+- [x] Filter (Wohnung, Quelle) bleiben erhalten; bei aktiver Suche keine Monatsleiste
+- [x] 375 px: Feld passt ohne seitliches Scrollen
+- [x] Belegungskalender unverändert (alle PROJ-9-Tests grün)
+
+### Edge Cases Status
+- [x] Beide Abreisen gleichzeitig geändert: gespeicherte Werte gelten
+- [x] Verlängerung mit Konflikt: Warnung, Mitarbeiter blockiert, Inhaber übersteuert
+- [x] Frühere Abreise, neue Buchung in der Lücke, danach wieder verlängert: Warnung (Integrationstest)
+- [x] Stornierte Buchung behält alle Angaben, Nummer zählt weiter für die Warnung
+- [x] Nummer nur aus Leerzeichen → leer; Groß/Klein gilt als gleich
+- [x] Gleichzeitige Bearbeitung: Hinweis „inzwischen geändert“ (PROJ-8-Test grün)
+- [x] Zusätzlich: erneutes Speichern mit unveränderter Nummer warnt nicht erneut (bewusste Entscheidung im Backend)
+- [ ] BUG-1: Gästeblattnummern mit Schrägstrich oder Punkt sind über die Suche nicht auffindbar (siehe unten)
+
+### Security Audit Results
+- [x] Mandantentrennung: Doppelungsprüfung und Vorschau nur nach `is_member`; `p_exclude` einer fremden Buchung verrät nichts (Abfrage mit Kundenkennung)
+- [x] Beträge: `billed_nights_cents` nur für Inhaber lesbar (RLS), für Mitarbeiter auch nicht über eingebettete Abfragen; Clients können den abgerechneten Preis nicht setzen (nur `save_booking` rechnet)
+- [x] Direktes Schreiben: Prüfregeln greifen auch bei Systemrechten (Sperre mit Quelle abgelehnt, ungültige Quelle/Nummer → 23514)
+- [x] XSS: Freitext und Nummer werden als Text ausgegeben (React)
+- [x] Suche: Filterwerte für PostgREST weiterhin auf Buchstaben, Ziffern, Leerzeichen und Bindestrich beschränkt (keine Filter-Injektion)
+- [x] Hilfsfunktionen im Schema `private` ohne Ausführungsrecht für `authenticated`
+
+### Regression
+- [x] PROJ-8 (27 Tests desktop, Layout mobil), PROJ-9 (26 desktop, Layout mobil), PROJ-27 (Buchung/Mitarbeiter, 8), PROJ-29 (Rollen/Titel, 7): grün, nach Umstellung der Tests von „Abreise“ auf „Abreise geplant“
+- [x] Integrationstests Buchungen und Reisedokumente: 43 grün; Unit-Tests: 295 grün; Build und Lint ohne Fehler
+
+### Nicht geprüft
+- Firefox und Safari: Die Playwright-Projekte laufen nur in Chrome (Desktop/Tablet/Handy-Breiten); bitte beim Staging-Test kurz in Safari prüfen (Datumsfeld im Popover, bekannter Safari-Zeilenklick in der Buchungsliste aus PROJ-8)
+
+### Bugs Found
+
+#### BUG-1: Gästeblattnummer mit „/“ oder „.“ nicht über die Suche auffindbar
+- **Severity:** Low
+- **Steps to Reproduce:**
+  1. Buchung mit Gästeblattnummer „GB/2026.17“ speichern
+  2. In der Buchungsliste nach „GB/2026.17“ suchen
+  3. Expected: die Buchung wird gefunden
+  4. Actual: kein Treffer. Die Suche ersetzt Sonderzeichen durch Leerzeichen („GB 2026 17“), die Nummer enthält aber keine Leerzeichen
+- **Priority:** Nice to have (Nummern mit Bindestrich wie „A-123“ funktionieren)
+
+#### BUG-2: Knopf-Beschriftung weicht vom Belegungskalender ab
+- **Severity:** Low
+- **Steps to Reproduce:**
+  1. Belegungskalender: Zeitraum anklicken → Knopf heißt „Anzeigen“
+  2. Buchungsübersicht: Monat anklicken → Knopf heißt „Springen“
+  3. Expected: „wie im Belegungskalender“ (Spec); die Spec nennt aber ausdrücklich „Springen“ und verlangt einen unveränderten Kalender
+  4. Actual: zwei Beschriftungen für dieselbe Bedienung
+- **Priority:** Nice to have (Produktentscheidung: Kalender angleichen oder Liste auf „Anzeigen“)
+
+#### Hinweis (kein Bug): Kanal und Quelle im Detail
+Das Detail zeigt weiterhin „Kanal: Direkt“ und darunter „Buchungsquelle: booking.com“. Fachlich richtig (Kanal kommt mit PROJ-11), kann aber verwirren.
+
+### Summary
+- **Acceptance Criteria:** 52/52 passed
+- **Bugs Found:** 2 total (0 critical, 0 high, 0 medium, 2 low)
+- **Security:** Pass
+- **Production Ready:** YES
+- **Recommendation:** Deploy; die beiden Low-Punkte können später erledigt werden
 
 ## Deployment
 _To be added by /deploy_

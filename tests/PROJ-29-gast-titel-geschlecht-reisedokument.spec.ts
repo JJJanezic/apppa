@@ -325,7 +325,7 @@ test.describe('Rollen', () => {
     const arrival = new Date(Date.now() + 40 * 86_400_000).toISOString().slice(0, 10)
     const departure = new Date(Date.now() + 43 * 86_400_000).toISOString().slice(0, 10)
     await panel(page).getByLabel('Anreise', { exact: true }).fill(arrival)
-    await panel(page).getByLabel('Abreise', { exact: true }).fill(departure)
+    await panel(page).getByLabel('Abreise geplant').fill(departure)
     await panel(page).getByRole('radio', { name: 'Neuer Gast' }).click()
     await panel(page).getByLabel('Titel vorangestellt').fill('Mag.')
     await panel(page).getByLabel('Nachname').fill('Neumann')

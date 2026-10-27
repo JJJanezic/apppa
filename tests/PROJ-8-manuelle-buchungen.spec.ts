@@ -150,7 +150,7 @@ async function chooseApartment(page: Page, label: string) {
   await page.getByRole('option', { name: label, exact: true }).click()
 }
 
-async function setPeriod(page: Page, arrival: string, departure: string, labels = ['Anreise', 'Abreise']) {
+async function setPeriod(page: Page, arrival: string, departure: string, labels = ['Anreise', 'Abreise geplant']) {
   await panel(page).getByLabel(labels[0], { exact: true }).fill(arrival)
   await panel(page).getByLabel(labels[1], { exact: true }).fill(departure)
 }
@@ -233,7 +233,7 @@ test.describe('Buchung anlegen (Inhaber)', () => {
 
     // Preis von Hand geändert: neuer Zeitraum ändert ihn nicht, bietet aber den Vorschlag an
     await panel(page).getByLabel('Übernachtungspreis (€)').fill('300')
-    await panel(page).getByLabel('Abreise', { exact: true }).fill(day(4, FUTURE))
+    await panel(page).getByLabel('Abreise geplant').fill(day(4, FUTURE))
     await expect(panel(page).getByLabel('Übernachtungspreis (€)')).toHaveValue('300')
     await panel(page).getByRole('button', { name: /Neuen Vorschlag .*480.* übernehmen/ }).click()
     await expect(panel(page).getByLabel('Übernachtungspreis (€)')).toHaveValue('480')
@@ -588,7 +588,7 @@ test.describe('Bearbeiten und Mitreisende', () => {
 
     // jemand anderer speichert inzwischen
     await service().from('bookings').update({ note: 'Von anderer Person geändert' }).eq('id', booking.id)
-    await panel(page).getByLabel('Abreise', { exact: true }).fill(day(5, FUTURE))
+    await panel(page).getByLabel('Abreise geplant').fill(day(5, FUTURE))
     await submit(page, 'Änderungen speichern')
     await expect(panel(page).getByText(/wurde inzwischen von jemand anderem geändert/)).toBeVisible()
     await expect(panel(page).getByLabel('Abreise', { exact: true })).toHaveValue(day(5, FUTURE))
@@ -597,7 +597,7 @@ test.describe('Bearbeiten und Mitreisende', () => {
 
     await openBooking(page, booking.id)
     await page.getByRole('button', { name: 'Bearbeiten', exact: true }).click()
-    await panel(page).getByLabel('Abreise', { exact: true }).fill(day(5, FUTURE))
+    await panel(page).getByLabel('Abreise geplant').fill(day(5, FUTURE))
     await submit(page, 'Änderungen speichern')
     await expect(page.getByText('Änderungen gespeichert.')).toBeVisible()
     const { data } = await service().from('booking_amounts').select('nights_cents').eq('id', booking.id).single()
