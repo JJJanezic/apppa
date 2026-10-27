@@ -1,6 +1,6 @@
 # PROJ-30: Buchungs-Erweiterung: Meldedaten, Buchungsquelle, Monatsauswahl
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-10-26
 **Last Updated:** 2026-10-27
 
@@ -478,4 +478,10 @@ Das Detail zeigt weiterhin „Kanal: Direkt“ und darunter „Buchungsquelle: b
 - **Recommendation:** Deploy
 
 ## Deployment
-_To be added by /deploy_
+_Stand 2026-10-27 (/deploy, Tag `v1.7.0`)_
+
+- **Staging:** https://staging.apppa.at (Vercel `apppa-staging`, Supabase `iikzjqjjxoznrkkixfqa`); der Nutzer hat die Auslieferung nach Production freigegeben. Rückmeldung zum Build-Status „Ready“ und zur Safari-Prüfung lag nicht einzeln vor
+- **Production:** https://app.apppa.at (Vercel `apppa`, Supabase `ahclrqbhfpidxjzbpfgb`), Commit `20d23c8`, 2026-10-27
+- **Migration** in Staging und Production eingespielt: `20261027063426_booking_extension.sql` (Abreise geplant, Gästeblattnummer, Wohnsitz, Buchungsquelle, abgerechneter Preis, Funktionen)
+- **Advisors:** kein Befund zur Datenbank. Nur bekannte Auth-Hinweise (Staging: Gültigkeit der Mail-Links, Passwort-Leak-Prüfung; Production: Gültigkeit der Mail-Links)
+- Keine neuen Umgebungsvariablen, kein `config push`
