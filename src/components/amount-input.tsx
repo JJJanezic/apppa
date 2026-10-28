@@ -10,6 +10,8 @@ type AmountInputProps = Omit<React.ComponentProps<typeof Input>, 'value' | 'onCh
   onValueChange: (value: string) => void
   // Bleibt unbenutzt; erlaubt {...field} aus react-hook-form, ohne dass dessen onChange das Event bekommt
   onChange?: unknown
+  // Minus erlaubt (nur Zusatzkosten, PROJ-32)
+  negative?: boolean
 }
 
 // Betragsfeld (PROJ-31): Während des Tippens bleibt die Eingabe unverändert; beim Verlassen wird eine gültige
@@ -17,7 +19,7 @@ type AmountInputProps = Omit<React.ComponentProps<typeof Input>, 'value' | 'onCh
 export const AmountInput = forwardRef<HTMLInputElement, AmountInputProps>(function AmountInput(
   // onChange aus {...field} wird bewusst nicht weitergegeben
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  { value, onValueChange, onBlur, onChange: _onChange, ...props },
+  { value, onValueChange, onBlur, onChange: _onChange, negative = false, ...props },
   ref
 ) {
   return (
@@ -29,7 +31,7 @@ export const AmountInput = forwardRef<HTMLInputElement, AmountInputProps>(functi
       value={value}
       onChange={(e) => onValueChange(e.target.value)}
       onBlur={(e) => {
-        const cents = parseAmountCents(value)
+        const cents = parseAmountCents(value, { negative })
         if (cents !== null && !Number.isNaN(cents)) {
           const formatted = amountInput(cents)
           if (formatted !== value) onValueChange(formatted)

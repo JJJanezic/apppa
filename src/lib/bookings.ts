@@ -50,7 +50,7 @@ export const BOOKING_SOURCES = [
 export type BookingSource = (typeof BOOKING_SOURCES)[number]
 
 // Vorschläge für Zusatzkosten (Texte: bookings.chargeSuggestions.*); gespeichert wird die angezeigte Bezeichnung
-export const CHARGE_SUGGESTIONS = ['cleaning', 'pet', 'breakfast', 'parking'] as const
+export const CHARGE_SUGGESTIONS = ['cleaning', 'pet', 'breakfast', 'parking', 'discount', 'touristTax'] as const
 
 export const LIMITS = {
   noteMax: 2000,

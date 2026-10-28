@@ -33,10 +33,11 @@ const note = (t: T) =>
     .transform((v) => v || null)
 const id = (t: T, requiredKey: string) => z.string().regex(/^[0-9a-f-]{36}$/i, t(requiredKey))
 
-const amount = (t: T) =>
+// Beträge ab 0; Zusatzkosten mit `negative` auch bis -1.000.000,00 € (PROJ-32)
+const amount = (t: T, { negative = false }: { negative?: boolean } = {}) =>
   z.string().refine((v) => {
-    const cents = parseAmountCents(v)
-    return cents === null || (!Number.isNaN(cents) && cents <= LIMITS.amountMaxCents)
+    const cents = parseAmountCents(v, { negative })
+    return cents === null || (!Number.isNaN(cents) && Math.abs(cents) <= LIMITS.amountMaxCents)
   }, t('amountInvalid'))
 
 // Zeitraum: Abreise nach Anreise, höchstens 365 Nächte, Anreise höchstens 3 Jahre in der Zukunft.
@@ -100,7 +101,7 @@ export const bookingSchema = (t: T, { owner, today = todayIso() }: { owner: bool
         .array(
           z.object({
             label: z.string().trim().min(1, t('chargeLabelRequired')).max(LIMITS.chargeLabelMax, t('tooLong')),
-            amount: amount(t).refine((v) => parseAmountCents(v) !== null, t('amountRequired')),
+            amount: amount(t, { negative: true }).refine((v) => parseAmountCents(v, { negative: true }) !== null, t('amountRequired')),
           })
         )
         .max(LIMITS.chargesMax),
@@ -151,7 +152,7 @@ export const bookingSchema = (t: T, { owner, today = todayIso() }: { owner: bool
       amounts: owner
         ? ({
             nightsCents: parseAmountCents(v.nightsPrice) ?? 0,
-            charges: v.charges.map((c) => ({ label: c.label.trim(), amountCents: parseAmountCents(c.amount) ?? 0 })),
+            charges: v.charges.map((c) => ({ label: c.label.trim(), amountCents: parseAmountCents(c.amount, { negative: true }) ?? 0 })),
             cancellationFeeCents: null,
           } satisfies BookingAmounts)
         : null,

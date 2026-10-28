@@ -1115,7 +1115,9 @@
       "cleaning": "Reinigung",
       "pet": "Haustier",
       "breakfast": "Frühstück",
-      "parking": "Parkplatz"
+      "parking": "Parkplatz",
+      "discount": "Rabatt",
+      "touristTax": "Nächtigungsabgabe"
     },
     "warnings": {
       "title": "Bitte prüfen",

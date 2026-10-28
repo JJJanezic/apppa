@@ -12,6 +12,7 @@ import {
   formatPercent,
   formatPeriod,
   formatWeekday,
+  parseAmountCents,
 } from './format'
 import { LOCALE, TIME_ZONE } from './locale'
 
@@ -97,5 +98,37 @@ describe('Datum einheitlich (PROJ-31)', () => {
     expect(formatDateTime('2026-07-14T22:30:00Z')).toBe('Mi, 15.07.2026, 00:30')
     expect(formatDate('2026-10-05T22:30:00Z')).toBe('Di, 06.10.2026')
     expect(formatDate(new Date('2026-10-28T08:00:00Z'))).toBe('Mi, 28.10.2026')
+  })
+})
+
+describe('Negative Beträge bei Zusatzkosten (PROJ-32)', () => {
+  const negative = { negative: true }
+
+  it.each([
+    ['-50', -5000],
+    ['-1250,5', -125050],
+    ['-1.250,50', -125050],
+    ['- 5', -500],
+    ['−5', -500],
+    ['-€ 50', -5000],
+    ['-0', 0],
+    ['-0,00', 0],
+    ['50', 5000],
+  ])('„%s“ ergibt %s Cent', (input, cents) => {
+    expect(Object.is(parseAmountCents(input, negative), cents)).toBe(true)
+  })
+
+  it.each(['-', '--5', '5-', '-abc', '− '])('„%s“ ist ungültig', (input) => {
+    expect(parseAmountCents(input, negative)).toBeNaN()
+  })
+
+  it('ohne Schalter bleibt ein Minus ungültig', () => {
+    expect(parseAmountCents('-50')).toBeNaN()
+    expect(parseAmountCents('−50')).toBeNaN()
+  })
+
+  it('zeigt negative Beträge als „-€ 50,00“', () => {
+    expect(plain(formatCents(-5000))).toBe('-€ 50,00')
+    expect(plain(formatCents(-125050))).toBe('-€ 1.250,50')
   })
 })

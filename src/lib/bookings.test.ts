@@ -164,6 +164,13 @@ describe('Personen und Preis', () => {
     expect(totalCents({ nightsCents: 36000, charges: [{ label: 'Reinigung', amountCents: 6000 }, { label: 'Haustier', amountCents: 1550 }] })).toBe(43550)
   })
 
+  it('Endbetrag mit negativen Positionen, auch unter 0 (PROJ-32)', () => {
+    expect(totalCents({ nightsCents: 30000, charges: [{ label: 'Reinigung', amountCents: 6000 }, { label: 'Rabatt', amountCents: -5000 }] })).toBe(31000)
+    expect(totalCents({ nightsCents: 10000, charges: [{ label: 'Gutschrift', amountCents: -15000 }] })).toBe(-5000)
+    // Anteilige Abrechnung (PROJ-30): nur der Übernachtungspreis ändert sich, Positionen bleiben
+    expect(totalCents({ nightsCents: billedNightsCents(30000, 3, 4), charges: [{ label: 'Rabatt', amountCents: -5000 }] })).toBe(35000)
+  })
+
   it('liest Beträge mit Komma, Punkt und Tausenderpunkt', () => {
     expect(parseAmountCents('125')).toBe(12500)
     expect(parseAmountCents('125,5')).toBe(12550)

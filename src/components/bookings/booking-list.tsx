@@ -1,9 +1,10 @@
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 
+import { Amount } from '@/components/amount'
 import { BookingBadges } from '@/components/bookings/booking-badges'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { formatCents, formatDate, formatNumber, formatPeriod } from '@/lib/format'
+import { formatDate, formatNumber, formatPeriod } from '@/lib/format'
 import { bookingHref, type BookingRow, nightsBetween } from '@/lib/bookings'
 
 interface BookingListProps {
@@ -18,7 +19,7 @@ export function BookingList({ rows, showAmounts }: BookingListProps) {
   // „Mi, 28.10.2026 – Di, 03.11.2026“ (PROJ-31), immer mit Jahr
   const period = (r: BookingRow) => formatPeriod(r.arrival, r.departure)
   const title = (r: BookingRow) => r.guestName ?? (r.blockReason ? `${t('kind.block')}: ${t(`blockReason.${r.blockReason}`)}` : t('kind.block'))
-  const amount = (r: BookingRow) => (r.totalCents === null ? '–' : formatCents(r.totalCents))
+  const amount = (r: BookingRow) => (r.totalCents === null ? '–' : <Amount cents={r.totalCents} />)
   // Buchungs- und Gästeblattnummer (PROJ-30)
   const numbers = (r: BookingRow) => [r.number, r.guestSheetNumber && t('guestSheetShort', { number: r.guestSheetNumber })].filter(Boolean).join(' · ')
   const badges = (r: BookingRow) => (

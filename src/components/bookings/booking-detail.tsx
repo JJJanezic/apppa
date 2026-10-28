@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { getLocale, getTranslations } from 'next-intl/server'
 
+import { Amount } from '@/components/amount'
 import { BookingActions } from '@/components/bookings/booking-actions'
 import { BookingBadges } from '@/components/bookings/booking-badges'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -174,7 +175,9 @@ export async function BookingDetail({ booking, apartments, owner, today, layout,
                   ))}
                   <div className="flex items-baseline justify-between gap-4 py-3 font-semibold">
                     <dt>{t('detail.total')}</dt>
-                    <dd className="tabular-nums">{euro(totalCents({ nightsCents: booking.amounts.billedNightsCents, charges: booking.amounts.charges }))}</dd>
+                    <dd>
+                      <Amount cents={totalCents({ nightsCents: booking.amounts.billedNightsCents, charges: booking.amounts.charges })} />
+                    </dd>
                   </div>
                   {booking.amounts.cancellationFeeCents !== null && (
                     <Money label={t('detail.cancellationFee')} cents={booking.amounts.cancellationFeeCents} />
@@ -216,7 +219,9 @@ function Money({ label, cents }: { label: string; cents: number }) {
   return (
     <div className="flex items-baseline justify-between gap-4 py-3">
       <dt className="min-w-0 break-words">{label}</dt>
-      <dd className="tabular-nums">{euro(cents)}</dd>
+      <dd>
+        <Amount cents={cents} />
+      </dd>
     </div>
   )
 }

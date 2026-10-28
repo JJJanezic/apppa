@@ -10,6 +10,7 @@ import { toast } from 'sonner'
 
 import { saveBooking } from '@/app/(app)/buchungen/actions'
 import { checkGuestDuplicates } from '@/app/(app)/gaeste/actions'
+import { Amount } from '@/components/amount'
 import { AmountInput } from '@/components/amount-input'
 import { callAction, FormError } from '@/components/auth/form-error'
 import { BookingWarningsAlert, GuestSheetWarning, hasGuestSheetDuplicates, hasWarnings } from '@/components/bookings/booking-warnings'
@@ -217,7 +218,7 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
   const billedCents =
     agreedCents !== null && !Number.isNaN(agreedCents) && nights > 0 && billable > 0 ? billedNightsCents(agreedCents, nights, billable) : agreedCents
   const extended = billable > nights && nights > 0
-  const totalParts = [billedCents, ...chargeRows.map((c) => parseAmountCents(c.amount ?? ''))]
+  const totalParts = [billedCents, ...chargeRows.map((c) => parseAmountCents(c.amount ?? '', { negative: true }))]
   const total = totalParts.every((c) => c === null || !Number.isNaN(c)) ? totalParts.reduce<number>((sum, c) => sum + (c ?? 0), 0) : null
 
   // Neuer Vorschlag nach Änderung von Wohnung, Zeitraum oder Personen: übernehmen, solange der Preis nicht von Hand
@@ -741,7 +742,7 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
                         <FormItem>
                           <FormLabel className="sr-only">{t('panel.chargeAmount')}</FormLabel>
                           <FormControl>
-                            <AmountInput placeholder={t('panel.chargeAmount')} className="min-h-11" {...field} onValueChange={field.onChange} />
+                            <AmountInput negative placeholder={t('panel.chargeAmount')} className="min-h-11" {...field} onValueChange={field.onChange} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -764,7 +765,7 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
                 <span>
                   {t('panel.total')}
                 </span>
-                <span className="text-lg font-semibold tabular-nums">{total === null ? '–' : euro(total)}</span>
+                {total === null ? <span className="text-lg font-semibold tabular-nums">–</span> : <Amount cents={total} className="text-lg font-semibold" />}
               </div>
             </fieldset>
           ) : (

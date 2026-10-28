@@ -45,14 +45,24 @@ export function amountInput(cents: number | null): string {
 
 // Betrag aus der Eingabe („125“, „125,50“, „1.250“, „1.250,50“, „125.5“, „€ 125“) in Cent;
 // null bei leer, NaN bei ungültig. Ein Leser für die ganze App (Buchungen und Wohnungen, PROJ-31).
-export function parseAmountCents(input: string): number | null {
-  const value = input.trim().replace(/^€\s*/, '')
+// Mit `negative` (nur Zusatzkosten, PROJ-32) ist ein Minus ganz vorne erlaubt, auch „- 5“ und das typografische
+// „−“; „-“ allein, „--5“ und „5-“ bleiben ungültig, „-0“ ergibt 0.
+export function parseAmountCents(input: string, { negative = false }: { negative?: boolean } = {}): number | null {
+  let value = input.trim()
+  let sign = 1
+  if (negative && /^[-−]/.test(value)) {
+    sign = -1
+    value = value.slice(1).trimStart()
+    if (!value) return Number.NaN
+  }
+  value = value.replace(/^€\s*/, '')
   if (!value) return null
   let normalized: string
   if (/^\d{1,3}(\.\d{3})+(,\d{1,2})?$/.test(value)) normalized = value.replaceAll('.', '').replace(',', '.')
   else if (/^\d{1,7}([.,]\d{1,2})?$/.test(value)) normalized = value.replace(',', '.')
   else return Number.NaN
-  return Math.round(Number(normalized) * 100)
+  const cents = Math.round(Number(normalized) * 100)
+  return cents === 0 ? 0 : sign * cents
 }
 
 // ---- Datum (PROJ-31) ----------------------------------------------------------------------------

@@ -1,6 +1,6 @@
 # PROJ-32: Negative Beträge bei Zusatzkosten
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-10-28
 **Last Updated:** 2026-10-28
 
@@ -176,6 +176,17 @@ Neu ist nur ein kleiner gemeinsamer Anzeige-Baustein „Betrag“ (z. B. `src/co
 
 ### Abhängigkeiten
 Keine neuen Pakete.
+
+## Implementation Notes (Frontend)
+**Stand 2026-10-28**
+- `src/lib/format.ts`: `parseAmountCents(input, { negative })` – Minus vorne (auch „- 5“, „−5“, „-€ 50“) nur mit Schalter; „-“, „--5“, „5-“ ungültig; „-0“ → 0
+- `src/components/amount-input.tsx`: neue Eigenschaft `negative`, reicht den Schalter an den Leser weiter
+- `src/lib/validation/bookings.ts`: Zusatzkosten von -1.000.000,00 bis 1.000.000,00 €; Übernachtungspreis und Stornogebühr unverändert ab 0
+- Neuer Anzeige-Baustein `src/components/amount.tsx` (`Amount`): „-€ 50,00“ mit `text-destructive` bei < 0; eingesetzt in Formular-Summe, Buchungs-Detail (Positionen, Übernachtungspreis, Endbetrag, Stornogebühr) und Buchungsliste (Tabelle und Handy-Karte)
+- Vorschläge „Rabatt“ und „Nächtigungsabgabe“ (`CHARGE_SUGGESTIONS`, `messages/de.json`)
+- Tests: Leser, Betragsfeld, Prüfschema, Endbetrag, `Amount`
+- **Hinweis zur Spec:** Anteilig berechnet wird nach PROJ-30 nur bei *späterer* tatsächlicher Abreise (Preis steigt); bei vorgezogener Abreise bleibt der volle Preis. Das Kriterium „vorgezogene Abreise … anteilig verringert“ ist daher in QA mit späterer Abreise zu prüfen: Positionen bleiben unverändert, Endbetrag = anteiliger Übernachtungspreis + Positionen
+- **Offen für /backend:** Datenbankprüfung `booking_charges.amount_cents` noch 0 bis 1.000.000 € – negative Positionen werden bis zur Migration beim Speichern abgelehnt
 
 ## QA Test Results
 _To be added by /qa_

@@ -124,7 +124,7 @@ describe('Buchung', () => {
 
   it('prüft Beträge und Zusatzkosten nur für Inhaber', () => {
     expect(messages({ ...valid, nightsPrice: 'abc' })).toContain('nightsPrice:amountInvalid')
-    expect(messages({ ...valid, charges: [{ label: '', amount: '-5' }] })).toEqual(
+    expect(messages({ ...valid, charges: [{ label: '', amount: '--5' }] })).toEqual(
       expect.arrayContaining(['charges.0.label:chargeLabelRequired', 'charges.0.amount:amountInvalid'])
     )
     // Mitarbeiter: kein Preis nötig, Beträge werden nicht übernommen
@@ -170,5 +170,30 @@ describe('Storno', () => {
     expect(cancelSchema(t).parse({ reason: '', fee: '' })).toEqual({ reason: null, fee: null })
     expect(cancelSchema(t).parse({ reason: 'Krankheit', fee: '50' })).toEqual({ reason: 'Krankheit', fee: 5000 })
     expect(cancelSchema(t).safeParse({ reason: '', fee: 'x' }).success).toBe(false)
+  })
+
+  it('lehnt eine negative Stornogebühr ab (PROJ-32)', () => {
+    expect(cancelSchema(t).safeParse({ reason: '', fee: '-50' }).success).toBe(false)
+  })
+})
+
+describe('Negative Zusatzkosten (PROJ-32)', () => {
+  const parse = (input: Partial<BookingInput>) => bookingSchema(t, { owner: true, today: TODAY }).parse({ ...valid, ...input })
+
+  it('nimmt negative Positionen an, Endbetrag darf unter 0 fallen', () => {
+    expect(parse({ nightsPrice: '100', charges: [{ label: 'Gutschrift', amount: '-150' }] }).amounts).toMatchObject({
+      nightsCents: 10000,
+      charges: [{ label: 'Gutschrift', amountCents: -15000 }],
+    })
+    expect(parse({ charges: [{ label: 'Rabatt', amount: '-1.000.000,00' }] }).amounts?.charges[0].amountCents).toBe(-100000000)
+  })
+
+  it('meldet Beträge unter -1.000.000,00 und kaputte Minus-Eingaben', () => {
+    for (const amount of ['-1.000.000,01', '-', '--5', '5-'])
+      expect(messages({ ...valid, charges: [{ label: 'Rabatt', amount }] })).toEqual(['charges.0.amount:amountInvalid'])
+  })
+
+  it('lehnt einen negativen Übernachtungspreis ab', () => {
+    expect(messages({ ...valid, nightsPrice: '-50' })).toEqual(['nightsPrice:amountInvalid'])
   })
 })
