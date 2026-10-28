@@ -98,15 +98,9 @@ export async function BookingDetail({ booking, apartments, owner, today, layout,
 
       <div className={cn('grid gap-8', layout === 'page' && 'lg:grid-cols-2')}>
         <DetailSection title={t('detail.stay')} headingSize={headingSize}>
-          <Fact label={t('detail.arrival')}>
-            {date(booking.arrival)}
-            {!isBlock && <span className="text-ds-neutral-800"> · {booking.checkIn}</span>}
-          </Fact>
+          <Fact label={t('detail.arrival')}>{date(booking.arrival)}</Fact>
           {departureDiffers && <Fact label={t('detail.plannedDeparture')}>{date(booking.plannedDeparture)}</Fact>}
-          <Fact label={t('detail.departure')}>
-            {date(booking.departure)}
-            {!isBlock && <span className="text-ds-neutral-800"> · {booking.checkOut}</span>}
-          </Fact>
+          <Fact label={t('detail.departure')}>{date(booking.departure)}</Fact>
           <Fact label={t('detail.nights')}>
             {formatNumber(stayNights)}
             {billable !== stayNights && <span className="text-ds-neutral-800"> · {t('detail.billableNights', { nights: billable })}</span>}
