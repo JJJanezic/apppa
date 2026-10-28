@@ -58,6 +58,7 @@ Hinweise zu `config push`:
 - `[auth.email] enable_signup` muss `true` bleiben, sonst ist der E-Mail-Login komplett abgeschaltet. Die Registrierung sperrt `[auth] enable_signup = false`.
 - Seit PROJ-3 versendet Supabase über Brevo (Abschnitt 8). `config push` braucht deshalb die drei SMTP-Variablen, sonst bricht er ab bzw. überträgt leere Zugangsdaten. Immer so aufrufen wie in Abschnitt 8 beschrieben.
 - Vor jedem Push mit `npx supabase config diff` prüfen, was sich ändert.
+- Nach einem Push nach Dev die Anmelde-Grenzen im Dashboard wieder auf 300 stellen (Abschnitt 7).
 
 **Regel:** Datenbankänderungen nur als neue Datei in `supabase/migrations/` (`npx supabase migration new <name>`), nie direkt im SQL-Editor.
 
@@ -116,6 +117,12 @@ Stand 2026-10-24: Beide Projekte sind angelegt, alle Migrationen eingespielt, Ad
 
 `npm test` führt die Integrationstests (`supabase/tests/*.integration.test.ts`: RLS, Auth-Konfiguration, Anmelde-Sperre, Mail-Links) gegen „apppa-dev“ aus, wenn `.env.local` alle drei Variablen enthält. Sonst werden sie übersprungen.
 Die Tests legen `test-*@example.com`-Nutzer und zwei Test-Mandanten an und löschen sie wieder. Ihre Protokolleinträge bleiben stehen, weil das Protokoll nicht löschbar ist.
+
+**Anmelde-Grenzen nur in Dev erhöht (Stand 2026-10-28).** Ein voller `npm test` meldet rund 35 Testnutzer mit Passwort an (je Integrationsdatei 1 bis 7), die E2E-Tests lösen zusätzlich Einmal-Links ein. Mit der Supabase-Grenze von 30 je 5 Minuten und IP scheitern dann Tests mit „Request rate limit reached“, obwohl sie einzeln grün sind. Deshalb in **„apppa-dev“** im Dashboard unter *Authentication → Rate Limits*:
+- „Sign-ups and sign-ins“ (`sign_in_sign_ups`) auf 300
+- „Token verifications“ (`token_verifications`) auf 300
+
+Staging und Produktion bleiben bei 30 (Schutz gegen das Durchprobieren von Passwörtern). Darum steht in `supabase/config.toml` weiterhin 30: Die Datei gilt für alle Umgebungen, ein höherer Wert dort käme beim nächsten `config push` auch in Produktion an. Folge: **Jeder `config push` nach Dev setzt beide Grenzen wieder auf 30.** Danach im Dev-Dashboard erneut auf 300 stellen. `npx supabase config diff` zeigt den Unterschied in Dev als erwartete Abweichung an.
 
 ## 8. Mailversand über Brevo (PROJ-3)
 
