@@ -2,24 +2,21 @@
 
 import { CaretLeft, CaretRight } from '@phosphor-icons/react'
 import Link from 'next/link'
-import { useFormatter, useLocale, useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Pagination, PaginationContent, PaginationItem } from '@/components/ui/pagination'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { formatNumber } from '@/lib/format'
+import { formatDate, formatNumber } from '@/lib/format'
 import { countryName, guestHref, guestListHref, type GuestPage, type GuestRow, guestSortName } from '@/lib/guests'
-
-const DATE = { day: 'numeric', month: 'short', year: 'numeric' } as const
 
 // Gästeliste (PROJ-7): ab 768 px Tabelle (der Name ist der Link), darunter Karten
 export function GuestList({ page }: { page: GuestPage }) {
   const t = useTranslations('guests')
-  const format = useFormatter()
   const locale = useLocale()
   const lastStay = (row: GuestRow) =>
-    row.lastStay ? format.dateTime(new Date(row.lastStay), DATE) : <span className="text-ds-neutral-700">{t('none')}</span>
+    row.lastStay ? formatDate(row.lastStay) : <span className="text-ds-neutral-700">{t('none')}</span>
   const anonymizedBadge = (row: GuestRow) =>
     row.anonymized ? (
       <Badge variant="secondary" className="font-normal">
@@ -70,7 +67,7 @@ export function GuestList({ page }: { page: GuestPage }) {
               {row.companyName && <span className="break-words text-sm text-ds-neutral-800">{row.companyName}</span>}
               <span className="text-[13px] text-ds-neutral-700">
                 {countryName(row.country, locale)} · {t('staysShort', { count: row.stayCount })}
-                {row.lastStay && <> · {t('lastStayShort', { date: format.dateTime(new Date(row.lastStay), DATE) })}</>}
+                {row.lastStay && <> · {t('lastStayShort', { date: formatDate(row.lastStay) })}</>}
               </span>
             </Link>
           </li>

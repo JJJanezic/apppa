@@ -1,28 +1,24 @@
 import Link from 'next/link'
-import { useFormatter, useTranslations } from 'next-intl'
+import { useTranslations } from 'next-intl'
 
 import { BookingBadges } from '@/components/bookings/booking-badges'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { formatCurrency, formatNumber } from '@/lib/format'
+import { formatCents, formatDate, formatNumber, formatPeriod } from '@/lib/format'
 import { bookingHref, type BookingRow, nightsBetween } from '@/lib/bookings'
 
 interface BookingListProps {
   rows: BookingRow[]
   // Beträge nur für Inhaber
   showAmounts: boolean
-  // Bei der Suche über alle Monate steht das Jahr dabei
-  withYear: boolean
 }
 
 // Buchungsliste (PROJ-8): ab 768 px Tabelle (der Name ist der Link), darunter Karten
-export function BookingList({ rows, showAmounts, withYear }: BookingListProps) {
+export function BookingList({ rows, showAmounts }: BookingListProps) {
   const t = useTranslations('bookings')
-  const format = useFormatter()
-  const day = (iso: string) =>
-    format.dateTime(new Date(`${iso}T12:00:00`), withYear ? { day: 'numeric', month: 'short', year: 'numeric' } : { day: 'numeric', month: 'short' })
-  const period = (r: BookingRow) => `${day(r.arrival)} – ${day(r.departure)}`
+  // „Mi, 28.10.2026 – Di, 03.11.2026“ (PROJ-31), immer mit Jahr
+  const period = (r: BookingRow) => formatPeriod(r.arrival, r.departure)
   const title = (r: BookingRow) => r.guestName ?? (r.blockReason ? `${t('kind.block')}: ${t(`blockReason.${r.blockReason}`)}` : t('kind.block'))
-  const amount = (r: BookingRow) => (r.totalCents === null ? '–' : formatCurrency(r.totalCents / 100, { cents: r.totalCents % 100 !== 0 }))
+  const amount = (r: BookingRow) => (r.totalCents === null ? '–' : formatCents(r.totalCents))
   // Buchungs- und Gästeblattnummer (PROJ-30)
   const numbers = (r: BookingRow) => [r.number, r.guestSheetNumber && t('guestSheetShort', { number: r.guestSheetNumber })].filter(Boolean).join(' · ')
   const badges = (r: BookingRow) => (
@@ -46,7 +42,12 @@ export function BookingList({ rows, showAmounts, withYear }: BookingListProps) {
         <TableBody>
           {rows.map((r) => (
             <TableRow key={r.id} className={r.state === 'active' ? undefined : 'text-ds-neutral-800'}>
-              <TableCell className="whitespace-nowrap tabular-nums">{period(r)}</TableCell>
+              {/* Zeitraum zweizeilig wie die Spalte „Gast bzw. Sperre“ (PROJ-31): oben Anreise, darunter Abreise */}
+              <TableCell className="whitespace-nowrap tabular-nums">
+                <span className="block">{formatDate(r.arrival)}</span>
+                <span className="sr-only"> – </span>
+                <span className="block">{formatDate(r.departure)}</span>
+              </TableCell>
               <TableCell className="max-w-[320px]">
                 {/* Nur der Name ist der Link: Safari kann Klickflächen über die ganze Zeile (after:inset-0) nicht an <tr> verankern */}
                 <Link href={bookingHref(r.id)} className="font-medium text-ds-accent-700 underline underline-offset-[3px] hover:decoration-2">

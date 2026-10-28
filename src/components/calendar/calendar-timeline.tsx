@@ -1,12 +1,12 @@
 'use client'
 
 import { WarningCircle } from '@phosphor-icons/react'
-import { useFormatter, useTranslations } from 'next-intl'
+import { useTranslations } from 'next-intl'
 
 import { barClasses } from '@/components/calendar/entry-style'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { type CalendarApartment, type CalendarDay, type CalendarEntry, type CalendarVariant, dayAt, layoutRow } from '@/lib/calendar'
-import { formatNumber } from '@/lib/format'
+import { formatDate, formatDayOfMonth, formatNumber, formatWeekday } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 interface CalendarTimelineProps {
@@ -30,18 +30,17 @@ const PAD = 6
 const DAY_COLUMNS: Record<number, string> = { 14: 'grid-cols-[repeat(14,minmax(0,1fr))]', 28: 'grid-cols-[repeat(28,minmax(0,1fr))]' }
 const MIN_WIDTH: Record<CalendarVariant, string> = { dashboard: 'min-w-[680px] sm:min-w-[860px]', full: 'min-w-[1100px]' }
 const pct = (fraction: number) => `${fraction * 100}%`
-const noon = (iso: string) => new Date(`${iso}T12:00:00`)
 
 // Zeitleiste (PROJ-9): Zeile je Wohnung, Balken in Kanalfarbe, Überschneidungen untereinander.
 // Am Handy scrollt nur dieser Bereich seitlich; die Namensspalte bleibt stehen.
 export function CalendarTimeline({ variant, days, apartments, entries, selected, onOpen, onCreate }: CalendarTimelineProps) {
   const t = useTranslations('calendar')
   const tb = useTranslations('bookings')
-  const format = useFormatter()
   const count = days.length
   const from = days[0].date
   const todayIndex = days.findIndex((d) => d.today)
-  const short = (iso: string) => format.dateTime(noon(iso), { day: 'numeric', month: 'short' })
+  // Hinweis und Beschriftung der Balken im Standardformat (PROJ-31)
+  const short = formatDate
 
   function label(e: CalendarEntry): string {
     if (e.kind === 'block') return e.blockReason ? tb(`blockReason.${e.blockReason}`) : tb('kind.block')
@@ -74,8 +73,8 @@ export function CalendarTimeline({ variant, days, apartments, entries, selected,
                     d.today ? 'font-semibold text-ds-accent-2-700' : d.weekend ? 'text-ds-neutral-700' : 'text-ds-text'
                   )}
                 >
-                  <span className="text-xs">{format.dateTime(noon(d.date), { weekday: 'short' })}</span>
-                  <span className="text-base tabular-nums">{format.dateTime(noon(d.date), { day: 'numeric' })}</span>
+                  <span className="text-xs">{formatWeekday(d.date)}</span>
+                  <span className="text-base tabular-nums">{formatDayOfMonth(d.date)}</span>
                 </div>
               ))}
             </div>

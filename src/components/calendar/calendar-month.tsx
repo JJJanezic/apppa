@@ -1,11 +1,11 @@
 'use client'
 
-import { useFormatter, useTranslations } from 'next-intl'
+import { useTranslations } from 'next-intl'
 
 import { dotClasses } from '@/components/calendar/entry-style'
 import { addDays } from '@/lib/bookings'
 import { type CalendarApartment, type CalendarEntry, dayItems, monthCells } from '@/lib/calendar'
-import { formatNumber } from '@/lib/format'
+import { formatDate, formatDayOfMonth, formatNumber, formatWeekday } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 interface CalendarMonthProps {
@@ -19,7 +19,6 @@ interface CalendarMonthProps {
   onOpen: (id: string) => void
 }
 
-const noon = (iso: string) => new Date(`${iso}T12:00:00`)
 // Wochentage ab Montag (2026-10-26 ist ein Montag)
 const WEEK = Array.from({ length: 7 }, (_, i) => addDays('2026-10-26', i))
 
@@ -27,13 +26,12 @@ const WEEK = Array.from({ length: 7 }, (_, i) => addDays('2026-10-26', i))
 export function CalendarMonth({ month, day, today, apartments, entries, selected, onSelectDay, onOpen }: CalendarMonthProps) {
   const t = useTranslations('calendar')
   const tb = useTranslations('bookings')
-  const format = useFormatter()
   const shown = new Set(apartments.map((a) => a.id))
   const own = entries.filter((e) => shown.has(e.apartmentId))
   const { leadBlanks, cells } = monthCells(month, apartments, own, today)
   const items = dayItems(day, own)
   const apartmentName = new Map(apartments.map((a) => [a.id, a.name]))
-  const short = (iso: string) => format.dateTime(noon(iso), { day: 'numeric', month: 'short' })
+  const short = formatDate
 
   return (
     <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
@@ -41,7 +39,7 @@ export function CalendarMonth({ month, day, today, apartments, entries, selected
         <div className="grid grid-cols-7 gap-1 text-xs text-ds-neutral-700" aria-hidden="true">
           {WEEK.map((d) => (
             <div key={d} className="px-1.5">
-              {format.dateTime(noon(d), { weekday: 'short' })}
+              {formatWeekday(d)}
             </div>
           ))}
         </div>
@@ -59,7 +57,7 @@ export function CalendarMonth({ month, day, today, apartments, entries, selected
                 onClick={() => onSelectDay(c.date)}
                 aria-pressed={isSelected}
                 aria-label={t('dayButton', {
-                  date: format.dateTime(noon(c.date), { weekday: 'long', day: 'numeric', month: 'long' }),
+                  date: formatDate(c.date),
                   occupied: formatNumber(c.occupied),
                   total: formatNumber(c.total),
                   arrivals: formatNumber(c.arrivals),
@@ -73,7 +71,7 @@ export function CalendarMonth({ month, day, today, apartments, entries, selected
               >
                 <span className="flex w-full flex-wrap items-baseline justify-between gap-x-1">
                   <span className={cn('text-base tabular-nums', c.today && 'font-semibold text-ds-accent-2-700')}>
-                    {format.dateTime(noon(c.date), { day: 'numeric' })}
+                    {formatDayOfMonth(c.date)}
                   </span>
                   <span className="hidden text-xs tabular-nums text-ds-neutral-700 sm:inline">
                     {t('occupied', { occupied: formatNumber(c.occupied), total: formatNumber(c.total) })}
@@ -93,7 +91,7 @@ export function CalendarMonth({ month, day, today, apartments, entries, selected
       </div>
 
       <section className="flex flex-col gap-3" aria-live="polite">
-        <h3 className="text-lg">{format.dateTime(noon(day), { weekday: 'long', day: 'numeric', month: 'long' })}</h3>
+        <h3 className="text-lg">{formatDate(day)}</h3>
         {items.length === 0 ? (
           <p className="text-sm text-ds-neutral-700">{t('dayEmpty')}</p>
         ) : (

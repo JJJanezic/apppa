@@ -1,6 +1,6 @@
 'use client'
 
-import { useFormatter, useTranslations } from 'next-intl'
+import { useTranslations } from 'next-intl'
 import { useState } from 'react'
 
 import { resendInvitation, revokeInvitation } from '@/app/(app)/einstellungen/actions'
@@ -9,6 +9,7 @@ import { useTeamAction } from '@/components/settings/use-team-action'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import type { ActionResult } from '@/lib/auth/result'
+import { formatDate } from '@/lib/format'
 import type { Invitation } from '@/lib/team'
 
 type InvitationAction = (invitationId: string) => Promise<ActionResult<unknown, string>>
@@ -31,7 +32,6 @@ const teamActions = {
 export function InvitationsList({ invitations, actions = teamActions, readOnly = false }: InvitationsListProps) {
   const t = useTranslations('team')
   const tRoles = useTranslations('roles')
-  const format = useFormatter()
   const { run, pending } = useTeamAction(actions.errors)
   const [revoking, setRevoking] = useState<Invitation | null>(null)
 
@@ -51,7 +51,7 @@ export function InvitationsList({ invitations, actions = teamActions, readOnly =
               <span className="break-all font-medium">{invitation.email}</span>
               <span className="flex flex-wrap items-center gap-2 text-[13px] text-ds-neutral-700">
                 {tRoles(invitation.role)} ·{' '}
-                {t('colSent')} {format.dateTime(new Date(invitation.sentAt), { day: 'numeric', month: 'long', year: 'numeric' })}
+                {t('colSent')} {formatDate(invitation.sentAt)}
                 <Badge
                   variant={invitation.status === 'expired' ? 'destructive' : 'outline'}
                   className="font-normal"

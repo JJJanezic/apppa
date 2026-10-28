@@ -2,7 +2,7 @@
 
 import { WarningCircle } from '@phosphor-icons/react'
 import { useRouter } from 'next/navigation'
-import { useFormatter, useLocale, useTranslations } from 'next-intl'
+import { useLocale, useTranslations } from 'next-intl'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 
@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { formatDatePlain } from '@/lib/format'
 import {
   countryName,
   defaultMergeChoice,
@@ -44,7 +45,6 @@ export function MergeDialog({ open, onOpenChange, guest, presetOtherId }: MergeD
   const tm = useTranslations('guests.marketing')
   const tg = useTranslations('guests.gender')
   const tdt = useTranslations('guests.documentType')
-  const format = useFormatter()
   const locale = useLocale()
   const router = useRouter()
   const [other, setOther] = useState<Guest | null>(null)
@@ -108,7 +108,7 @@ export function MergeDialog({ open, onOpenChange, guest, presetOtherId }: MergeD
       case 'language':
         return g.language ? languageName(g.language, locale) : ''
       case 'birthDate':
-        return g.birthDate ? format.dateTime(new Date(`${g.birthDate}T12:00:00`), { day: 'numeric', month: 'long', year: 'numeric' }) : ''
+        return g.birthDate ? formatDatePlain(g.birthDate) : ''
       case 'address':
         return join(g.street, [g.postalCode, g.city].filter(Boolean).join(' ') || null, g.addressCountry ? countryName(g.addressCountry, locale) : null)
       case 'marketing':
@@ -122,7 +122,7 @@ export function MergeDialog({ open, onOpenChange, guest, presetOtherId }: MergeD
         return join(
           g.documentType ? tdt(g.documentType) : null,
           g.documentNumber,
-          g.documentIssuedOn ? format.dateTime(new Date(`${g.documentIssuedOn}T12:00:00`), { day: 'numeric', month: 'long', year: 'numeric' }) : null,
+          g.documentIssuedOn ? formatDatePlain(g.documentIssuedOn) : null,
           g.documentAuthority,
           g.documentCountry ? countryName(g.documentCountry, locale) : null,
           images ? t('merge.documentImages', { count: images }) : null

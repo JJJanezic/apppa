@@ -95,7 +95,7 @@ export default async function BookingsPage({ searchParams }: { searchParams: Sea
             }
           />
         ) : (
-          <BookingList rows={list.rows} showAmounts={owner} withYear={list.searching} />
+          <BookingList rows={list.rows} showAmounts={owner} />
         )}
       </section>
     </>

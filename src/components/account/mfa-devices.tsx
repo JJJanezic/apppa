@@ -2,7 +2,7 @@
 
 import { DeviceMobile, Plus } from '@phosphor-icons/react'
 import { useRouter } from 'next/navigation'
-import { useFormatter, useTranslations } from 'next-intl'
+import { useTranslations } from 'next-intl'
 import { useState } from 'react'
 import { toast } from 'sonner'
 
@@ -24,11 +24,11 @@ import {
 import { Button } from '@/components/ui/button'
 import type { MfaDevice } from '@/lib/account'
 import type { AuthErrorCode } from '@/lib/auth/result'
+import { formatDate } from '@/lib/format'
 
 // 2FA-Geräte des Admins: Liste, zweites Gerät hinzufügen, entfernen (letztes Gerät gesperrt)
 export function MfaDevices({ devices }: { devices: MfaDevice[] }) {
   const t = useTranslations('account')
-  const format = useFormatter()
   const router = useRouter()
   const [adding, setAdding] = useState(false)
   const [error, setError] = useState<AuthErrorCode | null>(null)
@@ -55,7 +55,7 @@ export function MfaDevices({ devices }: { devices: MfaDevice[] }) {
             <div className="flex min-w-0 flex-1 flex-col">
               <span>{device.name ?? `${t('mfaDevice')} ${i + 1}`}</span>
               <span className="text-[13px] text-ds-neutral-700">
-                {t('mfaAddedOn', { date: format.dateTime(new Date(device.createdAt), { day: 'numeric', month: 'long', year: 'numeric' }) })}
+                {t('mfaAddedOn', { date: formatDate(device.createdAt) })}
               </span>
             </div>
             <AlertDialog>

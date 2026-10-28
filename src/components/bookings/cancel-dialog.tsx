@@ -8,11 +8,11 @@ import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 
 import { cancelBooking } from '@/app/(app)/buchungen/actions'
+import { AmountInput } from '@/components/amount-input'
 import { callAction, FormError } from '@/components/auth/form-error'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
-import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { type Booking, LIMITS } from '@/lib/bookings'
 import { type CancelInput, cancelSchema } from '@/lib/validation/bookings'
@@ -82,7 +82,7 @@ export function CancelDialog({ open, onOpenChange, booking, afterCancelHref }: C
                 <FormItem>
                   <FormLabel>{t('fee')}</FormLabel>
                   <FormControl>
-                    <Input inputMode="decimal" autoComplete="off" className="min-h-11 w-40" {...field} />
+                    <AmountInput className="min-h-11 w-40" {...field} onValueChange={field.onChange} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

@@ -1,9 +1,8 @@
-import { useFormatter, useTranslations } from 'next-intl'
+import { useTranslations } from 'next-intl'
 
 import { Badge } from '@/components/ui/badge'
 import type { BookingKind, BookingState } from '@/lib/bookings'
-
-const DATE = { day: 'numeric', month: 'short' } as const
+import { formatDate } from '@/lib/format'
 
 interface BookingBadgesProps {
   kind: BookingKind
@@ -17,7 +16,6 @@ interface BookingBadgesProps {
 // Kennzeichen eines Eintrags in Liste und Detail: Art, Zustand, Option bis …, Überschneidung, „Preis prüfen“
 export function BookingBadges({ kind, state, optionUntil, overlapping = false, priceReview = false }: BookingBadgesProps) {
   const t = useTranslations('bookings')
-  const format = useFormatter()
   const muted = state !== 'active'
   return (
     <span className="flex flex-wrap items-center gap-1.5">
@@ -31,7 +29,7 @@ export function BookingBadges({ kind, state, optionUntil, overlapping = false, p
       )}
       {kind === 'option' && state === 'active' && optionUntil && (
         <span className="text-[13px] text-ds-neutral-800">
-          {t('optionUntil', { date: format.dateTime(new Date(`${optionUntil}T12:00:00`), DATE) })}
+          {t('optionUntil', { date: formatDate(optionUntil) })}
         </span>
       )}
       {overlapping && (

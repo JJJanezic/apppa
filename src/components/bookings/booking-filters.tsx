@@ -70,6 +70,8 @@ export function BookingFilterBar({ filters, apartments, today }: BookingFilterBa
     timer.current = setTimeout(() => go({ query: next.trim() }), DELAY_MS)
   }
 
+  // Ausnahme PROJ-31: Monatsüberschrift „Oktober 2026“
+  // eslint-disable-next-line no-restricted-syntax
   const monthLabel = format.dateTime(new Date(`${filters.month}-15T12:00:00`), { month: 'long', year: 'numeric' })
   const isCurrent = filters.month === currentMonth(today)
 

@@ -50,6 +50,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   return (
     <>
       <PageHeader
+        // Ausnahme PROJ-31: Datum unter dem Gruß bleibt ausgeschrieben
+        // eslint-disable-next-line no-restricted-syntax
         eyebrow={format.dateTime(now, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
         title={t(greetingFor(now), { name: person.firstName ?? 'none' })}
         lead={t('lead')}

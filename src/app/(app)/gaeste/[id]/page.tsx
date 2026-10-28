@@ -1,7 +1,7 @@
 import { CaretLeft } from '@phosphor-icons/react/ssr'
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { getFormatter, getLocale, getTranslations } from 'next-intl/server'
+import { getLocale, getTranslations } from 'next-intl/server'
 
 import { BookingList } from '@/components/bookings/booking-list'
 import { DocumentImages } from '@/components/guests/document-images'
@@ -10,7 +10,7 @@ import { PageHeader } from '@/components/page-header'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { requireArea } from '@/lib/areas'
-import { formatNumber } from '@/lib/format'
+import { formatDate, formatDatePlain, formatNumber } from '@/lib/format'
 import { countryName, type Guest, guestDisplayName, languageName } from '@/lib/guests'
 import { getGuestBookings } from '@/lib/bookings-data'
 import { getGuest } from '@/lib/guests-data'
@@ -22,21 +22,19 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   return { title: guestDisplayName(await getGuest((await params).id)) }
 }
 
-const LONG_DATE = { day: 'numeric', month: 'long', year: 'numeric' } as const
-
 // Gast-Detail (PROJ-7): Stammdaten und Aufenthalte für alle Mitglieder, Aktionen nur für Inhaber
 export default async function GuestDetailPage({ params }: { params: Params }) {
   await requireArea('guests')
   const { id } = await params
   const t = await getTranslations('guests')
-  const format = await getFormatter()
   const locale = await getLocale()
   const tb = await getTranslations('bookings')
   const [guest, bookings] = await Promise.all([getGuest(id), getGuestBookings(id)])
   const { active } = await getTenantContext()
   const isOwner = active?.role === 'owner'
   // Datum ohne Uhrzeit: mittags erzeugen, damit die Zeitzone den Tag nicht verschiebt
-  const date = (iso: string) => format.dateTime(new Date(iso.length === 10 ? `${iso}T12:00:00` : iso), LONG_DATE)
+  // „Mi, 28.10.2026“; Geburts- und Ausstellungsdatum ohne Wochentag (PROJ-31)
+  const date = formatDate
   const missing = <span className="text-ds-neutral-700">{t('detail.missing')}</span>
   const platform = (source: Guest['emailSource']) =>
     source === 'platform' ? (
@@ -132,7 +130,7 @@ export default async function GuestDetailPage({ params }: { params: Params }) {
         <DetailSection title={t('detail.more')}>
           <Fact label={t('detail.gender')}>{t(`gender.${guest.gender}`)}</Fact>
           <Fact label={t('detail.marketing')}>{marketing ?? missing}</Fact>
-          <Fact label={t('detail.birthDate')}>{guest.birthDate ? date(guest.birthDate) : missing}</Fact>
+          <Fact label={t('detail.birthDate')}>{guest.birthDate ? formatDatePlain(guest.birthDate) : missing}</Fact>
           <Fact label={t('detail.note')}>{guest.note ? <span className="whitespace-pre-line break-words">{guest.note}</span> : missing}</Fact>
         </DetailSection>
 
@@ -149,7 +147,7 @@ export default async function GuestDetailPage({ params }: { params: Params }) {
           <DetailSection title={t('document.title')}>
             <Fact label={t('document.type')}>{guest.documentType ? t(`documentType.${guest.documentType}`) : missing}</Fact>
             <Fact label={t('document.number')}>{guest.documentNumber ?? missing}</Fact>
-            <Fact label={t('document.issuedOn')}>{guest.documentIssuedOn ? date(guest.documentIssuedOn) : missing}</Fact>
+            <Fact label={t('document.issuedOn')}>{guest.documentIssuedOn ? formatDatePlain(guest.documentIssuedOn) : missing}</Fact>
             <Fact label={t('document.authority')}>{guest.documentAuthority ?? missing}</Fact>
             <Fact label={t('document.country')}>{guest.documentCountry ? countryName(guest.documentCountry, locale) : missing}</Fact>
             <Fact label={t('document.images')}>
@@ -169,7 +167,7 @@ export default async function GuestDetailPage({ params }: { params: Params }) {
       {bookings.length > 0 && (
         <section className="flex flex-col gap-3">
           <h2 className="text-2xl">{t('detail.bookings')}</h2>
-          <BookingList rows={bookings} showAmounts={isOwner} withYear />
+          <BookingList rows={bookings} showAmounts={isOwner} />
         </section>
       )}
     </>

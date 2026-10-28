@@ -1,6 +1,6 @@
 # PROJ-31: Einheitliche Datums- und Betragsformate
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-10-28
 **Last Updated:** 2026-10-28
 
@@ -199,6 +199,26 @@ Keine neuen Daten. Kalendertage (An-/Abreise, „Option gilt bis“, Geburtsdatu
 
 ### E) Pakete
 Keine neuen Pakete.
+
+## Implementation Notes (Frontend)
+**Stand 2026-10-28.** Frontend fertig; kein Backend nötig (keine Migration, keine Server-Funktion).
+
+**Zentrale Formate (`src/lib/format.ts`)**
+- `formatDate` („Mi, 28.10.2026“), `formatDateTime` („Di, 27.10.2026, 14:35“, Wiener Zeit), `formatDatePlain` („15.05.1978“), `formatPeriod`, für enge Stellen `formatWeekday` („Mi“) und `formatDayOfMonth` („28“). Kalendertage werden aus dem ISO-Tag gebildet (keine Zeitzonen-Verschiebung), Zeitpunkte über `Intl` mit fester Zeitzone Europe/Vienna; feste Wochentagsliste Mo–So.
+- `formatCurrency` immer mit zwei Nachkommastellen (Option `cents` entfällt), `formatCents` für Cent-Werte, `amountInput` („1.250,00“) und `parseAmountCents` (ein Leser für die ganze App) zentral; `src/lib/bookings.ts` exportiert sie weiter.
+- Wohnungspreise: `parsePriceCents` nutzt den gemeinsamen Leser (versteht jetzt „1.250,00“), Höchstwert 99.999,99 € bleibt; `priceInput` = `amountInput`.
+
+**Betragsfeld (`src/components/amount-input.tsx`)**: shadcn Input; formatiert eine gültige Eingabe beim Verlassen, lässt leere/ungültige stehen. Eingesetzt in Übernachtungspreis, Zusatzkosten, Stornogebühr (Dialog und Notiz-Panel), Wohnungspreis, Erwachsenenpreis, Kinderstufen-Preise, Reinigungsgebühr.
+
+**Umgestellte Ansichten**: Buchungsliste (Spalte „Zeitraum“ zweizeilig, Handy-Karte einzeilig; Prop `withYear` entfällt, Jahr steht immer), Buchungs-Detail (Mitreisende-Geburtsdatum ohne Wochentag), Kennzeichen „bis …“, Warnungen, Kalender (Zeitraum oben, Balken-Hinweis und -Beschriftung, Tagesliste, Monats-Kästchen-Beschriftung für Screenreader; Tageskopf und Monatskästchen kurz mit „Mi“/„28“; Zeitraum-Knopf darf umbrechen), Gast-Detail (Geburts-/Ausstellungsdatum ohne Wochentag), Gästeliste, Zusammenführen, Betreiber-Kundenliste (letzte Anmeldung mit Uhrzeit), Kunden-Detail, Protokoll (mit Uhrzeit), Einladungen, 2FA-Geräte, Wohnungsübersicht. Texte mit festen Beträgen („€ 0,00“, „€ 1.000.000,00“) angepasst.
+
+**Ausnahmen** (mit `eslint-disable-next-line` und Begründung): Datum unter dem Dashboard-Gruß, Monatsüberschrift in Buchungsliste und Kalender.
+
+**Schutzregel**: `eslint.config.mjs` warnt bei `format.dateTime()`/`format.number()` und `toLocaleDateString` (außer `sv-SE` für ISO-Tage) außerhalb von `src/lib/format.ts`.
+
+**Tests**: Unit-Tests in `src/lib/format.test.ts` (Formate, Jahreswechsel, Schalttag, Sommerzeit, Mitternacht), `src/components/amount-input.test.tsx`, angepasst in `bookings.test.ts`/`apartments.test.ts`; 306 grün. Playwright-Projekt `safari` (WebKit) nur mit `PW_SAFARI=1 npx playwright test --project=safari`.
+
+**Offen für /qa**: Bestehende E2E-Tests mit alten Texten/Werten anpassen (z. B. PROJ-8: Feldwerte „60“/„90“ → „60,00“/„90,00“; weitere Prüfungen auf „3. Nov.“, „€ 420“ o. Ä.). `desktopOnly()` in den Specs überspringt das Projekt `safari` – für Safari-Läufe ggf. zulassen.
 
 ## QA Test Results
 _To be added by /qa_

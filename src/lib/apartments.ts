@@ -1,6 +1,8 @@
 // Objekte und Wohnungen (PROJ-6): Typen und reine Regeln für Browser und Server.
 // Lesefunktionen: src/lib/apartments-data.ts (nur Server), Aktionen: src/app/(app)/einstellungen/wohnungen/actions.ts.
 
+import { amountInput, parseAmountCents } from '@/lib/format'
+
 export type ApartmentErrorCode =
   | 'duplicateApartmentName'
   | 'duplicatePropertyName'
@@ -121,19 +123,17 @@ export function municipalitySearchKey(value: string): string {
     .trim()
 }
 
-// Preis aus der Eingabe („125“, „125,50“, „125.5“) in Cent; null bei leerer Eingabe, NaN bei ungültiger
+// Preis aus der Eingabe in Cent über den gemeinsamen Betragsleser (PROJ-31, versteht auch „1.250,00“);
+// höchstens 99.999,99 € wie bisher. null bei leerer Eingabe, NaN bei ungültiger
+const PRICE_INPUT_MAX_CENTS = 9_999_999
 export function parsePriceCents(input: string): number | null {
-  const value = input.trim()
-  if (!value) return null
-  if (!/^\d{1,5}([.,]\d{1,2})?$/.test(value)) return Number.NaN
-  return Math.round(Number(value.replace(',', '.')) * 100)
+  const cents = parseAmountCents(input)
+  if (cents === null || Number.isNaN(cents)) return cents
+  return cents > PRICE_INPUT_MAX_CENTS ? Number.NaN : cents
 }
 
-// Cent → Eingabewert für das Formular („125,50“; ganze Euro ohne Nachkommastellen)
-export function priceInput(cents: number | null): string {
-  if (cents === null) return ''
-  return cents % 100 === 0 ? String(cents / 100) : (cents / 100).toFixed(2).replace('.', ',')
-}
+// Cent → Eingabewert für das Formular („1.250,00“, PROJ-31)
+export const priceInput = amountInput
 
 // Kinderstufen aus der Datenbank ([{ to_age, price_cents }]); ungültige Einträge werden übergangen
 export function childPricesFromDb(value: unknown): ChildPrice[] {

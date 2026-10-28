@@ -10,6 +10,7 @@ import { toast } from 'sonner'
 
 import { saveBooking } from '@/app/(app)/buchungen/actions'
 import { checkGuestDuplicates } from '@/app/(app)/gaeste/actions'
+import { AmountInput } from '@/components/amount-input'
 import { callAction, FormError } from '@/components/auth/form-error'
 import { BookingWarningsAlert, GuestSheetWarning, hasGuestSheetDuplicates, hasWarnings } from '@/components/bookings/booking-warnings'
 import { useBookingWarnings } from '@/components/bookings/use-booking-warnings'
@@ -42,7 +43,7 @@ import {
   parseAmountCents,
   suggestedNightsCents,
 } from '@/lib/bookings'
-import { formatCurrency } from '@/lib/format'
+import { formatCents } from '@/lib/format'
 import { countryName, type DuplicateMatch, guestSortName } from '@/lib/guests'
 import { type BookingInput, bookingSchema } from '@/lib/validation/bookings'
 import { EMPTY_GUEST_INPUT, type GuestInput, guestSchema } from '@/lib/validation/guests'
@@ -71,7 +72,7 @@ interface BookingPanelProps {
   afterCreate?: 'open' | 'refresh'
 }
 
-const euro = (cents: number) => formatCurrency(cents / 100, { cents: cents % 100 !== 0 })
+const euro = formatCents
 
 // Neue Buchung: Inhaber erhalten die Reinigungsgebühr der Wohnung als Position (cleaningLabel), Mitarbeiter keine Beträge
 function initialValues(
@@ -663,14 +664,12 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
                   <FormItem>
                     <FormLabel>{t('panel.nightsPrice')}</FormLabel>
                     <FormControl>
-                      <Input
-                        inputMode="decimal"
-                        autoComplete="off"
+                      <AmountInput
                         className="min-h-11 w-40"
                         {...field}
-                        onChange={(e) => {
+                        onValueChange={(v) => {
                           setPriceTouched(true)
-                          field.onChange(e)
+                          field.onChange(v)
                         }}
                       />
                     </FormControl>
@@ -742,7 +741,7 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
                         <FormItem>
                           <FormLabel className="sr-only">{t('panel.chargeAmount')}</FormLabel>
                           <FormControl>
-                            <Input inputMode="decimal" autoComplete="off" placeholder={t('panel.chargeAmount')} className="min-h-11" {...field} />
+                            <AmountInput placeholder={t('panel.chargeAmount')} className="min-h-11" {...field} onValueChange={field.onChange} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>

@@ -7,6 +7,7 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 
 import { confirmOption, saveBookingNote } from '@/app/(app)/buchungen/actions'
+import { AmountInput } from '@/components/amount-input'
 import { callAction, FormError } from '@/components/auth/form-error'
 import { BlockPanel } from '@/components/bookings/block-panel'
 import { BookingPanel } from '@/components/bookings/booking-panel'
@@ -15,7 +16,6 @@ import { CompanionsPanel } from '@/components/bookings/companions-panel'
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { DetailPanel } from '@/components/detail-panel'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { amountInput, type BookableApartment, type Booking, bookingState, LIMITS } from '@/lib/bookings'
@@ -178,7 +178,7 @@ function NotePanel({ open, onOpenChange, booking, owner }: { open: boolean; onOp
         {withFee && (
           <div className="flex flex-col gap-2">
             <Label htmlFor="stornogebuehr">{t('cancel.fee')}</Label>
-            <Input id="stornogebuehr" inputMode="decimal" autoComplete="off" className="min-h-11 w-40" value={fee} onChange={(e) => setFee(e.target.value)} />
+            <AmountInput id="stornogebuehr" className="min-h-11 w-40" value={fee} onValueChange={setFee} />
           </div>
         )}
         <Button type="submit" disabled={pending} aria-busy={pending} className="min-h-11">

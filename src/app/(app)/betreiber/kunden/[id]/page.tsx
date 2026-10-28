@@ -1,7 +1,7 @@
 import { CaretLeft } from '@phosphor-icons/react/ssr'
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { getFormatter, getTranslations } from 'next-intl/server'
+import { getTranslations } from 'next-intl/server'
 
 import { OperatorInvitations } from '@/components/operator/operator-invitations'
 import { OperatorLog } from '@/components/operator/operator-log'
@@ -12,6 +12,7 @@ import { TenantStatusBadge } from '@/components/operator/tenant-status-badge'
 import { PageHeader } from '@/components/page-header'
 import { TenantMasterDataForm } from '@/components/tenant/tenant-master-data-form'
 import { requireArea } from '@/lib/areas'
+import { formatDate } from '@/lib/format'
 import { getTenantDetail } from '@/lib/operator-data'
 
 type Params = Promise<{ id: string }>
@@ -26,7 +27,6 @@ export default async function TenantDetailPage({ params }: { params: Params }) {
   await requireArea('operator')
   const { id } = await params
   const t = await getTranslations('operator')
-  const format = await getFormatter()
   const tenant = await getTenantDetail(id)
   const deactivated = tenant.status === 'deactivated'
 
@@ -40,7 +40,7 @@ export default async function TenantDetailPage({ params }: { params: Params }) {
         {t('back')}
       </Link>
       <PageHeader
-        eyebrow={t('createdOn', { date: format.dateTime(new Date(tenant.createdAt), { day: 'numeric', month: 'long', year: 'numeric' }) })}
+        eyebrow={t('createdOn', { date: formatDate(tenant.createdAt) })}
         title={<span className="break-words">{tenant.name}</span>}
       />
       <div className="-mt-6">

@@ -20,6 +20,7 @@ import { ConfirmDialog } from '@/components/confirm-dialog'
 import { DetailPanel } from '@/components/detail-panel'
 import { useTeamAction } from '@/components/settings/use-team-action'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { AmountInput } from '@/components/amount-input'
 import { Button } from '@/components/ui/button'
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
@@ -318,7 +319,7 @@ export function ApartmentPanel({ open, onOpenChange, properties, apartment, pres
                   <FormItem>
                     <FormLabel>{t('panel.price')}</FormLabel>
                     <FormControl>
-                      <Input inputMode="decimal" autoComplete="off" className="min-h-11 w-40" {...field} />
+                      <AmountInput className="min-h-11 w-40" {...field} onValueChange={field.onChange} />
                     </FormControl>
                     <FormDescription>{t('panel.priceHint')}</FormDescription>
                     <FormMessage />
@@ -334,7 +335,7 @@ export function ApartmentPanel({ open, onOpenChange, properties, apartment, pres
                     <FormItem>
                       <FormLabel>{t('panel.adultPrice')}</FormLabel>
                       <FormControl>
-                        <Input inputMode="decimal" autoComplete="off" className="min-h-11 w-40" {...field} />
+                        <AmountInput className="min-h-11 w-40" {...field} onValueChange={field.onChange} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -365,7 +366,7 @@ export function ApartmentPanel({ open, onOpenChange, properties, apartment, pres
                           <FormItem>
                             <FormLabel className="text-[13px] font-normal">{t('panel.childPrice', { n: i + 1 })}</FormLabel>
                             <FormControl>
-                              <Input inputMode="decimal" autoComplete="off" className="min-h-11" {...field} />
+                              <AmountInput className="min-h-11" {...field} onValueChange={field.onChange} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -404,7 +405,7 @@ export function ApartmentPanel({ open, onOpenChange, properties, apartment, pres
                 <FormItem>
                   <FormLabel>{t('panel.cleaningFee')}</FormLabel>
                   <FormControl>
-                    <Input inputMode="decimal" autoComplete="off" className="min-h-11 w-40" {...field} />
+                    <AmountInput className="min-h-11 w-40" {...field} onValueChange={field.onChange} />
                   </FormControl>
                   <FormDescription>{t('panel.cleaningFeeHint')}</FormDescription>
                   <FormMessage />

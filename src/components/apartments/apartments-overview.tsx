@@ -1,7 +1,7 @@
 'use client'
 
 import { Buildings, HouseLine, PencilSimple, Plus } from '@phosphor-icons/react'
-import { useFormatter, useTranslations } from 'next-intl'
+import { useTranslations } from 'next-intl'
 import { useState } from 'react'
 
 import { ApartmentPanel } from '@/components/apartments/apartment-panel'
@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { type Apartment, type Property, visibleProperties } from '@/lib/apartments'
+import { formatCents } from '@/lib/format'
 
 type Panel =
   | { kind: 'create'; presetPropertyId?: string }
@@ -23,7 +24,6 @@ type Panel =
 // „Einstellungen → Wohnungen“ (PROJ-6): Wohnungen gruppiert nach Objekt; ab 768 px Tabelle, darunter Karten
 export function ApartmentsOverview({ properties }: { properties: Property[] }) {
   const t = useTranslations('apartments')
-  const format = useFormatter()
   const [showArchived, setShowArchived] = useState(false)
   const [panel, setPanel] = useState<Panel>(null)
   // Neuer Schlüssel je Öffnen: Formular startet mit frischen Werten
@@ -36,7 +36,7 @@ export function ApartmentsOverview({ properties }: { properties: Property[] }) {
 
   const visible = visibleProperties(properties, showArchived)
   const hasArchived = properties.some((p) => p.apartments.some((a) => a.archivedAt))
-  const euro = (cents: number) => format.number(cents / 100, { style: 'currency', currency: 'EUR' })
+  const euro = formatCents
   // Preis-Konfiguration (PROJ-27): Wohnungspreis pro Nacht oder Erwachsenenpreis pro Person und Nacht
   const configuredCents = (a: Apartment) => (a.priceMode === 'person' ? a.adultPriceCents : a.priceCents)
   const price = (a: Apartment) => {

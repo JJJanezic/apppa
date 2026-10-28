@@ -44,11 +44,16 @@ describe('Preis', () => {
     expect(parsePriceCents(' ')).toBeNull()
     expect(parsePriceCents('12,345')).toBeNaN()
     expect(parsePriceCents('-5')).toBeNaN()
+    // PROJ-31: gemeinsamer Leser versteht den Tausenderpunkt; Höchstwert 99.999,99 € bleibt
+    expect(parsePriceCents('1.250,00')).toBe(125000)
+    expect(parsePriceCents('99.999,99')).toBe(9999999)
+    expect(parsePriceCents('100.000')).toBeNaN()
   })
 
   it('zeigt Cent wieder als Eingabe', () => {
-    expect(priceInput(12500)).toBe('125')
+    expect(priceInput(12500)).toBe('125,00')
     expect(priceInput(12550)).toBe('125,50')
+    expect(priceInput(125000)).toBe('1.250,00')
     expect(priceInput(null)).toBe('')
   })
 })

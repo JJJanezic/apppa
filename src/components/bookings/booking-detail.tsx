@@ -1,11 +1,11 @@
 import Link from 'next/link'
-import { getFormatter, getLocale, getTranslations } from 'next-intl/server'
+import { getLocale, getTranslations } from 'next-intl/server'
 
 import { BookingActions } from '@/components/bookings/booking-actions'
 import { BookingBadges } from '@/components/bookings/booking-badges'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { billableNights, type BookableApartment, type Booking, bookingState, nightsBetween, personCount, totalCents } from '@/lib/bookings'
-import { formatCurrency, formatNumber } from '@/lib/format'
+import { formatCents, formatDate, formatDatePlain, formatNumber } from '@/lib/format'
 import { countryName, guestDisplayName, guestHref, guestSortName } from '@/lib/guests'
 import { cn } from '@/lib/utils'
 
@@ -16,8 +16,7 @@ export async function bookingTitle(b: Booking): Promise<string> {
   return b.guest ? guestDisplayName(b.guest) : t('kind.booking')
 }
 
-const LONG_DATE = { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' } as const
-const euro = (cents: number) => formatCurrency(cents / 100, { cents: true })
+const euro = formatCents
 
 interface BookingDetailProps {
   booking: Booking
@@ -36,12 +35,11 @@ interface BookingDetailProps {
 // Preis nur für Inhaber; Aktionen nach Rolle.
 export async function BookingDetail({ booking, apartments, owner, today, layout, conflictHref, closeHref }: BookingDetailProps) {
   const t = await getTranslations('bookings')
-  const format = await getFormatter()
   const locale = await getLocale()
   const state = bookingState(booking, today)
   const isBlock = booking.kind === 'block'
-  // Datum ohne Uhrzeit: mittags erzeugen, damit die Zeitzone den Tag nicht verschiebt
-  const date = (iso: string) => format.dateTime(new Date(iso.length === 10 ? `${iso}T12:00:00` : iso), LONG_DATE)
+  // „Mi, 28.10.2026“ (PROJ-31); Kalendertage ohne Zeitzonen-Verschiebung
+  const date = formatDate
   const missing = <span className="text-ds-neutral-700">{t('detail.missing')}</span>
   const persons = personCount(booking.adults, booking.childAges)
   const conflictLabel = (c: Booking['conflicts'][number]) =>
@@ -158,7 +156,7 @@ export async function BookingDetail({ booking, apartments, owner, today, layout,
                   {booking.companions.map((c, i) => (
                     <li key={i} className="flex flex-wrap justify-between gap-2 py-3">
                       <span>{guestSortName(c)}</span>
-                      {c.birthDate && <span className="text-ds-neutral-800 tabular-nums">{date(c.birthDate)}</span>}
+                      {c.birthDate && <span className="text-ds-neutral-800 tabular-nums">{formatDatePlain(c.birthDate)}</span>}
                     </li>
                   ))}
                 </ul>

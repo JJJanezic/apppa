@@ -548,7 +548,7 @@
       "price": "Wohnungspreis pro Nacht (€)",
       "adultPrice": "Erwachsener pro Nacht (€)",
       "childPrices": "Kinder pro Nacht",
-      "childPricesHint": "Bis zu 3 Stufen nach dem Alter bei Anreise, z. B. bis 2 Jahre € 0. Ältere Kinder zahlen den Erwachsenenpreis.",
+      "childPricesHint": "Bis zu 3 Stufen nach dem Alter bei Anreise, z. B. bis 2 Jahre € 0,00. Ältere Kinder zahlen den Erwachsenenpreis.",
       "childToAge": "Stufe {n}: Kinder bis einschließlich Alter",
       "childPrice": "Stufe {n}: Preis pro Nacht (€)",
       "addChildPrice": "Stufe hinzufügen",
@@ -1094,7 +1094,7 @@
       "suggestion": "Vorschlag: {price} ({nights} × {rate})",
       "suggestionPersons": "Vorschlag: {price} ({nights, plural, one {# Nacht} other {# Nächte}} × ({persons}))",
       "noDefaultPrice": "Die Wohnung hat keinen Preis hinterlegt. Bitte den Preis eingeben.",
-      "suggestionTooHigh": "Der rechnerische Preis übersteigt den Höchstbetrag von € 1.000.000. Bitte den Preis eingeben.",
+      "suggestionTooHigh": "Der rechnerische Preis übersteigt den Höchstbetrag von € 1.000.000,00. Bitte den Preis eingeben.",
       "extension": "Verlängert: vereinbart {agreed} für {nights, plural, one {# Nacht} other {# Nächte}}, abzurechnen {billable, plural, one {# Nacht} other {# Nächte}}: {billed}",
       "earlyDeparture": "Frühere Abreise: abgerechnet wird der volle gebuchte Zeitraum ({nights, plural, one {# Nacht} other {# Nächte}}).",
       "takeSuggestion": "Neuen Vorschlag {price} übernehmen",
@@ -1203,7 +1203,7 @@
       "tooManyCompanions": "Es sind mehr Mitreisende erfasst, als die Personenzahl zulässt. Bitte zuerst Mitreisende entfernen.",
       "documentImageMissing": "Ein Ausweisbild ist nicht mehr verfügbar. Bitte lade es erneut hoch und speichere noch einmal.",
       "guestSheetDuplicate": "Die Gästeblattnummer ist bereits vergeben. Bitte prüfen und „Trotzdem speichern“ bestätigen.",
-      "billedTooHigh": "Der hochgerechnete Übernachtungspreis übersteigt den Höchstbetrag von € 1.000.000. Bitte den vereinbarten Preis oder die Abreise prüfen."
+      "billedTooHigh": "Der hochgerechnete Übernachtungspreis übersteigt den Höchstbetrag von € 1.000.000,00. Bitte den vereinbarten Preis oder die Abreise prüfen."
     },
     "validation": {
       "apartmentRequired": "Bitte eine Wohnung wählen.",

@@ -37,6 +37,17 @@ export default defineConfig({
       dependencies: ['setup'],
       use: { ...devices['iPhone 13'], ...chrome, viewport: { width: 375, height: 812 }, storageState },
     },
+    // Safari (WebKit) nur auf Wunsch: `PW_SAFARI=1 npx playwright test --project=safari` (PROJ-31). WebKit liegt
+    // unter ~/Library/Caches/ms-playwright (mit Node 26 von Hand entpackt, siehe Runbook-Notiz).
+    ...(process.env.PW_SAFARI
+      ? [
+          {
+            name: 'safari',
+            dependencies: ['setup'],
+            use: { ...devices['Desktop Safari'], viewport: { width: 1440, height: 900 }, storageState },
+          },
+        ]
+      : []),
   ],
   // Tests verschicken keine Hinweis-Mails über Brevo (Testadressen @example.com würden zurückprallen und
   // den Ruf der Absender-Domain schädigen). Ein leerer Wert hat Vorrang vor .env.local.

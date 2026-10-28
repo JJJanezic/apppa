@@ -174,8 +174,12 @@ describe('Personen und Preis', () => {
     expect(parseAmountCents('')).toBeNull()
     expect(parseAmountCents('-5')).toBeNaN()
     expect(parseAmountCents('12,345')).toBeNaN()
-    expect(amountInput(125090)).toBe('1250,90')
-    expect(amountInput(8000)).toBe('80')
+    // PROJ-31: Eingabewert mit Tausenderpunkt und zwei Nachkommastellen
+    expect(amountInput(125090)).toBe('1.250,90')
+    expect(amountInput(8000)).toBe('80,00')
+    expect(amountInput(0)).toBe('0,00')
+    expect(amountInput(null)).toBe('')
+    expect(parseAmountCents(amountInput(123456789))).toBe(123456789)
   })
 })
 

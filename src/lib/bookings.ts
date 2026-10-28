@@ -292,22 +292,8 @@ export const totalCents = (a: Pick<BookingAmounts, 'nightsCents' | 'charges'>) =
 // „2026-0042“; ab 10.000 einfach fünfstellig
 export const formatBookingNumber = (year: number, seq: number) => `${year}-${String(seq).padStart(4, '0')}`
 
-// Betrag aus der Eingabe („125“, „125,50“, „1.250“, „1.250,50“, „125.5“) in Cent; null bei leer, NaN bei ungültig
-export function parseAmountCents(input: string): number | null {
-  const value = input.trim().replace(/^€\s*/, '')
-  if (!value) return null
-  let normalized: string
-  if (/^\d{1,3}(\.\d{3})+(,\d{1,2})?$/.test(value)) normalized = value.replaceAll('.', '').replace(',', '.')
-  else if (/^\d{1,7}([.,]\d{1,2})?$/.test(value)) normalized = value.replace(',', '.')
-  else return Number.NaN
-  return Math.round(Number(normalized) * 100)
-}
-
-// Cent → Eingabewert („125,50“; ganze Euro ohne Nachkommastellen)
-export function amountInput(cents: number | null): string {
-  if (cents === null) return ''
-  return cents % 100 === 0 ? String(cents / 100) : (cents / 100).toFixed(2).replace('.', ',')
-}
+// Betrag lesen und als Eingabewert schreiben: zentral in src/lib/format.ts (PROJ-31)
+export { amountInput, parseAmountCents } from '@/lib/format'
 
 // ---- Monat und Filter -------------------------------------------------------------------------
 

@@ -33,6 +33,7 @@ import {
   TIMELINE_STEP,
   visibleApartments,
 } from '@/lib/calendar'
+import { formatPeriod } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 interface CalendarViewProps {
@@ -135,11 +136,12 @@ export function CalendarView({ variant, state, today, apartments, entries, booka
     go(state.view === 'timeline' ? { start: date } : { month: date.slice(0, 7), day: date })
   }
 
-  const short = (iso: string) => format.dateTime(noon(iso), { day: 'numeric', month: 'short' })
+  // Zeitleiste: „So, 25.10.2026 – Sa, 07.11.2026“ (PROJ-31); Monat bleibt „Oktober 2026“
   const periodLabel =
     state.view === 'timeline'
-      ? `${short(state.start)} – ${format.dateTime(noon(addDays(state.start, count - 1)), { day: 'numeric', month: 'short', year: 'numeric' })}`
-      : format.dateTime(noon(`${state.month}-01`), { month: 'long', year: 'numeric' })
+      ? formatPeriod(state.start, addDays(state.start, count - 1))
+      : // eslint-disable-next-line no-restricted-syntax -- Ausnahme PROJ-31: Monatsüberschrift
+        format.dateTime(noon(`${state.month}-01`), { month: 'long', year: 'numeric' })
   const Heading = variant === 'full' ? 'h1' : 'h2'
 
   return (
@@ -169,7 +171,7 @@ export function CalendarView({ variant, state, today, apartments, entries, booka
               submitLabel={t('jump')}
               inputId="belegung-datum"
               onJump={jump}
-              triggerClassName="min-w-[11rem]"
+              triggerClassName="min-w-[11rem] whitespace-normal"
             />
             <Button variant="ghost" size="icon" className="size-11" onClick={() => go(step(requested.current ?? current, 1))} aria-label={t('next')}>
               <CaretRight size={18} aria-hidden="true" />

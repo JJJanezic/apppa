@@ -2,21 +2,18 @@
 
 import { CaretLeft, CaretRight } from '@phosphor-icons/react'
 import Link from 'next/link'
-import { useFormatter, useTranslations } from 'next-intl'
+import { useTranslations } from 'next-intl'
 
 import { TenantStatusBadge } from '@/components/operator/tenant-status-badge'
 import { Button } from '@/components/ui/button'
 import { Pagination, PaginationContent, PaginationItem } from '@/components/ui/pagination'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { formatDate, formatDateTime } from '@/lib/format'
 import { type OwnerSummary, tenantHref, type TenantPage, type TenantRow } from '@/lib/operator'
-
-const DATE = { day: 'numeric', month: 'short', year: 'numeric' } as const
-const DATE_TIME = { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' } as const
 
 // Kundenliste: ab 768 px Tabelle (Name als Link), darunter Karten
 export function TenantList({ page }: { page: TenantPage }) {
   const t = useTranslations('operator')
-  const format = useFormatter()
 
   const owners = (row: TenantRow) =>
     row.owners.length === 0 ? (
@@ -29,7 +26,7 @@ export function TenantList({ page }: { page: TenantPage }) {
       </span>
     )
   const lastSignIn = (row: TenantRow) =>
-    row.lastSignInAt ? format.dateTime(new Date(row.lastSignInAt), DATE_TIME) : <span className="text-ds-neutral-700">{t('never')}</span>
+    row.lastSignInAt ? formatDateTime(row.lastSignInAt) : <span className="text-ds-neutral-700">{t('never')}</span>
 
   return (
     <div className="flex flex-col gap-4">
@@ -62,7 +59,7 @@ export function TenantList({ page }: { page: TenantPage }) {
               </TableCell>
               <TableCell className="max-w-[320px]">{owners(row)}</TableCell>
               <TableCell className="text-right tabular-nums">{row.memberCount}</TableCell>
-              <TableCell className="whitespace-nowrap">{format.dateTime(new Date(row.createdAt), DATE)}</TableCell>
+              <TableCell className="whitespace-nowrap">{formatDate(row.createdAt)}</TableCell>
               <TableCell className="whitespace-nowrap">{lastSignIn(row)}</TableCell>
             </TableRow>
           ))}
@@ -85,7 +82,7 @@ export function TenantList({ page }: { page: TenantPage }) {
               </span>
               <span className="text-sm">{owners(row)}</span>
               <span className="text-[13px] text-ds-neutral-700">
-                {t('members', { count: row.memberCount })} · {t('lastSignIn', { date: row.lastSignInAt ? format.dateTime(new Date(row.lastSignInAt), DATE) : t('never') })}
+                {t('members', { count: row.memberCount })} · {t('lastSignIn', { date: row.lastSignInAt ? formatDate(row.lastSignInAt) : t('never') })}
               </span>
             </Link>
           </li>

@@ -1,12 +1,13 @@
 'use client'
 
 import { WarningCircle } from '@phosphor-icons/react'
-import { useFormatter, useTranslations } from 'next-intl'
+import { useTranslations } from 'next-intl'
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import type { BookingWarnings, Conflict, GuestSheetDuplicate } from '@/lib/bookings'
+import { formatDate } from '@/lib/format'
 
 export const hasWarnings = (w: BookingWarnings | null): w is BookingWarnings =>
   w !== null && (w.conflicts.length > 0 || w.overCapacity !== null)
@@ -22,8 +23,7 @@ interface BookingWarningsAlertProps {
 // für Mitarbeiter ist Speichern gesperrt
 export function BookingWarningsAlert({ warnings, owner, override, onOverrideChange }: BookingWarningsAlertProps) {
   const t = useTranslations('bookings')
-  const format = useFormatter()
-  const day = (iso: string) => format.dateTime(new Date(`${iso}T12:00:00`), { day: 'numeric', month: 'short', year: 'numeric' })
+  const day = formatDate
   const what = (c: Conflict) =>
     c.kind === 'block'
       ? `${t('kind.block')}${c.blockReason ? `: ${t(`blockReason.${c.blockReason}`)}` : ''}`
