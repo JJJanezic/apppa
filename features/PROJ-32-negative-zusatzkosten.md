@@ -1,6 +1,6 @@
 # PROJ-32: Negative Beträge bei Zusatzkosten
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-10-28
 **Last Updated:** 2026-10-28
 
@@ -271,4 +271,10 @@ Keine.
 - **Recommendation:** Deploy
 
 ## Deployment
-_To be added by /deploy_
+**Deployed:** 2026-10-28
+**Commit:** `502d7e2` (Tag `v1.9.0`)
+- Staging: https://staging.apppa.at (2026-10-28), vom Nutzer geprüft
+- Production: https://app.apppa.at (2026-10-28)
+- Migrations: `20261028202255_negative_charges.sql` (Staging und Produktion); kein `config push` nötig, keine neuen Umgebungsvariablen
+- Advisors: nur die bekannten Auth-Hinweise (Staging: OTP-Dauer, Leaked-Password; Produktion: OTP-Dauer)
+- Im Release zusätzlich: Testfix `502d7e2` (Gästeblatt-Integrationstest wählte zufällig einen falschen Testkunden), Runbook-Eintrag zu den Anmelde-Grenzen in Dev
