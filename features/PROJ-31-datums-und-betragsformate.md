@@ -1,6 +1,6 @@
 # PROJ-31: Einheitliche Datums- und Betragsformate
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-10-28
 **Last Updated:** 2026-10-28
 
@@ -334,4 +334,10 @@ Keine neuen Pakete.
 - **Recommendation:** Deploy. Nachprüfung nach den Korrekturen: PROJ-31-E2E Handy und Desktop (betroffene Tests), PROJ-6 vollständig, Layout/axe von PROJ-8 und PROJ-9 grün; PROJ-4 30/31 (1× Supabase-Grenze); `npm test`: nur Zeitüberschreitungen der Dev-Datenbank (4 Tests, wechselnd). Vor dem Deploy `npm test` bei ruhiger Datenbank wiederholen.
 
 ## Deployment
-_To be added by /deploy_
+_Stand 2026-10-28 (/deploy, Tag `v1.8.0`)_
+
+- **Staging:** https://staging.apppa.at (Vercel `apppa-staging`, Supabase `iikzjqjjxoznrkkixfqa`), vom Nutzer anhand der Checkliste geprüft und freigegeben
+- **Production:** https://app.apppa.at (Vercel `apppa`, Supabase `ahclrqbhfpidxjzbpfgb`), Commit `4d1b361`, 2026-10-28
+- **Migrationen:** keine; kein `db push`, kein `config push`, keine neuen Umgebungsvariablen
+- **Vor dem Release:** Lint und Build fehlerfrei; `npm test` 424/425, die eine Zeitüberschreitung (RLS-Test, Dev-Datenbank) bei Wiederholung grün (19/19); Secret-Scan ohne Fund
+- Mit ausgeliefert: PROJ-8-Korrektur `abb94b7` (Tab-Erreichbarkeit in Safari, Ortstaxe-Hinweise am Preis entfernt)

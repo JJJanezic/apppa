@@ -810,3 +810,8 @@ _Stand 2026-10-25 (/deploy, Tag `v1.2.0`)_
 ### Nachtrag 2026-10-27 (Tag `v1.7.1`): Safari-Zeilenklick behoben
 - In Safari öffnete ein Klick in der Tabelle immer den untersten Eintrag (Klickfläche `after:inset-0` lässt sich in Safari nicht an `<tr>` verankern). Jetzt ist nur der Name der Link bzw. Knopf; Handy-Karten bleiben ganz anklickbar. Regressionstest „Safari-Zeilenklick“
 - Staging und Production mit Commit `60659ee`, ohne Migrationen
+
+### Nachtrag 2026-10-28 (Tag `v1.8.0`, mit PROJ-31): Tab in Safari, Ortstaxe-Hinweise
+- Auswahlfelder, Checkboxen, Schalter und Länderauswahl haben ein ausdrückliches `tabIndex`, weil Safari Knöpfe beim Tabben sonst überspringt
+- Die Hinweise „Die Ortstaxe kommt getrennt dazu.“ und „ohne Ortstaxe“ am Preis sind entfernt (die Nächtigungsabgabe ist eine Kostenposition)
+- Staging und Production mit Commit `4d1b361`, ohne Migrationen
