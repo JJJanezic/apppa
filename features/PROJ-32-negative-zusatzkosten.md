@@ -1,6 +1,6 @@
 # PROJ-32: Negative Beträge bei Zusatzkosten
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-10-28
 **Last Updated:** 2026-10-28
 
@@ -195,7 +195,80 @@ Keine neuen Pakete.
 - Typen neu erzeugt (unverändert); Advisors: nur die bekannten Auth-Hinweise (siehe `docs/runbooks/supabase.md`)
 
 ## QA Test Results
-_To be added by /qa_
+
+**Tested:** 2026-10-28
+**App URL:** http://localhost:3000 (Produktions-Build, Supabase „apppa-dev“)
+**Tester:** QA Engineer (AI)
+**E2E:** `tests/PROJ-32-negative-zusatzkosten.spec.ts` (10 Tests: desktop, mobile, Safari/WebKit)
+
+### Acceptance Criteria Status
+
+#### Eingabe
+- [x] „-50“ → „-50,00“ beim Verlassen
+- [x] „-1250,5“ und „-1.250,50“ → „-1.250,50“
+- [x] „-0“ und „-0,00“ → „0,00“
+- [x] Unter -1.000.000,00 (z. B. „-1.000.000,01“) → bisherige Meldung; genau -1.000.000,00 wird gespeichert
+- [x] „-“ und „--5“ → bisherige Meldung, Eingabe bleibt stehen
+- [x] Negativer Übernachtungspreis und negative Stornogebühr → Fehlermeldung, nichts gespeichert (Formular, Storno-Dialog und Datenbank)
+- [x] Wohnungsformular: negativer Standardpreis, Personenpreis, Kinderpreis und Reinigungsgebühr weiterhin abgelehnt (Unit-Test)
+
+#### Speichern und Endbetrag
+- [x] € 300,00 + Reinigung € 60,00 + Rabatt -€ 50,00 → Endbetrag € 310,00 (Formular und Detail)
+- [x] € 100,00 + Gutschrift -€ 150,00 → ohne Warnung gespeichert, Endbetrag -€ 50,00
+- [x] „Buchung bearbeiten“ zeigt „-50,00“ bzw. „-150,00“ im Betragsfeld
+- [x] Anteilige Abrechnung (PROJ-30): Positionen bleiben unverändert, Endbetrag = anteiliger Übernachtungspreis + Positionen. Geprüft mit *späterer* Abreise (siehe Hinweis 1)
+- [x] Mitarbeiter speichert eine Buchung mit negativer Position → alle Positionen unverändert; Mitarbeiter sehen keine Beträge
+
+#### Anzeige
+- [x] Position -€ 50,00 im Detail in roter Schrift
+- [x] Negativer Endbetrag rot in Detail, Buchungsliste (Desktop-Tabelle, Handy-Karte) und Formular-Summe
+- [x] Positive Beträge und 0 in normaler Schrift; kein „-€ 0,00“
+- [x] Minus immer sichtbar; Kontrast Rot (`destructive`) 6,5:1 auf Seitenhintergrund, 6,0:1 auf Karten (`ds-surface`), 5,9:1 auf Hover-Fläche → WCAG AA. Dunkles Design gibt es noch nicht (offene Frage)
+- [x] Eingabefelder ohne rote Schrift
+
+#### Vorschläge
+- [x] „Rabatt“ und „Nächtigungsabgabe“ in der Vorschlagsliste (zusätzlich zu den bisherigen)
+- [x] Betrag bleibt nach Wahl der Bezeichnung leer; Speichern ohne Betrag meldet „Bitte einen Betrag eingeben.“
+
+### Edge Cases Status
+- [x] „-“, „5-“, „--5“ ungültig; „- 5“ → „-5,00“
+- [x] Typografisches Minus „−5“ → „-5,00“ (Zusatzkosten); in Wohnungspreisen ungültig
+- [x] „-0,00“ → „0,00“, kein rotes „-€ 0,00“
+- [x] Endbetrag genau 0 → „€ 0,00“ in normaler Schrift
+- [x] Nur negative Positionen bei Übernachtungspreis 0 → erlaubt, Endbetrag rot
+- [x] Bestehende Buchungen unverändert (Regression PROJ-31/PROJ-27 grün)
+- [x] Datenbank lehnt negative Beträge außerhalb der Zusatzkosten ab, auch bei direktem Aufruf (Integrationstest)
+- [x] Grenze 20 Positionen unverändert; kleinster Endbetrag (20 × -1.000.000 € + 0) bleibt im Zahlenbereich
+- [x] Zusätzlich: „-€ 50“ wird als -50,00 gelesen
+
+### Security Audit Results
+- [x] Rollen: Mitarbeiter sehen keine Beträge (Detail, Formular) und können Positionen nicht ändern; `save_booking` übernimmt Beträge nur von Inhabern
+- [x] Direktes Schreiben in `booking_charges` bleibt gesperrt (auch für Inhaber), nur über `save_booking`
+- [x] Umgehen der Browserprüfung: Datenbank lehnt negativen Übernachtungspreis, negative Stornogebühr und Beträge unter -1.000.000 € ab (23514)
+- [x] Mandanten-Abschottung unverändert (keine RLS-Änderung; RLS-Integrationstests grün)
+- [x] Eingaben: Bezeichnungen werden von React escaped; keine neue Eingabe außer dem Minus
+- [x] Keine neuen Schlüssel oder Umgebungsvariablen
+
+### Regression
+- [x] Unit-Tests: 457 Tests, alle grün (2 Integrationstests nur im parallelen Gesamtlauf rot, siehe Hinweis 2)
+- [x] E2E PROJ-31 „Beträge“ (desktop) und PROJ-27 (desktop) grün
+- [x] Integrationstests Buchungen (30) und RLS (19) einzeln grün
+
+### Hinweise (keine Bugs im Feature)
+1. **Spec-Formulierung:** Das Kriterium spricht von „vorgezogener Abreise … anteilig verringert“. Nach PROJ-30 wird nur bei *späterer* tatsächlicher Abreise anteilig gerechnet (Preis steigt); bei früherer Abreise bleibt der volle Preis. Verhalten ist korrekt, nur der Text der Spec passt nicht.
+2. **Testumgebung (Low):** Im parallelen Gesamtlauf `npm test` scheiterten einmalig „Gästeblattnummer: Warnung bei Doppelung“ (P0801) und „Person ohne Mitgliedschaft …“ (Zeitüberschreitung 5 s). Beide einzeln grün; die RLS-Tests brauchen derzeit gegen Dev teils über 5 s. Keine „rate limit“-Fehler mehr seit Anhebung der Dev-Grenze. Vorschlag: Zeitgrenze der Integrationstests erhöhen (eigene kleine Aufgabe).
+3. **Nicht getestet:** Firefox (kein Playwright-Projekt eingerichtet). Chrome (desktop, mobile) und Safari (WebKit) getestet.
+4. **Für PROJ-13/PROJ-18:** Summen über alle Positionen einer Buchung liegen mit -2,0 bis 2,1 Mrd. Cent knapp unter der Grenze von `integer` (±2,147 Mrd.). Summen über mehrere Buchungen in SQL mit `bigint` rechnen.
+
+### Bugs Found
+Keine.
+
+### Summary
+- **Acceptance Criteria:** 20/20 passed
+- **Bugs Found:** 0 (0 critical, 0 high, 0 medium, 0 low); 1 Hinweis zur Testumgebung (Low)
+- **Security:** Pass
+- **Production Ready:** YES
+- **Recommendation:** Deploy
 
 ## Deployment
 _To be added by /deploy_

@@ -37,6 +37,16 @@ describe('Wohnung', () => {
     expect(apartmentSchema(key).safeParse({ ...base, cleaningFee: 'x' }).success).toBe(false)
   })
 
+  it('lehnt negative Preise und Gebühren weiterhin ab (PROJ-32)', () => {
+    for (const input of [
+      { price: '-50' },
+      { cleaningFee: '-60' },
+      { priceMode: 'person' as const, price: '', adultPrice: '-40' },
+      { priceMode: 'person' as const, price: '', adultPrice: '40', childPrices: [{ toAge: '5', price: '−10' }] },
+    ])
+      expect(apartmentSchema(key).safeParse({ ...base, ...input }).success).toBe(false)
+  })
+
   it('weist ungültige Werte mit Meldung je Feld ab', () => {
     const r = withExistingProperty(key).safeParse({ ...base, name: '', maxGuests: '0', price: '12,345', checkIn: '25:00' })
     expect(r.success).toBe(false)

@@ -410,7 +410,7 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-8 Manuelle Buchungen', () => {
 
       expect((await save(ownerA, input(10000, [{ label: 'Rabatt', amount_cents: -100000001 }], '2027-09-20', '2027-09-22'))).error?.code).toBe('23514')
       expect((await save(ownerA, input(-5000, [], '2027-09-24', '2027-09-26'))).error?.code).toBe('23514')
-      expect((await ownerA.rpc('cancel_booking', { p_booking_id: id, p_reason: null, p_fee_cents: -5000 })).error?.code).toBe('23514')
+      expect((await ownerA.rpc('cancel_booking', { p_booking_id: id, p_fee_cents: -5000 })).error?.code).toBe('23514')
       // Direktes Schreiben bleibt gesperrt, auch für Inhaber
       expect((await ownerA.from('booking_charges').update({ amount_cents: -1 }).eq('booking_id', id).select()).data ?? []).toEqual([])
     })
