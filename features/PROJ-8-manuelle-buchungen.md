@@ -815,3 +815,7 @@ _Stand 2026-10-25 (/deploy, Tag `v1.2.0`)_
 - Auswahlfelder, Checkboxen, Schalter und Länderauswahl haben ein ausdrückliches `tabIndex`, weil Safari Knöpfe beim Tabben sonst überspringt
 - Die Hinweise „Die Ortstaxe kommt getrennt dazu.“ und „ohne Ortstaxe“ am Preis sind entfernt (die Nächtigungsabgabe ist eine Kostenposition)
 - Staging und Production mit Commit `4d1b361`, ohne Migrationen
+
+### Nachtrag 2026-10-28 (Tag `v1.8.1`): Uhrzeiten im Buchungs-Detail entfernt
+- Bei Anreise und Abreise steht im Buchungs-Detail nur noch das Datum; Check-in-/Check-out-Zeiten bleiben im Formular und in der Wohnung erhalten
+- Staging und Production mit Commit `8450f1d`, ohne Migrationen; `npm test` bis auf wechselnde Zeitüberschreitungen der Dev-Datenbank grün (bei Wiederholung grün)
