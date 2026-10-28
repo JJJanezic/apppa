@@ -135,7 +135,7 @@ test.describe('Wohnung anlegen', () => {
     await panel(page).getByLabel('Personen (gesamt)').fill('4')
     await panel(page).getByLabel('Wohnungspreis pro Nacht (€)').fill('12,345')
     await submitPanel(page, 'Wohnung anlegen')
-    await expect(panel(page).getByText('Bitte einen Betrag bis 10.000 € eingeben', { exact: false })).toBeVisible()
+    await expect(panel(page).getByText('Bitte einen Betrag bis € 10.000,00 eingeben', { exact: false })).toBeVisible()
     await panel(page).getByLabel('Wohnungspreis pro Nacht (€)').fill('')
     await submitPanel(page, 'Wohnung anlegen')
 

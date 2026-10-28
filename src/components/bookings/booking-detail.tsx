@@ -5,7 +5,7 @@ import { BookingActions } from '@/components/bookings/booking-actions'
 import { BookingBadges } from '@/components/bookings/booking-badges'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { billableNights, type BookableApartment, type Booking, bookingState, nightsBetween, personCount, totalCents } from '@/lib/bookings'
-import { formatCents, formatDate, formatDatePlain, formatNumber } from '@/lib/format'
+import { formatCents, formatDate, formatDatePlain, formatNumber, formatPeriod } from '@/lib/format'
 import { countryName, guestDisplayName, guestHref, guestSortName } from '@/lib/guests'
 import { cn } from '@/lib/utils'
 
@@ -84,6 +84,8 @@ export async function BookingDetail({ booking, apartments, owner, today, layout,
                     <Link href={conflictHref(c.id)} scroll={layout === 'page'} className="underline underline-offset-[3px]">
                       {conflictLabel(c)}
                     </Link>
+                    {/* Zeitraum der anderen Buchung wie in der Formular-Warnung (QA PROJ-31 BUG-1) */}
+                    <span className="tabular-nums">, {formatPeriod(c.arrival, c.departure)}</span>
                   </li>
                 ))}
               </ul>

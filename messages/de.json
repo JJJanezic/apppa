@@ -615,7 +615,7 @@
       "municipalityRequired": "Bitte eine Gemeinde aus der Liste wählen.",
       "apartmentNameRequired": "Bitte einen Namen für die Wohnung eingeben.",
       "guestsInvalid": "Bitte eine Zahl von 1 bis 50 eingeben.",
-      "priceInvalid": "Bitte einen Betrag bis 10.000 € eingeben, z. B. 125 oder 125,50.",
+      "priceInvalid": "Bitte einen Betrag bis € 10.000,00 eingeben, z. B. 125 oder 125,50.",
       "timeInvalid": "Bitte eine Uhrzeit wählen.",
       "tooLong": "Der Text ist zu lang.",
       "adultsInvalid": "Bitte eine Zahl von 1 bis 50 eingeben oder leer lassen.",

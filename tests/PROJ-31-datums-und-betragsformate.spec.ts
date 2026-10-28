@@ -183,8 +183,9 @@ test.describe('Datum', () => {
     await addBooking(tenantId, apt, { guestId: guest, arrival: ARRIVAL, departure: DEPARTURE })
     const second = await addBooking(tenantId, apt, { guestId: other, arrival: '2026-11-01', departure: '2026-11-04' })
 
-    // Hinweis im Detail nennt die andere Buchung derzeit ohne Datum (BUG-1); geprüft wird die Formular-Warnung
+    // Hinweis im Detail (QA BUG-1) und Warnung im Formular
     await open(page, `/buchungen/${second.id}`)
+    await expect(page.getByText(new RegExp(`${re('Mi, 28.10.2026')}.*${re('Di, 03.11.2026')}`)).first()).toBeVisible()
     await page.getByRole('button', { name: 'Bearbeiten', exact: true }).click()
     await expect(panel(page)).toBeVisible()
     await expect(panel(page).getByText(new RegExp(`${re('Mi, 28.10.2026')}.*${re('Di, 03.11.2026')}`)).first()).toBeVisible()
@@ -282,6 +283,9 @@ test.describe('Buchungsliste', () => {
 
     await open(page, '/buchungen?monat=2026-10')
     await expect(page.getByText(/^Mi, 28\.10\.2026 – Di, 03\.11\.2026 · 6 Nächte/)).toBeVisible()
+    // „2 Personen“ bleibt zusammen (QA BUG-5)
+    const persons = page.getByText('2 Personen', { exact: true })
+    expect((await persons.boundingBox())!.height).toBeLessThan(30)
     await noHorizontalScroll(page)
   })
 
@@ -341,7 +345,12 @@ test.describe('Belegungskalender', () => {
     const apt = await addApartment(tenantId)
     await addBooking(tenantId, apt, { guestId: await addGuest(tenantId, 'Huber', 'Anna'), arrival: ARRIVAL, departure: DEPARTURE })
     await open(page, '/belegung?ansicht=zeitleiste&ab=2026-10-25')
-    await expect(page.getByText(/So, 25\.10\.2026 – /)).toBeVisible()
+    const period = page.getByRole('button', { name: /^So, 25\.10\.2026 – .*Datum wählen/ })
+    // Umbruch nur am „–“, nie innerhalb eines Datums (QA BUG-2)
+    await expect(period).toHaveText(/^So,\u00a025\.10\.2026 – Sa,\u00a021\.11\.2026$/)
+    // „Heute“ hält den Seitenabstand von 16 px ein (QA BUG-3)
+    const today = (await page.getByRole('button', { name: 'Heute', exact: true }).boundingBox())!
+    expect(today.x + today.width).toBeLessThanOrEqual(375 - 16 + 0.5)
     await noHorizontalScroll(page)
   })
 })

@@ -33,7 +33,7 @@ import {
   TIMELINE_STEP,
   visibleApartments,
 } from '@/lib/calendar'
-import { formatPeriod } from '@/lib/format'
+import { formatDate, formatPeriod } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 interface CalendarViewProps {
@@ -142,6 +142,10 @@ export function CalendarView({ variant, state, today, apartments, entries, booka
       ? formatPeriod(state.start, addDays(state.start, count - 1))
       : // eslint-disable-next-line no-restricted-syntax -- Ausnahme PROJ-31: Monatsüberschrift
         format.dateTime(noon(`${state.month}-01`), { month: 'long', year: 'numeric' })
+  // Sichtbar bricht der Zeitraum nur am „–“ um, nie innerhalb eines Datums (QA PROJ-31 BUG-2)
+  const keepTogether = (text: string) => text.replaceAll(' ', '\u00a0')
+  const periodVisible =
+    state.view === 'timeline' ? `${keepTogether(formatDate(state.start))} – ${keepTogether(formatDate(addDays(state.start, count - 1)))}` : periodLabel
   const Heading = variant === 'full' ? 'h1' : 'h2'
 
   return (
@@ -165,13 +169,13 @@ export function CalendarView({ variant, state, today, apartments, entries, booka
               <CaretLeft size={18} aria-hidden="true" />
             </Button>
             <DateJump
-              label={periodLabel}
+              label={periodVisible}
               ariaLabel={`${periodLabel}. ${t('pickDate')}`}
               fieldLabel={t('pickDateLabel')}
               submitLabel={t('jump')}
               inputId="belegung-datum"
               onJump={jump}
-              triggerClassName="min-w-[11rem] whitespace-normal"
+              triggerClassName="min-w-[9rem] whitespace-normal sm:min-w-[11rem]"
             />
             <Button variant="ghost" size="icon" className="size-11" onClick={() => go(step(requested.current ?? current, 1))} aria-label={t('next')}>
               <CaretRight size={18} aria-hidden="true" />

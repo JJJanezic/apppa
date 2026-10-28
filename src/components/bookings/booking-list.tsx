@@ -74,8 +74,14 @@ export function BookingList({ rows, showAmounts }: BookingListProps) {
                 {showAmounts && r.totalCents !== null && <span className="shrink-0 tabular-nums">{amount(r)}</span>}
               </span>
               <span className="text-sm tabular-nums">
-                {period(r)} · {t('nightsCount', { nights: nightsBetween(r.arrival, r.departure) })}
-                {r.kind !== 'block' && <> · {t('personsCount', { persons: r.persons })}</>}
+                {/* Zahl und Wort bleiben zusammen (QA PROJ-31 BUG-5) */}
+                {period(r)} · <span className="whitespace-nowrap">{t('nightsCount', { nights: nightsBetween(r.arrival, r.departure) })}</span>
+                {r.kind !== 'block' && (
+                  <>
+                    {' '}
+                    · <span className="whitespace-nowrap">{t('personsCount', { persons: r.persons })}</span>
+                  </>
+                )}
               </span>
               <span className="break-words text-[13px] text-ds-neutral-800">
                 {r.apartmentLabel}

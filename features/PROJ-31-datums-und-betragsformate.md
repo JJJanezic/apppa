@@ -1,6 +1,6 @@
 # PROJ-31: Einheitliche Datums- und Betragsformate
 
-## Status: In Review
+## Status: Approved
 **Created:** 2026-10-28
 **Last Updated:** 2026-10-28
 
@@ -232,7 +232,7 @@ Keine neuen Pakete.
 #### Datum
 - [x] AC-1: Buchungs-Detail „Mi, 28.10.2026“ / „Di, 03.11.2026“ (auch Jahreswechsel „Mi, 30.12.2026“ / „Sa, 02.01.2027“)
 - [x] AC-2: „Option bis Do, 05.11.2026“ in Detail, Liste (Kennzeichen) und Kalender-Panel
-- [ ] AC-3: Warnung im Formular nennt die andere Buchung mit „Mi, 28.10.2026 … Di, 03.11.2026“ ✔; **Hinweis im Detail nennt nur Art, Nummer und Gast, kein Datum** → BUG-1
+- [x] AC-3: Warnung im Formular und Hinweis im Detail nennen die andere Buchung mit „Mi, 28.10.2026 – Di, 03.11.2026“ (Detail nach Behebung von BUG-1)
 - [x] AC-4: Geburts- und Ausstellungsdatum „15.05.1978“ / „02.03.2020“ ohne Wochentag (Gast-Detail, Mitreisende im Buchungs-Detail)
 - [x] AC-5: Betreiber-Protokoll „Wochentag, TT.MM.JJJJ, HH:MM“ in Wiener Zeit (geprüft gegen den gespeicherten Zeitpunkt)
 - [x] AC-6: Kundenliste (Anlegedatum, letzte Anmeldung mit Uhrzeit), Kunden-Detail „angelegt am“, Einladungen, 2FA-Geräte im Standardformat (Code-Review + E2E Kundenliste/Detail)
@@ -242,7 +242,7 @@ Keine neuen Pakete.
 
 #### Buchungsliste
 - [x] AC-10: Ab Tablet „Zeitraum“ zweizeilig (Anreise oben, Abreise darunter, je eine Zeile); Screenreader liest „… – …“
-- [x] AC-11: Handy-Karte „Mi, 28.10.2026 – Di, 03.11.2026 · 6 Nächte“ in einer Zeile, kein seitliches Scrollen (nur „· 2 Personen“ bricht um, siehe BUG-5)
+- [x] AC-11: Handy-Karte „Mi, 28.10.2026 – Di, 03.11.2026 · 6 Nächte“ in einer Zeile, kein seitliches Scrollen („2 Personen“ bleibt nach BUG-5 zusammen)
 - [x] AC-12: Suche über alle Monate zeigt das Jahr bei jedem Datum
 
 #### Belegungskalender
@@ -250,7 +250,7 @@ Keine neuen Pakete.
 - [x] AC-14: Balken-Beschriftung „Buchung: Anna Huber, Mi, 28.10.2026 bis Di, 03.11.2026“
 - [x] AC-15: Tagesliste: Kopf „Fr, 30.10.2026“, „bis Di, 03.11.2026“
 - [x] AC-16: Tageskopf („Mi“/„28“) und Monatskästchen ohne sichtbaren Überlauf; Kästchen-Beschriftung „Mi, 28.10.2026: …“
-- [x] AC-17: Zeitleiste am Handy ohne seitliches Scrollen der Seite (Zeitraum-Knopf bricht um, siehe BUG-2)
+- [x] AC-17: Zeitleiste am Handy ohne seitliches Scrollen der Seite (Zeitraum-Knopf bricht nur am „–“ um, „Heute“ mit 16 px Rand; BUG-2/3 behoben)
 
 #### Beträge
 - [x] AC-18: „€ 360,00“ in Liste und Detail
@@ -292,8 +292,9 @@ Keine neuen Pakete.
 
 ### Bugs Found
 
-#### BUG-1: Überschneidungshinweis im Buchungs-Detail ohne Datum
+#### BUG-1: Überschneidungshinweis im Buchungs-Detail ohne Datum – BEHOBEN
 - **Severity:** Medium
+- **Fix:** `booking-detail.tsx` hängt „, Mi, 28.10.2026 – Di, 03.11.2026“ an den Link an (wie die Formular-Warnung); E2E prüft es
 - **Steps to Reproduce:**
   1. Zwei Buchungen in derselben Wohnung, 28.10.–03.11.2026 und 01.11.–04.11.2026
   2. Detail der zweiten Buchung öffnen
@@ -301,32 +302,36 @@ Keine neuen Pakete.
   4. Actual: „Der Zeitraum überschneidet sich mit: Buchung · 2026-3101 · Huber, Anna“ (Link ohne Datum). Die Formular-Warnung zeigt die Daten korrekt.
 - **Priority:** Fix before deployment (klein: Datum an `conflictLabel` in `booking-detail.tsx` anhängen, sofern die Konflikt-Daten An-/Abreise mitliefern)
 
-#### BUG-2: Zeitraum-Knopf der Zeitleiste bricht am Handy innerhalb eines Datums um
+#### BUG-2: Zeitraum-Knopf der Zeitleiste bricht am Handy innerhalb eines Datums um – BEHOBEN
 - **Severity:** Low
+- **Fix:** sichtbarer Text mit geschütztem Leerzeichen je Datum (`calendar-view.tsx`); Vorlesetext unverändert; E2E prüft es
 - **Steps to Reproduce:** Handy 375 px, `/belegung?ansicht=zeitleiste&ab=2026-10-25` → „So, 25.10.2026 – Sa,“ / „21.11.2026“. Expected: Umbruch nur am „–“ (je Datum geschütztes Leerzeichen bzw. `whitespace-nowrap` je Datum)
 - **Priority:** Nice to have
 
-#### BUG-3: „Heute“-Knopf der Zeitleiste am Handy fast am rechten Rand
+#### BUG-3: „Heute“-Knopf der Zeitleiste am Handy fast am rechten Rand – BEHOBEN
 - **Severity:** Low
+- **Fix:** Mindestbreite des Zeitraum-Knopfs am Handy 9rem statt 11rem (ab `sm` wie bisher); E2E prüft den 16-px-Rand
 - **Steps to Reproduce:** wie BUG-2; der Knopf endet ca. 6 px vor dem Rand statt mit 16 px Seitenabstand (die Seite scrollt nicht seitlich). Vermutlich Folge des längeren Zeitraum-Texts.
 - **Priority:** Nice to have
 
-#### BUG-4: Fehlermeldung Wohnungspreis noch im alten Betragsformat
+#### BUG-4: Fehlermeldung Wohnungspreis noch im alten Betragsformat – BEHOBEN
 - **Severity:** Low
+- **Fix:** „Bitte einen Betrag bis € 10.000,00 eingeben, z. B. 125 oder 125,50.“ (`messages/de.json`, PROJ-6-Test angepasst)
 - **Steps to Reproduce:** Wohnungsformular, Preis „12,345“ → „Bitte einen Betrag bis 10.000 € eingeben, z. B. 125 oder 125,50.“ Expected: „€ 10.000,00“ (Euro vorne, zwei Nachkommastellen wie überall)
 - **Priority:** Nice to have
 
-#### BUG-5: Handy-Karte trennt „2“ und „Personen“
+#### BUG-5: Handy-Karte trennt „2“ und „Personen“ – BEHOBEN
 - **Severity:** Low
+- **Fix:** Nächte und Personen in der Karte je `whitespace-nowrap` (`booking-list.tsx`); E2E prüft es
 - **Steps to Reproduce:** Handy 375 px, Buchungsliste: „… · 6 Nächte · 2“ / „Personen“. Expected: Umbruch vor „2 Personen“ (geschütztes Leerzeichen)
 - **Priority:** Nice to have
 
 ### Summary
-- **Acceptance Criteria:** 27/28 passed (AC-3 teilweise: Detail-Hinweis ohne Datum)
-- **Bugs Found:** 5 total (0 critical, 0 high, 1 medium, 4 low)
+- **Acceptance Criteria:** 28/28 passed (nach Behebung von BUG-1)
+- **Bugs Found:** 5 total (0 critical, 0 high, 1 medium, 4 low) – alle behoben (2026-10-28)
 - **Security:** Pass
-- **Production Ready:** YES (keine Critical/High) – Empfehlung: BUG-1 vor dem Deploy beheben, da ein Akzeptanzkriterium betroffen ist
-- **Recommendation:** BUG-1 (und gern BUG-2/4) beheben, dann `/qa` kurz wiederholen
+- **Production Ready:** YES
+- **Recommendation:** Deploy. Nachprüfung nach den Korrekturen: PROJ-31-E2E Handy und Desktop (betroffene Tests), PROJ-6 vollständig, Layout/axe von PROJ-8 und PROJ-9 grün; PROJ-4 30/31 (1× Supabase-Grenze); `npm test`: nur Zeitüberschreitungen der Dev-Datenbank (4 Tests, wechselnd). Vor dem Deploy `npm test` bei ruhiger Datenbank wiederholen.
 
 ## Deployment
 _To be added by /deploy_
