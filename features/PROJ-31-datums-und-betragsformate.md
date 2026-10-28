@@ -1,6 +1,6 @@
 # PROJ-31: Einheitliche Datums- und Betragsformate
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-10-28
 **Last Updated:** 2026-10-28
 
@@ -132,12 +132,73 @@ Wochentage: Mo, Di, Mi, Do, Fr, Sa, So. Tag und Monat immer zweistellig (03.11.2
 ### Technical Decisions
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Nur Frontend, keine Migration | Daten bleiben als Tag bzw. Cent gespeichert; nur Anzeige und Eingabe ändern sich | 2026-10-28 |
+| Zentrale Formatstelle in `src/lib/format.ts` für Datum und Betrag | Eine Quelle für alle Seiten; künftige Features übernehmen das Format automatisch | 2026-10-28 |
+| Feste Wochentags-Kürzel Mo–So statt Browser-Kurzform | Browser liefern „Mi.“ mit Punkt bzw. uneinheitlich | 2026-10-28 |
+| Formate unabhängig von Gerätesprache und -zeitzone; Kalendertage ohne Uhrzeit gebildet, Zeitpunkte in Wiener Zeit | Gleiche Ausgabe auf Server und im Browser; kein Verschieben des Tages | 2026-10-28 |
+| Ein gemeinsamer Betragsleser für Buchungen und Wohnungen (versteht Tausenderpunkt) | Wohnungsleser kannte keinen Tausenderpunkt und hätte „1.250,00“ abgelehnt | 2026-10-28 |
+| Baustein „Betragsfeld“ aus shadcn Input, formatiert beim Verlassen | Regel an einer Stelle statt in acht Formularen | 2026-10-28 |
+| ESLint-Schutzregel gegen direkte Datums-/Währungsformatierung | Verhindert neue Abweichungen | 2026-10-28 |
+| Tageskopf und Monatskästchen bleiben kurz; Zeitraum über dem Kalender darf am Handy umbrechen | Spec: wo es eng ist, ohne Wochentag; kein seitliches Scrollen | 2026-10-28 |
+| Zusätzliches Playwright-Projekt „Safari“ (WebKit), gezielt startbar | Safari-Verhalten (Tab-Reihenfolge, Zeilenklick) erstmals automatisch prüfbar | 2026-10-28 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### Überblick
+Reines Frontend-Feature: keine Datenbank-Änderung, keine Migration, keine neue Server-Funktion, keine neuen Pakete. Gespeichert werden Daten und Beträge wie bisher (Datum als Kalendertag, Betrag in Cent); es ändert sich nur, **wie** sie angezeigt und eingegeben werden.
+
+Kern ist eine **zentrale Formatstelle** für Datum und Betrag (Erweiterung der bestehenden `src/lib/format.ts` aus PROJ-2). Alle rund 20 Stellen, die heute ein Datum oder einen Betrag selbst formatieren, rufen künftig nur noch diese Stelle auf.
+
+### A) Bausteine
+
+```
+Zentrale Formate (src/lib/format.ts, erweitert)
++-- Datum Standard ............ „Mi, 28.10.2026“
++-- Datum mit Uhrzeit ......... „Di, 27.10.2026, 14:35“ (Wiener Zeit)
++-- Datum ohne Wochentag ...... „15.05.1978“ (Geburts-/Ausstellungsdatum, enge Stellen)
++-- Zeitraum .................. „Mi, 28.10.2026 – Di, 03.11.2026“
++-- Betrag .................... „€ 1.250,00“ (immer zwei Nachkommastellen)
++-- Betrag für Eingabefelder .. „1.250,00“ (ohne Euro-Zeichen)
++-- Betrag aus Eingabe lesen .. versteht „1250“, „45,5“, „1.250,00“, „125.5“ (ein Leser für die ganze App)
+
+Neuer Baustein: Betragsfeld (src/components/amount-input.tsx)
++-- shadcn Input + beim Verlassen: gültige Eingabe → „1.250,00“; ungültige/leere bleibt stehen
+    eingesetzt in: Übernachtungspreis, Zusatzkosten, Stornogebühr (Dialog und Notiz-Panel),
+    Wohnungspreis, Erwachsenenpreis, Kinderstufen-Preise, Reinigungsgebühr
+
+Angepasste Ansichten
++-- Buchungsliste: Spalte „Zeitraum“ zweizeilig (Anreise / Abreise); Handy-Karte einzeilig
++-- Buchungs-Detail, Kennzeichen „bis …“, Warnungen, Storno-Hinweis, Preisvorschlag, Hochrechnung
++-- Belegungskalender: Zeitraum oben, Balken-Hinweis und -Beschriftung, Tagesliste (Standard);
+|   Tageskopf und Monatskästchen bleiben kurz wie bisher
++-- Gäste: Aufenthalte (Standard), Geburts- und Ausstellungsdatum (ohne Wochentag), Zusammenführen
++-- Wohnungsübersicht und -formular: Preise mit zwei Nachkommastellen
++-- Betreiber: Kundenliste, Kunden-Detail, Protokoll (mit Uhrzeit); Einladungen; 2FA-Geräte
++-- unverändert: Monatsüberschriften, Datum unter dem Dashboard-Gruß, Datumsfelder in Formularen
+```
+
+### B) Daten
+Keine neuen Daten. Kalendertage (An-/Abreise, „Option gilt bis“, Geburtsdatum …) werden direkt aus dem gespeicherten Tag gebildet, nicht über eine Uhrzeit. Dadurch kann sich der Tag durch Zeitzonen nicht verschieben. Zeitpunkte mit Uhrzeit (Protokoll, „angelegt am“, „storniert am“) werden in Wiener Zeit angezeigt.
+
+### C) Technische Entscheidungen (Begründung)
+- **Eine zentrale Formatstelle statt Formatangaben an jeder Stelle:** Heute legt jede Seite ihr Format selbst fest; daher die Unterschiede. Mit einer Stelle sehen alle Seiten gleich aus, und künftige Seiten (Zahlungen, Ortstaxe) übernehmen das Format automatisch.
+- **Eigene Wochentags-Kürzel (Mo–So):** Die Standard-Kurzform des Browsers für Deutsch ist „Mi.“ mit Punkt bzw. je nach Browser unterschiedlich. Eine feste Liste liefert überall genau „Mi“.
+- **Gleiche Ausgabe auf Server und im Browser:** Viele Seiten werden am Server erzeugt und im Browser weitergeführt. Die Formate hängen deshalb nicht von Spracheinstellung oder Zeitzone des Geräts ab (sonst Flackern oder abweichende Daten).
+- **Ein gemeinsamer Leser für Beträge:** Die Wohnungspreise hatten einen eigenen, strengeren Leser ohne Tausenderpunkt. Weil Eingaben künftig zu „1.250,00“ umgeschrieben werden, nutzen Buchungen und Wohnungen denselben Leser, der Tausenderpunkte versteht. Höchstbeträge bleiben je Feld wie bisher.
+- **Betragsfeld als eigener Baustein (aus shadcn Input):** Die Regel „beim Verlassen formatieren, beim Tippen nicht“ steckt an einer Stelle statt in acht Formularen.
+- **Schutzregel im Code-Prüfer (ESLint):** Direkte Datums- oder Währungsformatierung außerhalb der zentralen Stelle wird angemahnt, damit sich keine neuen Abweichungen einschleichen.
+- **Enge Kalenderstellen bleiben kurz:** Tageskopf der Zeitleiste und Monatskästchen zeigen wie bisher Wochentag/Tageszahl; der Zeitraum über dem Kalender darf auf dem Handy zweizeilig umbrechen, statt die Seite zu verbreitern.
+- **Safari in den Tests:** Ein zusätzliches, gezielt startbares Test-Projekt „Safari“ (WebKit ist installiert) prüft die wichtigsten Abläufe, darunter die Tab-Reihenfolge aus dem Fix `abb94b7`.
+
+### D) Tests
+- Unit-Tests für die zentralen Formate (Standard, mit Uhrzeit, ohne Wochentag, Jahreswechsel, Betrag 0, Höchstbetrag) und für das Umschreiben im Betragsfeld.
+- Bestehende E2E-Tests, die Texte wie „3. Nov.“ oder „€ 420“ prüfen, werden auf das neue Format umgestellt; neue E2E-Tests je Akzeptanzkriterium.
+
+### E) Pakete
+Keine neuen Pakete.
 
 ## QA Test Results
 _To be added by /qa_
