@@ -1,6 +1,6 @@
 # PROJ-32: Negative Beträge bei Zusatzkosten
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-10-28
 **Last Updated:** 2026-10-28
 
@@ -78,6 +78,7 @@ Bisher sind Zusatzkosten nur mit Beträgen ab 0 möglich. Künftig darf eine Zus
 ## Open Questions
 - [ ] Wie gehen Zahlungserfassung (PROJ-13) und Auswertungen (PROJ-18) mit negativem Endbetrag um (z. B. Rückerstattung statt offener Betrag)? Klärung in diesen Specs
 - [ ] Soll eine von Hand erfasste Position „Nächtigungsabgabe“ später von der automatischen Berechnung (PROJ-16) ersetzt oder erkannt werden? Klärung in PROJ-16
+- [ ] Kontrast der roten Schrift im dunklen Design prüfen, sobald es eines gibt (derzeit nur helles Theme)
 
 ## Decision Log
 
@@ -96,12 +97,85 @@ Bisher sind Zusatzkosten nur mit Beträgen ab 0 möglich. Künftig darf eine Zus
 ### Technical Decisions
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Betragsleser mit Schalter „negativ erlaubt“ (Standard aus) statt zweitem Leser | Ein Leser für die ganze App bleibt (PROJ-31); alle übrigen Betragsfelder bleiben unverändert ab 0 | 2026-10-28 |
+| Datenbank: nur die Untergrenze der Zusatzkosten-Prüfung ändern | Kleinster Eingriff; Übernachtungspreis, Stornogebühr und Wohnungspreise bleiben in der Datenbank ab 0 geschützt | 2026-10-28 |
+| Endbetrag weiter nur berechnet, nicht gespeichert | Negativer Endbetrag und anteilige Abrechnung (PROJ-30) funktionieren ohne Datenmigration | 2026-10-28 |
+| Gemeinsamer Anzeige-Baustein für Beträge mit roter Schrift bei < 0 | Regel an einer Stelle statt in Formular, Detail und Liste einzeln | 2026-10-28 |
+| Rot über vorhandenes Token `destructive` | Keine neue Farbe; Kontrast 6,5:1 bzw. 5,9:1 erfüllt WCAG AA | 2026-10-28 |
+| „-0“ wird zu 0 normalisiert | Verhindert „-0,00“ im Feld und rotes „-€ 0,00“ in Anzeigen | 2026-10-28 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### Überblick
+Kleine Erweiterung bestehender Bausteine, keine neue Seite, keine neue Tabelle, keine neue Bibliothek. Vier Bausteine werden angepasst:
+1. **Betragsleser** (zentral in `src/lib/format.ts`): versteht auf Wunsch ein führendes Minus
+2. **Prüfregeln** im Browser und in den Server-Aktionen (ein gemeinsames Schema): Zusatzkosten von -1.000.000,00 bis 1.000.000,00 €
+3. **Datenbankprüfung** der Tabelle für Zusatzkosten: Untergrenze von 0 auf -1.000.000,00 € (eine kleine Migration)
+4. **Betragsanzeige**: ein gemeinsamer Anzeige-Baustein färbt negative Beträge rot
+
+### A) Betroffene Oberfläche (bestehende Komponenten)
+```
+Buchungsformular (booking-panel)
++-- Abschnitt Preis
+|   +-- Übernachtungspreis (Betragsfeld)        → bleibt ab 0
+|   +-- Vorschlags-Chips für Zusatzkosten       → + „Rabatt“, + „Nächtigungsabgabe“
+|   +-- Zusatzkosten-Positionen
+|   |   +-- Bezeichnung
+|   |   +-- Betrag (Betragsfeld)                → NEU: Minus erlaubt
+|   +-- Summe / Endbetrag                       → NEU: rot, wenn negativ
+Storno-Dialog: Stornogebühr (Betragsfeld)       → bleibt ab 0
+Buchungs-Detail (booking-detail)
++-- Positionen mit Betrag                       → rot, wenn negativ
++-- Endbetrag                                   → rot, wenn negativ
+Buchungsliste (booking-list)
++-- Betrag in der Desktop-Tabelle               → rot, wenn negativ
++-- Betrag in der Handy-Karte                   → rot, wenn negativ
+Wohnungsformular (Standard-/Personenpreise, Reinigung) → unverändert ab 0
+```
+
+Neu ist nur ein kleiner gemeinsamer Anzeige-Baustein „Betrag“ (z. B. `src/components/amount.tsx`): zeigt einen Cent-Betrag im App-Format und setzt bei negativem Wert die rote Schrift. Alle oben genannten Anzeigen nutzen ihn, damit die Regel an einer Stelle lebt.
+
+### B) Daten
+- **Keine neuen Felder, keine Datenmigration.** Zusatzkosten-Positionen behalten Bezeichnung und Betrag in Cent; der Betrag darf künftig negativ sein.
+- **Endbetrag wird weiterhin nicht gespeichert**, sondern beim Anzeigen berechnet (abgerechneter Übernachtungspreis + alle Positionen). Dadurch funktionieren negativer Endbetrag und anteilige Abrechnung (PROJ-30) ohne Zusatzarbeit: Nur der Übernachtungspreis wird anteilig verringert, Positionen bleiben unverändert.
+- **Datenbankgrenzen danach:**
+  - Zusatzkosten-Position: -1.000.000,00 bis 1.000.000,00 €
+  - Übernachtungspreis (vereinbart und abgerechnet), Stornogebühr: unverändert 0 bis 1.000.000,00 €
+  - Wohnungspreise, Personenpreise, Reinigungsgebühr: unverändert ab 0
+- Der kleinste mögliche Endbetrag (20 Positionen × -1.000.000 €) liegt weit innerhalb des Zahlenbereichs, kein Überlaufrisiko.
+
+### C) Regeln für die Eingabe
+- Der Betragsleser bekommt einen Schalter „negativ erlaubt“, standardmäßig aus. Nur die Zusatzkosten-Felder schalten ihn ein; alle anderen Betragsfelder der App verhalten sich exakt wie bisher.
+- Bei eingeschaltetem Schalter gilt:
+  - Ein Minus ganz vorne ist erlaubt, auch mit Leerzeichen danach („- 5“ = „-5“)
+  - Das typografische Minus „−“ wird wie „-“ behandelt
+  - „-“ allein, „--5“, „5-“ sind ungültig → bisherige Meldung „Bitte einen Betrag wie 125 oder 125,50 eingeben.“, Eingabe bleibt stehen
+  - „-0“ und „-0,00“ ergeben 0 (nicht „-0,00“) – sowohl beim Umschreiben im Feld als auch beim Speichern
+- Beim Verlassen des Felds schreibt das bestehende Betragsfeld die Eingabe wie bisher um („-1250,5“ → „-1.250,50“); es reicht den Schalter nur an den Leser weiter.
+- Übernachtungspreis und Stornogebühr verwenden den Leser ohne Schalter: Ein Minus dort ist ungültig → bisherige Meldung, nichts wird gespeichert.
+
+### D) Anzeige
+- Format kommt unverändert aus der zentralen Betragsformatierung: „-€ 50,00“ (österreichische Schreibweise, bereits so geliefert).
+- Rote Schrift über das vorhandene Design-Token für Warn-/Fehlerfarbe (`destructive`), keine neue Farbe. Gemessener Kontrast im hellen Design: 6,5:1 auf dem Seitenhintergrund, 5,9:1 auf grauen Flächen → erfüllt WCAG AA (4,5:1). Das Minus bleibt immer sichtbar, Farbe ist nur Zusatzsignal.
+- 0 und positive Beträge: normale Schrift. Eine „-0“ kann wegen der Normalisierung nicht entstehen.
+- **Dunkles Design:** existiert in der App noch nicht (siehe `docs/design-system.md`). Sobald es kommt, gilt das Token dort automatisch; der Kontrast ist dann mit zu prüfen.
+
+### E) Vorschläge
+- Die Liste der Zusatzkosten-Vorschläge bekommt zwei Einträge: „Rabatt“ und „Nächtigungsabgabe“ (Texte in `messages/de.json`). Gewählt wird wie bisher nur die Bezeichnung, der Betrag bleibt leer.
+
+### F) Sicherheit und Rollen
+- Unverändert: Nur Inhaber sehen und setzen Beträge; die Speicherfunktion übernimmt Positionen nur von Inhabern. Bearbeitet ein Mitarbeiter eine Buchung, bleiben alle Positionen samt negativer Beträge unangetastet.
+- Die Datenbank prüft die Grenzen selbst. Wer die Browserprüfung umgeht, kann weiterhin keinen negativen Übernachtungspreis und keine negative Stornogebühr speichern.
+
+### G) Tests
+- Unit-Tests: Betragsleser (mit/ohne Schalter, alle Edge Cases aus der Spec), Prüfschema für Buchungen (negative Position ok, negativer Übernachtungspreis nicht), Endbetrag mit negativen Positionen und anteiliger Abrechnung, Anzeige-Baustein (rot nur bei < 0)
+- E2E: Buchung mit Rabatt anlegen, Endbetrag in Formular, Detail und Liste prüfen; negativer Endbetrag
+
+### Abhängigkeiten
+Keine neuen Pakete.
 
 ## QA Test Results
 _To be added by /qa_
