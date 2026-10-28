@@ -17,6 +17,7 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-8 Manuelle Buchungen', () => {
   const users: TestUser[] = []
   const tenants: string[] = []
   let tenantA: string
+  let tenantB: string
   let ownerA: Client, staffA: Client, ownerB: Client
   let ownerUserA: TestUser, staffUserA: TestUser
   const runId = randomUUID().slice(0, 8)
@@ -107,7 +108,7 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-8 Manuelle Buchungen', () => {
       [a, 'owner'],
       [s, 'staff'],
     ])
-    await newTenant([[b, 'owner']])
+    tenantB = await newTenant([[b, 'owner']])
     ;[ownerA, staffA, ownerB] = await Promise.all([signIn(a), signIn(s), signIn(b)])
   }, 60_000)
 
@@ -585,7 +586,8 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-8 Manuelle Buchungen', () => {
       expect((await row(first)).guest_sheet_number).toBe(sheet)
 
       // fremdes Konto mit derselben Nummer: keine Warnung
-      const tB = (await service.from('memberships').select('tenant_id').neq('tenant_id', tenantA).in('tenant_id', tenants).limit(1).single()).data!.tenant_id
+      // Kunde von Inhaber B (die Datei legt weitere Kunden für Inhaber A an)
+      const tB = tenantB
       const aptB = await apartment(tB, 'Fremd')
       const gB = await guest(tB, 'Fremd')
       savedId(await save(ownerB, bookingInput(tB, aptB, gB, '2029-05-01', '2029-05-03', { guest_sheet_number: sheet })))
