@@ -763,7 +763,7 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
 
               <div className="flex items-baseline justify-between gap-3 border-t pt-3" aria-live="polite">
                 <span>
-                  {t('panel.total')} <span className="text-[13px] text-ds-neutral-700">({t('panel.totalHint')})</span>
+                  {t('panel.total')}
                 </span>
                 <span className="text-lg font-semibold tabular-nums">{total === null ? '–' : euro(total)}</span>
               </div>

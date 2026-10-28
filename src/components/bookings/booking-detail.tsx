@@ -191,7 +191,6 @@ export async function BookingDetail({ booking, apartments, owner, today, layout,
                     {t('detail.extension', { agreed: euro(booking.amounts.nightsCents), nights: plannedNights, billable })}
                   </p>
                 )}
-                <p className="text-[13px] text-ds-neutral-700">{t('detail.taxNote')}</p>
               </section>
             )}
           </div>

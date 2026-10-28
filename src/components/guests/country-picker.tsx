@@ -48,6 +48,8 @@ export function CountryPicker({ id, value, onChange, clearable, invalid, ...aria
           type="button"
           variant="outline"
           role="combobox"
+          // Safari: Knöpfe sind ohne ausdrücklichen tabIndex nicht per Tabulatortaste erreichbar
+          tabIndex={0}
           aria-expanded={open}
           aria-invalid={invalid || undefined}
           aria-describedby={aria['aria-describedby']}
