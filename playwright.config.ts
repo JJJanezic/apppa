@@ -37,14 +37,25 @@ export default defineConfig({
       dependencies: ['setup'],
       use: { ...devices['iPhone 13'], ...chrome, viewport: { width: 375, height: 812 }, storageState },
     },
-    // Safari (WebKit) nur auf Wunsch: `PW_SAFARI=1 npx playwright test --project=safari` (PROJ-31). WebKit liegt
-    // unter ~/Library/Caches/ms-playwright (mit Node 26 von Hand entpackt, siehe Runbook-Notiz).
+    // Safari (WebKit) und Firefox nur auf Wunsch: `PW_SAFARI=1 npx playwright test --project=safari` (PROJ-31),
+    // `PW_FIREFOX=1 npx playwright test --project=firefox`. Beide Browser liegen unter ~/Library/Caches/ms-playwright
+    // (mit Node 26 von Hand entpackt: webkit-2248, firefox-1509). Safari nur gegen `npm run dev`: Im Produktions-Build
+    // sind die Sitzungs-Cookies `Secure`, und WebKit schickt sie nicht an http://localhost (Chrome/Firefox schon).
     ...(process.env.PW_SAFARI
       ? [
           {
             name: 'safari',
             dependencies: ['setup'],
             use: { ...devices['Desktop Safari'], viewport: { width: 1440, height: 900 }, storageState },
+          },
+        ]
+      : []),
+    ...(process.env.PW_FIREFOX
+      ? [
+          {
+            name: 'firefox',
+            dependencies: ['setup'],
+            use: { ...devices['Desktop Firefox'], viewport: { width: 1440, height: 900 }, storageState },
           },
         ]
       : []),
