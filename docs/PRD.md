@@ -32,6 +32,7 @@ Die App wird als Mehrmandanten-SaaS betrieben: Jeder Kunde (Vermieter) hat ein e
 | P0 (Pilot) | Gast-Erweiterung: Titel, Geschlecht, Reisedokument | Deployed (PROJ-29) |
 | P0 (Pilot) | Buchungs-Erweiterung: Meldedaten, Buchungsquelle, Monatsauswahl | Deployed (PROJ-30) |
 | P0 (Pilot) | Einheitliche Datums- und Betragsformate | Deployed (PROJ-31) |
+| P0 (Pilot) | Negative Beträge bei Zusatzkosten | Planned (PROJ-32) |
 | P0 (Pilot) | Gästeblatt (Meldewesen) | Roadmap (PROJ-26) |
 | P0 (Pilot) | Kalender-Abo-Link für Outlook/M365 und Google Calendar | Roadmap |
 | P0 (MVP-Abschluss) | Statistische Auswertungen (Auslastung, Umsatz, Gästeherkunft, Kanäle) | Roadmap |
