@@ -186,7 +186,13 @@ Keine neuen Pakete.
 - Vorschläge „Rabatt“ und „Nächtigungsabgabe“ (`CHARGE_SUGGESTIONS`, `messages/de.json`)
 - Tests: Leser, Betragsfeld, Prüfschema, Endbetrag, `Amount`
 - **Hinweis zur Spec:** Anteilig berechnet wird nach PROJ-30 nur bei *späterer* tatsächlicher Abreise (Preis steigt); bei vorgezogener Abreise bleibt der volle Preis. Das Kriterium „vorgezogene Abreise … anteilig verringert“ ist daher in QA mit späterer Abreise zu prüfen: Positionen bleiben unverändert, Endbetrag = anteiliger Übernachtungspreis + Positionen
-- **Offen für /backend:** Datenbankprüfung `booking_charges.amount_cents` noch 0 bis 1.000.000 € – negative Positionen werden bis zur Migration beim Speichern abgelehnt
+
+## Implementation Notes (Backend)
+**Stand 2026-10-28**
+- Migration `20261028202255_negative_charges.sql` (nur Dev): Prüfung `booking_charges.amount_cents` jetzt -100.000.000 bis 100.000.000 Cent; Übernachtungspreis, Stornogebühr und Wohnungspreise unverändert ab 0. Keine neue Funktion, keine RLS-Änderung, keine Datenmigration
+- `save_booking` übernimmt Positionen weiterhin nur von Inhabern; Mitarbeiter ändern keine Beträge
+- Integrationstest (`supabase/tests/bookings.integration.test.ts`): negative Positionen bis -1.000.000 € werden gespeichert; -1.000.000,01 €, negativer Übernachtungspreis und negative Stornogebühr werden von der Datenbank abgelehnt (23514); direktes Schreiben in `booking_charges` bleibt gesperrt
+- Typen neu erzeugt (unverändert); Advisors: nur die bekannten Auth-Hinweise (siehe `docs/runbooks/supabase.md`)
 
 ## QA Test Results
 _To be added by /qa_

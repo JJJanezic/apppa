@@ -395,6 +395,26 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-8 Manuelle Buchungen', () => {
       ])
     })
 
+    it('Zusatzkosten auch negativ bis -1.000.000 €; Übernachtungspreis und Stornogebühr bleiben ab 0 (PROJ-32)', async () => {
+      const apt = await apartment(tenantA, 'Rabatt', perPerson)
+      const g = await guest(tenantA, 'Rabattgast')
+      const input = (nights: number, charges: { label: string; amount_cents: number }[], arrival = '2027-09-10', departure = '2027-09-12') =>
+        bookingInput(tenantA, apt, g, arrival, departure, { adults: 2, child_ages: [], amounts: { nights_cents: nights, charges } })
+
+      const id = savedId(await save(ownerA, input(10000, [{ label: 'Gutschrift', amount_cents: -15000 }, { label: 'Rabatt', amount_cents: -100000000 }])))
+      const { data: charges } = await service.from('booking_charges').select('label, amount_cents').eq('booking_id', id).order('position')
+      expect(charges).toEqual([
+        { label: 'Gutschrift', amount_cents: -15000 },
+        { label: 'Rabatt', amount_cents: -100000000 },
+      ])
+
+      expect((await save(ownerA, input(10000, [{ label: 'Rabatt', amount_cents: -100000001 }], '2027-09-20', '2027-09-22'))).error?.code).toBe('23514')
+      expect((await save(ownerA, input(-5000, [], '2027-09-24', '2027-09-26'))).error?.code).toBe('23514')
+      expect((await ownerA.rpc('cancel_booking', { p_booking_id: id, p_reason: null, p_fee_cents: -5000 })).error?.code).toBe('23514')
+      // Direktes Schreiben bleibt gesperrt, auch für Inhaber
+      expect((await ownerA.from('booking_charges').update({ amount_cents: -1 }).eq('booking_id', id).select()).data ?? []).toEqual([])
+    })
+
     it('Erwachsenen-Grenze: 3 Erwachsene warnen (Mitarbeiter blockiert, Inhaber übersteuert); 1 + 3 Kinder nicht', async () => {
       const apt = await apartment(tenantA, 'Grenze', { ...perPerson, max_guests: 4 })
       const g = await guest(tenantA, 'Grenzgast')
