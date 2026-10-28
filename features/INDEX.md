@@ -47,10 +47,11 @@
 | PROJ-30 | Buchungs-Erweiterung: Meldedaten, Buchungsquelle, Monatsauswahl | Gästeblattnummer, Abreise geplant/tatsächlich (Preis anteilig, Belegung nach tatsächlicher Abreise), Wohnsitz angemeldet, Buchungsquelle inkl. booking.com mit Kalenderfarbe und Filter, Sprungauswahl in der Buchungsübersicht, Mitreisende Nachname vor Vorname | P0 | PROJ-8, PROJ-9, PROJ-27 | Deployed | [Spec](PROJ-30-buchungs-erweiterung.md) | 2026-10-26 |
 
 <!-- Add features above this line -->
+| PROJ-31 | Einheitliche Datums- und Betragsformate | Datum überall „Mi, 28.10.2026“ (Ausnahmen: Geburts-/Ausstellungsdatum, enge Kalenderstellen, Monatsüberschriften, Dashboard-Gruß), Zeitraum in der Buchungsliste zweizeilig, Beträge mit zwei Nachkommastellen auch in Eingabefeldern | P0 | PROJ-2, PROJ-8, PROJ-9 | Planned | [Spec](PROJ-31-datums-und-betragsformate.md) | 2026-10-28 |
 
 ## Build Order
-1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 29 → 30 → 10 → 11 → 12 → 13 → 14 → 15 → 16 → 26 → 17 (**Pilotstand**, ca. 3 Monate) → 18 → 19 (**MVP komplett**, ca. 4–5 Monate) → P2 nach Bedarf.
+1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 29 → 30 → 31 → 10 → 11 → 12 → 13 → 14 → 15 → 16 → 26 → 17 (**Pilotstand**, ca. 3 Monate) → 18 → 19 (**MVP komplett**, ca. 4–5 Monate) → P2 nach Bedarf.
 
 Den Channex-Block (PROJ-10 bis PROJ-12) früh angehen: Er ist das größte Risiko (Testzugang, Webhooks, Abläufe mit den Plattformen).
 
-## Next Available ID: PROJ-31
+## Next Available ID: PROJ-32
