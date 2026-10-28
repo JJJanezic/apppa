@@ -1,6 +1,6 @@
 # PROJ-31: Einheitliche Datums- und Betragsformate
 
-## Status: In Progress
+## Status: In Review
 **Created:** 2026-10-28
 **Last Updated:** 2026-10-28
 
@@ -221,7 +221,112 @@ Keine neuen Pakete.
 **Offen für /qa**: Bestehende E2E-Tests mit alten Texten/Werten anpassen (z. B. PROJ-8: Feldwerte „60“/„90“ → „60,00“/„90,00“; weitere Prüfungen auf „3. Nov.“, „€ 420“ o. Ä.). `desktopOnly()` in den Specs überspringt das Projekt `safari` – für Safari-Läufe ggf. zulassen.
 
 ## QA Test Results
-_To be added by /qa_
+
+**Tested:** 2026-10-28
+**App URL:** http://localhost:3000 (Produktions-Build, Supabase „apppa-dev“)
+**Tester:** QA Engineer (AI)
+**Browser:** Chrome (Desktop 1440 px, Tablet 768 px, Handy 375 px), Safari/WebKit (Projekt `safari`, Desktop 1440 px). Firefox nicht geprüft (kein Playwright-Projekt).
+
+### Acceptance Criteria Status
+
+#### Datum
+- [x] AC-1: Buchungs-Detail „Mi, 28.10.2026“ / „Di, 03.11.2026“ (auch Jahreswechsel „Mi, 30.12.2026“ / „Sa, 02.01.2027“)
+- [x] AC-2: „Option bis Do, 05.11.2026“ in Detail, Liste (Kennzeichen) und Kalender-Panel
+- [ ] AC-3: Warnung im Formular nennt die andere Buchung mit „Mi, 28.10.2026 … Di, 03.11.2026“ ✔; **Hinweis im Detail nennt nur Art, Nummer und Gast, kein Datum** → BUG-1
+- [x] AC-4: Geburts- und Ausstellungsdatum „15.05.1978“ / „02.03.2020“ ohne Wochentag (Gast-Detail, Mitreisende im Buchungs-Detail)
+- [x] AC-5: Betreiber-Protokoll „Wochentag, TT.MM.JJJJ, HH:MM“ in Wiener Zeit (geprüft gegen den gespeicherten Zeitpunkt)
+- [x] AC-6: Kundenliste (Anlegedatum, letzte Anmeldung mit Uhrzeit), Kunden-Detail „angelegt am“, Einladungen, 2FA-Geräte im Standardformat (Code-Review + E2E Kundenliste/Detail)
+- [x] AC-7: Aufenthalte im Gast-Detail im Standardformat
+- [x] AC-8: Dashboard-Gruß unverändert ausgeschrieben (PROJ-2-Test)
+- [x] AC-9: Monatsüberschrift „Oktober 2026“ in Buchungsliste und Kalender unverändert
+
+#### Buchungsliste
+- [x] AC-10: Ab Tablet „Zeitraum“ zweizeilig (Anreise oben, Abreise darunter, je eine Zeile); Screenreader liest „… – …“
+- [x] AC-11: Handy-Karte „Mi, 28.10.2026 – Di, 03.11.2026 · 6 Nächte“ in einer Zeile, kein seitliches Scrollen (nur „· 2 Personen“ bricht um, siehe BUG-5)
+- [x] AC-12: Suche über alle Monate zeigt das Jahr bei jedem Datum
+
+#### Belegungskalender
+- [x] AC-13: Zeitraum oben im Standardformat (Desktop: „So, 25.10.2026 – Sa, 21.11.2026“, vier Wochen)
+- [x] AC-14: Balken-Beschriftung „Buchung: Anna Huber, Mi, 28.10.2026 bis Di, 03.11.2026“
+- [x] AC-15: Tagesliste: Kopf „Fr, 30.10.2026“, „bis Di, 03.11.2026“
+- [x] AC-16: Tageskopf („Mi“/„28“) und Monatskästchen ohne sichtbaren Überlauf; Kästchen-Beschriftung „Mi, 28.10.2026: …“
+- [x] AC-17: Zeitleiste am Handy ohne seitliches Scrollen der Seite (Zeitraum-Knopf bricht um, siehe BUG-2)
+
+#### Beträge
+- [x] AC-18: „€ 360,00“ in Liste und Detail
+- [x] AC-19: „€ 1.250,00“ (inkl. Zusatzkosten) in der Liste
+- [x] AC-20: Preisvorschlag und Hochrechnung mit zwei Nachkommastellen („Vorschlag: € 510,00 (3 Nächte × (3 × € 50,00 + …))“, „Neuen Vorschlag € 720,00 übernehmen“, „Verlängert: vereinbart € 500,00 …“)
+- [x] AC-21: Wohnungsübersicht „€ 120,00“, Formular „120,00“ / Reinigung „60,00“
+- [x] AC-22: „Buchung bearbeiten“ zeigt „360,00“
+- [x] AC-23: „1250“ → „1.250,00“ beim Verlassen
+- [x] AC-24: „45,5“ → „45,50“
+- [x] AC-25: „12“ bleibt während des Tippens unverändert
+- [x] AC-26: „abc“ bleibt stehen; Speichern meldet „Bitte einen Betrag wie 125 oder 125,50 eingeben.“
+- [x] AC-27: Leere Stornogebühr bleibt leer; „90“ → „90,00“
+- [x] AC-28: „1.250,00“ wird als 125000 Cent gespeichert (Buchung); Wohnungspreis „1.250,00“ wird angenommen und als „€ 1.250,00“ gezeigt
+
+### Edge Cases Status
+- [x] Jahreswechsel: eigene Jahre je Datum
+- [x] Lange Gastnamen + zweizeiliger Zeitraum: kein Umbruch innerhalb eines Datums, kein seitliches Scrollen
+- [x] Betrag 0: „0“ → „0,00“; „€ 0,00“ im Preisvorschlag
+- [x] Höchstbetrag „€ 1.000.000,00“ passt in Liste (Desktop) und Detail; Handy-Karte bricht den langen Namen um, Betrag bleibt lesbar
+- [x] Mitarbeiter: keine Beträge in Liste und Detail, Datum im neuen Format
+- [x] Zeitzone: Zeitpunkte in Wiener Zeit; Kalendertage ohne Verschiebung (Unit-Tests Sommerzeit/Mitternacht, E2E Protokoll)
+- [x] Eingabe „1.250,5“ → „1.250,50“, „125.5“ → „125,50“
+- [x] Zusätzlich: Vorschlag wird schon formatiert eingesetzt, Verlassen des Preisfelds markiert den Preis daher nicht als „von Hand geändert“
+- [x] Zusätzlich: zu große Beträge („2.000.000“) werden umgeschrieben und beim Speichern weiterhin mit Fehlermeldung abgelehnt
+
+### Security Audit Results
+- [x] Reines Frontend-Feature: keine neuen Server-Aktionen, keine Migration, keine neuen Abfragen
+- [x] Betragsleser auf dem Server unverändert streng (gleiche Höchstwerte je Feld: Buchung € 1.000.000,00, Wohnung € 10.000,00); ungültige Eingaben werden serverseitig abgewiesen
+- [x] Ausgaben als React-Text (kein `dangerouslySetInnerHTML`); bestehender XSS-Test im Kalender grün
+- [x] Mitarbeiter sehen weiterhin keine Beträge (E2E)
+- [x] Keine direkte Datums-/Währungsformatierung außerhalb `src/lib/format.ts` (Suche + ESLint-Schutzregel)
+
+### Automatisierte Tests
+- `npm run lint`: sauber. Unit-Tests des Features (format, Betragsfeld, bookings, apartments): 58/58 grün.
+- `npm test` gesamt: Datenbank-Integrationstests (z. B. `supabase/tests/rls.integration.test.ts`) liefen in 5-s-Zeitüberschreitungen, bei jedem Lauf andere Tests – „apppa-dev“ antwortete langsam. Keine Datenbank-Änderung in PROJ-31, daher kein Feature-Bezug; vor dem Deploy wiederholen.
+- Neue E2E-Datei `tests/PROJ-31-datums-und-betragsformate.spec.ts` (22 Tests): Desktop, Tablet, Handy und Safari grün. Hilfsfunktionen `tests/support/format.ts` (vom App-Code unabhängig).
+- Bestehende E2E-Tests auf neue Formate umgestellt: PROJ-5 (Kundenliste), PROJ-8, PROJ-9 (Kästchen-Beschriftung), PROJ-27, PROJ-29 (Ausstellungsdatum), PROJ-30 (Hochrechnung, Balken-Beschriftung).
+- Regression Desktop grün: PROJ-2, 5, 6, 7, 8, 9, 27, 29, 30 (zwei Timing-Ausreißer in PROJ-8/PROJ-30 bei Wiederholung grün). PROJ-4: 18 grün, 13 rot nur wegen der Supabase-Grenze für Anmelde-Links („Request rate limit reached“), nicht wegen der App; PROJ-4 ändert sich nur in der Einladungsliste (Datum über `formatDate`, Code-Review). Vor dem Deploy mit Abstand wiederholen.
+
+### Bugs Found
+
+#### BUG-1: Überschneidungshinweis im Buchungs-Detail ohne Datum
+- **Severity:** Medium
+- **Steps to Reproduce:**
+  1. Zwei Buchungen in derselben Wohnung, 28.10.–03.11.2026 und 01.11.–04.11.2026
+  2. Detail der zweiten Buchung öffnen
+  3. Expected (AC-3): Hinweis nennt die andere Buchung mit „Mi, 28.10.2026 – Di, 03.11.2026“
+  4. Actual: „Der Zeitraum überschneidet sich mit: Buchung · 2026-3101 · Huber, Anna“ (Link ohne Datum). Die Formular-Warnung zeigt die Daten korrekt.
+- **Priority:** Fix before deployment (klein: Datum an `conflictLabel` in `booking-detail.tsx` anhängen, sofern die Konflikt-Daten An-/Abreise mitliefern)
+
+#### BUG-2: Zeitraum-Knopf der Zeitleiste bricht am Handy innerhalb eines Datums um
+- **Severity:** Low
+- **Steps to Reproduce:** Handy 375 px, `/belegung?ansicht=zeitleiste&ab=2026-10-25` → „So, 25.10.2026 – Sa,“ / „21.11.2026“. Expected: Umbruch nur am „–“ (je Datum geschütztes Leerzeichen bzw. `whitespace-nowrap` je Datum)
+- **Priority:** Nice to have
+
+#### BUG-3: „Heute“-Knopf der Zeitleiste am Handy fast am rechten Rand
+- **Severity:** Low
+- **Steps to Reproduce:** wie BUG-2; der Knopf endet ca. 6 px vor dem Rand statt mit 16 px Seitenabstand (die Seite scrollt nicht seitlich). Vermutlich Folge des längeren Zeitraum-Texts.
+- **Priority:** Nice to have
+
+#### BUG-4: Fehlermeldung Wohnungspreis noch im alten Betragsformat
+- **Severity:** Low
+- **Steps to Reproduce:** Wohnungsformular, Preis „12,345“ → „Bitte einen Betrag bis 10.000 € eingeben, z. B. 125 oder 125,50.“ Expected: „€ 10.000,00“ (Euro vorne, zwei Nachkommastellen wie überall)
+- **Priority:** Nice to have
+
+#### BUG-5: Handy-Karte trennt „2“ und „Personen“
+- **Severity:** Low
+- **Steps to Reproduce:** Handy 375 px, Buchungsliste: „… · 6 Nächte · 2“ / „Personen“. Expected: Umbruch vor „2 Personen“ (geschütztes Leerzeichen)
+- **Priority:** Nice to have
+
+### Summary
+- **Acceptance Criteria:** 27/28 passed (AC-3 teilweise: Detail-Hinweis ohne Datum)
+- **Bugs Found:** 5 total (0 critical, 0 high, 1 medium, 4 low)
+- **Security:** Pass
+- **Production Ready:** YES (keine Critical/High) – Empfehlung: BUG-1 vor dem Deploy beheben, da ein Akzeptanzkriterium betroffen ist
+- **Recommendation:** BUG-1 (und gern BUG-2/4) beheben, dann `/qa` kurz wiederholen
 
 ## Deployment
 _To be added by /deploy_

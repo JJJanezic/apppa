@@ -1,6 +1,7 @@
 import AxeBuilder from '@axe-core/playwright'
 import { expect, type Page, test as base } from '@playwright/test'
 
+import { deDate, re } from './support/format'
 import { createTenant, createUser, deleteUser, type E2EUser, hasSupabaseEnv, service, signInAs } from './support/supabase'
 
 // PROJ-30: Buchungs-Erweiterung (Abreise geplant/tatsächlich, Gästeblattnummer, Wohnsitz, Buchungsquelle,
@@ -267,7 +268,7 @@ test.describe('Abreise und Preis', () => {
     await expect(page.getByText('Abreise geplant')).toHaveCount(0)
     await edit(page)
     await departure(page).fill(day(6, FUTURE))
-    await expect(panel(page).getByText(/Verlängert: vereinbart €\s?500 für 5 Nächte, abzurechnen 6 Nächte: €\s?600/)).toBeVisible()
+    await expect(panel(page).getByText(/Verlängert: vereinbart €\s?500,00 für 5 Nächte, abzurechnen 6 Nächte: €\s?600,00/)).toBeVisible()
     await expect(panel(page).getByText(money('660'))).toBeVisible() // 600 + Reinigung 60
     await submit(page, 'Änderungen speichern')
     await expect(page.getByText('Änderungen gespeichert.')).toBeVisible()
@@ -319,8 +320,7 @@ test.describe('Abreise und Preis', () => {
     await page.goto('/')
     await ready(page)
     const bar = page.getByRole('button', { name: /^Buchung: Anna Huber,/ })
-    const toLabel = new Intl.DateTimeFormat('de-AT', { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(new Date(`${day(4)}T12:00:00Z`))
-    await expect(bar).toHaveAccessibleName(new RegExp(`bis ${toLabel.replaceAll('.', '\\.')}$`))
+    await expect(bar).toHaveAccessibleName(new RegExp(`bis ${re(deDate(day(4)))}$`))
   })
 })
 

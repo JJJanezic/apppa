@@ -1,6 +1,7 @@
 import AxeBuilder from '@axe-core/playwright'
 import { expect, type Page, test as base } from '@playwright/test'
 
+import { deDate, re } from './support/format'
 import { createTenant, createUser, deleteUser, type E2EUser, hasSupabaseEnv, service, signInAs } from './support/supabase'
 
 // PROJ-9: Belegungskalender. Abläufe nur im Projekt „desktop“, Layout und Barrierefreiheit in allen Breiten.
@@ -288,7 +289,7 @@ test.describe('Monatsansicht', () => {
     await addEntry(tenantId, d, { guestId: await addGuest(tenantId, 'Dorn', 'Didi'), arrival: inMonth(3), departure: inMonth(4) })
   }
   const cell = (page: Page, n: number, x: number, y: number, an: number, ab: number) =>
-    page.getByRole('button', { name: new RegExp(`^[^,]+, ${n}\\. [^:]+: ${x} von ${y} belegt, ${an} Anreisen, ${ab} Abreisen$`) })
+    page.getByRole('button', { name: new RegExp(`^${re(deDate(inMonth(n)))}: ${x} von ${y} belegt, ${an} Anreisen, ${ab} Abreisen$`) })
 
   test('Kacheln zählen Buchungen, Optionen und Sperren (ohne archivierte Wohnungen); An/Ab ohne Sperren; Tagesliste', async ({ page, users }) => {
     desktopOnly()

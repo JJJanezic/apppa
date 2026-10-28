@@ -123,7 +123,7 @@ test.describe('Wohnung konfigurieren', () => {
     await openApartments(page)
     await page.getByRole('button', { name: /Top 1/ }).first().click()
     await expect(panel(page).getByRole('radio', { name: 'Wohnungspreis' })).toBeChecked()
-    await expect(panel(page).getByLabel('Wohnungspreis pro Nacht (€)')).toHaveValue('120')
+    await expect(panel(page).getByLabel('Wohnungspreis pro Nacht (€)')).toHaveValue('120,00')
     await expect(panel(page).getByLabel('davon höchstens Erwachsene')).toHaveValue('')
 
     await panel(page).getByLabel('davon höchstens Erwachsene').fill('2')
@@ -144,9 +144,9 @@ test.describe('Wohnung konfigurieren', () => {
 
     await page.getByRole('button', { name: /Top 1/ }).first().click()
     await expect(panel(page).getByRole('radio', { name: 'Personenpreise' })).toBeChecked()
-    await expect(panel(page).getByLabel('Erwachsener pro Nacht (€)')).toHaveValue('50')
+    await expect(panel(page).getByLabel('Erwachsener pro Nacht (€)')).toHaveValue('50,00')
     await expect(panel(page).getByLabel('Stufe 2: Kinder bis einschließlich Alter')).toHaveValue('11')
-    await expect(panel(page).getByLabel('Stufe 2: Preis pro Nacht (€)')).toHaveValue('20')
+    await expect(panel(page).getByLabel('Stufe 2: Preis pro Nacht (€)')).toHaveValue('20,00')
     const { data } = await service().from('apartments').select('price_mode, max_adults, adult_price_cents, child_prices, price_cents').eq('tenant_id', tenantId).single()
     expect(data).toEqual({
       price_mode: 'person',
@@ -206,18 +206,18 @@ test.describe('Buchung mit Personenpreisen', () => {
     await addApartment(tenantId, propertyId, 'Top 1', PER_PERSON)
     await addGuest(tenantId, 'Huber', 'Anna')
     await newBooking(page, 'Haus See · Top 1')
-    await expect(panel(page).getByPlaceholder('Betrag (€)')).toHaveValue('60')
+    await expect(panel(page).getByPlaceholder('Betrag (€)')).toHaveValue('60,00')
 
     await panel(page).getByLabel('Erwachsene').fill('2')
     await addChildren(page, [1, 8, 14])
-    await expect(panel(page).getByLabel('Übernachtungspreis (€)')).toHaveValue('510')
-    await expect(panel(page).getByText(/Vorschlag: €\s510 \(3 Nächte × \(3 × €\s50 \+ 1 × €\s0 \+ 1 × €\s20\)\)/)).toBeVisible()
+    await expect(panel(page).getByLabel('Übernachtungspreis (€)')).toHaveValue('510,00')
+    await expect(panel(page).getByText(/Vorschlag: €\s510,00 \(3 Nächte × \(3 × €\s50,00 \+ 1 × €\s0,00 \+ 1 × €\s20,00\)\)/)).toBeVisible()
     // Vorschlag folgt den Personen, solange der Preis nicht von Hand geändert ist
     await panel(page).getByRole('button', { name: 'Kind 3 entfernen' }).click()
-    await expect(panel(page).getByLabel('Übernachtungspreis (€)')).toHaveValue('360')
+    await expect(panel(page).getByLabel('Übernachtungspreis (€)')).toHaveValue('360,00')
     await panel(page).getByRole('button', { name: 'Kind hinzufügen' }).click()
     await panel(page).getByLabel('Alter von Kind 3 bei Anreise').fill('14')
-    await expect(panel(page).getByLabel('Übernachtungspreis (€)')).toHaveValue('510')
+    await expect(panel(page).getByLabel('Übernachtungspreis (€)')).toHaveValue('510,00')
 
     // vereinbarter Preis: € 450, Reinigung € 70, Haustier € 15 → € 535
     await panel(page).getByLabel('Übernachtungspreis (€)').fill('450')
@@ -256,8 +256,8 @@ test.describe('Buchung mit Personenpreisen', () => {
     // Wohnungspreis: 3 × € 120, unabhängig von den Personen
     await panel(page).getByRole('combobox', { name: 'Wohnung' }).click()
     await page.getByRole('option', { name: 'Haus See · Top 2', exact: true }).click()
-    await expect(panel(page).getByLabel('Übernachtungspreis (€)')).toHaveValue('360')
-    await expect(panel(page).getByText(/Vorschlag: €\s360 \(3 × €\s120\)/)).toBeVisible()
+    await expect(panel(page).getByLabel('Übernachtungspreis (€)')).toHaveValue('360,00')
+    await expect(panel(page).getByText(/Vorschlag: €\s360,00 \(3 × €\s120,00\)/)).toBeVisible()
   })
 
   test('QA BUG-2: Rechnung über dem Höchstbetrag ergibt keinen Vorschlag, sondern einen Hinweis', async ({ page, users }) => {
@@ -267,7 +267,7 @@ test.describe('Buchung mit Personenpreisen', () => {
     await newBooking(page, 'Haus See · Top 1')
     await expect(panel(page).getByLabel('Übernachtungspreis (€)')).not.toHaveValue('')
     await panel(page).getByLabel('Erwachsene').fill('50')
-    await expect(panel(page).getByText('Der rechnerische Preis übersteigt den Höchstbetrag von € 1.000.000. Bitte den Preis eingeben.')).toBeVisible()
+    await expect(panel(page).getByText('Der rechnerische Preis übersteigt den Höchstbetrag von € 1.000.000,00. Bitte den Preis eingeben.')).toBeVisible()
     await expect(panel(page).getByLabel('Übernachtungspreis (€)')).toHaveValue('')
     await expect(panel(page).getByText(/Vorschlag:/)).toHaveCount(0)
   })

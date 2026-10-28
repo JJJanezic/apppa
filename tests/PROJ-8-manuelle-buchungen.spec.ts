@@ -218,11 +218,11 @@ test.describe('Buchung anlegen (Inhaber)', () => {
     await expect(panel(page).getByLabel('Check-in')).toHaveValue('16:00')
     await expect(panel(page).getByLabel('Check-out')).toHaveValue('09:30')
     await expect(panel(page).getByPlaceholder('Bezeichnung')).toHaveValue('Reinigung')
-    await expect(panel(page).getByPlaceholder('Betrag (€)')).toHaveValue('60')
+    await expect(panel(page).getByPlaceholder('Betrag (€)')).toHaveValue('60,00')
 
     await setPeriod(page, FUTURE, day(3, FUTURE))
     await expect(panel(page).getByText('3 Nächte')).toBeVisible()
-    await expect(panel(page).getByLabel('Übernachtungspreis (€)')).toHaveValue('360')
+    await expect(panel(page).getByLabel('Übernachtungspreis (€)')).toHaveValue('360,00')
     await expect(panel(page).getByText(money('420'))).toBeVisible()
 
     // weitere Position aus den Vorschlägen
@@ -234,9 +234,9 @@ test.describe('Buchung anlegen (Inhaber)', () => {
     // Preis von Hand geändert: neuer Zeitraum ändert ihn nicht, bietet aber den Vorschlag an
     await panel(page).getByLabel('Übernachtungspreis (€)').fill('300')
     await panel(page).getByLabel('Abreise geplant').fill(day(4, FUTURE))
-    await expect(panel(page).getByLabel('Übernachtungspreis (€)')).toHaveValue('300')
+    await expect(panel(page).getByLabel('Übernachtungspreis (€)')).toHaveValue('300,00')
     await panel(page).getByRole('button', { name: /Neuen Vorschlag .*480.* übernehmen/ }).click()
-    await expect(panel(page).getByLabel('Übernachtungspreis (€)')).toHaveValue('480')
+    await expect(panel(page).getByLabel('Übernachtungspreis (€)')).toHaveValue('480,00')
 
     await pickGuest(page, 'Huber', /Huber, Anna/)
     await panel(page).getByLabel('Erwachsene').fill('2')
@@ -526,7 +526,7 @@ test.describe('Optionen und Stornieren', () => {
     await expect(page.getByRole('button', { name: 'Bearbeiten', exact: true })).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'Stornieren' })).toHaveCount(0)
     await page.getByRole('button', { name: 'Notiz bearbeiten' }).click()
-    await expect(panel(page).getByLabel('Stornogebühr in € (optional)')).toHaveValue('90')
+    await expect(panel(page).getByLabel('Stornogebühr in € (optional)')).toHaveValue('90,00')
 
     // Zeitraum ist wieder frei; ohne Filter ausgeblendet, mit Filter „storniert“ sichtbar
     await openList(page, `?monat=${month(FUTURE)}`)
@@ -715,7 +715,7 @@ test.describe('Anschluss an Gäste und Wohnungen', () => {
     await page.getByRole('button', { name: /Top 1/ }).first().click()
     await expect(panel(page).getByText(/hat Buchungen und lässt sich nicht endgültig löschen/)).toBeVisible()
     await expect(panel(page).getByRole('button', { name: 'Endgültig löschen' })).toHaveCount(0)
-    await expect(panel(page).getByLabel('Reinigungsgebühr (€)')).toHaveValue('60')
+    await expect(panel(page).getByLabel('Reinigungsgebühr (€)')).toHaveValue('60,00')
     await panel(page).getByLabel(/Personen/).first().fill('2')
     await expect(panel(page).getByText('1 künftige Buchung hat mehr Personen. Sie bleiben bestehen.')).toBeVisible()
     await panel(page).getByRole('button', { name: 'Archivieren' }).click()

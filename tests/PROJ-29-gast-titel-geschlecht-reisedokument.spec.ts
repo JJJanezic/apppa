@@ -186,7 +186,7 @@ test.describe('Reisedokument', () => {
     const section = page.locator('section', { has: page.getByRole('heading', { name: 'Reisedokument' }) })
     await expect(section.getByText('Personalausweis')).toBeVisible()
     await expect(section.getByText('A1234567')).toBeVisible()
-    await expect(section.getByText('15. März 2021')).toBeVisible()
+    await expect(section.getByText('15.03.2021')).toBeVisible()
     await expect(section.getByText('BH Graz-Umgebung')).toBeVisible()
     await expect(section.getByText('Deutschland')).toBeVisible()
 

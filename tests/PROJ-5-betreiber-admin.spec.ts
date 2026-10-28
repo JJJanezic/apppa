@@ -161,7 +161,7 @@ test.describe('Kundenliste', () => {
     await expect(row).toContainText('aktiv')
     await expect(row).toContainText(`Olga Owner · ${owner.email}`)
     await expect(row.getByRole('cell').nth(3)).toHaveText('2')
-    await expect(row).toContainText(/\d{1,2}\. \w+\.? 20\d\d/)
+    await expect(row).toContainText(/(Mo|Di|Mi|Do|Fr|Sa|So), \d{2}\.\d{2}\.20\d\d/)
     await expect(row.getByRole('cell').nth(5)).not.toHaveText('noch nie')
     const openRow = table.getByRole('row').filter({ hasText: `${name} Offen` })
     await expect(openRow).toContainText('Einladung offen')
