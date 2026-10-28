@@ -5,7 +5,8 @@ import { randomUUID } from 'node:crypto'
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { type Client, createTestUser, hasSupabaseEnv, serviceClient, signIn, type TestUser, totp } from './helpers'
+import { type Client, createTestUser, hasSupabaseEnv, serviceClient, signIn, type TestUser } from './helpers'
+import { sharedClient } from './shared-sessions'
 
 describe.skipIf(!hasSupabaseEnv)('PROJ-5 Betreiber-Admin', () => {
   let service: Client
@@ -39,16 +40,9 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-5 Betreiber-Admin', () => {
 
   beforeAll(async () => {
     service = serviceClient()
-    ;[admin, owner, owner2, staff, shared] = await Promise.all([user(), user(), user(), user(), user()])
-    const { error } = await service.from('profiles').update({ is_operator_admin: true }).eq('id', admin.id)
-    if (error) throw error
-
-    adminAal2 = await signIn(admin)
-    const { data: factor, error: enrollError } = await adminAal2.auth.mfa.enroll({ factorType: 'totp' })
-    if (enrollError) throw enrollError
-    const { error: verifyError } = await adminAal2.auth.mfa.challengeAndVerify({ factorId: factor.id, code: totp(factor.totp.secret) })
-    if (verifyError) throw verifyError
-    adminAal1 = await signIn(admin)
+    ;[owner, owner2, staff, shared] = await Promise.all([user(), user(), user(), user()])
+    const [aal2, aal1] = await Promise.all([sharedClient('adminAal2'), sharedClient('adminAal1')])
+    ;[admin, adminAal2, adminAal1] = [aal2.user, aal2.client, aal1.client]
 
     tenant = await newTenant(`PROJ-5 Test ${runId}`, [
       [owner, 'owner'],

@@ -6,7 +6,8 @@ import { randomUUID } from 'node:crypto'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import type { Json } from '../../src/types/database'
-import { type Client, createTestUser, hasSupabaseEnv, serviceClient, signIn, type TestUser } from './helpers'
+import { type Client, hasSupabaseEnv, serviceClient, type TestUser } from './helpers'
+import { sharedClient } from './shared-sessions'
 
 const BUCKET = 'guest-documents'
 // Kleinstes gültiges JPEG (1×1 Pixel)
@@ -17,17 +18,11 @@ const JPEG = Buffer.from(
 
 describe.skipIf(!hasSupabaseEnv)('PROJ-29 Titel, Geschlecht, Reisedokument', () => {
   let service: Client
-  const users: TestUser[] = []
   const tenants: string[] = []
   let tenantA: string, tenantB: string
   let ownerA: Client, staffA: Client, ownerB: Client
   const runId = randomUUID().slice(0, 8)
 
-  const user = async () => {
-    const u = await createTestUser(service)
-    users.push(u)
-    return u
-  }
   const newTenant = async (members: [TestUser, 'owner' | 'staff'][]) => {
     const { data, error } = await service.from('tenants').insert({ name: `PROJ-29 Test ${runId}` }).select('id').single()
     if (error) throw error
@@ -61,13 +56,14 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-29 Titel, Geschlecht, Reisedokument', () 
 
   beforeAll(async () => {
     service = serviceClient()
-    const [a, s, b] = await Promise.all([user(), user(), user()])
+    const [oa, sa, ob] = await Promise.all([sharedClient('ownerA'), sharedClient('staffA'), sharedClient('ownerB')])
+    ;[ownerA, staffA, ownerB] = [oa.client, sa.client, ob.client]
+    const [a, s, b] = [oa.user, sa.user, ob.user]
     tenantA = await newTenant([
       [a, 'owner'],
       [s, 'staff'],
     ])
     tenantB = await newTenant([[b, 'owner']])
-    ;[ownerA, staffA, ownerB] = await Promise.all([signIn(a), signIn(s), signIn(b)])
   }, 60_000)
 
   afterAll(async () => {
@@ -78,7 +74,6 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-29 Titel, Geschlecht, Reisedokument', () 
       const { error } = await service.from('tenants').delete().eq('id', id)
       if (error) console.error('Aufräumen fehlgeschlagen', error.message)
     }
-    for (const u of users) await service.auth.admin.deleteUser(u.id)
   }, 60_000)
 
   describe('Titel und Geschlecht', () => {

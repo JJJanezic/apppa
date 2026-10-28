@@ -14,8 +14,8 @@ import {
   serviceClient,
   signIn,
   type TestUser,
-  totp,
 } from './helpers'
+import { sharedClient } from './shared-sessions'
 
 describe.skipIf(!hasSupabaseEnv)('PROJ-1 Zugriffsregeln (RLS)', () => {
   let service: Client
@@ -27,13 +27,8 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-1 Zugriffsregeln (RLS)', () => {
 
   beforeAll(async () => {
     service = serviceClient()
-    ;[userA, userB, userC, userAdmin] = await Promise.all([
-      createTestUser(service),
-      createTestUser(service),
-      createTestUser(service),
-      createTestUser(service),
-    ])
-    users.push(userA, userB, userC, userAdmin)
+    ;[userA, userB, userC] = await Promise.all([createTestUser(service), createTestUser(service), createTestUser(service)])
+    users.push(userA, userB, userC)
 
     const { data: tenants, error: tenantError } = await service
       .from('tenants')
@@ -50,26 +45,11 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-1 Zugriffsregeln (RLS)', () => {
     ])
     if (memberError) throw memberError
 
-    const { error: adminError } = await service
-      .from('profiles')
-      .update({ is_operator_admin: true })
-      .eq('id', userAdmin.id)
-    if (adminError) throw adminError
-
     ;[a, b, c] = await Promise.all([signIn(userA), signIn(userB), signIn(userC)])
 
-    // Admin: TOTP einrichten und bestätigen → Sitzung mit aal2
-    adminAal2 = await signIn(userAdmin)
-    const { data: factor, error: enrollError } = await adminAal2.auth.mfa.enroll({ factorType: 'totp' })
-    if (enrollError) throw enrollError
-    const { error: verifyError } = await adminAal2.auth.mfa.challengeAndVerify({
-      factorId: factor.id,
-      code: totp(factor.totp.secret),
-    })
-    if (verifyError) throw verifyError
-
-    // Zweite Admin-Sitzung ohne 2FA-Bestätigung → aal1
-    adminAal1 = await signIn(userAdmin)
+    // Admin mit 2FA-bestätigter Sitzung (aal2) und mit unbestätigter (aal1)
+    const [aal2, aal1] = await Promise.all([sharedClient('adminAal2'), sharedClient('adminAal1')])
+    ;[userAdmin, adminAal2, adminAal1] = [aal2.user, aal2.client, aal1.client]
   }, 60_000)
 
   afterAll(async () => {
