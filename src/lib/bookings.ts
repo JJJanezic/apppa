@@ -49,8 +49,6 @@ export const BOOKING_SOURCES = [
 ] as const
 export type BookingSource = (typeof BOOKING_SOURCES)[number]
 
-// Vorschläge für Zusatzkosten (Texte: bookings.chargeSuggestions.*); gespeichert wird die angezeigte Bezeichnung
-export const CHARGE_SUGGESTIONS = ['cleaning', 'pet', 'breakfast', 'parking', 'discount', 'touristTax'] as const
 
 export const LIMITS = {
   noteMax: 2000,
@@ -69,14 +67,17 @@ export const LIMITS = {
   sourceCustomMax: 100,
 } as const
 
-export type Charge = { label: string; amountCents: number }
+// vatBp: Umsatzsteuersatz in Hundertstel-Prozent (PROJ-35, src/lib/vat.ts)
+export type Charge = { label: string; amountCents: number; vatBp: number }
 
 // Beträge sehen nur Inhaber (eigene Tabellen, Tech Design C)
 export type BookingAmounts = {
   // vereinbarter Übernachtungspreis für den geplanten Zeitraum (PROJ-30)
   nightsCents: number
+  nightsVatBp: number
   charges: Charge[]
   cancellationFeeCents: number | null
+  cancellationFeeVatBp: number
 }
 
 export type Companion = { firstName: string; lastName: string; birthDate: string | null }
@@ -284,10 +285,10 @@ export function billedNightsCents(agreedCents: number, plannedNights: number, bi
 // Gästeblattnummer vergleichen: ohne Rand-Leerzeichen, Groß/Klein egal
 export const guestSheetKey = (value: string | null) => (value ?? '').trim().toLocaleLowerCase('de')
 
-export const chargesCents = (charges: readonly Charge[]) => charges.reduce((sum, c) => sum + c.amountCents, 0)
+export const chargesCents = <C extends Pick<Charge, 'amountCents'>>(charges: readonly C[]) => charges.reduce((sum, c) => sum + c.amountCents, 0)
 
 // Endbetrag = Übernachtungen + Zusatzkosten (nie gespeichert; die Ortstaxe kommt in PROJ-16 dazu)
-export const totalCents = (a: Pick<BookingAmounts, 'nightsCents' | 'charges'>) => a.nightsCents + chargesCents(a.charges)
+export const totalCents = <C extends Pick<Charge, 'amountCents'>>(a: { nightsCents: number; charges: readonly C[] }) => a.nightsCents + chargesCents(a.charges)
 
 // „2026-0042“; ab 10.000 einfach fünfstellig
 export const formatBookingNumber = (year: number, seq: number) => `${year}-${String(seq).padStart(4, '0')}`

@@ -14,8 +14,12 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { Textarea } from '@/components/ui/textarea'
-import { type Booking, LIMITS } from '@/lib/bookings'
+import { useVatStatus } from '@/components/vat/vat-status-context'
+import { VatRateInput } from '@/components/vat/vat-rate-input'
+import { type Booking, LIMITS, todayIso } from '@/lib/bookings'
 import { type CancelInput, cancelSchema } from '@/lib/validation/bookings'
+import { VAT_DEFAULTS, vatRateInput } from '@/lib/vat'
+import { vatStatusOn } from '@/lib/vat-status'
 
 interface CancelDialogProps {
   open: boolean
@@ -34,8 +38,10 @@ export function CancelDialog({ open, onOpenChange, booking, afterCancelHref }: C
   const [error, setError] = useState<string | null>(null)
   const form = useForm<CancelInput>({
     resolver: zodResolver(cancelSchema(tv), undefined, { raw: true }),
-    defaultValues: { reason: '', fee: '' },
+    defaultValues: { reason: '', fee: '', feeVat: vatRateInput(VAT_DEFAULTS.cancellationFee) },
   })
+  // Storniert wird heute: Kleinunternehmer am heutigen Tag → kein Satz-Feld, gespeichert wird 0,00 (PROJ-35/36)
+  const showVat = !vatStatusOn(useVatStatus(), todayIso()).smallBusiness
 
   async function cancel(values: CancelInput) {
     setError(null)
@@ -75,19 +81,36 @@ export function CancelDialog({ open, onOpenChange, booking, afterCancelHref }: C
                 </FormItem>
               )}
             />
-            <FormField
-              control={form.control}
-              name="fee"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t('fee')}</FormLabel>
-                  <FormControl>
-                    <AmountInput className="min-h-11 w-40" {...field} onValueChange={field.onChange} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
+            <div className="flex flex-wrap items-start gap-3">
+              <FormField
+                control={form.control}
+                name="fee"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('fee')}</FormLabel>
+                    <FormControl>
+                      <AmountInput className="min-h-11 w-40" {...field} onValueChange={field.onChange} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              {showVat && (
+                <FormField
+                  control={form.control}
+                  name="feeVat"
+                  render={({ field }) => (
+                    <FormItem className="w-28">
+                      <FormLabel>{t('feeVat')}</FormLabel>
+                      <FormControl>
+                        <VatRateInput className="min-h-11" {...field} onValueChange={field.onChange} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               )}
-            />
+            </div>
             <DialogFooter className="gap-2">
               <Button type="button" variant="outline" className="min-h-11" onClick={() => onOpenChange(false)}>
                 {t('cancel')}

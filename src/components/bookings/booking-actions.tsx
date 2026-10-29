@@ -18,7 +18,11 @@ import { DetailPanel } from '@/components/detail-panel'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { useVatStatus } from '@/components/vat/vat-status-context'
+import { VatRateInput } from '@/components/vat/vat-rate-input'
 import { amountInput, type BookableApartment, type Booking, bookingState, LIMITS } from '@/lib/bookings'
+import { parseVatRate, VAT_DEFAULTS, vatRateInput } from '@/lib/vat'
+import { vatStatusForBooking } from '@/lib/vat-status'
 
 interface BookingActionsProps {
   booking: Booking
@@ -143,14 +147,25 @@ function NotePanel({ open, onOpenChange, booking, owner }: { open: boolean; onOp
   const withFee = owner && booking.cancelledAt !== null && booking.kind !== 'block'
   const [note, setNote] = useState(booking.note ?? '')
   const [fee, setFee] = useState(amountInput(booking.amounts?.cancellationFeeCents ?? null))
+  const [feeVat, setFeeVat] = useState(vatRateInput(booking.amounts?.cancellationFeeVatBp ?? VAT_DEFAULTS.cancellationFee))
+  const [feeVatError, setFeeVatError] = useState(false)
+  // Kleinunternehmer am Stornotag → kein Satz-Feld; der gespeicherte Satz bleibt (PROJ-35/36)
+  const vatHistory = useVatStatus()
+  const showVat = withFee && !vatStatusForBooking(vatHistory, booking).smallBusiness
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
 
   async function save(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
+    const vat = parseVatRate(feeVat)
+    const vatBad = showVat && (vat === null || Number.isNaN(vat))
+    setFeeVatError(vatBad)
+    if (vatBad) return
     setPending(true)
-    const result = await callAction(() => saveBookingNote({ id: booking.id, updatedAt: booking.updatedAt, note, fee: withFee ? fee : undefined }))
+    const result = await callAction(() =>
+      saveBookingNote({ id: booking.id, updatedAt: booking.updatedAt, note, fee: withFee ? fee : undefined, feeVat: withFee ? feeVat : undefined })
+    )
     setPending(false)
     if (!result.ok) {
       setError(result.error)
@@ -179,6 +194,24 @@ function NotePanel({ open, onOpenChange, booking, owner }: { open: boolean; onOp
           <div className="flex flex-col gap-2">
             <Label htmlFor="stornogebuehr">{t('cancel.fee')}</Label>
             <AmountInput id="stornogebuehr" className="min-h-11 w-40" value={fee} onValueChange={setFee} />
+          </div>
+        )}
+        {showVat && (
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="stornogebuehr-ust">{t('cancel.feeVat')}</Label>
+            <VatRateInput
+              id="stornogebuehr-ust"
+              className="min-h-11 w-28"
+              value={feeVat}
+              onValueChange={setFeeVat}
+              aria-invalid={feeVatError || undefined}
+              aria-describedby={feeVatError ? 'stornogebuehr-ust-fehler' : undefined}
+            />
+            {feeVatError && (
+              <p id="stornogebuehr-ust-fehler" className="text-sm text-destructive">
+                {t('validation.vatInvalid')}
+              </p>
+            )}
           </div>
         )}
         <Button type="submit" disabled={pending} aria-busy={pending} className="min-h-11">

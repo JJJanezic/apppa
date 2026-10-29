@@ -25,6 +25,7 @@ import { guestSortName, searchKey } from '@/lib/guests'
 import type { Role } from '@/lib/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getTenantContext } from '@/lib/tenant'
+import { VAT_DEFAULTS, vatRateFromDb } from '@/lib/vat'
 
 // Lesefunktionen der Buchungen (PROJ-8) für alle Mitglieder des gewählten Kunden; Beträge nur für Inhaber.
 // Rechte prüft die Datenbank zusätzlich (RLS: Buchungen und Mitreisende für Mitglieder, Beträge nur für Inhaber).
@@ -257,7 +258,7 @@ export const findBooking = cache(async (id: string): Promise<Booking | null> => 
   const { data: b, error } = await supabase
     .from('bookings')
     .select(
-      'id, kind, channel, number, apartment_id, arrival, planned_departure, departure, check_in, check_out, adults, child_ages, block_reason, option_until, guest_sheet_number, residence_registered, source, source_custom, note, cancelled_at, cancelled_by, cancel_reason, override_by, price_review, updated_at, guest:guests(id, last_name, first_name, title_prefix, title_suffix, country, anonymized_at), apartment:apartments!inner(name, max_guests, archived_at, property:properties!inner(name)), companions:booking_companions(position, first_name, last_name, birth_date), amounts:booking_amounts(nights_cents, billed_nights_cents, cancellation_fee_cents), charges:booking_charges(position, label, amount_cents)'
+      'id, kind, channel, number, apartment_id, arrival, planned_departure, departure, check_in, check_out, adults, child_ages, block_reason, option_until, guest_sheet_number, residence_registered, source, source_custom, note, cancelled_at, cancelled_by, cancel_reason, override_by, price_review, updated_at, guest:guests(id, last_name, first_name, title_prefix, title_suffix, country, anonymized_at), apartment:apartments!inner(name, max_guests, archived_at, property:properties!inner(name)), companions:booking_companions(position, first_name, last_name, birth_date), amounts:booking_amounts(nights_cents, billed_nights_cents, cancellation_fee_cents, nights_vat_rate, cancellation_fee_vat_rate), charges:booking_charges(position, label, amount_cents, vat_rate)'
     )
     .eq('id', id)
     .eq('tenant_id', tenantId)
@@ -319,9 +320,11 @@ export const findBooking = cache(async (id: string): Promise<Booking | null> => 
       role === 'owner' && kind !== 'block'
         ? {
             nightsCents: amounts?.nights_cents ?? 0,
+            nightsVatBp: amounts ? vatRateFromDb(amounts.nights_vat_rate) : VAT_DEFAULTS.nights,
             billedNightsCents: amounts?.billed_nights_cents ?? amounts?.nights_cents ?? 0,
-            charges: byPosition(b.charges).map((c) => ({ label: c.label, amountCents: c.amount_cents })),
+            charges: byPosition(b.charges).map((c) => ({ label: c.label, amountCents: c.amount_cents, vatBp: vatRateFromDb(c.vat_rate) })),
             cancellationFeeCents: amounts?.cancellation_fee_cents ?? null,
+            cancellationFeeVatBp: amounts ? vatRateFromDb(amounts.cancellation_fee_vat_rate) : VAT_DEFAULTS.cancellationFee,
           }
         : null,
     conflicts: findConflicts({ id: b.id, apartmentId: b.apartment_id, arrival: b.arrival, departure: b.departure }, occupancy, today).map(toConflict),

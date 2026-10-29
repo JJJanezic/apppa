@@ -1037,6 +1037,8 @@
     "priceReview": "Preis prüfen",
     "back": "Zurück zu den Buchungen",
     "detail": {
+      "vatIncluded": "darin enthaltene USt",
+      "noVat": "Keine Umsatzsteuer (Kleinunternehmer)",
       "stay": "Aufenthalt",
       "arrival": "Anreise",
       "plannedDeparture": "Abreise geplant",
@@ -1131,6 +1133,10 @@
       "charges": "Zusatzkosten",
       "addCharge": "Position hinzufügen",
       "chargeLabel": "Bezeichnung",
+      "chargeChoices": "Bezeichnungen zur Auswahl",
+      "vatRate": "USt %",
+      "vatSuffix": "% USt",
+      "chargeVat": "Umsatzsteuersatz in Prozent, Position {n}",
       "chargeAmount": "Betrag (€)",
       "removeCharge": "Position {n} entfernen",
       "moveCharge": "{label} verschieben",
@@ -1151,10 +1157,6 @@
     },
     "chargeSuggestions": {
       "cleaning": "Reinigung",
-      "pet": "Haustier",
-      "breakfast": "Frühstück",
-      "parking": "Parkplatz",
-      "discount": "Rabatt",
       "touristTax": "Nächtigungsabgabe"
     },
     "warnings": {
@@ -1202,6 +1204,7 @@
       "text": "Der Zeitraum wird frei. Die Buchung bleibt mit Grund und Stornogebühr erhalten und lässt sich nicht wieder aktivieren.",
       "reason": "Grund (optional)",
       "fee": "Stornogebühr in € (optional)",
+      "feeVat": "USt %",
       "confirm": "Stornieren",
       "cancel": "Abbrechen"
     },
@@ -1266,6 +1269,8 @@
       "nightsPriceRequired": "Bitte den Übernachtungspreis eingeben.",
       "amountInvalid": "Bitte einen Betrag wie 125 oder 125,50 eingeben.",
       "amountRequired": "Bitte einen Betrag eingeben.",
+      "vatRequired": "Bitte einen Umsatzsteuersatz eingeben.",
+      "vatInvalid": "Bitte einen Satz zwischen 0 und 100 mit höchstens zwei Nachkommastellen eingeben, z. B. 10 oder 5,5.",
       "chargeLabelRequired": "Bitte eine Bezeichnung eingeben.",
       "blockNoteRequired": "Bei „Sonstiges“ bitte eine Notiz eingeben.",
       "firstNameRequired": "Bitte den Vornamen eingeben.",

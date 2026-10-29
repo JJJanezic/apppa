@@ -9,6 +9,9 @@ import { billableNights, type BookableApartment, type Booking, bookingState, nig
 import { formatCents, formatDate, formatDatePlain, formatNumber, formatPeriod } from '@/lib/format'
 import { countryName, guestDisplayName, guestHref, guestSortName } from '@/lib/guests'
 import { cn } from '@/lib/utils'
+import { formatVatRate, vatBreakdown } from '@/lib/vat'
+import { vatStatusForBooking } from '@/lib/vat-status'
+import { getVatStatusHistory } from '@/lib/vat-status-data'
 
 // Überschrift eines Eintrags: Gast bzw. „Sperre: Grund“
 export async function bookingTitle(b: Booking): Promise<string> {
@@ -52,6 +55,21 @@ export async function BookingDetail({ booking, apartments, owner, today, layout,
   const departureDiffers = !isBlock && booking.plannedDeparture !== booking.departure
   const stayNights = nightsBetween(booking.arrival, booking.departure)
   const plannedNights = nightsBetween(booking.arrival, booking.plannedDeparture)
+  // Umsatzsteuer (PROJ-35): Kleinunternehmer laut PROJ-36 → keine Sätze und keine Aufstellung, nur ein Hinweis.
+  // Storniert: nur die Stornogebühr zählt; sonst abgerechneter Übernachtungspreis und Zusatzkosten.
+  const amounts = booking.amounts
+  const smallBusiness = owner && amounts ? vatStatusForBooking(await getVatStatusHistory(), booking).smallBusiness : false
+  const vatShares =
+    amounts && !smallBusiness
+      ? vatBreakdown(
+          booking.cancelledAt
+            ? amounts.cancellationFeeCents !== null
+              ? [{ amountCents: amounts.cancellationFeeCents, vatBp: amounts.cancellationFeeVatBp }]
+              : []
+            : [{ amountCents: amounts.billedNightsCents, vatBp: amounts.nightsVatBp }, ...amounts.charges]
+        )
+      : []
+  const rate = (bp: number) => (smallBusiness ? undefined : formatVatRate(bp))
   const billable = billableNights(booking)
   const sourceLabel = booking.source === 'custom' && booking.sourceCustom ? booking.sourceCustom : t(`source.${booking.source}`)
 
@@ -169,9 +187,9 @@ export async function BookingDetail({ booking, apartments, owner, today, layout,
                   </Alert>
                 )}
                 <dl className="flex flex-col divide-y rounded-lg bg-ds-surface px-4">
-                  <Money label={t('detail.nightsPrice')} cents={booking.amounts.billedNightsCents} />
+                  <Money label={t('detail.nightsPrice')} rate={rate(booking.amounts.nightsVatBp)} cents={booking.amounts.billedNightsCents} />
                   {booking.amounts.charges.map((c, i) => (
-                    <Money key={i} label={c.label} cents={c.amountCents} />
+                    <Money key={i} label={c.label} rate={rate(c.vatBp)} cents={c.amountCents} />
                   ))}
                   <div className="flex items-baseline justify-between gap-4 py-3 font-semibold">
                     <dt>{t('detail.total')}</dt>
@@ -180,9 +198,31 @@ export async function BookingDetail({ booking, apartments, owner, today, layout,
                     </dd>
                   </div>
                   {booking.amounts.cancellationFeeCents !== null && (
-                    <Money label={t('detail.cancellationFee')} cents={booking.amounts.cancellationFeeCents} />
+                    <Money
+                      label={t('detail.cancellationFee')}
+                      rate={rate(booking.amounts.cancellationFeeVatBp)}
+                      cents={booking.amounts.cancellationFeeCents}
+                    />
                   )}
                 </dl>
+                {smallBusiness && <p className="text-[13px] text-ds-neutral-800">{t('detail.noVat')}</p>}
+                {vatShares.length > 0 && (
+                  <div className="flex flex-col gap-1">
+                    <h3 id="enthaltene-ust" className="text-sm font-semibold">
+                      {t('detail.vatIncluded')}
+                    </h3>
+                    <dl aria-labelledby="enthaltene-ust" className="flex flex-col divide-y rounded-lg bg-ds-surface px-4 text-sm">
+                      {vatShares.map((s) => (
+                        <div key={s.vatBp} className="flex items-baseline justify-between gap-4 py-2">
+                          <dt>{formatVatRate(s.vatBp)}</dt>
+                          <dd>
+                            <Amount cents={s.vatCents} />
+                          </dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </div>
+                )}
                 {booking.amounts.billedNightsCents !== booking.amounts.nightsCents && (
                   <p className="text-[13px] text-ds-neutral-800">
                     {t('detail.extension', { agreed: euro(booking.amounts.nightsCents), nights: plannedNights, billable })}
@@ -215,10 +255,14 @@ function Fact({ label, children }: { label: string; children: React.ReactNode })
   )
 }
 
-function Money({ label, cents }: { label: string; cents: number }) {
+// rate: Umsatzsteuersatz neben der Bezeichnung („Reinigung · 10 %“, PROJ-35); fehlt bei Kleinunternehmern
+function Money({ label, rate, cents }: { label: string; rate?: string; cents: number }) {
   return (
     <div className="flex items-baseline justify-between gap-4 py-3">
-      <dt className="min-w-0 break-words">{label}</dt>
+      <dt className="min-w-0 break-words">
+        {label}
+        {rate && <span className="text-ds-neutral-800"> · {rate}</span>}
+      </dt>
       <dd>
         <Amount cents={cents} />
       </dd>

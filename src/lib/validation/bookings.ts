@@ -11,6 +11,7 @@ import {
   parseAmountCents,
   todayIso,
 } from '@/lib/bookings'
+import { parseVatRate, VAT_DEFAULTS } from '@/lib/vat'
 
 // Prüfregeln für Buchungen, Optionen, Sperren, Mitreisende und Storno (PROJ-8).
 // Browser und Server-Aktionen nutzen dieselben Schemas. Meldungen über `t` aus messages/de.json („bookings.validation“).
@@ -39,6 +40,13 @@ const amount = (t: T, { negative = false }: { negative?: boolean } = {}) =>
     const cents = parseAmountCents(v, { negative })
     return cents === null || (!Number.isNaN(cents) && Math.abs(cents) <= LIMITS.amountMaxCents)
   }, t('amountInvalid'))
+
+// Umsatzsteuersatz 0–100 mit höchstens zwei Nachkommastellen (PROJ-35); Pflicht
+const vatRate = (t: T) =>
+  z
+    .string()
+    .refine((v) => parseVatRate(v) !== null, t('vatRequired'))
+    .refine((v) => parseVatRate(v) === null || !Number.isNaN(parseVatRate(v)), t('vatInvalid'))
 
 // Zeitraum: Abreise nach Anreise, höchstens 365 Nächte, Anreise höchstens 3 Jahre in der Zukunft.
 // Buchungen prüfen geplante und tatsächliche Abreise je für sich (PROJ-30), die Anreise nur einmal.
@@ -97,11 +105,13 @@ export const bookingSchema = (t: T, { owner, today = todayIso() }: { owner: bool
       source: z.enum(BOOKING_SOURCES),
       sourceCustom: z.string().trim().max(LIMITS.sourceCustomMax, t('tooLong')),
       nightsPrice: z.string(),
+      nightsVat: z.string(),
       charges: z
         .array(
           z.object({
             label: z.string().trim().min(1, t('chargeLabelRequired')).max(LIMITS.chargeLabelMax, t('tooLong')),
             amount: amount(t, { negative: true }).refine((v) => parseAmountCents(v, { negative: true }) !== null, t('amountRequired')),
+            vat: vatRate(t),
           })
         )
         .max(LIMITS.chargesMax),
@@ -130,6 +140,9 @@ export const bookingSchema = (t: T, { owner, today = todayIso() }: { owner: bool
         if (cents === null) ctx.addIssue({ code: 'custom', path: ['nightsPrice'], message: t('nightsPriceRequired') })
         else if (Number.isNaN(cents) || cents > LIMITS.amountMaxCents)
           ctx.addIssue({ code: 'custom', path: ['nightsPrice'], message: t('amountInvalid') })
+        const vat = parseVatRate(v.nightsVat)
+        if (vat === null) ctx.addIssue({ code: 'custom', path: ['nightsVat'], message: t('vatRequired') })
+        else if (Number.isNaN(vat)) ctx.addIssue({ code: 'custom', path: ['nightsVat'], message: t('vatInvalid') })
       }
     })
     .transform((v) => ({
@@ -152,8 +165,14 @@ export const bookingSchema = (t: T, { owner, today = todayIso() }: { owner: bool
       amounts: owner
         ? ({
             nightsCents: parseAmountCents(v.nightsPrice) ?? 0,
-            charges: v.charges.map((c) => ({ label: c.label.trim(), amountCents: parseAmountCents(c.amount, { negative: true }) ?? 0 })),
+            nightsVatBp: parseVatRate(v.nightsVat) ?? VAT_DEFAULTS.nights,
+            charges: v.charges.map((c) => ({
+              label: c.label.trim(),
+              amountCents: parseAmountCents(c.amount, { negative: true }) ?? 0,
+              vatBp: parseVatRate(c.vat) ?? VAT_DEFAULTS.charge,
+            })),
             cancellationFeeCents: null,
+            cancellationFeeVatBp: VAT_DEFAULTS.cancellationFee,
           } satisfies BookingAmounts)
         : null,
       note: v.note,
@@ -208,6 +227,8 @@ export const cancelSchema = (t: T) =>
       .max(LIMITS.cancelReasonMax, t('tooLong'))
       .transform((v) => v || null),
     fee: amount(t).transform((v) => parseAmountCents(v)),
+    // Satz der Stornogebühr (PROJ-35); auch ohne Gebühr gültig gespeichert
+    feeVat: vatRate(t).transform((v) => parseVatRate(v) ?? VAT_DEFAULTS.cancellationFee),
   })
 
 export type CancelInput = z.input<ReturnType<typeof cancelSchema>>

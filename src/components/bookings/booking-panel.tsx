@@ -14,7 +14,7 @@ import { Amount } from '@/components/amount'
 import { AmountInput } from '@/components/amount-input'
 import { callAction, FormError } from '@/components/auth/form-error'
 import { BookingWarningsAlert, GuestSheetWarning, hasGuestSheetDuplicates, hasWarnings } from '@/components/bookings/booking-warnings'
-import { SortableChargeList, SortableChargeRow } from '@/components/bookings/sortable-charges'
+import { chargeMoneyCell, SortableChargeList, SortableChargeRow } from '@/components/bookings/sortable-charges'
 import { useBookingWarnings } from '@/components/bookings/use-booking-warnings'
 import { DetailPanel } from '@/components/detail-panel'
 import { GuestFields } from '@/components/guests/guest-fields'
@@ -28,6 +28,9 @@ import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
+import { LabelCombobox } from '@/components/vat/label-combobox'
+import { useVatStatus } from '@/components/vat/vat-status-context'
+import { VatRateInput } from '@/components/vat/vat-rate-input'
 import { personPriceGroups } from '@/lib/apartments'
 import {
   addDays,
@@ -37,7 +40,6 @@ import {
   type BookableApartment,
   type Booking,
   BOOKING_SOURCES,
-  CHARGE_SUGGESTIONS,
   isIsoDate,
   LIMITS,
   nightsBetween,
@@ -48,6 +50,8 @@ import { formatCents } from '@/lib/format'
 import { countryName, type DuplicateMatch, guestSortName } from '@/lib/guests'
 import { type BookingInput, bookingSchema } from '@/lib/validation/bookings'
 import { EMPTY_GUEST_INPUT, type GuestInput, guestSchema } from '@/lib/validation/guests'
+import { CHARGE_CHOICES, VAT_DEFAULTS, vatRateInput } from '@/lib/vat'
+import { vatStatusOn } from '@/lib/vat-status'
 
 type PickedGuest = {
   id: string
@@ -74,6 +78,7 @@ interface BookingPanelProps {
 }
 
 const euro = formatCents
+const CLEANING_VAT_BP = CHARGE_CHOICES.find((c) => c.key === 'cleaning')!.vatBp
 
 // Neue Buchung: Inhaber erhalten die Reinigungsgebühr der Wohnung als Position (cleaningLabel), Mitarbeiter keine Beträge
 function initialValues(
@@ -102,7 +107,8 @@ function initialValues(
       children: booking.childAges.map((age) => ({ age: String(age) })),
       optionUntil: booking.optionUntil ?? '',
       nightsPrice: amountInput(booking.amounts?.nightsCents ?? null),
-      charges: (booking.amounts?.charges ?? []).map((c) => ({ label: c.label, amount: amountInput(c.amountCents) })),
+      nightsVat: vatRateInput(booking.amounts?.nightsVatBp ?? VAT_DEFAULTS.nights),
+      charges: (booking.amounts?.charges ?? []).map((c) => ({ label: c.label, amount: amountInput(c.amountCents), vat: vatRateInput(c.vatBp) })),
       note: booking.note ?? '',
     }
   }
@@ -127,8 +133,12 @@ function initialValues(
     children: [],
     optionUntil: addDays(today, LIMITS.optionDefaultDays),
     nightsPrice: '',
-    // Vorausgewählte Wohnung: ihre Reinigungsgebühr gleich eintragen (wie beim Wählen)
-    charges: cleaningLabel && only && only.cleaningFeeCents !== null ? [{ label: cleaningLabel, amount: amountInput(only.cleaningFeeCents) }] : [],
+    nightsVat: vatRateInput(VAT_DEFAULTS.nights),
+    // Vorausgewählte Wohnung: ihre Reinigungsgebühr gleich eintragen (wie beim Wählen), mit dem Satz der Reinigung
+    charges:
+      cleaningLabel && only && only.cleaningFeeCents !== null
+        ? [{ label: cleaningLabel, amount: amountInput(only.cleaningFeeCents), vat: vatRateInput(CLEANING_VAT_BP) }]
+        : [],
     note: '',
   }
 }
@@ -168,6 +178,9 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
   const charges = useFieldArray({ control: form.control, name: 'charges' })
   // Während eine Zusatzposition verschoben wird, bricht Escape nur das Verschieben ab (PROJ-34)
   const sortingCharge = useRef(false)
+  // Offene Auswahl der Bezeichnung: Escape schließt nur die Auswahl (PROJ-35)
+  const labelListOpen = useRef(false)
+  const vatHistory = useVatStatus()
 
   const [kind, apartmentId, arrival, plannedDeparture, departure, guestMode, adults, childRows, nightsPrice, chargeRows, source, guestSheetNumber] =
     useWatch({
@@ -221,6 +234,10 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
     agreedCents !== null && !Number.isNaN(agreedCents) && nights > 0 && billable > 0 ? billedNightsCents(agreedCents, nights, billable) : agreedCents
   const extended = billable > nights && nights > 0
   const totalParts = [billedCents, ...chargeRows.map((c) => parseAmountCents(c.amount ?? '', { negative: true }))]
+  // Kleinunternehmer laut PROJ-36 (maßgeblich: tatsächliche Abreise, solange keine da ist: heute) → keine USt-Felder;
+  // die Sätze bleiben trotzdem im Formular und werden gespeichert
+  const showVat = !vatStatusOn(vatHistory, isIsoDate(departure) ? departure : today).smallBusiness
+  const chargeChoices = CHARGE_CHOICES.map((c) => ({ key: c.key, label: t(`chargeSuggestions.${c.key}`) }))
   const total = totalParts.every((c) => c === null || !Number.isNaN(c)) ? totalParts.reduce<number>((sum, c) => sum + (c ?? 0), 0) : null
 
   // Neuer Vorschlag nach Änderung von Wohnung, Zeitraum oder Personen: übernehmen, solange der Preis nicht von Hand
@@ -244,7 +261,7 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
       const index = form.getValues('charges').findIndex((c) => c.label === cleaning)
       if (apt.cleaningFeeCents !== null) {
         if (index >= 0) form.setValue(`charges.${index}.amount`, amountInput(apt.cleaningFeeCents))
-        else charges.append({ label: cleaning, amount: amountInput(apt.cleaningFeeCents) })
+        else charges.append({ label: cleaning, amount: amountInput(apt.cleaningFeeCents), vat: vatRateInput(CLEANING_VAT_BP) })
       }
     }
   }
@@ -305,7 +322,7 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
       open={open}
       onOpenChange={onOpenChange}
       onEscapeKeyDown={(e) => {
-        if (sortingCharge.current) e.preventDefault()
+        if (sortingCharge.current || labelListOpen.current) e.preventDefault()
       }}
       title={booking ? t('panel.editTitle') : t('panel.createTitle')}
       eyebrow={booking ? [t(`kind.${booking.kind}`), booking.number].filter(Boolean).join(' · ') : undefined}
@@ -663,68 +680,81 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
           {owner ? (
             <fieldset className="flex flex-col gap-4">
               <legend className="mb-2 text-sm font-semibold">{t('panel.price')}</legend>
-              <FormField
-                control={form.control}
-                name="nightsPrice"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t('panel.nightsPrice')}</FormLabel>
-                    <FormControl>
-                      <AmountInput
-                        className="min-h-11 w-40"
-                        {...field}
-                        onValueChange={(v) => {
-                          setPriceTouched(true)
-                          field.onChange(v)
-                        }}
-                      />
-                    </FormControl>
-                    {typeof suggestion === 'number' && apartment?.priceMode === 'apartment' && apartment.priceCents !== null && (
-                      <FormDescription>
-                        {t('panel.suggestion', { price: euro(suggestion), nights, rate: euro(apartment.priceCents) })}
-                      </FormDescription>
+              {/* Übernachtungspreis und sein Umsatzsteuersatz (PROJ-35); Satz bei Kleinunternehmern ausgeblendet */}
+              <div className="flex flex-wrap items-start gap-x-3 gap-y-4">
+                <FormField
+                  control={form.control}
+                  name="nightsPrice"
+                  render={({ field }) => (
+                    <FormItem className="min-w-0 flex-1">
+                      <FormLabel>{t('panel.nightsPrice')}</FormLabel>
+                      <FormControl>
+                        <AmountInput
+                          className="min-h-11 w-40"
+                          {...field}
+                          onValueChange={(v) => {
+                            setPriceTouched(true)
+                            field.onChange(v)
+                          }}
+                        />
+                      </FormControl>
+                      {typeof suggestion === 'number' && apartment?.priceMode === 'apartment' && apartment.priceCents !== null && (
+                        <FormDescription>
+                          {t('panel.suggestion', { price: euro(suggestion), nights, rate: euro(apartment.priceCents) })}
+                        </FormDescription>
+                      )}
+                      {typeof suggestion === 'number' && groups && (
+                        <FormDescription>
+                          {t('panel.suggestionPersons', {
+                            price: euro(suggestion),
+                            nights,
+                            persons: groups.map((g) => `${g.count} × ${euro(g.cents)}`).join(' + '),
+                          })}
+                        </FormDescription>
+                      )}
+                      {apartment && !hasPricing && <FormDescription>{t('panel.noDefaultPrice')}</FormDescription>}
+                      {extended && agreedCents !== null && !Number.isNaN(agreedCents) && billedCents !== null && (
+                        <FormDescription className="text-ds-text" aria-live="polite">
+                          {t('panel.extension', { agreed: euro(agreedCents), nights, billable, billed: euro(billedCents) })}
+                        </FormDescription>
+                      )}
+                      {!extended && nights > 0 && stayNights > 0 && stayNights < nights && (
+                        <FormDescription>{t('panel.earlyDeparture', { nights })}</FormDescription>
+                      )}
+                      {tooHigh && <FormDescription>{t('panel.suggestionTooHigh')}</FormDescription>}
+                      {priceTouched && typeof suggestion === 'number' && parseAmountCents(nightsPrice) !== suggestion && (
+                        <Button
+                          type="button"
+                          variant="link"
+                          className="h-auto min-h-11 self-start p-0"
+                          onClick={() => form.setValue('nightsPrice', amountInput(suggestion), { shouldValidate: form.formState.isSubmitted })}
+                        >
+                          {t('panel.takeSuggestion', { price: euro(suggestion) })}
+                        </Button>
+                      )}
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                {showVat && (
+                  <FormField
+                    control={form.control}
+                    name="nightsVat"
+                    render={({ field }) => (
+                      <FormItem className="w-28">
+                        <FormLabel>{t('panel.vatRate')}</FormLabel>
+                        <FormControl>
+                          <VatRateInput className="min-h-11" {...field} onValueChange={field.onChange} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
                     )}
-                    {typeof suggestion === 'number' && groups && (
-                      <FormDescription>
-                        {t('panel.suggestionPersons', {
-                          price: euro(suggestion),
-                          nights,
-                          persons: groups.map((g) => `${g.count} × ${euro(g.cents)}`).join(' + '),
-                        })}
-                      </FormDescription>
-                    )}
-                    {apartment && !hasPricing && <FormDescription>{t('panel.noDefaultPrice')}</FormDescription>}
-                    {extended && agreedCents !== null && !Number.isNaN(agreedCents) && billedCents !== null && (
-                      <FormDescription className="text-ds-text" aria-live="polite">
-                        {t('panel.extension', { agreed: euro(agreedCents), nights, billable, billed: euro(billedCents) })}
-                      </FormDescription>
-                    )}
-                    {!extended && nights > 0 && stayNights > 0 && stayNights < nights && (
-                      <FormDescription>{t('panel.earlyDeparture', { nights })}</FormDescription>
-                    )}
-                    {tooHigh && <FormDescription>{t('panel.suggestionTooHigh')}</FormDescription>}
-                    {priceTouched && typeof suggestion === 'number' && parseAmountCents(nightsPrice) !== suggestion && (
-                      <Button
-                        type="button"
-                        variant="link"
-                        className="h-auto min-h-11 self-start p-0"
-                        onClick={() => form.setValue('nightsPrice', amountInput(suggestion), { shouldValidate: form.formState.isSubmitted })}
-                      >
-                        {t('panel.takeSuggestion', { price: euro(suggestion) })}
-                      </Button>
-                    )}
-                    <FormMessage />
-                  </FormItem>
+                  />
                 )}
-              />
+              </div>
 
               <div className="flex flex-col gap-3">
                 <span className="text-sm font-semibold">{t('panel.charges')}</span>
-                <datalist id="zusatzkosten-vorschlaege">
-                  {CHARGE_SUGGESTIONS.map((s) => (
-                    <option key={s} value={t(`chargeSuggestions.${s}`)} />
-                  ))}
-                </datalist>
                 <SortableChargeList
                   ids={charges.fields.map((c) => c.id)}
                   labelAt={(i) => form.getValues(`charges.${i}.label`) ?? ''}
@@ -738,6 +768,7 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
                       key={charge.id}
                       id={charge.id}
                       sortable={charges.fields.length > 1}
+                      withVat={showVat}
                       handleLabel={t('panel.moveCharge', { label: chargeRows[i]?.label?.trim() || t('panel.chargeFallback', { n: i + 1 }) })}
                     >
                       <FormField
@@ -747,25 +778,64 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
                           <FormItem>
                             <FormLabel className="sr-only">{t('panel.chargeLabel')}</FormLabel>
                             <FormControl>
-                              <Input list="zusatzkosten-vorschlaege" maxLength={LIMITS.chargeLabelMax} placeholder={t('panel.chargeLabel')} className="min-h-11" {...field} />
+                              {/* Auswahl setzt Bezeichnung und Satz; freies Tippen ändert den Satz nie (PROJ-35) */}
+                              <LabelCombobox
+                                maxLength={LIMITS.chargeLabelMax}
+                                placeholder={t('panel.chargeLabel')}
+                                className="min-h-11"
+                                choices={chargeChoices}
+                                listLabel={t('panel.chargeChoices')}
+                                onListOpenChange={(o) => {
+                                  labelListOpen.current = o
+                                }}
+                                {...field}
+                                onValueChange={field.onChange}
+                                onChoose={(choice) => {
+                                  const bp = CHARGE_CHOICES.find((c) => c.key === choice.key)?.vatBp
+                                  if (bp !== undefined) form.setValue(`charges.${i}.vat`, vatRateInput(bp), { shouldValidate: form.formState.isSubmitted })
+                                }}
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
-                      <FormField
-                        control={form.control}
-                        name={`charges.${i}.amount`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="sr-only">{t('panel.chargeAmount')}</FormLabel>
-                            <FormControl>
-                              <AmountInput negative placeholder={t('panel.chargeAmount')} className="min-h-11" {...field} onValueChange={field.onChange} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
+                      <div className={chargeMoneyCell(charges.fields.length > 1, showVat)}>
+                        <FormField
+                          control={form.control}
+                          name={`charges.${i}.amount`}
+                          render={({ field }) => (
+                            // Feste Breite mit Satz: lange Meldungen brechen um, statt die Bezeichnung zu verdrängen
+                            <FormItem className={showVat ? 'w-28 shrink-0' : undefined}>
+                              <FormLabel className="sr-only">{t('panel.chargeAmount')}</FormLabel>
+                              <FormControl>
+                                <AmountInput negative placeholder={t('panel.chargeAmount')} className="min-h-11 w-28" {...field} onValueChange={field.onChange} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        {showVat && (
+                          <FormField
+                            control={form.control}
+                            name={`charges.${i}.vat`}
+                            render={({ field }) => (
+                              <FormItem className="w-32 shrink-0">
+                                <FormLabel className="sr-only">{t('panel.chargeVat', { n: i + 1 })}</FormLabel>
+                                <div className="flex items-center gap-1.5">
+                                  <FormControl>
+                                    <VatRateInput className="min-h-11 w-20" {...field} onValueChange={field.onChange} />
+                                  </FormControl>
+                                  <span className="text-sm text-ds-neutral-800" aria-hidden="true">
+                                    {t('panel.vatSuffix')}
+                                  </span>
+                                </div>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
                         )}
-                      />
+                      </div>
                       <Button type="button" variant="ghost" size="icon" className="size-11" aria-label={t('panel.removeCharge', { n: i + 1 })} onClick={() => charges.remove(i)}>
                         <Trash size={18} aria-hidden="true" />
                       </Button>
@@ -773,7 +843,7 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
                   ))}
                 </SortableChargeList>
                 {charges.fields.length < LIMITS.chargesMax && (
-                  <Button type="button" variant="outline" className="min-h-11 self-start" onClick={() => charges.append({ label: '', amount: '' }, { shouldFocus: true })}>
+                  <Button type="button" variant="outline" className="min-h-11 self-start" onClick={() => charges.append({ label: '', amount: '', vat: vatRateInput(VAT_DEFAULTS.charge) }, { shouldFocus: true })}>
                     <Plus size={16} aria-hidden="true" />
                     {t('panel.addCharge')}
                   </Button>

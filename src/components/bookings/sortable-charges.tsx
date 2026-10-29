@@ -99,10 +99,18 @@ interface SortableChargeRowProps {
   handleLabel: string
   // Griff nur ab zwei Positionen
   sortable: boolean
+  // Mit Umsatzsteuersatz (PROJ-35): Betrag und Satz in einer Zelle, am Handy in der zweiten Zeile
+  withVat?: boolean
   children: React.ReactNode
 }
 
-export function SortableChargeRow({ id, handleLabel, sortable, children }: SortableChargeRowProps) {
+// Zelle für Betrag und Satz einer Position. Ohne Satz löst sie sich auf (contents), dann gilt das bisherige Raster.
+export function chargeMoneyCell(sortable: boolean, withVat: boolean): string {
+  if (!withVat) return 'contents'
+  return cn('flex items-start gap-2 row-start-2 sm:col-auto sm:row-start-auto', sortable ? 'col-[2/-1]' : 'col-[1/-1]')
+}
+
+export function SortableChargeRow({ id, handleLabel, sortable, withVat = false, children }: SortableChargeRowProps) {
   const t = useTranslations('bookings.panel')
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
     id,
@@ -117,7 +125,13 @@ export function SortableChargeRow({ id, handleLabel, sortable, children }: Sorta
       data-dragging={isDragging || undefined}
       className={cn(
         'grid items-start gap-2 rounded-lg bg-ds-bg',
-        sortable ? 'grid-cols-[auto_1fr_7rem_auto]' : 'grid-cols-[1fr_7rem_auto]',
+        withVat
+          ? sortable
+            ? 'grid-cols-[auto_minmax(0,1fr)_auto] sm:grid-cols-[auto_minmax(0,1fr)_auto_auto]'
+            : 'grid-cols-[minmax(0,1fr)_auto] sm:grid-cols-[minmax(0,1fr)_auto_auto]'
+          : sortable
+            ? 'grid-cols-[auto_1fr_7rem_auto]'
+            : 'grid-cols-[1fr_7rem_auto]',
         isDragging && 'relative z-10 shadow-lg ring-2 ring-ds-accent-700',
       )}
     >

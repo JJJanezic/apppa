@@ -20,6 +20,7 @@ import {
   companionsSchema,
 } from '@/lib/validation/bookings'
 import { type GuestInput, guestSchema } from '@/lib/validation/guests'
+import { VAT_DEFAULTS, vatRateInput, vatRateToDb } from '@/lib/vat'
 
 // Server-Aktionen der Buchungen (PROJ-8). Anlegen und Ändern: alle Mitglieder (Beträge nur Inhaber);
 // Stornieren, Sperren löschen und Übersteuern von Warnungen: nur Inhaber.
@@ -234,7 +235,9 @@ export async function saveBooking(input: SaveBooking): Promise<Result<{ id: stri
       // vereinbarter Preis; den abgerechneten berechnet die Datenbank (auch bei Mitarbeiter-Änderungen)
       amounts: v.amounts && {
         nights_cents: v.amounts.nightsCents,
-        charges: v.amounts.charges.map((c) => ({ label: c.label, amount_cents: c.amountCents })),
+        // Sätze als exakte Dezimalzahl („10.00“), PROJ-35
+        nights_vat_rate: vatRateToDb(v.amounts.nightsVatBp),
+        charges: v.amounts.charges.map((c) => ({ label: c.label, amount_cents: c.amountCents, vat_rate: vatRateToDb(c.vatBp) })),
       },
     },
     p_confirm: owner && input.confirmOverride === true,
@@ -315,6 +318,7 @@ export async function cancelBooking(input: { id: string; values: CancelInput }):
     p_booking_id: input.id,
     p_reason: parsed.data.reason ?? undefined,
     p_fee_cents: parsed.data.fee ?? undefined,
+    p_fee_vat_rate: vatRateToDb(parsed.data.feeVat),
   })
   if (error) return dbFail(error, 'Stornieren')
   revalidate(input.id)
@@ -358,17 +362,19 @@ export async function saveCompanions(input: { id: string; updatedAt: string; val
 }
 
 // Stornierte und verfallene Einträge: nur Notiz und (Inhaber, storniert) Stornogebühr änderbar
-export async function saveBookingNote(input: { id: string; updatedAt: string; note: string; fee?: string }): Promise<Result> {
+export async function saveBookingNote(input: { id: string; updatedAt: string; note: string; fee?: string; feeVat?: string }): Promise<Result> {
   const guard = await requireMember()
   if (!guard.ok) return guard
   if (!isId(input?.id)) return fail('notFound')
   if (typeof input.note !== 'string' || input.note.length > LIMITS.noteMax) return fail('unknown')
   let fee: number | null = null
+  let feeVat: number = VAT_DEFAULTS.cancellationFee
   if (input.fee !== undefined) {
     if (guard.tenant.role !== 'owner') return fail('ownerOnly')
-    const parsed = cancelSchema(key).safeParse({ reason: '', fee: input.fee })
+    const parsed = cancelSchema(key).safeParse({ reason: '', fee: input.fee, feeVat: input.feeVat ?? vatRateInput(VAT_DEFAULTS.cancellationFee) })
     if (!parsed.success) return fail('unknown')
     fee = parsed.data.fee
+    feeVat = parsed.data.feeVat
   }
   const supabase = await createClient()
   const { error } = await supabase.rpc('save_booking_note', {
@@ -377,6 +383,7 @@ export async function saveBookingNote(input: { id: string; updatedAt: string; no
     p_note: input.note,
     p_set_fee: input.fee !== undefined,
     p_fee_cents: fee ?? undefined,
+    p_fee_vat_rate: input.fee !== undefined ? vatRateToDb(feeVat) : undefined,
   })
   if (error) return dbFail(error, 'Notiz speichern')
   revalidate(input.id)
