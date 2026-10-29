@@ -507,8 +507,12 @@ export type Database = {
           anonymized_at: string | null
           birth_date: string | null
           city: string | null
-          company_billing_address: string | null
+          company_address_line1: string | null
+          company_address_line2: string | null
+          company_city: string | null
+          company_country: string | null
           company_name: string | null
+          company_postal_code: string | null
           company_vat_id: string | null
           country: string
           created_at: string
@@ -549,8 +553,12 @@ export type Database = {
           anonymized_at?: string | null
           birth_date?: string | null
           city?: string | null
-          company_billing_address?: string | null
+          company_address_line1?: string | null
+          company_address_line2?: string | null
+          company_city?: string | null
+          company_country?: string | null
           company_name?: string | null
+          company_postal_code?: string | null
           company_vat_id?: string | null
           country: string
           created_at?: string
@@ -591,8 +599,12 @@ export type Database = {
           anonymized_at?: string | null
           birth_date?: string | null
           city?: string | null
-          company_billing_address?: string | null
+          company_address_line1?: string | null
+          company_address_line2?: string | null
+          company_city?: string | null
+          company_country?: string | null
           company_name?: string | null
+          company_postal_code?: string | null
           company_vat_id?: string | null
           country?: string
           created_at?: string

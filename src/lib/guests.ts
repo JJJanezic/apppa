@@ -21,7 +21,10 @@ export const LIMITS = {
   marketingCustomMax: 100,
   companyNameMax: 200,
   vatIdMax: 30,
-  billingAddressMax: 500,
+  // Firmenanschrift (PROJ-33), wie Kundenstammdaten (PROJ-28)
+  companyAddressLineMax: 200,
+  companyPostalCodeMax: 10,
+  companyCityMax: 100,
   noteMax: 2000,
   // PROJ-29
   titleMax: 50,
@@ -115,7 +118,12 @@ export type Guest = {
   marketingCustom: string | null
   companyName: string | null
   companyVatId: string | null
-  companyBillingAddress: string | null
+  // Rechnungsadresse der Firma (PROJ-33)
+  companyAddressLine1: string | null
+  companyAddressLine2: string | null
+  companyPostalCode: string | null
+  companyCity: string | null
+  companyCountry: string | null
   note: string | null
   // PROJ-29
   titlePrefix: string | null
@@ -257,6 +265,26 @@ export function countryName(code: string, locale = 'de'): string {
   }
 }
 
+// Anschrift als Zeilen: Adresszeilen, „PLZ Ort“, Staat; leere Teile entfallen (Privat- und Firmenanschrift)
+export function addressLines(
+  a: { lines: (string | null)[]; postalCode: string | null; city: string | null; country: string | null },
+  locale = 'de'
+): string[] {
+  const place = [a.postalCode, a.city].filter(Boolean).join(' ')
+  return [...a.lines, place, a.country ? countryName(a.country, locale) : null].filter((line): line is string => Boolean(line))
+}
+
+export const privateAddressLines = (g: Guest, locale = 'de') =>
+  addressLines({ lines: [g.street], postalCode: g.postalCode, city: g.city, country: g.addressCountry }, locale)
+
+export const companyAddressLines = (g: Guest, locale = 'de') =>
+  addressLines(
+    { lines: [g.companyAddressLine1, g.companyAddressLine2], postalCode: g.companyPostalCode, city: g.companyCity, country: g.companyCountry },
+    locale
+  )
+
+export const hasCompany = (g: Guest) => Boolean(g.companyName || g.companyVatId || companyAddressLines(g).length)
+
 export function languageName(code: string, locale = 'de'): string {
   try {
     return new Intl.DisplayNames([locale], { type: 'language' }).of(code) ?? code
@@ -327,7 +355,15 @@ export function mergeFieldValues(g: Guest, field: MergeField): Partial<Guest> {
     case 'marketing':
       return { marketingSource: g.marketingSource, marketingCustom: g.marketingCustom }
     case 'company':
-      return { companyName: g.companyName, companyVatId: g.companyVatId, companyBillingAddress: g.companyBillingAddress }
+      return {
+        companyName: g.companyName,
+        companyVatId: g.companyVatId,
+        companyAddressLine1: g.companyAddressLine1,
+        companyAddressLine2: g.companyAddressLine2,
+        companyPostalCode: g.companyPostalCode,
+        companyCity: g.companyCity,
+        companyCountry: g.companyCountry,
+      }
     case 'note':
       return { note: g.note }
     case 'document':

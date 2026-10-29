@@ -60,6 +60,36 @@ describe('guestSchema', () => {
     expect(errors({ note: 'x'.repeat(2001) })).toEqual(['tooLong'])
   })
 
+  describe('Firmenanschrift (PROJ-33)', () => {
+    it('lässt alle Felder leer zu und speichert leer bzw. nur Leerzeichen als null', () => {
+      const result = schema.parse({ ...valid, companyAddressLine1: '   ' })
+      expect(result.companyAddressLine1).toBeNull()
+      expect(result.companyAddressLine2).toBeNull()
+      expect(result.companyPostalCode).toBeNull()
+      expect(result.companyCity).toBeNull()
+      expect(result.companyCountry).toBeNull()
+    })
+
+    it('erlaubt PLZ und Ort ohne Adresszeile, auch ausländische PLZ', () => {
+      const result = schema.parse({ ...valid, companyPostalCode: ' SW1A 1AA ', companyCity: 'London', companyCountry: 'GB' })
+      expect(result.companyPostalCode).toBe('SW1A 1AA')
+      expect(result.companyCity).toBe('London')
+      expect(result.companyCountry).toBe('GB')
+    })
+
+    it('begrenzt Adresszeilen auf 200, PLZ auf 10 und Ort auf 100 Zeichen', () => {
+      expect(errors({ companyAddressLine1: 'x'.repeat(200), companyAddressLine2: 'x'.repeat(200), companyPostalCode: 'x'.repeat(10), companyCity: 'x'.repeat(100) })).toEqual([])
+      expect(errors({ companyAddressLine1: 'x'.repeat(201) })).toEqual(['tooLong'])
+      expect(errors({ companyAddressLine2: 'x'.repeat(201) })).toEqual(['tooLong'])
+      expect(errors({ companyPostalCode: 'x'.repeat(11) })).toEqual(['tooLong'])
+      expect(errors({ companyCity: 'x'.repeat(101) })).toEqual(['tooLong'])
+    })
+
+    it('lehnt unbekannte Ländercodes beim Staat ab', () => {
+      expect(errors({ companyCountry: 'XX' })).toEqual(['unknown'])
+    })
+  })
+
   describe('Titel und Geschlecht (PROJ-29)', () => {
     it('setzt das Geschlecht standardmäßig auf „keine Angabe“ und Titel auf leer', () => {
       const result = schema.parse(valid)

@@ -51,7 +51,11 @@ export const guestDbColumns = (v: GuestValues) => ({
   marketing_custom: v.marketingCustom,
   company_name: v.companyName,
   company_vat_id: v.companyVatId,
-  company_billing_address: v.companyBillingAddress,
+  company_address_line1: v.companyAddressLine1,
+  company_address_line2: v.companyAddressLine2,
+  company_postal_code: v.companyPostalCode,
+  company_city: v.companyCity,
+  company_country: v.companyCountry,
   note: v.note,
   title_prefix: v.titlePrefix,
   title_suffix: v.titleSuffix,
@@ -66,7 +70,7 @@ export const guestDbColumns = (v: GuestValues) => ({
 })
 
 export const GUEST_COLUMNS =
-  'id, last_name, first_name, country, email, email_source, phone, phone_source, language, birth_date, street, postal_code, city, address_country, marketing_source, marketing_custom, company_name, company_vat_id, company_billing_address, note, title_prefix, title_suffix, gender, document_type, document_number, document_issued_on, document_authority, document_country, document_front_path, document_back_path, anonymized_at, updated_at'
+  'id, last_name, first_name, country, email, email_source, phone, phone_source, language, birth_date, street, postal_code, city, address_country, marketing_source, marketing_custom, company_name, company_vat_id, company_address_line1, company_address_line2, company_postal_code, company_city, company_country, note, title_prefix, title_suffix, gender, document_type, document_number, document_issued_on, document_authority, document_country, document_front_path, document_back_path, anonymized_at, updated_at'
 
 // Aufenthalte werden aus den Buchungen berechnet (PROJ-8), nicht am Gast gespeichert
 const NO_STAYS: GuestStays = { count: 0, bookings: 0, last: null, next: null, channels: [] }
@@ -120,7 +124,11 @@ export function toGuest(g: Pick<GuestDbRow, Exclude<keyof GuestDbRow, 'tenant_id
     marketingCustom: g.marketing_custom,
     companyName: g.company_name,
     companyVatId: g.company_vat_id,
-    companyBillingAddress: g.company_billing_address,
+    companyAddressLine1: g.company_address_line1,
+    companyAddressLine2: g.company_address_line2,
+    companyPostalCode: g.company_postal_code,
+    companyCity: g.company_city,
+    companyCountry: g.company_country,
     note: g.note,
     titlePrefix: g.title_prefix,
     titleSuffix: g.title_suffix,

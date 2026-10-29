@@ -17,6 +17,7 @@ import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { formatDatePlain } from '@/lib/format'
 import {
+  companyAddressLines,
   countryName,
   defaultMergeChoice,
   DOCUMENT_SIDES,
@@ -27,6 +28,7 @@ import {
   MERGE_FIELDS,
   type MergeChoice,
   type MergeField,
+  privateAddressLines,
   sameMergeValue,
 } from '@/lib/guests'
 
@@ -110,11 +112,11 @@ export function MergeDialog({ open, onOpenChange, guest, presetOtherId }: MergeD
       case 'birthDate':
         return g.birthDate ? formatDatePlain(g.birthDate) : ''
       case 'address':
-        return join(g.street, [g.postalCode, g.city].filter(Boolean).join(' ') || null, g.addressCountry ? countryName(g.addressCountry, locale) : null)
+        return join(...privateAddressLines(g, locale))
       case 'marketing':
         return g.marketingSource ? tm(g.marketingSource) : (g.marketingCustom ?? '')
       case 'company':
-        return join(g.companyName, g.companyVatId, g.companyBillingAddress)
+        return join(g.companyName, g.companyVatId, ...companyAddressLines(g, locale))
       case 'note':
         return g.note ?? ''
       case 'document': {

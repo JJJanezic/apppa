@@ -1,6 +1,6 @@
 # PROJ-33: Firmenanschrift des Gastes in Felder aufteilen
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-10-29
 **Last Updated:** 2026-10-29
 
@@ -199,6 +199,18 @@ Migration und App-Stand gehören zusammen. Zwischen dem Einspielen der Migration
 
 ### Abhängigkeiten (Pakete)
 Keine neuen Pakete.
+
+## Implementation Notes (Frontend)
+Stand 2026-10-29. Die Oberfläche ist fertig, funktioniert aber erst nach `/backend` (die neuen Spalten fehlen bis dahin in der Datenbank).
+
+- `src/lib/guests.ts`: Gast-Typ mit `companyAddressLine1/2`, `companyPostalCode`, `companyCity`, `companyCountry` statt `companyBillingAddress`; neue Grenzen (200/10/100), Grenze 500 entfällt. Neue Hilfsfunktionen `addressLines`, `privateAddressLines`, `companyAddressLines` (Zeilen, leere Teile entfallen) und `hasCompany`. Zusammenführen: „Firma“ umfasst Name, UID und alle fünf Adressfelder
+- `src/lib/validation/guests.ts`: Prüfregeln der neuen Felder (optional, getrimmt, leer → null; Staat nur gültige Ländercodes)
+- `src/lib/guests-data.ts`, `src/types/database.ts`: Spalten `company_address_line1`, `company_address_line2`, `company_postal_code`, `company_city`, `company_country` (Typen von Hand nachgezogen; werden mit `/backend` neu erzeugt). Das Buchungsformular „Neuer Gast“ nutzt dieselbe Spaltenzuordnung
+- `src/components/guests/guest-fields.tsx`: Im Bereich „Firma“ unter Firmenname und UID die Gruppe „Rechnungsadresse“ mit Hinweis, Adresszeile 1/2, PLZ | Ort (ab Tablet nebeneinander, am Handy untereinander), Staat (Länderauswahl mit „Keine Angabe“, startet leer). Bereich aufgeklappt, sobald eines der Firmenfelder befüllt ist
+- Gast-Detail: Rechnungsadresse zeilenweise wie die Privatadresse; Abschnitt „Firma“ auch bei reiner Anschrift
+- Zusammenführen-Dialog: Vorschau nutzt dieselben Adresszeilen. **Abweichung:** Wie bei der Privatadresse stehen sie dort durch Komma getrennt in einer Zeile (der Dialog zeigt jede Angabe einzeilig), nicht untereinander
+- Texte: `guests.panel.addressLine1/2`, `guests.panel.companyCountry` („Staat“)
+- Tests: Unit-Tests für Prüfregeln, Adresszeilen, `hasCompany` und Zusammenführen (gesamt 347 grün)
 
 ## QA Test Results
 _To be added by /qa_

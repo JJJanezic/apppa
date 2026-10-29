@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  addressLines,
+  companyAddressLines,
   countryName,
   countryOptions,
   defaultMergeChoice,
@@ -9,10 +11,12 @@ import {
   guestDisplayName,
   guestListHref,
   guestSortName,
+  hasCompany,
   isPlatformRelayEmail,
   languageName,
   parseGuestFilters,
   phoneDigits,
+  privateAddressLines,
   sameMergeValue,
   searchKey,
 } from './guests'
@@ -36,7 +40,11 @@ const guest = (over: Partial<Guest> = {}): Guest => ({
   marketingCustom: null,
   companyName: null,
   companyVatId: null,
-  companyBillingAddress: null,
+  companyAddressLine1: null,
+  companyAddressLine2: null,
+  companyPostalCode: null,
+  companyCity: null,
+  companyCountry: null,
   note: null,
   titlePrefix: null,
   titleSuffix: null,
@@ -189,5 +197,35 @@ describe('Zusammenführen', () => {
     expect(choice.document).toBe('b')
     expect(choice.gender).toBe('b')
     expect(defaultMergeChoice(guest({ gender: 'male' }), guest({ gender: 'female' })).gender).toBe('a')
+  })
+})
+
+describe('Anschrift als Zeilen (PROJ-33)', () => {
+  it('zeigt Zeile 1, Zeile 2, „PLZ Ort“ und Staat untereinander', () => {
+    const g = guest({ companyAddressLine1: 'Musterstraße 1', companyAddressLine2: 'Top 5', companyPostalCode: '1010', companyCity: 'Wien', companyCountry: 'AT' })
+    expect(companyAddressLines(g)).toEqual(['Musterstraße 1', 'Top 5', '1010 Wien', 'Österreich'])
+  })
+
+  it('lässt leere Teile ohne Leerzeilen weg', () => {
+    expect(companyAddressLines(guest({ companyCity: 'Wien' }))).toEqual(['Wien'])
+    expect(companyAddressLines(guest({ companyCountry: 'DE' }))).toEqual(['Deutschland'])
+    expect(companyAddressLines(guest())).toEqual([])
+    expect(addressLines({ lines: [null, ''], postalCode: '1010', city: null, country: null })).toEqual(['1010'])
+  })
+
+  it('formatiert die Privatadresse gleich', () => {
+    expect(privateAddressLines(guest({ street: 'Hauptplatz 2', postalCode: '8010', city: 'Graz' }))).toEqual(['Hauptplatz 2', '8010 Graz'])
+  })
+
+  it('zeigt den Abschnitt Firma auch bei reiner Firmenanschrift', () => {
+    expect(hasCompany(guest())).toBe(false)
+    expect(hasCompany(guest({ companyCity: 'Wien' }))).toBe(true)
+    expect(hasCompany(guest({ companyVatId: 'ATU12345678' }))).toBe(true)
+  })
+
+  it('übernimmt beim Zusammenführen Firma samt Anschrift gemeinsam', () => {
+    const a = guest({ companyName: 'A GmbH', companyCity: 'Wien' })
+    expect(sameMergeValue(a, guest({ id: 'b', companyName: 'A GmbH', companyCity: 'Graz' }), 'company')).toBe(false)
+    expect(defaultMergeChoice(guest(), guest({ id: 'b', companyPostalCode: '1010' })).company).toBe('b')
   })
 })

@@ -11,7 +11,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { requireArea } from '@/lib/areas'
 import { formatDate, formatDatePlain, formatNumber } from '@/lib/format'
-import { countryName, type Guest, guestDisplayName, languageName } from '@/lib/guests'
+import { companyAddressLines, countryName, type Guest, guestDisplayName, hasCompany, languageName, privateAddressLines } from '@/lib/guests'
 import { getGuestBookings } from '@/lib/bookings-data'
 import { getGuest } from '@/lib/guests-data'
 import { getTenantContext } from '@/lib/tenant'
@@ -42,10 +42,10 @@ export default async function GuestDetailPage({ params }: { params: Params }) {
         {t('detail.fromPlatform')}
       </Badge>
     ) : null
-  const address = [guest.street, [guest.postalCode, guest.city].filter(Boolean).join(' '), guest.addressCountry && countryName(guest.addressCountry, locale)]
-    .filter(Boolean)
+  const address = privateAddressLines(guest, locale)
+  const companyAddress = companyAddressLines(guest, locale)
   const marketing = guest.marketingSource ? t(`marketing.${guest.marketingSource}`) : guest.marketingCustom
-  const hasCompany = Boolean(guest.companyName || guest.companyVatId || guest.companyBillingAddress)
+  const showCompany = hasCompany(guest)
   const hasDocument = Boolean(guest.documentType || guest.documentNumber || guest.documentFrontPath || guest.documentBackPath)
   const imageCount = [guest.documentFrontPath, guest.documentBackPath].filter(Boolean).length
 
@@ -134,12 +134,20 @@ export default async function GuestDetailPage({ params }: { params: Params }) {
           <Fact label={t('detail.note')}>{guest.note ? <span className="whitespace-pre-line break-words">{guest.note}</span> : missing}</Fact>
         </DetailSection>
 
-        {hasCompany && (
+        {showCompany && (
           <DetailSection title={t('detail.company')}>
             <Fact label={t('detail.companyName')}>{guest.companyName ?? missing}</Fact>
             <Fact label={t('detail.vatId')}>{guest.companyVatId ?? missing}</Fact>
             <Fact label={t('detail.billingAddress')}>
-              {guest.companyBillingAddress ? <span className="whitespace-pre-line">{guest.companyBillingAddress}</span> : missing}
+              {companyAddress.length ? (
+                <span className="flex flex-col">
+                  {companyAddress.map((line) => (
+                    <span key={line}>{line}</span>
+                  ))}
+                </span>
+              ) : (
+                missing
+              )}
             </Fact>
           </DetailSection>
         )}

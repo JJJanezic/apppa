@@ -84,7 +84,14 @@ export const guestSchema = (t: T) =>
       marketingCustom: optional(t, LIMITS.marketingCustomMax),
       companyName: optional(t, LIMITS.companyNameMax),
       companyVatId: optional(t, LIMITS.vatIdMax),
-      companyBillingAddress: optional(t, LIMITS.billingAddressMax),
+      companyAddressLine1: optional(t, LIMITS.companyAddressLineMax),
+      companyAddressLine2: optional(t, LIMITS.companyAddressLineMax),
+      companyPostalCode: optional(t, LIMITS.companyPostalCodeMax),
+      companyCity: optional(t, LIMITS.companyCityMax),
+      companyCountry: z
+        .string()
+        .refine((v) => v === '' || isCountry(v), t('unknown'))
+        .transform((v) => v || null),
       note: optional(t, LIMITS.noteMax),
       // Reisedokument (PROJ-29): höchstens eines je Gast
       documentType: z
@@ -150,7 +157,11 @@ export const EMPTY_GUEST_INPUT: GuestInput = {
   marketingCustom: '',
   companyName: '',
   companyVatId: '',
-  companyBillingAddress: '',
+  companyAddressLine1: '',
+  companyAddressLine2: '',
+  companyPostalCode: '',
+  companyCity: '',
+  companyCountry: '',
   note: '',
   documentType: '',
   documentNumber: '',
@@ -182,7 +193,11 @@ export function guestInput(g: Guest): GuestInput {
     marketingCustom: g.marketingCustom ?? '',
     companyName: g.companyName ?? '',
     companyVatId: g.companyVatId ?? '',
-    companyBillingAddress: g.companyBillingAddress ?? '',
+    companyAddressLine1: g.companyAddressLine1 ?? '',
+    companyAddressLine2: g.companyAddressLine2 ?? '',
+    companyPostalCode: g.companyPostalCode ?? '',
+    companyCity: g.companyCity ?? '',
+    companyCountry: g.companyCountry ?? '',
     note: g.note ?? '',
     documentType: g.documentType ?? '',
     documentNumber: g.documentNumber ?? '',

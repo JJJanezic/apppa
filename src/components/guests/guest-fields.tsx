@@ -69,7 +69,9 @@ export function GuestFields({ documentImages = {} }: GuestFieldsProps) {
   // Firma aufgeklappt, wenn schon Firmenangaben vorhanden sind
   const [companyOpen, setCompanyOpen] = useState(() => {
     const v = getValues()
-    return Boolean(v.companyName || v.companyVatId || v.companyBillingAddress)
+    return Boolean(
+      v.companyName || v.companyVatId || v.companyAddressLine1 || v.companyAddressLine2 || v.companyPostalCode || v.companyCity || v.companyCountry
+    )
   })
 
   const text = (name: keyof GuestInput, label: string, opts: { max: number; hint?: string; type?: string; autoComplete?: string; inputMode?: 'email' | 'tel' } ) => (
@@ -251,20 +253,29 @@ export function GuestFields({ documentImages = {} }: GuestFieldsProps) {
         <CollapsibleContent className="flex flex-col gap-4 px-4 pb-4">
           {text('companyName', t('companyName'), { max: LIMITS.companyNameMax })}
           {text('companyVatId', t('vatId'), { max: LIMITS.vatIdMax })}
-          <FormField
-            control={control}
-            name="companyBillingAddress"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>{t('billingAddress')}</FormLabel>
-                <FormControl>
-                  <Textarea rows={3} maxLength={LIMITS.billingAddressMax} {...field} />
-                </FormControl>
-                <FormDescription>{t('billingAddressHint')}</FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          <fieldset className="flex flex-col gap-4">
+            <legend className="text-sm font-semibold">{t('billingAddress')}</legend>
+            <p className="-mt-2 text-[13px] text-ds-neutral-700">{t('billingAddressHint')}</p>
+            {text('companyAddressLine1', t('addressLine1'), { max: LIMITS.companyAddressLineMax })}
+            {text('companyAddressLine2', t('addressLine2'), { max: LIMITS.companyAddressLineMax })}
+            <div className="grid gap-4 sm:grid-cols-[minmax(0,7rem)_1fr]">
+              {text('companyPostalCode', t('postalCode'), { max: LIMITS.companyPostalCodeMax })}
+              {text('companyCity', t('city'), { max: LIMITS.companyCityMax })}
+            </div>
+            <FormField
+              control={control}
+              name="companyCountry"
+              render={({ field, fieldState }) => (
+                <FormItem>
+                  <FormLabel>{t('companyCountry')}</FormLabel>
+                  <FormControl>
+                    <CountryPicker value={field.value} onChange={field.onChange} clearable invalid={Boolean(fieldState.error)} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </fieldset>
         </CollapsibleContent>
       </Collapsible>
 
