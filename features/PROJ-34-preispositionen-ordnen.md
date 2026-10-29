@@ -1,6 +1,6 @@
 # PROJ-34: Preispositionen ordnen
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-10-29
 **Last Updated:** 2026-10-29
 
@@ -98,12 +98,74 @@ Die Zusatzkosten einer Buchung stehen heute in der Reihenfolge, in der sie einge
 <!-- Added by /architecture -->
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Keine Datenbank-Änderung | `booking_charges.position` (1–20) existiert seit PROJ-8; die Speicherfunktion schreibt die Positionen lückenlos in Listenreihenfolge, das Detail sortiert danach; Mitarbeiter-Speichern lässt Positionen unangetastet | 2026-10-29 |
+| Reines Frontend-Feature, Speicherweg unverändert | Die Formularliste wird umsortiert und wie bisher als Liste gesendet; kein neuer Server-Endpunkt, keine neue Prüfregel | 2026-10-29 |
+| Bibliothek @dnd-kit (core, sortable, modifiers, utilities) | Maus, Touch und Tastatur aus einer Hand, eingebaute Screenreader-Ansagen (auf Deutsch einstellbar), aktiv gepflegt, klein, arbeitet mit React 19; Alternativen: react-beautiful-dnd eingestellt, Eigenbau für Touch + Tastatur + Ansagen zu aufwendig | 2026-10-29 |
+| Umsortieren über die vorhandene Formular-Liste (react-hook-form „verschieben“) | Werte und Fehlermeldungen wandern automatisch mit der Position; keine Doppelhaltung der Reihenfolge | 2026-10-29 |
+| Ziehen nur am Griff, nur senkrecht, nur innerhalb der Zusatzkosten-Liste | Eingabefelder bleiben normal bedienbar; Seite scrollt außerhalb des Griffs weiter; Übernachtung liegt außerhalb der Liste und kann nie überholt werden | 2026-10-29 |
+| Escape während des Ziehens schließt das Seitenpanel nicht | Das Buchungsformular liegt in einem Sheet, das auf Escape schließt; während einer Ziehaktion bricht Escape nur das Ziehen ab | 2026-10-29 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### Ausgangslage (Bestand geprüft)
+- Die Zusatzkosten werden schon heute mit einer **Positionsnummer** (1–20) gespeichert. Beim Speichern ersetzt die Datenbank alle Positionen einer Buchung und nummeriert sie in der Reihenfolge, in der das Formular sie schickt – lückenlos.
+- Das Buchungs-Detail und „Buchung bearbeiten“ laden die Positionen nach dieser Nummer sortiert.
+- Speichert ein Mitarbeiter, bleiben Preise und Positionen unverändert (PROJ-8).
+- Alte Buchungen haben die Nummern in Eingabereihenfolge.
+
+**Folge:** Es braucht **keine Datenbank- und keine Server-Änderung**. Das Feature ist rein im Buchungsformular: Wer die Liste im Formular umsortiert, bekommt beim Speichern automatisch die neue Reihenfolge.
+
+### A) Komponenten-Struktur
+```
+Buchungsformular (Seitenpanel, booking-panel)
++-- … Abschnitte wie bisher …
++-- Preis-Bereich (nur Inhaber)
+    +-- Übernachtungspreis (fix oben, kein Griff, kein Ziehziel)
+    +-- Zusatzkosten-Liste  ← NEU: sortierbarer Bereich
+    |   +-- Zusatzposition (je Zeile)
+    |   |   +-- Griff (NEU, nur ab 2 Positionen; 44 × 44 px; „<Bezeichnung> verschieben“)
+    |   |   +-- Bezeichnung (wie bisher, Fehler unter dem Feld)
+    |   |   +-- Betrag (wie bisher)
+    |   |   +-- Löschen-Knopf (wie bisher)
+    |   +-- Platzhalter-Markierung beim Ziehen (zeigt den Landeplatz)
+    +-- „Position hinzufügen“ (hängt unten an, wie bisher)
+    +-- Endbetrag (unverändert, Summe ist reihenfolgeunabhängig)
++-- Unsichtbarer Ansagebereich für Screenreader (von der Bibliothek bereitgestellt)
+```
+Eine kleine neue Komponente „sortierbare Zusatzposition“ kapselt Griff und Zieh-Verhalten; der Rest der Zeile bleibt der heutige Code. Das Buchungs-Detail bleibt unverändert (zeigt schon in Positionsreihenfolge).
+
+### B) Datenmodell
+Unverändert. Jede Zusatzposition hat weiterhin:
+- Positionsnummer (1–20, lückenlos, ergibt sich aus der Reihenfolge im Formular)
+- Bezeichnung
+- Betrag in Cent (auch negativ, PROJ-32)
+
+Gespeichert in: Supabase, Tabelle der Buchungs-Zusatzkosten (nur für Inhaber lesbar). Keine Migration.
+
+### C) Technische Entscheidungen (Begründung)
+- **Fertige Ziehen-und-Ablegen-Bibliothek (@dnd-kit):** Sie deckt Maus, Finger und Tastatur mit einem einzigen Griff ab und bringt Screenreader-Ansagen mit, die wir auf Deutsch formulieren („Reinigung aufgenommen, Position 2 von 4“ / „… abgelegt auf Position 3 von 4“ / „Verschieben abgebrochen“). Selbst bauen wäre bei Touch und Barrierefreiheit fehleranfällig.
+- **Umsortieren der vorhandenen Formularliste:** Das Formular kennt die Positionen schon als Liste. Beim Ablegen wird nur die Position in dieser Liste verschoben – Bezeichnung, Betrag und eventuelle Fehlermeldung ziehen automatisch mit. Schließen ohne Speichern verwirft die Änderung wie jede andere Formulareingabe.
+- **Ziehen nur am Griff, nur senkrecht, begrenzt auf die Liste:** Felder bleiben normal klick- und tippbar. Am Handy scrollt die Seite außerhalb des Griffs normal; am Griff selbst wird das Scrollen unterdrückt, damit der Finger zieht. Weil die Übernachtung außerhalb der Liste steht, landet eine ganz nach oben gezogene Position immer als erste Zusatzposition.
+- **Escape-Konflikt mit dem Seitenpanel:** Das Formular liegt in einem Panel, das auf Escape schließt. Während eine Position aufgenommen ist, bricht Escape nur das Verschieben ab (Position springt zurück); das Panel bleibt offen.
+- **Griff erst ab zwei Positionen:** Bei 0 oder 1 Position wird die Zeile ohne Griff angezeigt, Layout wie heute.
+- **Platz auf 375 px:** Die Zeile bekommt eine zusätzliche schmale Spalte für den Griff; Bezeichnung schrumpft, Betrag und Löschen bleiben gleich breit – kein seitliches Scrollen.
+
+### D) Abhängigkeiten (zu installieren)
+- `@dnd-kit/core` – Grundlage für Ziehen mit Maus, Touch und Tastatur inkl. Ansagen
+- `@dnd-kit/sortable` – sortierbare Listen, Tastatur-Verschieben in der Liste
+- `@dnd-kit/modifiers` – Bewegung auf senkrecht und auf den Listenbereich begrenzen
+- `@dnd-kit/utilities` – Hilfen für die Verschiebe-Darstellung
+
+### Tests (Plan)
+- Unit: Umsortier-Logik und deutsche Ansagetexte
+- E2E (Playwright): Maus-Ziehen, Tastatur (Leertaste / Pfeile / Leertaste, Escape bricht ab und Panel bleibt offen), Speichern → Detail-Reihenfolge, Bearbeiten öffnet gespeicherte Reihenfolge, Schließen ohne Speichern, Mitarbeiter-Speichern ändert nichts, 375 px ohne seitliches Scrollen
+- Touch: E2E mit Touch-Emulation, zusätzlich manuell am Handy
+
+### Backend
+Nicht nötig. `/backend` kann für PROJ-34 entfallen; nach `/frontend` direkt `/qa`.
 
 ## QA Test Results
 _To be added by /qa_
