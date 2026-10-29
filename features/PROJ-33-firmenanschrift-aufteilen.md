@@ -1,6 +1,6 @@
 # PROJ-33: Firmenanschrift des Gastes in Felder aufteilen
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-10-29
 **Last Updated:** 2026-10-29
 
@@ -96,6 +96,7 @@ Die aufgeteilte Anschrift ist die Grundlage für das geplante Rechnungsmodul, in
 
 ## Open Questions
 - [ ] Welche Felder der Firmenanschrift sind für eine Rechnung Pflicht und wie wird der Rechnungsempfänger je Buchung gewählt? Klärung im Spec des Rechnungsmoduls
+- [ ] Gibt es in Staging/Produktion überhaupt Rechnungsadressen über 200 Zeichen? Beim Deploy prüfen. Falls ja: Solange ein solcher Gast nicht gekürzt ist, scheitert auch das Zusammenführen mit ihm mit der Längenmeldung
 
 ## Decision Log
 
@@ -115,12 +116,89 @@ Die aufgeteilte Anschrift ist die Grundlage für das geplante Rechnungsmodul, in
 <!-- Added by /architecture -->
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Fünf eigene Spalten am Gast mit Präfix „Firma“ statt eigener Tabelle | Eine Firma je Gast (PROJ-7); einfache Abfragen; gleiche Struktur wie Kundenstammdaten | 2026-10-29 |
+| Gleiche Längen- und Länderregeln wie PROJ-28, in Browser und Datenbank | Einheitliche Daten für das spätere Rechnungsmodul; Schutz auch bei umgangener Browser-Prüfung | 2026-10-29 |
+| Altes Feld in derselben Migration übernehmen und entfernen | Keine doppelte Datenhaltung; kein Aufräum-Schritt später nötig; kurzes Fehlerfenster beim Deploy im Pilotbetrieb vertretbar | 2026-10-29 |
+| Längenregel für Altdaten nicht rückwirkend prüfen; scharf schalten, wenn keine zu langen Altdaten existieren | Spec verlangt, Altdaten ungekürzt zu behalten; neue und geänderte Einträge sind trotzdem geschützt | 2026-10-29 |
+| Bestehende Datenbankfunktionen (Buchung mit neuem Gast, Zusammenführen, Anonymisieren) anpassen statt neue anzulegen | Bestehende Rechte- und Protokolllogik bleibt; nur die Feldliste ändert sich | 2026-10-29 |
+| Gemeinsamer Anzeige-Baustein für Adresszeilen (Privat- und Firmenanschrift) | Gleiche Darstellung in Detail und Zusammenführen-Dialog; keine doppelte Logik | 2026-10-29 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### Überblick
+Kleine Umstellung ohne neue Seiten oder Pakete. Der Gast bekommt fünf neue Felder für die Firmenanschrift. Das alte Textfeld wird in einem Schritt übernommen und danach entfernt. Alle Stellen, die bisher das alte Feld lesen oder schreiben, werden auf die neuen Felder umgestellt. Vorbild für Felder, Längen und Länderauswahl sind die Kundenstammdaten (PROJ-28).
+
+### Komponenten (was sich in der Oberfläche ändert)
+```
+Gast-Formular (gemeinsamer Baustein, auch im Buchungsformular „Neuer Gast“)
++-- Bereich „Firma“ (aufklappbar, wie bisher)
+    +-- Firmenname, UID-Nummer (unverändert)
+    +-- Überschrift „Rechnungsadresse“ + Hinweis „Nur angeben, wenn sie von der Adresse oben abweicht.“
+    +-- Adresszeile 1
+    +-- Adresszeile 2
+    +-- PLZ | Ort (nebeneinander ab Tablet, untereinander am Handy)
+    +-- Staat (vorhandene Länderauswahl mit „Keine Angabe“, startet leer)
+    (aufgeklappt, sobald Firmenname, UID oder irgendein Adressfeld befüllt ist)
+
+Gast-Detail
++-- Abschnitt „Firma“ (nur wenn Firmenangaben vorhanden)
+    +-- Firmenname, UID-Nummer (unverändert)
+    +-- Rechnungsadresse: Zeile 1 / Zeile 2 / „PLZ Ort“ / Staat untereinander, leere Teile entfallen
+
+Dubletten zusammenführen (Dialog)
++-- Auswahl „Firma“ (eine Auswahl wie bisher)
+    +-- Vorschau je Gast: Firmenname, UID, Rechnungsadresse im selben Zeilenformat wie im Detail
+```
+Die Anzeige „Zeilen untereinander, leere entfallen“ gibt es schon für die Privatadresse. Sie wird zu einem kleinen gemeinsamen Hilfsbaustein, den Detail und Zusammenführen-Dialog für beide Adressen nutzen.
+
+### Datenmodell (in Worten)
+Jeder Gast bekommt zusätzlich:
+- Firmen-Adresszeile 1 (bis 200 Zeichen)
+- Firmen-Adresszeile 2 (bis 200 Zeichen)
+- Firmen-PLZ (bis 10 Zeichen, freie Eingabe)
+- Firmen-Ort (bis 100 Zeichen)
+- Firmen-Staat (internationaler Ländercode wie bei den übrigen Länderangaben, z. B. AT)
+
+Alle optional, leere Eingaben werden als „nicht angegeben“ gespeichert. Das bisherige Feld „Rechnungsadresse“ (ein Text bis 500 Zeichen) entfällt.
+
+Gespeichert in: Supabase, Tabelle der Gäste. Mandantentrennung und Rollenregeln bleiben, wie sie sind, weil sich nur Spalten ändern.
+
+### Datenübernahme (einmalig, in der Migration)
+1. Neue Felder anlegen
+2. Bisherige Rechnungsadresse in Adresszeile 1 kopieren: Zeilenumbrüche und mehrfache Leerzeichen werden zu einem Leerzeichen, Ränder abgeschnitten
+3. Altes Feld entfernen
+
+Die Längenregel von 200 Zeichen gilt in der Datenbank für alle neuen und geänderten Einträge. Altdaten, die länger sind, bleiben unangetastet stehen (die Regel wird für sie nicht rückwirkend geprüft). Gibt es beim Einspielen keine solchen Altdaten, wird die Regel sofort vollständig scharf geschaltet.
+
+### Was in der Datenbank angepasst wird
+| Stelle | Änderung |
+|--------|----------|
+| Buchung speichern mit neuem Gast | übernimmt die fünf Adressfelder statt des alten Felds |
+| Gäste zusammenführen | übernimmt bei „Firma“ Name, UID und alle fünf Adressfelder gemeinsam vom gewählten Gast |
+| Gast anonymisieren | leert zusätzlich die fünf Adressfelder |
+| Änderungsprotokoll | keine Änderung nötig; es erfasst neue Spalten automatisch und wird beim Anonymisieren wie bisher bereinigt |
+| Suche, Dublettenprüfung, Gästeliste | keine Änderung (die Anschrift wird nicht durchsucht) |
+
+### Was in der App angepasst wird
+- Gast-Datentyp, Feldgrenzen und Prüfregeln (die Grenze 500 entfällt, neue Grenzen 200/10/100)
+- Laden und Speichern von Gästen (Gast-Formular und Buchungsformular „Neuer Gast“)
+- Gast-Formular, Gast-Detail, Zusammenführen-Dialog
+- Texte (Feldbezeichnungen; Überschrift und Hinweis „Rechnungsadresse“ bleiben)
+
+### Tests
+- **Unit:** Prüfregeln der neuen Felder (Längen, leer, nur Leerzeichen), Zeilenformat der Anschrift (leere Teile entfallen)
+- **Integration (gegen Dev-Datenbank):** Datenbank lehnt zu lange Werte und ungültigen Ländercode ab; Zusammenführen übernimmt die Anschrift gemeinsam; Anonymisieren leert sie; neuer Gast aus dem Buchungsformular speichert sie
+- **E2E:** Firmenanschrift erfassen, im Detail sehen, bearbeiten; Staat startet leer; Handy-Ansicht; Zusammenführen-Vorschau
+- **Datenübernahme:** einmalige Prüfung in Dev nach dem Einspielen (Altdaten mit Umbrüchen landen korrekt in Adresszeile 1)
+
+### Auslieferung
+Migration und App-Stand gehören zusammen. Zwischen dem Einspielen der Migration und dem neuen App-Stand liegen nur Minuten. In dieser Zeit können Gast-Seiten der jeweiligen Umgebung kurz Fehler zeigen. Für den Pilotbetrieb ist das vertretbar; der Deploy-Ablauf spielt beides direkt nacheinander ein.
+
+### Abhängigkeiten (Pakete)
+Keine neuen Pakete.
 
 ## QA Test Results
 _To be added by /qa_
