@@ -1,6 +1,6 @@
 # PROJ-36: Kleinunternehmer-Status
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-10-29
 **Last Updated:** 2026-10-29
 
@@ -239,7 +239,94 @@ Keine neuen Pakete.
   - Regression: PROJ-28 desktop 19/19 grün; alle 489 Unit-/Integrationstests grün.
 
 ## QA Test Results
-_To be added by /qa_
+
+**Tested:** 2026-10-29
+**App URL:** http://localhost:3000 (Produktions-Build, Supabase „apppa-dev“)
+**Tester:** QA Engineer (AI)
+
+### Acceptance Criteria Status
+
+#### Anzeige und Erfassung (9)
+- [x] Bereich „Umsatzsteuer“ mit aktuellem Status und Liste (E2E Inhaber + Betreiber)
+- [x] Ohne Einträge „Aktuell: mit Umsatzsteuer“ + Hinweis (E2E)
+- [x] Hinzufügen, speichern, nach Neuladen sichtbar, „Aktuell: Kleinunternehmer – keine Umsatzsteuer, seit Do, 01.01.2026“ (E2E)
+- [x] Liste absteigend sortiert (E2E: 2099 vor 2026)
+- [x] Künftiges Datum als „geplant“, heutiger Status unverändert (E2E + Unit)
+- [x] Eintrag ändern (Datenbank-Test: ersetzt) und Status per Auswahl ändern (E2E)
+- [x] Eintrag entfernen und speichern (E2E + Datenbank-Test)
+- [x] Seite verlassen ohne Speichern: nichts gespeichert (per Code geprüft: Verlauf ändert sich nur über „Speichern“; Datenbank-Test „ohne Schlüssel bleibt Verlauf“)
+- [x] Datumsangaben „Do, 01.01.2026“ in der Zeile „Aktuell“ und in der Entfernen-Beschriftung; Eingabefelder nutzen wie im Buchungsformular das Datumsfeld des Browsers
+
+#### Validierung (3)
+- [x] Fehlendes Datum → Meldung an der Zeile (E2E); fehlender Status (Unit)
+- [x] Doppeltes Datum → „Für dieses Datum gibt es bereits einen Eintrag“ (E2E)
+- [x] Datenbank lehnt doppeltes Datum (23505), ungültige Einträge (22023) und Datum außerhalb 2000–2100 (23514) ab
+
+#### Regel je Buchung (7)
+- [x] Alle sieben Fälle (vor/am Stichtag, über den Stichtag, tatsächliche Abreise, zwei Wechsel, Storno nach Stornotag, ohne Einträge) in `src/lib/vat-status.test.ts`; Stornotag in Wiener Zeit inkl. 23:30/00:30
+
+#### Rollen, Konflikte und Protokoll (6)
+- [x] Betreiber sieht und bearbeitet den Bereich (E2E)
+- [x] Deaktivierter Kunde: Verlauf nur lesbar, ohne Hinzufügen/Entfernen (E2E)
+- [x] Mitarbeiter: kein Lesen, kein Ändern (Datenbank-Test); Seite „nicht gefunden“ (PROJ-28-Regression)
+- [x] Fremder Inhaber: kein Lesen, kein Ändern (Datenbank-Test)
+- [x] Reine Verlaufsänderung löst beim zweiten Nutzer „inzwischen geändert“ aus (P0017, Datenbank-Test)
+- [x] Protokoll „Stammdaten geändert: … Umsatzsteuer-Status“ (E2E Betreiber)
+
+#### Allgemein (2)
+- [x] Bestehende Kunden ohne Einträge = „mit Umsatzsteuer“ (E2E, neuer Kunde)
+- [x] Handy 375 px und Tablet: kein seitliches Scrollen, axe ohne Verstöße (E2E mobile/tablet/desktop)
+
+### Edge Cases Status
+- [x] Gleicher Status hintereinander erlaubt, ohne Wirkung (Unit Regel + Prüfregeln)
+- [x] Erster Eintrag „mit Umsatzsteuer“ ohne Wirkung (Unit)
+- [x] Eintrag weit in der Vergangenheit erlaubt (ab 2000; davor Meldung „zwischen 2000 und 2100“)
+- [x] Option / Sperre: Regel arbeitet nur mit Abreise bzw. Storno; Anzeige folgt in PROJ-35
+- [x] Abreise nachträglich geändert: Regel liest stets die aktuelle Abreise
+- [x] Stornotag in österreichischer Zeit (Unit, 23:30 MESZ)
+- [x] Reihenfolge der Einträge beim Speichern egal: kein überflüssiger Protokolleintrag (Datenbank-Test)
+- [x] Mehr als 50 Einträge: „Wechsel hinzufügen“ ab 50 gesperrt mit Hinweis (BUG-1, behoben)
+
+### Cross-Browser / Responsive
+- [x] Chromium Desktop (alle Abläufe), Firefox (alle Abläufe, 3/3), Tablet und Handy (Layout + axe)
+- [ ] Safari nicht getestet (läuft laut Runbook nur gegen `npm run dev`); keine Safari-spezifischen Bausteine verwendet
+
+### Security Audit Results
+- [x] Anmeldung: ohne Sitzung kein Zugriff (Tabelle für `anon` gesperrt, Funktion nur für `authenticated`)
+- [x] Mandantentrennung: fremder Inhaber liest/ändert nicht (Datenbank-Test)
+- [x] Mitarbeiter liest den Verlauf nicht (strenger als übrige Stammdaten, wie im Design festgelegt)
+- [x] Direktes insert/delete auf `vat_status_changes` → 42501, auch für Inhaber
+- [x] Eingaben: nur Datum/boolean, Struktur in der Datenbank geprüft (22023); keine Freitexte → kein XSS-Pfad
+- [x] Protokoll enthält nur Feldnamen, keine Werte
+- [x] Rate-Limiting: nicht relevant (gleiche geschützte Funktion wie PROJ-28, nur angemeldete Inhaber/Admin)
+
+### Regression
+- [x] PROJ-28 Kundenstammdaten desktop 19/19
+- [x] PROJ-4 Kundenkonten & Rollen desktop 31/31 (1 übersprungen wie bisher)
+- [x] PROJ-5 Betreiber-Admin (Detail, Deaktivieren, Löschen, Sicherheit) 8/8
+- [x] Unit/Integration 489/489
+
+### Bugs Found
+
+#### BUG-1: Mehr als 50 Einträge: Speichern tut nichts, ohne Meldung
+- **Severity:** Low
+- **Steps to Reproduce:**
+  1. *Einstellungen → Kunde*, 51-mal „Wechsel hinzufügen“, jeweils Datum eintragen
+  2. „Speichern“
+  3. Expected: verständliche Meldung (z. B. „Höchstens 50 Wechsel“) oder „Wechsel hinzufügen“ ab 50 gesperrt
+  4. Actual: Die Prüfregel (`VAT_STATUS_MAX`) schlägt an der Liste selbst an; dafür gibt es keine Meldungsstelle im Formular, es passiert sichtbar nichts
+- **Priority:** Nice to have (in der Praxis wenige Einträge)
+- **Status:** Behoben 2026-10-29: „Wechsel hinzufügen“ ist ab 50 Einträgen gesperrt, darunter der Hinweis „Höchstens 50 Wechsel möglich. Entferne einen älteren Eintrag, …“; die Prüfregel der Liste hat zusätzlich eine eigene Meldung. Unit-Test und E2E-Test (`BUG-1: Bei 50 Einträgen …`) grün; Formular-Abläufe desktop 6/6, Layout Handy grün.
+
+#### Hinweis (kein Bug von PROJ-36)
+- Ist beim Kunden noch kein Staat gespeichert, speichert das Formular die Vorbelegung „Österreich“ beim nächsten Speichern mit; das Protokoll zeigt dann z. B. „Staat, Umsatzsteuer-Status“. Verhalten seit PROJ-28 so festgelegt.
+
+### Summary
+- **Acceptance Criteria:** 27/27 passed
+- **Bugs Found:** 1 total (0 critical, 0 high, 0 medium, 1 low) – behoben
+- **Security:** Pass
+- **Production Ready:** YES
+- **Recommendation:** Deploy
 
 ## Deployment
 _To be added by /deploy_
