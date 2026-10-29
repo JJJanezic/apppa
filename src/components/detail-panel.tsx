@@ -10,15 +10,18 @@ interface DetailPanelProps {
   eyebrow?: React.ReactNode
   description?: React.ReactNode
   children: React.ReactNode
+  // Escape abfangen, z. B. während eine Position verschoben wird (PROJ-34)
+  onEscapeKeyDown?: (event: KeyboardEvent) => void
 }
 
 // Detail-Panel wie im Entwurf: fährt von rechts herein (max. 440 px), am Handy bildschirmfüllend.
 // Esc, Klick außerhalb und „Schließen“ schließen es; der Fokus kehrt zum auslösenden Element zurück.
-export function DetailPanel({ open, onOpenChange, title, eyebrow, description, children }: DetailPanelProps) {
+export function DetailPanel({ open, onOpenChange, title, eyebrow, description, children, onEscapeKeyDown }: DetailPanelProps) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
+        onEscapeKeyDown={onEscapeKeyDown}
         className="flex w-full flex-col gap-6 overflow-y-auto bg-ds-bg p-6 sm:max-w-[440px] [&>button:last-child]:right-2 [&>button:last-child]:top-2 [&>button:last-child]:p-3"
       >
         <SheetHeader className="gap-1 pr-10 text-left">

@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { Plus, Trash, WarningCircle } from '@phosphor-icons/react'
 import { useRouter } from 'next/navigation'
 import { useLocale, useTranslations } from 'next-intl'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useFieldArray, useForm, useWatch } from 'react-hook-form'
 import { toast } from 'sonner'
 
@@ -14,6 +14,7 @@ import { Amount } from '@/components/amount'
 import { AmountInput } from '@/components/amount-input'
 import { callAction, FormError } from '@/components/auth/form-error'
 import { BookingWarningsAlert, GuestSheetWarning, hasGuestSheetDuplicates, hasWarnings } from '@/components/bookings/booking-warnings'
+import { SortableChargeList, SortableChargeRow } from '@/components/bookings/sortable-charges'
 import { useBookingWarnings } from '@/components/bookings/use-booking-warnings'
 import { DetailPanel } from '@/components/detail-panel'
 import { GuestFields } from '@/components/guests/guest-fields'
@@ -166,6 +167,8 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
   })
   const children = useFieldArray({ control: form.control, name: 'children' })
   const charges = useFieldArray({ control: form.control, name: 'charges' })
+  // Während eine Zusatzposition verschoben wird, bricht Escape nur das Verschieben ab (PROJ-34)
+  const sortingCharge = useRef(false)
 
   const [kind, apartmentId, arrival, plannedDeparture, departure, guestMode, adults, childRows, nightsPrice, chargeRows, source, guestSheetNumber] =
     useWatch({
@@ -302,6 +305,9 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
     <DetailPanel
       open={open}
       onOpenChange={onOpenChange}
+      onEscapeKeyDown={(e) => {
+        if (sortingCharge.current) e.preventDefault()
+      }}
       title={booking ? t('panel.editTitle') : t('panel.createTitle')}
       eyebrow={booking ? [t(`kind.${booking.kind}`), booking.number].filter(Boolean).join(' · ') : undefined}
       description={booking ? undefined : t('panel.description')}
@@ -720,39 +726,53 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
                     <option key={s} value={t(`chargeSuggestions.${s}`)} />
                   ))}
                 </datalist>
-                {charges.fields.map((charge, i) => (
-                  <div key={charge.id} className="grid grid-cols-[1fr_7rem_auto] items-start gap-2">
-                    <FormField
-                      control={form.control}
-                      name={`charges.${i}.label`}
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="sr-only">{t('panel.chargeLabel')}</FormLabel>
-                          <FormControl>
-                            <Input list="zusatzkosten-vorschlaege" maxLength={LIMITS.chargeLabelMax} placeholder={t('panel.chargeLabel')} className="min-h-11" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name={`charges.${i}.amount`}
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="sr-only">{t('panel.chargeAmount')}</FormLabel>
-                          <FormControl>
-                            <AmountInput negative placeholder={t('panel.chargeAmount')} className="min-h-11" {...field} onValueChange={field.onChange} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <Button type="button" variant="ghost" size="icon" className="size-11" aria-label={t('panel.removeCharge', { n: i + 1 })} onClick={() => charges.remove(i)}>
-                      <Trash size={18} aria-hidden="true" />
-                    </Button>
-                  </div>
-                ))}
+                <SortableChargeList
+                  ids={charges.fields.map((c) => c.id)}
+                  labelAt={(i) => form.getValues(`charges.${i}.label`) ?? ''}
+                  onMove={charges.move}
+                  onDraggingChange={(d) => {
+                    sortingCharge.current = d
+                  }}
+                >
+                  {charges.fields.map((charge, i) => (
+                    <SortableChargeRow
+                      key={charge.id}
+                      id={charge.id}
+                      sortable={charges.fields.length > 1}
+                      handleLabel={t('panel.moveCharge', { label: chargeRows[i]?.label?.trim() || t('panel.chargeFallback', { n: i + 1 }) })}
+                    >
+                      <FormField
+                        control={form.control}
+                        name={`charges.${i}.label`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="sr-only">{t('panel.chargeLabel')}</FormLabel>
+                            <FormControl>
+                              <Input list="zusatzkosten-vorschlaege" maxLength={LIMITS.chargeLabelMax} placeholder={t('panel.chargeLabel')} className="min-h-11" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name={`charges.${i}.amount`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="sr-only">{t('panel.chargeAmount')}</FormLabel>
+                            <FormControl>
+                              <AmountInput negative placeholder={t('panel.chargeAmount')} className="min-h-11" {...field} onValueChange={field.onChange} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <Button type="button" variant="ghost" size="icon" className="size-11" aria-label={t('panel.removeCharge', { n: i + 1 })} onClick={() => charges.remove(i)}>
+                        <Trash size={18} aria-hidden="true" />
+                      </Button>
+                    </SortableChargeRow>
+                  ))}
+                </SortableChargeList>
                 {charges.fields.length < LIMITS.chargesMax && (
                   <Button type="button" variant="outline" className="min-h-11 self-start" onClick={() => charges.append({ label: '', amount: '' }, { shouldFocus: true })}>
                     <Plus size={16} aria-hidden="true" />

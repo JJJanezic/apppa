@@ -1,6 +1,6 @@
 # PROJ-34: Preispositionen ordnen
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-10-29
 **Last Updated:** 2026-10-29
 
@@ -166,6 +166,27 @@ Gespeichert in: Supabase, Tabelle der Buchungs-Zusatzkosten (nur für Inhaber le
 
 ### Backend
 Nicht nötig. `/backend` kann für PROJ-34 entfallen; nach `/frontend` direkt `/qa`.
+
+## Implementation Notes (Frontend)
+**Gebaut (2026-10-29):**
+- `src/components/bookings/sortable-charges.tsx` (neu): `SortableChargeList` (Ziehbereich mit @dnd-kit, Sensoren Zeiger + Tastatur, nur senkrecht und innerhalb der Liste, deutsche Screenreader-Anleitung und -Ansagen) und `SortableChargeRow` (Zeile mit Griff als shadcn-`Button`, 44 × 44 px, `touch-none`, Name „<Bezeichnung> verschieben“ bzw. „Position n verschieben“ bei leerer Bezeichnung; Rahmen + Schatten an der gezogenen Zeile)
+- `booking-panel.tsx`: Zusatzkosten-Zeilen in die sortierbare Liste gelegt; Ablegen ruft `useFieldArray.move` (Werte und Fehlermeldungen wandern mit); Griff erst ab zwei Positionen; Übernachtung bleibt außerhalb der Liste
+- `detail-panel.tsx`: neue optionale Eigenschaft `onEscapeKeyDown`; das Buchungsformular verhindert damit das Schließen, solange eine Position aufgenommen ist (Escape bricht nur das Verschieben ab)
+- `messages/de.json`: Texte für Griff, Anleitung und Ansagen („… aufgenommen, Position x von y“, „… auf Position …“, „… abgelegt auf Position …“, „Verschieben abgebrochen …“)
+- Pakete: `@dnd-kit/core`, `@dnd-kit/sortable`, `@dnd-kit/modifiers`, `@dnd-kit/utilities`
+- Keine Datenbank- oder Server-Änderung (siehe Tech Design)
+
+**Während der Umsetzung gefunden und behoben:**
+- Beim Aufnehmen überschrieb die Bibliothek die Ansage „aufgenommen“ sofort mit „auf Position x von y“ (Position liegt über sich selbst) → Ansage für das unveränderte Ziel unterdrückt
+- Die Ablege-Ansage nannte nach dem Umsortieren die falsche Bezeichnung → Name und Stellen werden beim Aufnehmen festgehalten
+
+**Abweichungen:** Für die Verschiebe-Darstellung (transform) ist ein `style`-Attribut nötig; das lässt sich mit Tailwind-Klassen nicht abbilden.
+
+**Bekannte Eigenheiten der Bibliothek (kein App-Fehler, relevant für Tests):**
+- Klicks in den ersten 50 ms nach dem Ablegen werden verschluckt (Schutz vor Klick am Ende des Ziehens)
+- Die Tastatur-Steuerung hört erst einen Takt nach der Leertaste auf Pfeile und Escape; Tests warten deshalb auf die Ansage
+
+**Tests:** `tests/PROJ-34-preispositionen-ordnen.spec.ts`, 9 Desktop-Tests (Darstellung, Maus, Tastatur inkl. Ansagen und Escape, Speichern/Detail/Bearbeiten, Verwerfen, Fehlermeldung wandert mit, Löschen ohne Lücke, Mitarbeiter) und 1 Handy-Test (375 px, Griff ≥ 44 px, Touch-Ziehen über das Chrome-Protokoll), alle grün. Regression: Unit 347/347, PROJ-32 „Eingabe“ 5/5.
 
 ## QA Test Results
 _To be added by /qa_
