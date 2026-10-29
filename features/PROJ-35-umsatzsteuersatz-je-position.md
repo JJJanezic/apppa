@@ -373,3 +373,4 @@ Keine offenen Bugs. Beim Backend gefunden und bereits behoben: lange Betragsmeld
 - **Migrationen:** `20261029181138_vat_rates.sql` (Staging und Produktion; Advisors nur bekannte Auth-Hinweise). Umstellung der Altbuchungen in Staging vom Nutzer geprüft.
 - **Neue Pakete / Umgebungsvariablen:** keine
 - **Mit ausgeliefert:** Buchhaltungs-Commit PROJ-36
+- **Nachbesserung 2026-10-29, Version v1.13.1:** Commit `d7bc48d` (Bezeichnung der Zusatzpositionen in voller Breite), Staging vom Nutzer geprüft, Produktion ausgeliefert; keine Migration.
