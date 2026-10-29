@@ -1,6 +1,6 @@
 # PROJ-33: Firmenanschrift des Gastes in Felder aufteilen
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-10-29
 **Last Updated:** 2026-10-29
 
@@ -312,4 +312,11 @@ Keine. Während `/backend` gefunden und schon behoben: fehlende spaltenweise Sch
 
 
 ## Deployment
-_To be added by /deploy_
+- **Datum:** 2026-10-29, Version v1.10.0
+- **Commit:** `4a4001e` (Branches `staging` und `production`)
+- **Staging:** https://staging.apppa.at (geprüft vom Nutzer)
+- **Production:** https://app.apppa.at
+- **Migrationen (Staging und Produktion):** `20261028212807_audit_log_policy_tenant_list.sql` (Fix aus einem früheren Commit, mit ausgeliefert), `20261029043623_guest_company_address.sql`, `20261029043831_guest_company_address_grants.sql`
+- **Advisors:** Staging und Produktion ohne Meldungen
+- **Lange Altadressen (> 200 Zeichen):** Die Migration hat auf beiden Umgebungen keine Meldung ausgegeben; nicht direkt abgefragt
+- **Hinweis Dev:** Der RLS-Test „Person ohne Mitgliedschaft sieht keinerlei Mandantendaten“ (PROJ-1) läuft im Gesamtlauf in die Zeitgrenze, weil im Dev-Protokoll rund 61.000 Zeilen gelöschter Testkunden liegen. Kein Bezug zu PROJ-33, nicht auf Staging/Produktion übertragbar

@@ -47,7 +47,7 @@
 | PROJ-30 | Buchungs-Erweiterung: Meldedaten, Buchungsquelle, Monatsauswahl | Gästeblattnummer, Abreise geplant/tatsächlich (Preis anteilig, Belegung nach tatsächlicher Abreise), Wohnsitz angemeldet, Buchungsquelle inkl. booking.com mit Kalenderfarbe und Filter, Sprungauswahl in der Buchungsübersicht, Mitreisende Nachname vor Vorname | P0 | PROJ-8, PROJ-9, PROJ-27 | Deployed | [Spec](PROJ-30-buchungs-erweiterung.md) | 2026-10-26 |
 | PROJ-31 | Einheitliche Datums- und Betragsformate | Datum überall „Mi, 28.10.2026“ (Ausnahmen: Geburts-/Ausstellungsdatum, enge Kalenderstellen, Monatsüberschriften, Dashboard-Gruß), Zeitraum in der Buchungsliste zweizeilig, Beträge mit zwei Nachkommastellen auch in Eingabefeldern | P0 | PROJ-2, PROJ-8, PROJ-9 | Deployed | [Spec](PROJ-31-datums-und-betragsformate.md) | 2026-10-28 |
 | PROJ-32 | Negative Beträge bei Zusatzkosten | Zusatzkosten-Positionen auch negativ (Rabatt, Gutschrift), Endbetrag darf unter 0 fallen, Anzeige „-€ 50,00“ in Rot; Vorschläge „Rabatt“ und „Nächtigungsabgabe“ | P0 | PROJ-8, PROJ-30, PROJ-31 | Deployed | [Spec](PROJ-32-negative-zusatzkosten.md) | 2026-10-28 |
-| PROJ-33 | Firmenanschrift des Gastes aufteilen | Rechnungsadresse der Firma statt einem Textfeld in Adresszeile 1/2, PLZ, Ort, Staat; Firmenname und UID unverändert; Altdaten in Adresszeile 1 | P0 | PROJ-7, PROJ-29 | Approved | [Spec](PROJ-33-firmenanschrift-aufteilen.md) | 2026-10-29 |
+| PROJ-33 | Firmenanschrift des Gastes aufteilen | Rechnungsadresse der Firma statt einem Textfeld in Adresszeile 1/2, PLZ, Ort, Staat; Firmenname und UID unverändert; Altdaten in Adresszeile 1 | P0 | PROJ-7, PROJ-29 | Deployed | [Spec](PROJ-33-firmenanschrift-aufteilen.md) | 2026-10-29 |
 
 <!-- Add features above this line -->
 
