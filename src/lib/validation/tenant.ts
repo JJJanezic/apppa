@@ -1,5 +1,6 @@
 import { z } from 'zod'
 
+import { isIsoDate } from '@/lib/bookings'
 import { isCountry } from '@/lib/guests'
 import { isVatId, MASTER_DATA_LIMITS as L, normalizeVatId } from '@/lib/tenant-master-data'
 
@@ -7,6 +8,9 @@ import { isVatId, MASTER_DATA_LIMITS as L, normalizeVatId } from '@/lib/tenant-m
 // Meldungen kommen über `t` aus messages/de.json („tenantData.validation“).
 
 type T = (key: string) => string
+
+// Obergrenze für den Verlauf; gleicher Wert in der Datenbank-Funktion
+export const VAT_STATUS_MAX = 50
 
 // Leere Eingabe (auch nur Leerzeichen) → null; sonst getrimmt und begrenzt
 const optional = (t: T, max: number) =>
@@ -35,6 +39,27 @@ export const tenantMasterDataSchema = (t: T) =>
       .transform((v) => v || null),
     taxNumber: optional(t, L.numberMax),
     registerNumber: optional(t, L.numberMax),
+    // Kleinunternehmer-Status (PROJ-36): je Eintrag Datum und Status Pflicht, jedes Datum nur einmal
+    vatStatus: z
+      .array(
+        z.object({
+          validFrom: z.string().refine(isIsoDate, t('vatDateRequired')),
+          status: z
+            .string()
+            .refine((v) => v === 'small' || v === 'regular', t('vatStatusRequired'))
+            .transform((v) => v === 'small'),
+        })
+      )
+      .max(VAT_STATUS_MAX)
+      .superRefine((rows, ctx) => {
+        const seen = new Set<string>()
+        rows.forEach((row, i) => {
+          if (!isIsoDate(row.validFrom)) return
+          if (seen.has(row.validFrom)) ctx.addIssue({ code: 'custom', path: [i, 'validFrom'], message: t('vatDateDuplicate') })
+          seen.add(row.validFrom)
+        })
+      })
+      .transform((rows) => rows.map((r) => ({ validFrom: r.validFrom, smallBusiness: r.status }))),
   })
 
 export type TenantMasterDataInput = z.input<ReturnType<typeof tenantMasterDataSchema>>

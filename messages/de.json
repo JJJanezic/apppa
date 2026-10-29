@@ -314,7 +314,27 @@
       "vatIdHint": "Zum Beispiel ATU12345678.",
       "taxNumber": "Steuernummer",
       "registerNumber": "Registernummer",
-      "registerNumberHint": "Zum Beispiel Firmenbuchnummer FN 123456a."
+      "registerNumberHint": "Zum Beispiel Firmenbuchnummer FN 123456a.",
+      "vatStatus": "Umsatzsteuer-Status"
+    },
+    "vat": {
+      "title": "Umsatzsteuer",
+      "currentRegular": "Aktuell: mit Umsatzsteuer",
+      "currentRegularSince": "Aktuell: mit Umsatzsteuer, seit {date}",
+      "currentSmall": "Aktuell: Kleinunternehmer – keine Umsatzsteuer, seit {date}",
+      "empty": "Noch kein Wechsel erfasst – es gilt: mit Umsatzsteuer.",
+      "listLabel": "Wechsel des Umsatzsteuer-Status",
+      "validFrom": "ab",
+      "status": "Status",
+      "statusPlaceholder": "Status wählen",
+      "statuses": {
+        "small": "Kleinunternehmer – keine Umsatzsteuer",
+        "regular": "mit Umsatzsteuer"
+      },
+      "planned": "geplant",
+      "add": "Wechsel hinzufügen",
+      "remove": "Wechsel ab {date} entfernen",
+      "noDate": "ohne Datum"
     },
     "sections": {
       "address": "Adresse",
@@ -330,12 +350,16 @@
       "nameRequired": "Bitte gib einen Kundennamen ein.",
       "tooLong": "Diese Angabe ist zu lang.",
       "vatIdInvalid": "Bitte prüfe die UID. Sie beginnt mit dem Länderkürzel, z. B. ATU12345678 (ATU und 8 Ziffern).",
+      "vatDateRequired": "Bitte gib das Datum ein, ab dem der Status gilt.",
+      "vatStatusRequired": "Bitte wähle einen Status.",
+      "vatDateDuplicate": "Für dieses Datum gibt es bereits einen Eintrag.",
       "unknown": "Bitte prüfe diese Angabe."
     },
     "errors": {
       "staleTenant": "Die Kundendaten wurden inzwischen geändert.",
       "tenantDeactivated": "Der Kunde ist deaktiviert. Die Stammdaten lassen sich nicht ändern.",
       "tenantGone": "Diesen Kunden gibt es nicht mehr.",
+      "vatDateDuplicate": "Beim Umsatzsteuer-Status gibt es für ein Datum zwei Einträge. Bitte prüfe die Liste.",
       "network": "Keine Verbindung. Bitte prüfe deine Internetverbindung und versuche es erneut.",
       "sessionExpired": "Deine Sitzung ist abgelaufen. Bitte melde dich erneut an.",
       "notImplemented": "Diese Funktion wird gerade eingerichtet.",

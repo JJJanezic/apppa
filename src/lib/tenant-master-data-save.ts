@@ -15,6 +15,8 @@ const DB_ERRORS: Record<string, TenantMasterDataErrorCode | CommonErrorCode> = {
   // P0016 kommt aus private.lock_tenant (wie im Betreiber-Bereich)
   P0016: 'tenantDeactivated',
   P0017: 'staleTenant',
+  // zwei Statuswechsel am selben Tag (PROJ-36)
+  '23505': 'vatDateDuplicate',
 }
 
 export async function saveTenantMasterData(
@@ -37,6 +39,7 @@ export async function saveTenantMasterData(
       vat_id: v.vatId,
       tax_number: v.taxNumber,
       register_number: v.registerNumber,
+      vat_status: v.vatStatus.map((c) => ({ valid_from: c.validFrom, small_business: c.smallBusiness })),
     },
   })
   if (error) {

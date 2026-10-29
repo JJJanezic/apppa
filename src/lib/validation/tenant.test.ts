@@ -18,6 +18,7 @@ const EMPTY = {
   vatId: '',
   taxNumber: '',
   registerNumber: '',
+  vatStatus: [] as { validFrom: string; status: string }[],
 }
 
 const firstError = (r: { success: boolean; error?: { issues: { message: string }[] } }) => r.error?.issues[0]?.message
@@ -35,6 +36,7 @@ describe('tenantMasterDataSchema', () => {
       vatId: null,
       taxNumber: null,
       registerNumber: null,
+      vatStatus: [],
     })
   })
 
@@ -71,5 +73,49 @@ describe('tenantMasterDataSchema', () => {
   it('nimmt nur bekannte Ländercodes', () => {
     expect(schema.parse({ ...EMPTY, country: 'AT' }).country).toBe('AT')
     expect(firstError(schema.safeParse({ ...EMPTY, country: 'XX' }))).toBe(v.unknown)
+  })
+
+  it('Kleinunternehmer-Status: wandelt die Auswahl in ja/nein (PROJ-36)', () => {
+    const r = schema.parse({
+      ...EMPTY,
+      vatStatus: [
+        { validFrom: '2026-08-15', status: 'regular' },
+        { validFrom: '2026-01-01', status: 'small' },
+      ],
+    })
+    expect(r.vatStatus).toEqual([
+      { validFrom: '2026-08-15', smallBusiness: false },
+      { validFrom: '2026-01-01', smallBusiness: true },
+    ])
+  })
+
+  it('Kleinunternehmer-Status: Datum und Status sind Pflicht', () => {
+    expect(firstError(schema.safeParse({ ...EMPTY, vatStatus: [{ validFrom: '', status: 'small' }] }))).toBe(v.vatDateRequired)
+    expect(firstError(schema.safeParse({ ...EMPTY, vatStatus: [{ validFrom: '2026-02-30', status: 'small' }] }))).toBe(
+      v.vatDateRequired
+    )
+    expect(firstError(schema.safeParse({ ...EMPTY, vatStatus: [{ validFrom: '2026-07-01', status: '' }] }))).toBe(
+      v.vatStatusRequired
+    )
+  })
+
+  it('Kleinunternehmer-Status: ein Datum nur einmal, Fehler an der zweiten Zeile', () => {
+    const r = schema.safeParse({
+      ...EMPTY,
+      vatStatus: [
+        { validFrom: '2026-07-01', status: 'small' },
+        { validFrom: '2026-07-01', status: 'regular' },
+      ],
+    })
+    expect(r.success).toBe(false)
+    expect(r.error?.issues[0]).toMatchObject({ message: v.vatDateDuplicate, path: ['vatStatus', 1, 'validFrom'] })
+  })
+
+  it('Kleinunternehmer-Status: gleicher Status hintereinander ist erlaubt', () => {
+    const rows = [
+      { validFrom: '2026-01-01', status: 'small' },
+      { validFrom: '2026-05-01', status: 'small' },
+    ]
+    expect(schema.safeParse({ ...EMPTY, vatStatus: rows }).success).toBe(true)
   })
 })

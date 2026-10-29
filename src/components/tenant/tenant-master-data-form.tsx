@@ -12,6 +12,7 @@ import { adminUpdateTenantMasterData } from '@/app/(app)/betreiber/actions'
 import { updateTenantMasterData } from '@/app/(app)/einstellungen/actions'
 import { callAction, FormError } from '@/components/auth/form-error'
 import { CountryPicker } from '@/components/guests/country-picker'
+import { VatStatusFields } from '@/components/tenant/vat-status-fields'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
@@ -30,6 +31,7 @@ const toInput = (d: TenantMasterData): TenantMasterDataInput => ({
   vatId: d.vatId ?? '',
   taxNumber: d.taxNumber ?? '',
   registerNumber: d.registerNumber ?? '',
+  vatStatus: d.vatStatus.map((c) => ({ validFrom: c.validFrom, status: c.smallBusiness ? 'small' : 'regular' })),
 })
 
 interface TenantMasterDataFormProps {
@@ -70,7 +72,7 @@ export function TenantMasterDataForm({ data, mode, readOnly = false }: TenantMas
   }
 
   const text = (
-    name: Exclude<keyof TenantMasterDataInput, 'country'>,
+    name: Exclude<keyof TenantMasterDataInput, 'country' | 'vatStatus'>,
     max: number,
     opts: { hint?: string; autoComplete?: string } = {}
   ) => (
@@ -146,6 +148,8 @@ export function TenantMasterDataForm({ data, mode, readOnly = false }: TenantMas
               {text('registerNumber', L.numberMax, { hint: t('fields.registerNumberHint') })}
             </div>
           </div>
+
+          <VatStatusFields control={form.control} saved={data.vatStatus} readOnly={readOnly} />
         </fieldset>
 
         {!readOnly && (

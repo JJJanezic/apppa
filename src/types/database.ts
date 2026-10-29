@@ -1026,6 +1026,47 @@ export type Database = {
         }
         Relationships: []
       }
+      vat_status_changes: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          small_business: boolean
+          tenant_id: string
+          updated_at: string
+          updated_by: string | null
+          valid_from: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          small_business: boolean
+          tenant_id: string
+          updated_at?: string
+          updated_by?: string | null
+          valid_from: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          small_business?: boolean
+          tenant_id?: string
+          updated_at?: string
+          updated_by?: string | null
+          valid_from?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vat_status_changes_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

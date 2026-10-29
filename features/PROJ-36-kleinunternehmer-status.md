@@ -1,6 +1,6 @@
 # PROJ-36: Kleinunternehmer-Status
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-10-29
 **Last Updated:** 2026-10-29
 
@@ -215,6 +215,17 @@ Die Buchungsseiten laden den Verlauf künftig für Inhaber mit (wenige Zeilen je
 
 ### Abhängigkeiten (Pakete)
 Keine neuen Pakete.
+
+### Umsetzung Frontend (2026-10-29)
+- **Regel** `src/lib/vat-status.ts`: `vatStatusOn` (Status an einem Tag), `vatStatusForBooking` / `vatStatusDay` (Abreise bzw. Stornotag in Wiener Zeit), `isPlannedChange`, `vatStatusFromRows` (neueste zuerst). Unit-Tests `vat-status.test.ts`.
+- **Formularbereich** `src/components/tenant/vat-status-fields.tsx` im gemeinsamen Stammdaten-Formular (Inhaber und Betreiber): Zeile „Aktuell: …“ aus dem gespeicherten Verlauf, Leerzustand, Liste mit Datum, Status-Auswahl, Kennzeichen „geplant“ und Entfernen; „Wechsel hinzufügen“ fügt oben eine Zeile mit dem Gegenteil des heutigen Status ein. Am Handy zweizeilig. Bei deaktiviertem Kunden nur lesbar.
+- **Prüfregeln** `src/lib/validation/tenant.ts`: `vatStatus` mit Pflicht-Datum, Pflicht-Status, doppeltes Datum (Fehler an der zweiten Zeile), höchstens 50 Einträge (`VAT_STATUS_MAX`). Tests in `tenant.test.ts`.
+- **Laden:** `MASTER_DATA_COLUMNS` bettet `vat_status_changes(valid_from, small_business)` ein; `TenantMasterData.vatStatus`. Betrifft *Einstellungen → Kunde* und die Betreiber-Detailseite.
+- **Speichern:** `saveTenantMasterData` übergibt `vat_status` (Liste aus `valid_from`, `small_business`) in `p_data` an `update_tenant_master_data`. Fehlercode 23505 → „vatDateDuplicate“.
+- **Protokoll:** Feldname `vat_status` erscheint als „Umsatzsteuer-Status“ (`tenantData.fields.vatStatus`).
+- **Texte** in `messages/de.json` (`tenantData.vat`, Prüf- und Fehlermeldungen).
+- **Typen** `src/types/database.ts` von Hand um die Tabelle `vat_status_changes` ergänzt; `/backend` erzeugt sie neu.
+- **Offen für /backend:** Tabelle `vat_status_changes` (tenant_id, valid_from, small_business, Audit-Felder; eindeutig je Kunde + Datum; RLS Lesen nur Inhaber + Admin, kein direktes Schreiben; Änderungsprotokoll), `update_tenant_master_data` um `vat_status` erweitern (vollständig ersetzen, höchstens 50, `updated_at` des Kunden setzen, `vat_status` in `changed_fields`). **Ohne Migration schlagen *Einstellungen → Kunde* und die Betreiber-Detailseite beim Laden fehl** (eingebettete Tabelle fehlt).
 
 ## QA Test Results
 _To be added by /qa_

@@ -1,6 +1,8 @@
 // Kundenstammdaten (PROJ-28): Felder, Grenzen und UID-Regeln. Gilt im Browser und auf dem Server.
 
-export type TenantMasterDataErrorCode = 'staleTenant' | 'tenantDeactivated' | 'tenantGone'
+import { type VatStatusChange, type VatStatusChangeRow, vatStatusFromRows } from '@/lib/vat-status'
+
+export type TenantMasterDataErrorCode = 'staleTenant' | 'tenantDeactivated' | 'tenantGone' | 'vatDateDuplicate'
 
 export const MASTER_DATA_LIMITS = {
   nameMax: 200,
@@ -25,13 +27,15 @@ export type TenantMasterData = {
   vatId: string | null
   taxNumber: string | null
   registerNumber: string | null
+  // Kleinunternehmer-Status (PROJ-36), neueste zuerst
+  vatStatus: VatStatusChange[]
   // Stand beim Laden; Schutz vor Überschreiben bei gleichzeitiger Bearbeitung
   updatedAt: string
 }
 
-// Spalten der Tabelle tenants
+// Spalten der Tabelle tenants, dazu der Verlauf des Kleinunternehmer-Status (PROJ-36)
 export const MASTER_DATA_COLUMNS =
-  'id, name, name_line2, address_line1, address_line2, postal_code, city, country, vat_id, tax_number, register_number, updated_at'
+  'id, name, name_line2, address_line1, address_line2, postal_code, city, country, vat_id, tax_number, register_number, updated_at, vat_status_changes(valid_from, small_business)'
 
 export type TenantMasterDataRow = {
   id: string
@@ -46,6 +50,7 @@ export type TenantMasterDataRow = {
   tax_number: string | null
   register_number: string | null
   updated_at: string
+  vat_status_changes: VatStatusChangeRow[]
 }
 
 export const masterDataFromRow = (row: TenantMasterDataRow): TenantMasterData => ({
@@ -60,6 +65,7 @@ export const masterDataFromRow = (row: TenantMasterDataRow): TenantMasterData =>
   vatId: row.vat_id,
   taxNumber: row.tax_number,
   registerNumber: row.register_number,
+  vatStatus: vatStatusFromRows(row.vat_status_changes),
   updatedAt: row.updated_at,
 })
 
