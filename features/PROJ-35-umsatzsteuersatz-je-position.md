@@ -360,6 +360,11 @@ Keine offenen Bugs. Beim Backend gefunden und bereits behoben: lange Betragsmeld
 - **Production Ready:** YES
 - **Recommendation:** Deploy
 
+### Nachbesserung nach dem Deploy (2026-10-29)
+- **Rückmeldung des Nutzers:** Im Buchungsformular waren die Bezeichnungen der Zusatzpositionen nicht lesbar, weil das Feld zu schmal war (im Panel ca. 86 px, da Griff, Bezeichnung, Betrag, Satz und Löschen in einer Zeile standen).
+- **Behoben:** Mit Satzfeldern ist jede Zusatzposition jetzt immer zweizeilig und gerahmt: oben Griff, Bezeichnung in voller Breite und Löschen, darunter Betrag und „% USt“ (`sortable-charges.tsx`). Ohne Satzfelder (Kleinunternehmer) bleibt das bisherige einzeilige Raster.
+- **Tests:** Layout-Test prüft jetzt eine Mindestbreite der Bezeichnung von 180 px (Desktop, Tablet, Handy). Tastatur-Tests (PROJ-34/35) warten nach dem Aufnehmen zwei Bildaufbauten ab – mit den höheren Zeilen kam ein sofortiger Pfeiltastendruck sonst vor der Vermessung durch dnd-kit (nur im Test, nicht für Nutzer relevant). PROJ-34 desktop 15/15, PROJ-35 desktop 12/12, PROJ-32 und PROJ-8 (Preisprüfung) grün, Handy grün.
+
 ## Deployment
 - **Datum:** 2026-10-29, Version v1.13.0
 - **Commit:** `8f9a363` (Branches `staging` und `production`)

@@ -307,10 +307,11 @@ test.describe('Formular und Detail', () => {
         { label: 'Nächtigungsabgabe', amount_cents: 1200, vat_rate: 0 },
       ],
     })
-    const main = text(await page.locator('main').innerText())
-    expect(main).toContain('Übernachtungen · 10 %')
-    expect(main).toContain('Reinigung Extra · 13 %')
-    expect(main).toContain('Nächtigungsabgabe · 0 %')
+    // Detail nach dem Neuladen
+    const main = async () => text(await page.locator('main').innerText())
+    await expect.poll(main).toContain('Reinigung Extra · 13 %')
+    expect(await main()).toContain('Übernachtungen · 10 %')
+    expect(await main()).toContain('Nächtigungsabgabe · 0 %')
   })
 
   test('AC: Detail zeigt „darin enthaltene USt“ je Satz (Beispiel der Spec), ohne 0 %', async ({ page, users }) => {
@@ -405,6 +406,8 @@ test.describe('Formular und Detail', () => {
     const live = page.locator('[id^="DndLiveRegion"]')
     await page.keyboard.press('Space')
     await expect(live).toContainText('Parkplatz aufgenommen')
+    // dnd-kit vermisst die Positionen erst im nächsten Bildaufbau
+    await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))))
     await page.keyboard.press('ArrowUp')
     await expect(live).toContainText('Parkplatz auf Position 1 von 2.')
     await page.keyboard.press('Space')
@@ -468,6 +471,13 @@ test.describe('Formular und Detail', () => {
     await page.getByRole('button', { name: 'Bearbeiten', exact: true }).click()
     const p = panel(page)
     await expect(p.getByLabel('Umsatzsteuersatz in Prozent, Position 2')).toBeVisible()
+    // Bezeichnung gut lesbar: mindestens 180 px breit, auch am Handy (Nutzer-Rückmeldung nach dem Deploy)
+    for (const box of await p.getByRole('combobox', { name: 'Bezeichnung' }).evaluateAll((els) => els.map((e) => e.getBoundingClientRect().width)))
+      expect(box).toBeGreaterThanOrEqual(180)
+    if (test.info().project.name === 'desktop') {
+      await p.getByLabel('Umsatzsteuersatz in Prozent, Position 2').scrollIntoViewIfNeeded()
+      await p.screenshot({ path: test.info().outputPath('positionen.png') })
+    }
     const overflow = await p.evaluate((el) => el.scrollWidth - el.clientWidth)
     expect(overflow).toBeLessThanOrEqual(0)
     const results = await new AxeBuilder({ page }).include('[role="dialog"]').withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze()

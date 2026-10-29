@@ -117,6 +117,10 @@ const handles = (page: Page) => panel(page).getByRole('button', { name: / versch
 const save = (page: Page) => panel(page).getByRole('button', { name: 'Änderungen speichern', exact: true }).click()
 const liveRegion = (page: Page) => page.locator('[id^="DndLiveRegion"]')
 
+// Nach dem Aufnehmen vermisst dnd-kit die Positionen erst im nächsten Bildaufbau; bei zweizeiligen Positionen
+// (PROJ-35) kam ein sofortiger Pfeiltastendruck sonst zu früh
+const settled = (page: Page) => page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))))
+
 async function expectOrder(page: Page, order: string[]) {
   await expect.poll(async () => labels(page).evaluateAll((els) => els.map((e) => (e as HTMLInputElement).value))).toEqual(order)
 }
@@ -248,6 +252,7 @@ test.describe('Tastatur', () => {
 
     await page.keyboard.press('Space')
     await expect(liveRegion(page)).toContainText('Rabatt aufgenommen, Position 3 von 3.')
+    await settled(page)
     await page.keyboard.press('ArrowUp')
     await expect(liveRegion(page)).toContainText('Rabatt auf Position 2 von 3.')
     await page.keyboard.press('ArrowUp')
@@ -266,6 +271,7 @@ test.describe('Tastatur', () => {
     await handle(page, 'Reinigung').focus()
     await page.keyboard.press('Space')
     await expect(liveRegion(page)).toContainText('Reinigung aufgenommen, Position 1 von 3.')
+    await settled(page)
     await page.keyboard.press('ArrowDown')
     await expect(liveRegion(page)).toContainText('Reinigung auf Position 2 von 3.')
     await page.keyboard.press('Escape')
@@ -387,6 +393,7 @@ test.describe('Randfälle (QA)', () => {
     await handle(page, 'P20').focus()
     await page.keyboard.press('Space')
     await expect(liveRegion(page)).toContainText('P20 aufgenommen, Position 20 von 20.')
+    await settled(page)
     for (let pos = 19; pos >= 1; pos--) {
       await page.keyboard.press('ArrowUp')
       await expect(liveRegion(page)).toContainText(`P20 auf Position ${pos} von 20.`)
@@ -453,6 +460,7 @@ test.describe('Randfälle (QA)', () => {
     await grip.focus()
     await page.keyboard.press('Space')
     await expect(liveRegion(page)).toContainText(`${evil} aufgenommen, Position 1 von 2.`)
+    await settled(page)
     await page.keyboard.press('Escape')
     expect(await page.evaluate(() => (window as unknown as { __xss?: number }).__xss)).toBeUndefined()
     expect(await liveRegion(page).locator('img').count()).toBe(0)

@@ -99,7 +99,7 @@ interface SortableChargeRowProps {
   handleLabel: string
   // Griff nur ab zwei Positionen
   sortable: boolean
-  // Mit Umsatzsteuersatz (PROJ-35): Betrag und Satz in einer Zelle, am Handy in der zweiten Zeile
+  // Mit Umsatzsteuersatz (PROJ-35): zweizeilig – oben Bezeichnung in voller Breite, darunter Betrag und Satz
   withVat?: boolean
   children: React.ReactNode
 }
@@ -107,7 +107,8 @@ interface SortableChargeRowProps {
 // Zelle für Betrag und Satz einer Position. Ohne Satz löst sie sich auf (contents), dann gilt das bisherige Raster.
 export function chargeMoneyCell(sortable: boolean, withVat: boolean): string {
   if (!withVat) return 'contents'
-  return cn('flex items-start gap-2 row-start-2 sm:col-auto sm:row-start-auto', sortable ? 'col-[2/-1]' : 'col-[1/-1]')
+  // Immer in der zweiten Zeile: in einer Zeile bliebe im Panel für die Bezeichnung zu wenig Platz
+  return cn('flex items-start gap-2 row-start-2', sortable ? 'col-[2/-1]' : 'col-[1/-1]')
 }
 
 export function SortableChargeRow({ id, handleLabel, sortable, withVat = false, children }: SortableChargeRowProps) {
@@ -125,10 +126,9 @@ export function SortableChargeRow({ id, handleLabel, sortable, withVat = false, 
       data-dragging={isDragging || undefined}
       className={cn(
         'grid items-start gap-2 rounded-lg bg-ds-bg',
+        // Zweizeilig mit Rahmen, damit Betrag und Satz erkennbar zur Bezeichnung gehören
         withVat
-          ? sortable
-            ? 'grid-cols-[auto_minmax(0,1fr)_auto] sm:grid-cols-[auto_minmax(0,1fr)_auto_auto]'
-            : 'grid-cols-[minmax(0,1fr)_auto] sm:grid-cols-[minmax(0,1fr)_auto_auto]'
+          ? cn('border p-2', sortable ? 'grid-cols-[auto_minmax(0,1fr)_auto]' : 'grid-cols-[minmax(0,1fr)_auto]')
           : sortable
             ? 'grid-cols-[auto_1fr_7rem_auto]'
             : 'grid-cols-[1fr_7rem_auto]',
