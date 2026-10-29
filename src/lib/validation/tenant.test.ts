@@ -114,6 +114,13 @@ describe('tenantMasterDataSchema', () => {
     expect(r.error?.issues[0]).toMatchObject({ message: v.vatDateDuplicate, path: ['vatStatus', 1, 'validFrom'] })
   })
 
+  it('Kleinunternehmer-Status: höchstens 50 Einträge, mit Meldung', () => {
+    const rows = (n: number) =>
+      Array.from({ length: n }, (_, i) => ({ validFrom: `20${String(i + 10).padStart(2, '0')}-01-01`, status: 'small' }))
+    expect(schema.safeParse({ ...EMPTY, vatStatus: rows(50) }).success).toBe(true)
+    expect(firstError(schema.safeParse({ ...EMPTY, vatStatus: rows(51) }))).toBe(v.vatStatusTooMany)
+  })
+
   it('Kleinunternehmer-Status: gleicher Status hintereinander ist erlaubt', () => {
     const rows = [
       { validFrom: '2026-01-01', status: 'small' },

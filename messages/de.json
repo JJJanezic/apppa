@@ -334,7 +334,8 @@
       "planned": "geplant",
       "add": "Wechsel hinzufügen",
       "remove": "Wechsel ab {date} entfernen",
-      "noDate": "ohne Datum"
+      "noDate": "ohne Datum",
+      "full": "Höchstens {max} Wechsel möglich. Entferne einen älteren Eintrag, um einen neuen hinzuzufügen."
     },
     "sections": {
       "address": "Adresse",
@@ -353,6 +354,7 @@
       "vatDateRequired": "Bitte gib das Datum ein, ab dem der Status gilt.",
       "vatStatusRequired": "Bitte wähle einen Status.",
       "vatDateRange": "Bitte gib ein Datum zwischen 2000 und 2100 ein.",
+      "vatStatusTooMany": "Höchstens 50 Wechsel sind möglich.",
       "vatDateDuplicate": "Für dieses Datum gibt es bereits einen Eintrag.",
       "unknown": "Bitte prüfe diese Angabe."
     },

@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { todayIso } from '@/lib/bookings'
 import { formatDate } from '@/lib/format'
-import type { TenantMasterDataInput } from '@/lib/validation/tenant'
+import { type TenantMasterDataInput, VAT_STATUS_MAX } from '@/lib/validation/tenant'
 import { isPlannedChange, VAT_STATUS_KEYS, vatStatusOn, type VatStatusChange } from '@/lib/vat-status'
 
 interface VatStatusFieldsProps {
@@ -30,6 +30,7 @@ export function VatStatusFields({ control, saved, readOnly }: VatStatusFieldsPro
   const values = useWatch({ control, name: 'vatStatus' })
   const today = todayIso()
   const current = vatStatusOn(saved, today)
+  const full = rows.fields.length >= VAT_STATUS_MAX
 
   const currentText = current.smallBusiness
     ? t('currentSmall', { date: formatDate(current.since!) })
@@ -120,10 +121,25 @@ export function VatStatusFields({ control, saved, readOnly }: VatStatusFieldsPro
         </ul>
       )}
       {!readOnly && (
-        <Button type="button" variant="outline" className="min-h-11 self-start" onClick={add}>
-          <Plus size={16} aria-hidden="true" />
-          {t('add')}
-        </Button>
+        <div className="flex flex-col items-start gap-2">
+          {/* Obergrenze wie in der Datenbank: ab 50 Einträgen kein weiterer Wechsel, mit Hinweis */}
+          <Button
+            type="button"
+            variant="outline"
+            className="min-h-11"
+            onClick={add}
+            disabled={full}
+            aria-describedby={full ? 'vat-status-full' : undefined}
+          >
+            <Plus size={16} aria-hidden="true" />
+            {t('add')}
+          </Button>
+          {full && (
+            <p id="vat-status-full" className="text-sm text-ds-neutral-800">
+              {t('full', { max: VAT_STATUS_MAX })}
+            </p>
+          )}
+        </div>
       )}
     </div>
   )

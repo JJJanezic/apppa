@@ -18,7 +18,7 @@ import {
 } from './support/supabase'
 
 // PROJ-36: Kleinunternehmer-Status. Datenbank-Regeln direkt gegen die Speicherfunktion, dazu die Abläufe im Formular.
-// Abläufe nur im Projekt „desktop“, Layout auch am Handy.
+// Abläufe im Desktop-Projekt (und Firefox/Safari), Layout auch auf Tablet und Handy.
 
 type Fixtures = { users: (opts?: Parameters<typeof createUser>[0]) => Promise<E2EUser> }
 
@@ -36,7 +36,8 @@ const test = base.extend<Fixtures>({
 
 test.use({ storageState: { cookies: [], origins: [] } })
 
-const desktopOnly = () => test.skip(test.info().project.name !== 'desktop', 'Abläufe nur im Desktop-Projekt')
+// Abläufe im Desktop-Projekt und in den optionalen Browsern (Firefox/Safari), nicht auf Tablet/Handy
+const desktopOnly = () => test.skip(['tablet', 'mobile'].includes(test.info().project.name), 'Abläufe nur im Desktop-Projekt')
 const unique = (label: string) => `QA36 ${label} ${randomUUID().slice(0, 8)}`
 const ready = (page: Page) =>
   page.waitForFunction(() => Object.keys(document.querySelector('main') ?? {}).some((k) => k.startsWith('__reactFiber')))
@@ -299,6 +300,25 @@ test.describe('Formular', () => {
     await expect(list.getByLabel('ab', { exact: true })).toBeDisabled()
     await expect(page.getByRole('button', { name: 'Wechsel hinzufügen' })).toHaveCount(0)
     await expect(list.getByRole('button', { name: /entfernen/ })).toHaveCount(0)
+  })
+
+  test('BUG-1: Bei 50 Einträgen ist „Wechsel hinzufügen“ gesperrt, mit Hinweis; nach Entfernen wieder frei', async ({ page, users }) => {
+    desktopOnly()
+    const owner = await users()
+    const tenant = await createTenant(unique('Obergrenze'), [{ user: owner, role: 'owner' }])
+    const fifty = Array.from({ length: 50 }, (_, i) => ({ valid_from: `${2010 + i}-01-01`, small_business: i % 2 === 0 }))
+    const client = await signedIn(owner)
+    expect((await client.rpc('update_tenant_master_data', await payload(tenant, fifty))).error).toBeNull()
+    await signInAs(page, owner)
+    await page.goto('/einstellungen/kunde')
+    await ready(page)
+
+    const add = page.getByRole('button', { name: 'Wechsel hinzufügen' })
+    await expect(add).toBeDisabled()
+    await expect(page.getByText('Höchstens 50 Wechsel möglich.')).toBeVisible()
+    await page.getByRole('button', { name: 'Wechsel ab Fr, 01.01.2010 entfernen' }).click()
+    await expect(add).toBeEnabled()
+    await expect(page.getByText('Höchstens 50 Wechsel möglich.')).toHaveCount(0)
   })
 
   test('Layout: kein seitliches Scrollen, keine automatisch erkennbaren WCAG-2.1-AA-Verstöße', async ({ page, users }) => {

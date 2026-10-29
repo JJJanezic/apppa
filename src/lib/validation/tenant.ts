@@ -56,7 +56,7 @@ export const tenantMasterDataSchema = (t: T) =>
             .transform((v) => v === 'small'),
         })
       )
-      .max(VAT_STATUS_MAX)
+      .max(VAT_STATUS_MAX, t('vatStatusTooMany'))
       .superRefine((rows, ctx) => {
         const seen = new Set<string>()
         rows.forEach((row, i) => {
