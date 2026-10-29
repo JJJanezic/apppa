@@ -1,6 +1,6 @@
 # PROJ-34: Preispositionen ordnen
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-10-29
 **Last Updated:** 2026-10-29
 
@@ -310,4 +310,10 @@ Keine neuen Unit-Tests: Die Logik (Umsortieren, Ansagen) steckt in der Komponent
 - **Recommendation:** Deploy (mit dem Fix für BUG-2)
 
 ## Deployment
-_To be added by /deploy_
+- **Datum:** 2026-10-29, Version v1.11.0
+- **Commit:** `dc86941` (Branches `staging` und `production`)
+- **Staging:** https://staging.apppa.at (geprüft vom Nutzer)
+- **Production:** https://app.apppa.at
+- **Migrationen:** keine (Reihenfolge nutzt die bestehende Spalte `booking_charges.position`)
+- **Neue Pakete:** `@dnd-kit/core`, `@dnd-kit/sortable`, `@dnd-kit/modifiers`, `@dnd-kit/utilities`
+- **Mit ausgeliefert:** Fix für PROJ-8 „Detailseite nach dem Anlegen öffnet sich zuverlässig“ (`19dd794`, QA BUG-2) und angepasster PROJ-8-Test (QA BUG-3)
