@@ -1,6 +1,6 @@
 # PROJ-36: Kleinunternehmer-Status
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-10-29
 **Last Updated:** 2026-10-29
 
@@ -329,4 +329,10 @@ Keine neuen Pakete.
 - **Recommendation:** Deploy
 
 ## Deployment
-_To be added by /deploy_
+- **Datum:** 2026-10-29, Version v1.12.0
+- **Commit:** `ca535b0` (Branches `staging` und `production`)
+- **Staging:** https://staging.apppa.at (geprüft vom Nutzer)
+- **Production:** https://app.apppa.at
+- **Migrationen:** `20261029172914_vat_status_changes.sql` (Staging und Produktion; Advisors nur bekannte Auth-Hinweise)
+- **Neue Pakete / Umgebungsvariablen:** keine
+- **Mit ausgeliefert:** Spec-Anpassung PROJ-35 (Kleinunternehmer), Buchhaltungs-Commit PROJ-34

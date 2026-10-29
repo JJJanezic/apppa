@@ -50,7 +50,7 @@
 | PROJ-33 | Firmenanschrift des Gastes aufteilen | Rechnungsadresse der Firma statt einem Textfeld in Adresszeile 1/2, PLZ, Ort, Staat; Firmenname und UID unverändert; Altdaten in Adresszeile 1 | P0 | PROJ-7, PROJ-29 | Deployed | [Spec](PROJ-33-firmenanschrift-aufteilen.md) | 2026-10-29 |
 | PROJ-34 | Preispositionen ordnen | Zusatzkosten einer Buchung im Buchungsformular per Griff ordnen (Maus, Touch, Tastatur); Übernachtung bleibt oben; Reihenfolge im Detail und für die Rechnung | P0 | PROJ-8, PROJ-32 | Deployed | [Spec](PROJ-34-preispositionen-ordnen.md) | 2026-10-29 |
 | PROJ-35 | Umsatzsteuersatz je Position | USt-Satz (Prozent, 2 Nachkommastellen) für Übernachtung, jede Zusatzposition und Stornogebühr; Preise brutto; Auswahl „Reinigung“ 10 %/„Nächtigungsabgabe“ 0 %, sonst 20 %; Detail zeigt enthaltene USt je Satz | P0 | PROJ-8, PROJ-32, PROJ-34, PROJ-36 | Planned | [Spec](PROJ-35-umsatzsteuersatz-je-position.md) | 2026-10-29 |
-| PROJ-36 | Kleinunternehmer-Status | Verlauf von Statuswechseln (ab Datum: Kleinunternehmer ja/nein) in den Kundenstammdaten für Inhaber und Betreiber; Regel je Buchung nach Abreise bzw. Stornodatum; Grundlage für das Ausblenden der USt in PROJ-35 | P0 | PROJ-8, PROJ-28, PROJ-30 | Approved | [Spec](PROJ-36-kleinunternehmer-status.md) | 2026-10-29 |
+| PROJ-36 | Kleinunternehmer-Status | Verlauf von Statuswechseln (ab Datum: Kleinunternehmer ja/nein) in den Kundenstammdaten für Inhaber und Betreiber; Regel je Buchung nach Abreise bzw. Stornodatum; Grundlage für das Ausblenden der USt in PROJ-35 | P0 | PROJ-8, PROJ-28, PROJ-30 | Deployed | [Spec](PROJ-36-kleinunternehmer-status.md) | 2026-10-29 |
 
 <!-- Add features above this line -->
 
