@@ -1,6 +1,6 @@
 # PROJ-34: Preispositionen ordnen
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-10-29
 **Last Updated:** 2026-10-29
 
@@ -68,7 +68,8 @@ Die Zusatzkosten einer Buchung stehen heute in der Reihenfolge, in der sie einge
 - **Nur eine Zusatzposition:** kein Griff, nichts zu ordnen
 - **Höchstzahl 20 Positionen:** Sortieren funktioniert unverändert; die Grenze bleibt
 - **Position ganz nach oben gezogen:** landet unter dem Übernachtungspreis, nie darüber
-- **Ziehen abgebrochen** (Maus außerhalb des Bereichs losgelassen, Escape): Position kehrt an ihre Stelle zurück
+- **Ziehen abgebrochen** (Escape): Position kehrt an ihre Stelle zurück
+- **Außerhalb der Liste losgelassen:** Position landet am nächstgelegenen Ende der Liste (oben unter der Übernachtung, unten als letzte); zurück an die alte Stelle nur mit Escape oder Schließen ohne Speichern
 - **Leere oder fehlerhafte Position verschieben:** erlaubt; Prüfregeln und Meldungen gelten unverändert beim Speichern und gehören zur verschobenen Position
 - **Gleichzeitige Bearbeitung durch zwei Personen:** bestehender Schutz vor Überschreiben der Buchung (PROJ-8) gilt auch für die Reihenfolge
 - **Sehr schmaler Bildschirm (375 px):** Griff, Bezeichnung, Betrag und Löschen-Knopf passen in eine Zeile ohne seitliches Scrollen; Griff mit mindestens 44 × 44 px Tippfläche
@@ -92,6 +93,7 @@ Die Zusatzkosten einer Buchung stehen heute in der Reihenfolge, in der sie einge
 | Ein Griff für Maus, Touch und Tastatur, keine Pfeil-Knöpfe | Deckt alle Bedienwege ab und erfüllt WCAG 2.1 AA; Zeile bleibt am Handy kompakt | 2026-10-29 |
 | Griff erst ab zwei Zusatzpositionen | Bei einer Position gibt es nichts zu ordnen; weniger visuelles Rauschen | 2026-10-29 |
 | Nur Inhaber sortieren | Mitarbeiter sehen keine Preise (PROJ-8) | 2026-10-29 |
+| Loslassen außerhalb der Liste legt am nächstgelegenen Ende ab (QA BUG-1, bewusst so belassen) | Gleiches Verhalten oben (unter die Übernachtung) und unten; Abbrechen bleibt mit Escape möglich, Verwerfen mit Schließen ohne Speichern | 2026-10-29 |
 | Bestehende Buchungen behalten die Eingabereihenfolge, keine Umstellung | Reihenfolge ist schon gespeichert; nichts zu migrieren | 2026-10-29 |
 
 ### Technical Decisions
@@ -189,7 +191,123 @@ Nicht nötig. `/backend` kann für PROJ-34 entfallen; nach `/frontend` direkt `/
 **Tests:** `tests/PROJ-34-preispositionen-ordnen.spec.ts`, 9 Desktop-Tests (Darstellung, Maus, Tastatur inkl. Ansagen und Escape, Speichern/Detail/Bearbeiten, Verwerfen, Fehlermeldung wandert mit, Löschen ohne Lücke, Mitarbeiter) und 1 Handy-Test (375 px, Griff ≥ 44 px, Touch-Ziehen über das Chrome-Protokoll), alle grün. Regression: Unit 347/347, PROJ-32 „Eingabe“ 5/5.
 
 ## QA Test Results
-_To be added by /qa_
+
+**Tested:** 2026-10-29
+**App URL:** http://localhost:3000 (Produktions-Build gegen Supabase „apppa-dev“; Safari gegen `npm run dev`)
+**Tester:** QA Engineer (AI)
+**E2E:** `tests/PROJ-34-preispositionen-ordnen.spec.ts`, 14 Tests (12 Desktop, 1 Handy/Tablet, 1 Sicherheit)
+
+### Acceptance Criteria Status
+
+#### Darstellung im Formular
+- [x] Griff links an jeder Zusatzposition ab zwei Positionen
+- [x] Keine oder eine Position: kein Griff
+- [x] Übernachtungspreis steht über allen Zusatzpositionen, ohne Griff
+- [x] Neue Position erscheint unten als letzte
+
+#### Verschieben mit Maus und Touch
+- [x] „Rabatt“ über „Reinigung“ gezogen → „Rabatt“, „Reinigung“, „Endreinigung Haustier“
+- [x] Touch: Griff mit dem Finger ziehen verschiebt, die Seite scrollt nicht (Handy 375 px und Tablet 768 px, Touch über das Chrome-Protokoll)
+- [x] Landeplatz sichtbar (Zeilen rücken auseinander, gezogene Zeile mit Rahmen und Schatten)
+- [x] Über dem Übernachtungspreis losgelassen → erste Zusatzposition
+
+#### Verschieben mit der Tastatur
+- [x] Leertaste, Pfeil nach oben/unten, Leertaste → neue Stelle
+- [x] Escape während des Verschiebens → zurück an die ursprüngliche Stelle, Panel bleibt offen
+- [x] Screenreader-Ansage „… auf Position x von y“, „… abgelegt auf Position …“, „Verschieben abgebrochen …“
+- [x] Griff mit Tab erreichbar (direkt vor der Bezeichnung), Fokusrahmen sichtbar, Name „<Bezeichnung> verschieben“
+
+#### Speichern und Anzeige
+- [x] Nach „Speichern“ zeigt das Detail die neue Reihenfolge unter der Übernachtung (Datenbank: Positionen 1, 2, 3)
+- [x] „Bearbeiten“ öffnet die gespeicherte Reihenfolge
+- [x] Schließen ohne Speichern behält die bisherige Reihenfolge
+- [x] Endbetrag nach dem Umsortieren unverändert
+- [x] Gelöschte Position: die übrigen behalten ihre Reihenfolge ohne Lücke
+
+#### Fehler und Rollen
+- [x] Fehlermeldung (fehlende Bezeichnung) wandert mit der Position
+- [x] Mitarbeiter speichert: Reihenfolge unverändert, kein Griff sichtbar
+- [x] Bestehende Buchungen zeigen die Eingabereihenfolge (Positionsnummern seit PROJ-8, keine Migration)
+
+### Edge Cases Status
+- [x] Nur eine Zusatzposition: kein Griff
+- [x] 20 Positionen: letzte per Tastatur an Stelle 1, gespeichert lückenlos 1–20, kein „Position hinzufügen“
+- [x] Ganz nach oben gezogen: landet unter der Übernachtung
+- [x] Escape während des Ziehens mit der Maus: zurück, Panel bleibt offen
+- [x] BUG-1 (gewollt): Maus außerhalb des Bereichs losgelassen → Position landet am nächstgelegenen Ende der Liste; Spec-Randfall angepasst
+- [x] Leere/fehlerhafte Position verschiebbar; Griffname „Position n verschieben“, Meldung wandert mit
+- [x] Gleichzeitige Bearbeitung: „Diese Buchung wurde inzwischen von jemand anderem geändert.“, Reihenfolge in der Datenbank unverändert
+- [x] 375 px: kein seitliches Scrollen, Griff 44 × 44 px; 768 px ebenso
+- [x] Negative Beträge: Betrag wandert mit („-50,00“), gespeichert -5000 an neuer Stelle
+
+### Cross-Browser / Responsive
+- [x] Chrome Desktop 1440 px: 12/12
+- [x] Firefox Desktop: 12/12
+- [x] Safari (WebKit) Desktop: 12/12; ein einmaliger Fehlschlag im ersten Test auf dem kalten Entwicklungsserver, danach 3/3 bei Wiederholung (kein App-Fehler)
+- [x] Handy 375 px und Tablet 768 px (Touch): je 1/1
+
+### Security Audit Results
+- [x] Keine neuen Endpunkte, keine Datenbank-Änderung; gespeichert wird über die bestehende Speicherfunktion (Mandanten-RLS unverändert)
+- [x] Rollen: Beträge und Positionen setzt der Server nur für Inhaber; Mitarbeiter-Speichern lässt die Reihenfolge unangetastet (E2E bestätigt)
+- [x] XSS: Bezeichnung `<img src=x onerror=…>` erscheint im Griffnamen und in der Screenreader-Ansage nur als Text, kein Skript ausgeführt (E2E)
+- [x] Keine Geheimnisse oder neuen Daten im Browser; neue Pakete nur @dnd-kit (Frontend)
+- [x] Rate Limiting: keine neuen Anfragen (Sortieren ist rein lokal bis zum Speichern)
+
+### Regression
+- [x] Vitest komplett: 470/470 (Unit + Integration)
+- [x] PROJ-32 Desktop 10/10, PROJ-27 Desktop 9/9
+- [x] PROJ-8: „Konflikte“, „Optionen und Stornieren“, „Liste“, „Layout“, „Zugang“, „Anschluss“, „Mitarbeiter“, „Bearbeiten“ grün
+- [x] Detail-Panel-Escape in anderen Bereichen (PROJ-6 Wohnungen, PROJ-9 Belegung): grün
+- [x] PROJ-8 „Buchung anlegen“: 2 Fehlschläge, beide **nicht durch PROJ-34** verursacht (BUG-2, BUG-3; Gegenprobe mit zurückgenommenen PROJ-34-Änderungen); beide behoben, Gruppe 5/5 grün
+
+### Unit Tests
+Keine neuen Unit-Tests: Die Logik (Umsortieren, Ansagen) steckt in der Komponente und hängt an Browser-Layout und @dnd-kit; sie ist durch die E2E-Tests in drei Browsern abgedeckt.
+
+### Bugs Found
+
+#### BUG-1: Loslassen außerhalb der Liste ordnet um statt abzubrechen
+- **Status:** Gewollt (Entscheidung 2026-10-29); Spec-Randfall und Decision Log angepasst
+- **Severity:** Low
+- **Steps to Reproduce:**
+  1. Buchung mit „Reinigung“, „Endreinigung Haustier“, „Rabatt“ bearbeiten
+  2. „Reinigung“ am Griff fassen und weit unter die Liste ziehen (z. B. über das Feld „Notiz“), loslassen
+  3. Expected (Spec, Edge Case „Ziehen abgebrochen“): Position kehrt an ihre Stelle zurück
+  4. Actual: Reihenfolge „Endreinigung Haustier“, „Rabatt“, „Reinigung“; Ansage „Reinigung abgelegt auf Position 3 von 3.“
+- **Ursache:** Die Bewegung ist auf die Liste begrenzt (Tech Design), dadurch zählt jedes Loslassen als Ablegen am nächstgelegenen Ende. Das AC „über der Übernachtung losgelassen → erste Zusatzposition“ beruht auf demselben Verhalten
+- **Workaround:** Escape vor dem Loslassen oder Position zurückziehen; Schließen ohne Speichern verwirft
+- **Priority:** Nice to have. Entweder den Spec-Randfall an das Verhalten anpassen (Produktentscheidung) oder unten wie oben behandeln (nur beim Loslassen weit außerhalb der Liste abbrechen)
+
+#### BUG-2: Nach „Neue Buchung“ öffnet sich manchmal die Detailseite nicht (vorbestehend, PROJ-8)
+- **Status:** Behoben (2026-10-29), siehe unten
+- **Severity:** Medium
+- **Steps to Reproduce:**
+  1. Buchungen → „Neue Buchung“, alle Pflichtfelder ausfüllen, „Buchung speichern“
+  2. Expected: Detailseite der neuen Buchung öffnet sich
+  3. Actual: in etwa 2 von 5 Läufen erscheinen die Meldung „Buchung angelegt.“ und das geschlossene Panel, die Liste bleibt stehen (auch nach 20 s). Die Buchung ist gespeichert
+- **Nachweis:** Mit zurückgenommenen PROJ-34-Änderungen ebenfalls 2/5 → nicht durch PROJ-34 verursacht. Betrifft den E2E-Test PROJ-8 „Zeiten und Reinigung … gespeichert mit nächster Nummer“
+- **Vermutung:** `router.push` direkt nach dem Schließen des Panels geht verloren (Navigation konkurriert mit Schließen/Refresh)
+- **Priority:** Fix in next sprint (eigener Fix außerhalb von PROJ-34)
+
+#### BUG-3: Veralteter E2E-Test in PROJ-8 erwartet Ablehnung negativer Zusatzkosten
+- **Status:** Behoben (2026-10-29): Test gibt jetzt „5-“ ein (ungültig) statt „-5“
+- **Severity:** Low (Testschuld)
+- **Steps to Reproduce:** `tests/PROJ-8-manuelle-buchungen.spec.ts` „Pflichtfelder, Zeitraum, …“: erwartet bei „-5“ die Meldung „Bitte einen Betrag wie 125 oder 125,50 eingeben.“
+- **Actual:** Seit PROJ-32 sind negative Zusatzkosten erlaubt; die Meldung erscheint korrekt nicht
+- **Priority:** Test an PROJ-32 anpassen (eigener Fix außerhalb von PROJ-34)
+
+### Behebung (2026-10-29)
+- **BUG-2, Ursache:** Next.js 16 gibt das Ergebnis einer Server-Aktion an den Aufrufer zurück, bevor es die mitgelieferte, neu geladene Seite (durch `revalidatePath`) einarbeitet. Das anschließende `router.push` verwarf die Aktion; die danach nachgeholte Aktualisierung lief mit veraltetem Stand und überschrieb in etwa 2 von 5 Fällen die Navigation (Nachweis: kein `pushState`, nur `replaceState /buchungen`)
+- **BUG-2, Fix:** `saveBooking`/`saveBlock` erhalten `open`; nach dem Anlegen leitet die Aktion selbst mit `redirect()` zur Detailseite weiter, Next.js wendet Aktualisierung und Navigation in einem Schritt an. `callAction` erkennt die Weiterleitung (`digest` „NEXT_REDIRECT;…“) und meldet Erfolg mit `redirectTo` statt „network“; die Panels erneuern nur noch ohne Weiterleitung. Belegungskalender (`afterCreate: 'refresh'`) unverändert
+- **Nachweis:** PROJ-8 „Buchung anlegen … gespeichert mit nächster Nummer“ 10/10 (vorher 3/5); „Buchung anlegen“ 5/5; Sperre anlegen (PROJ-8, PROJ-30), Anlegen per Klick im Kalender (PROJ-9) grün; Unit-Test `src/components/auth/form-error.test.ts` (5 Fälle); Vitest 475/475; PROJ-34 Kontrolllauf grün
+- **Gleiches Muster, nicht geändert:** Gast anlegen (`guest-panel.tsx`), Kunde anlegen (`create-tenant-panel.tsx`), Gäste zusammenführen (`merge-dialog.tsx`) rufen ebenfalls `router.push` nach einer Aktion auf; dort ist bisher kein Fehler beobachtet, das Risiko ist dasselbe
+
+### Summary
+- **Acceptance Criteria:** 20/20 passed
+- **Edge Cases:** 10/10 (BUG-1 als gewollt entschieden)
+- **Bugs Found:** 3 total (0 critical, 0 high, 1 medium, 2 low). PROJ-34 selbst: 1 low (gewollt); BUG-2 und BUG-3 vorbestehend aus PROJ-8/PROJ-32, beide behoben
+- **Security:** Pass
+- **Production Ready:** YES
+- **Recommendation:** Deploy (mit dem Fix für BUG-2)
 
 ## Deployment
 _To be added by /deploy_

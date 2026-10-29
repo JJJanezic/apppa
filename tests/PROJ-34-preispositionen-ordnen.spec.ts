@@ -22,7 +22,6 @@ test.skip(!hasSupabaseEnv, 'Supabase-Umgebung fehlt')
 
 type Users = (opts?: Parameters<typeof createUser>[0]) => Promise<E2EUser>
 const desktopOnly = () => test.skip(!['desktop', 'safari', 'firefox'].includes(test.info().project.name), 'Abläufe nur im Desktop-Projekt')
-const only = (name: string) => test.skip(test.info().project.name !== name, `nur im Projekt „${name}“`)
 const ready = (page: Page) =>
   page.waitForFunction(() => Object.keys(document.querySelector('main') ?? {}).some((k) => k.startsWith('__reactFiber')))
 const panel = (page: Page) => page.getByRole('dialog')
@@ -326,8 +325,8 @@ test.describe('Speichern und Rollen', () => {
 })
 
 test.describe('Handy', () => {
-  test('AC: 375 px ohne seitliches Scrollen, Griff 44 × 44 px, Verschieben mit dem Finger', async ({ page, users }) => {
-    only('mobile')
+  test('AC: 375 px (Handy) bzw. 768 px (Tablet) ohne seitliches Scrollen, Griff 44 × 44 px, Verschieben mit dem Finger', async ({ page, users }) => {
+    test.skip(!['mobile', 'tablet'].includes(test.info().project.name), 'nur Handy und Tablet')
     const { tenantId } = await setup(page, users)
     const booking = await addBooking(tenantId, THREE)
     await edit(page, booking)
@@ -352,5 +351,110 @@ test.describe('Handy', () => {
     for (let i = 1; i <= 15; i++) await touch('touchMove', from + ((to - from) * i) / 15)
     await touch('touchEnd')
     await expectOrder(page, ['Rabatt', 'Reinigung', 'Endreinigung Haustier'])
+  })
+})
+
+test.describe('Randfälle (QA)', () => {
+  test('Edge: Escape während des Ziehens mit der Maus bricht ab, Panel bleibt offen', async ({ page, users }) => {
+    desktopOnly()
+    const { tenantId } = await setup(page, users)
+    const booking = await addBooking(tenantId, THREE)
+    await edit(page, booking)
+    const from = handle(page, 'Rabatt')
+    await handle(page, 'Reinigung').scrollIntoViewIfNeeded()
+    await from.scrollIntoViewIfNeeded()
+    const a = (await from.boundingBox())!
+    const b = (await handle(page, 'Reinigung').boundingBox())!
+    await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(a.x + a.width / 2, b.y + b.height / 2, { steps: 12 })
+    await page.keyboard.press('Escape')
+    await page.mouse.up()
+    await expect(liveRegion(page)).toContainText('Verschieben abgebrochen. Rabatt bleibt auf Position 3 von 3.')
+    await expect(panel(page)).toBeVisible()
+    await expectOrder(page, ['Reinigung', 'Endreinigung Haustier', 'Rabatt'])
+  })
+
+  test('Edge: 20 Positionen – letzte per Tastatur nach oben, Speichern lückenlos 1–20, kein „Position hinzufügen“', async ({ page, users }) => {
+    desktopOnly()
+    test.setTimeout(90_000)
+    const { tenantId } = await setup(page, users)
+    const twenty = Array.from({ length: 20 }, (_, i) => [`P${i + 1}`, 1000] as [string, number])
+    const booking = await addBooking(tenantId, twenty)
+    await edit(page, booking)
+    await expect(handles(page)).toHaveCount(20)
+    await expect(panel(page).getByRole('button', { name: 'Position hinzufügen' })).toHaveCount(0)
+    await handle(page, 'P20').focus()
+    await page.keyboard.press('Space')
+    await expect(liveRegion(page)).toContainText('P20 aufgenommen, Position 20 von 20.')
+    for (let pos = 19; pos >= 1; pos--) {
+      await page.keyboard.press('ArrowUp')
+      await expect(liveRegion(page)).toContainText(`P20 auf Position ${pos} von 20.`)
+    }
+    await page.keyboard.press('Space')
+    await expect(liveRegion(page)).toContainText('P20 abgelegt auf Position 1 von 20.')
+    await save(page)
+    await expect(panel(page)).toBeHidden()
+    const expected = ['P20', ...twenty.slice(0, 19).map(([l]) => l)].map((label, i) => ({ position: i + 1, label }))
+    await expect.poll(() => stored(booking)).toEqual(expected)
+  })
+
+  test('Edge: Gleichzeitige Bearbeitung – Schutz vor Überschreiben greift auch für die Reihenfolge', async ({ page, users }) => {
+    desktopOnly()
+    const { tenantId } = await setup(page, users)
+    const booking = await addBooking(tenantId, THREE)
+    await edit(page, booking)
+    await mouseDrag(page, handle(page, 'Rabatt'), handle(page, 'Reinigung'))
+    await expectOrder(page, ['Rabatt', 'Reinigung', 'Endreinigung Haustier'])
+    // Jemand anderes ändert die Buchung in der Zwischenzeit
+    const { error } = await service().from('bookings').update({ note: 'Von jemand anderem' }).eq('id', booking)
+    if (error) throw error
+    await save(page)
+    await expect(panel(page).getByText('Diese Buchung wurde inzwischen von jemand anderem geändert.')).toBeVisible()
+    await expectOrder(page, ['Rabatt', 'Reinigung', 'Endreinigung Haustier'])
+    expect(await stored(booking)).toEqual([
+      { position: 1, label: 'Reinigung' },
+      { position: 2, label: 'Endreinigung Haustier' },
+      { position: 3, label: 'Rabatt' },
+    ])
+  })
+
+  test('Edge: Negativer Betrag bleibt beim Verschieben an seiner Position (Betrag wandert mit)', async ({ page, users }) => {
+    desktopOnly()
+    const { tenantId } = await setup(page, users)
+    const booking = await addBooking(tenantId, THREE)
+    await edit(page, booking)
+    await mouseDrag(page, handle(page, 'Rabatt'), handle(page, 'Reinigung'))
+    await expectOrder(page, ['Rabatt', 'Reinigung', 'Endreinigung Haustier'])
+    const amounts = await panel(page).getByLabel('Betrag (€)', { exact: true }).evaluateAll((els) => els.map((e) => (e as HTMLInputElement).value))
+    expect(amounts).toEqual(['-50,00', '60,00', '30,00'])
+    await save(page)
+    await expect(panel(page)).toBeHidden()
+    await expect
+      .poll(async () => (await service().from('booking_charges').select('label, amount_cents').eq('booking_id', booking).order('position')).data)
+      .toEqual([
+        { label: 'Rabatt', amount_cents: -5000 },
+        { label: 'Reinigung', amount_cents: 6000 },
+        { label: 'Endreinigung Haustier', amount_cents: 3000 },
+      ])
+  })
+
+  test('Sicherheit: HTML in der Bezeichnung wird in Griff-Namen und Ansagen nur als Text ausgegeben', async ({ page, users }) => {
+    desktopOnly()
+    const { tenantId } = await setup(page, users)
+    const evil = '<img src=x onerror="window.__xss=1">'
+    const booking = await addBooking(tenantId, [
+      [evil, 1000],
+      ['Reinigung', 6000],
+    ])
+    await edit(page, booking)
+    const grip = handle(page, evil)
+    await expect(grip).toBeVisible()
+    await grip.focus()
+    await page.keyboard.press('Space')
+    await expect(liveRegion(page)).toContainText(`${evil} aufgenommen, Position 1 von 2.`)
+    await page.keyboard.press('Escape')
+    expect(await page.evaluate(() => (window as unknown as { __xss?: number }).__xss)).toBeUndefined()
+    expect(await liveRegion(page).locator('img').count()).toBe(0)
   })
 })
