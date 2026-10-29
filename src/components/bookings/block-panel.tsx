@@ -20,7 +20,7 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import { addDays, BLOCK_REASONS, type BookableApartment, type Booking, bookingHref, isIsoDate, LIMITS } from '@/lib/bookings'
+import { addDays, BLOCK_REASONS, type BookableApartment, type Booking, isIsoDate, LIMITS } from '@/lib/bookings'
 import { type BlockInput, blockSchema } from '@/lib/validation/bookings'
 
 interface BlockPanelProps {
@@ -65,7 +65,7 @@ export function BlockPanel({ open, onOpenChange, apartments, block, owner, today
   async function save(values: BlockInput) {
     setError(null)
     if (warn && !overrideOk) return
-    const result = await callAction(() => saveBlock({ id: block?.id, updatedAt: block?.updatedAt, values, confirmOverride: overrideOk }))
+    const result = await callAction(() => saveBlock({ id: block?.id, updatedAt: block?.updatedAt, values, confirmOverride: overrideOk , open: afterCreate === 'open' }))
     if (!result.ok) {
       if (result.error === 'staleBooking') setStale(true)
       else {
@@ -77,8 +77,8 @@ export function BlockPanel({ open, onOpenChange, apartments, block, owner, today
     }
     toast.success(t('done.blockSaved'))
     onOpenChange(false)
-    if (!block && result.data && afterCreate === 'open') router.push(bookingHref(result.data.id))
-    else router.refresh()
+    // Nach dem Anlegen leitet die Aktion selbst zur Detailseite weiter (redirectTo), sonst Seite erneuern
+    if (!result.redirectTo) router.refresh()
   }
 
   async function remove() {

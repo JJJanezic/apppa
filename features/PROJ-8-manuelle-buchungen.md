@@ -819,3 +819,9 @@ _Stand 2026-10-25 (/deploy, Tag `v1.2.0`)_
 ### Nachtrag 2026-10-28 (Tag `v1.8.1`): Uhrzeiten im Buchungs-Detail entfernt
 - Bei Anreise und Abreise steht im Buchungs-Detail nur noch das Datum; Check-in-/Check-out-Zeiten bleiben im Formular und in der Wohnung erhalten
 - Staging und Production mit Commit `8450f1d`, ohne Migrationen; `npm test` bis auf wechselnde Zeitüberschreitungen der Dev-Datenbank grün (bei Wiederholung grün)
+
+### Nachtrag 2026-10-29 (QA PROJ-34): Detailseite nach dem Anlegen öffnet sich zuverlässig
+- **Fehler:** Nach „Neue Buchung“/„Neue Sperre“ → Speichern blieb in etwa 2 von 5 Fällen die Liste stehen, obwohl gespeichert und „Buchung angelegt.“ gemeldet war
+- **Ursache:** `router.push` direkt nach der Server-Aktion konkurrierte mit der von `revalidatePath` ausgelösten Aktualisierung (Next.js 16 gibt das Aktionsergebnis vor dem Einarbeiten der Seite zurück)
+- **Fix:** Die Aktionen `saveBooking`/`saveBlock` leiten mit `open: true` nach dem Anlegen selbst per `redirect()` weiter; `callAction` meldet die Weiterleitung als Erfolg (`redirectTo`). Details: PROJ-34, QA-Abschnitt „Behebung (2026-10-29)“
+- **Test:** E2E „Pflichtfelder, Zeitraum, …“ prüft den ungültigen Betrag jetzt mit „5-“ (negative Beträge sind seit PROJ-32 gültig)

@@ -1,6 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { redirect } from 'next/navigation'
 
 import type { ActionResult, CommonErrorCode } from '@/lib/auth/result'
 import { getSessionUser, pendingMfaStep } from '@/lib/auth/session'
@@ -82,6 +83,13 @@ const revalidate = (id?: string) => {
   if (id) revalidatePath(`${LIST}/${id}`)
   // Aufenthalte in Gästeliste und Gast-Detail
   revalidatePath('/gaeste', 'layout')
+}
+
+// Nach dem Anlegen zur Detailseite: Weiterleitung in der Aktion statt router.push im Browser. Next.js liefert das
+// Aktionsergebnis aus, bevor es die neu geladene Seite einarbeitet; ein router.push in diesem Moment ging sporadisch
+// verloren (Liste blieb stehen). Mit redirect() wendet Next.js Aktualisierung und Navigation in einem Schritt an.
+const openCreated = (open: boolean | undefined, id: string | undefined, created: string | undefined) => {
+  if (open && !id && created) redirect(`${LIST}/${created}`)
 }
 
 type DbWarnings = {
@@ -177,6 +185,8 @@ type SaveBooking = {
   confirmOverride?: boolean
   // „Trotzdem speichern“ bei doppelter Gästeblattnummer (alle Mitglieder, PROJ-30)
   confirmGuestSheet?: boolean
+  // Nach dem Anlegen zur Detailseite weiterleiten (Buchungsliste); im Belegungskalender nicht
+  open?: boolean
 }
 
 export async function saveBooking(input: SaveBooking): Promise<Result<{ id: string }>> {
@@ -231,11 +241,21 @@ export async function saveBooking(input: SaveBooking): Promise<Result<{ id: stri
   })
   if (error) return dbFail(error, 'Buchung speichern')
   const result = saved(data, owner)
-  if (result.ok) revalidate(result.data?.id)
+  if (result.ok) {
+    revalidate(result.data?.id)
+    openCreated(input.open, input.id, result.data?.id)
+  }
   return result
 }
 
-export async function saveBlock(input: { id?: string; updatedAt?: string; values: BlockInput; confirmOverride?: boolean }): Promise<Result<{ id: string }>> {
+export async function saveBlock(input: {
+  id?: string
+  updatedAt?: string
+  values: BlockInput
+  confirmOverride?: boolean
+  // Nach dem Anlegen zur Detailseite weiterleiten (siehe openCreated)
+  open?: boolean
+}): Promise<Result<{ id: string }>> {
   const guard = await requireMember()
   if (!guard.ok) return guard
   const owner = guard.tenant.role === 'owner'
@@ -259,7 +279,10 @@ export async function saveBlock(input: { id?: string; updatedAt?: string; values
   })
   if (error) return dbFail(error, 'Sperre speichern')
   const result = saved(data, owner)
-  if (result.ok) revalidate(result.data?.id)
+  if (result.ok) {
+    revalidate(result.data?.id)
+    openCreated(input.open, input.id, result.data?.id)
+  }
   return result
 }
 

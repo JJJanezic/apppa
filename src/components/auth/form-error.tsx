@@ -33,7 +33,10 @@ export async function callAction<T, E extends string = AuthErrorCode>(
   let result: ActionResult<T, E>
   try {
     result = await fn()
-  } catch {
+  } catch (e) {
+    // Weiterleitung aus der Aktion (redirect()): Next.js navigiert selbst, für den Aufrufer ist das ein Erfolg
+    const target = redirectTarget(e)
+    if (target !== null) return { ok: true, redirectTo: target }
     return { ok: false, error: 'network' }
   }
   if (!result.ok && result.error === 'sessionExpired') {
@@ -41,4 +44,11 @@ export async function callAction<T, E extends string = AuthErrorCode>(
     window.location.href = `/anmelden?grund=sitzung-abgelaufen&next=${next}`
   }
   return result
+}
+
+// Ziel einer Weiterleitung aus einer Server-Aktion; Next.js kennzeichnet sie mit digest „NEXT_REDIRECT;<Art>;<Ziel>;<Status>;“
+export function redirectTarget(error: unknown): string | null {
+  const digest = typeof error === 'object' && error !== null && 'digest' in error ? (error as { digest: unknown }).digest : null
+  if (typeof digest !== 'string' || !digest.startsWith('NEXT_REDIRECT;')) return null
+  return digest.split(';')[2] ?? null
 }

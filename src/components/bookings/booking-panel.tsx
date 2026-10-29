@@ -36,7 +36,6 @@ import {
   billedNightsCents,
   type BookableApartment,
   type Booking,
-  bookingHref,
   BOOKING_SOURCES,
   CHARGE_SUGGESTIONS,
   isIsoDate,
@@ -274,7 +273,7 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
     }
     if (blocked) return
     const result = await callAction(() =>
-      saveBooking({ id: booking?.id, updatedAt: booking?.updatedAt, values, newGuest, confirmOverride: overrideOk, confirmGuestSheet: sheetOk })
+      saveBooking({ id: booking?.id, updatedAt: booking?.updatedAt, values, newGuest, confirmOverride: overrideOk, confirmGuestSheet: sheetOk , open: afterCreate === 'open' })
     )
     if (!result.ok) {
       if (result.error === 'staleBooking') setStale(true)
@@ -287,8 +286,8 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
     }
     toast.success(booking ? t('done.saved') : t('done.created'))
     onOpenChange(false)
-    if (!booking && result.data && afterCreate === 'open') router.push(bookingHref(result.data.id))
-    else router.refresh()
+    // Nach dem Anlegen leitet die Aktion selbst zur Detailseite weiter (redirectTo), sonst Seite erneuern
+    if (!result.redirectTo) router.refresh()
   }
 
   function pickExisting(match: DuplicateMatch) {

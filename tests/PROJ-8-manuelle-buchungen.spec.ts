@@ -292,7 +292,8 @@ test.describe('Buchung anlegen (Inhaber)', () => {
     await panel(page).getByRole('button', { name: 'Kind hinzufügen' }).click()
     await panel(page).getByLabel('Alter von Kind 1 bei Anreise').fill('18')
     await panel(page).getByRole('button', { name: 'Position hinzufügen' }).click()
-    await panel(page).getByPlaceholder('Betrag (€)').fill('-5')
+    // „5-“ ist ungültig; negative Beträge wie „-5“ sind seit PROJ-32 erlaubt
+    await panel(page).getByPlaceholder('Betrag (€)').fill('5-')
     await panel(page).getByRole('radio', { name: 'Option' }).click()
     await panel(page).getByLabel('Option gilt bis').fill(day(-1))
     await submit(page, 'Option speichern')
