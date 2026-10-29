@@ -1,6 +1,6 @@
 # PROJ-35: Umsatzsteuersatz je Position
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-10-29
 **Last Updated:** 2026-10-29
 
@@ -361,4 +361,10 @@ Keine offenen Bugs. Beim Backend gefunden und bereits behoben: lange Betragsmeld
 - **Recommendation:** Deploy
 
 ## Deployment
-_To be added by /deploy_
+- **Datum:** 2026-10-29, Version v1.13.0
+- **Commit:** `8f9a363` (Branches `staging` und `production`)
+- **Staging:** https://staging.apppa.at (geprüft vom Nutzer)
+- **Production:** https://app.apppa.at
+- **Migrationen:** `20261029181138_vat_rates.sql` (Staging und Produktion; Advisors nur bekannte Auth-Hinweise). Umstellung der Altbuchungen in Staging vom Nutzer geprüft.
+- **Neue Pakete / Umgebungsvariablen:** keine
+- **Mit ausgeliefert:** Buchhaltungs-Commit PROJ-36
