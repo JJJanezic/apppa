@@ -62,14 +62,15 @@ export function VatStatusFields({ control, saved, readOnly }: VatStatusFieldsPro
                   name={`vatStatus.${i}.validFrom`}
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="flex items-center gap-2">
-                        {t('validFrom')}
+                      {/* Kennzeichen neben dem Label, damit der Feldname „ab“ bleibt */}
+                      <div className="flex min-h-5 items-center gap-2">
+                        <FormLabel>{t('validFrom')}</FormLabel>
                         {validFrom && isPlannedChange({ validFrom }, today) && (
                           <Badge variant="secondary" className="font-normal">
                             {t('planned')}
                           </Badge>
                         )}
-                      </FormLabel>
+                      </div>
                       <FormControl>
                         <Input type="date" className="min-h-11" {...field} />
                       </FormControl>

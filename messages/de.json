@@ -352,6 +352,7 @@
       "vatIdInvalid": "Bitte prüfe die UID. Sie beginnt mit dem Länderkürzel, z. B. ATU12345678 (ATU und 8 Ziffern).",
       "vatDateRequired": "Bitte gib das Datum ein, ab dem der Status gilt.",
       "vatStatusRequired": "Bitte wähle einen Status.",
+      "vatDateRange": "Bitte gib ein Datum zwischen 2000 und 2100 ein.",
       "vatDateDuplicate": "Für dieses Datum gibt es bereits einen Eintrag.",
       "unknown": "Bitte prüfe diese Angabe."
     },

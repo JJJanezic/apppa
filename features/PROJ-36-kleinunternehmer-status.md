@@ -227,6 +227,17 @@ Keine neuen Pakete.
 - **Typen** `src/types/database.ts` von Hand um die Tabelle `vat_status_changes` ergänzt; `/backend` erzeugt sie neu.
 - **Offen für /backend:** Tabelle `vat_status_changes` (tenant_id, valid_from, small_business, Audit-Felder; eindeutig je Kunde + Datum; RLS Lesen nur Inhaber + Admin, kein direktes Schreiben; Änderungsprotokoll), `update_tenant_master_data` um `vat_status` erweitern (vollständig ersetzen, höchstens 50, `updated_at` des Kunden setzen, `vat_status` in `changed_fields`). **Ohne Migration schlagen *Einstellungen → Kunde* und die Betreiber-Detailseite beim Laden fehl** (eingebettete Tabelle fehlt).
 
+### Umsetzung Backend (2026-10-29)
+- **Migration** `supabase/migrations/20261029172914_vat_status_changes.sql`, eingespielt in Dev:
+  - Tabelle `vat_status_changes` (tenant_id, valid_from, small_business, Standardfelder); eindeutig je Kunde + Datum; Datum 2000-01-01 bis 2100-12-31; Löschen des Kunden löscht den Verlauf mit.
+  - RLS: Lesen nur Inhaber (`has_role owner`) und Admin; kein insert/update/delete für `authenticated` (nur `select` gewährt). Änderungsprotokoll über `private.enable_tenant_table`.
+  - `private.update_tenant_master_data` erweitert: optionaler Schlüssel `vat_status` (fehlt er, bleibt der Verlauf unverändert). Prüft Liste, höchstens 50, Datum `JJJJ-MM-TT`, Status boolean (sonst 22023). Vergleicht mit dem gespeicherten Verlauf unabhängig von der Reihenfolge; nur bei Unterschied: Feld `vat_status` in `changed_fields`, Kundenzeile wird aktualisiert (setzt „zuletzt geändert am“ → Konfliktschutz), Verlauf vollständig ersetzt. Doppeltes Datum → 23505.
+- **Frontend-Abgleich:** Datumsbereich 2000–2100 auch im Formular (Meldung `vatDateRange`); Kennzeichen „geplant“ neben statt im Label, damit das Feld für Screenreader „ab“ heißt.
+- **Typen** mit `npm run db:types` neu erzeugt (identisch mit der Handfassung). Advisors: nur die zwei bekannten Auth-Hinweise.
+- **Tests:**
+  - neu `tests/PROJ-36-kleinunternehmer-status.spec.ts`: Speicherfunktion (speichern, ersetzen, entfernen, Reihenfolge egal, ohne Schlüssel unverändert, Protokoll), Konfliktschutz bei reiner Verlaufsänderung (P0017), Prüfregeln (23505, 22023, 23514), Sicherheit (Mitarbeiter und fremder Inhaber lesen/ändern nicht, direktes Schreiben 42501), Formular Inhaber (Leerzustand, Vorbelegung, Pflichtdatum, doppeltes Datum, „geplant“, Sortierung, Entfernen), Betreiber (Protokoll „Staat, Umsatzsteuer-Status“, deaktiviert nur lesbar), Layout + axe (Desktop, Tablet, Handy).
+  - Regression: PROJ-28 desktop 19/19 grün; alle 489 Unit-/Integrationstests grün.
+
 ## QA Test Results
 _To be added by /qa_
 

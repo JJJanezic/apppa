@@ -94,6 +94,9 @@ describe('tenantMasterDataSchema', () => {
     expect(firstError(schema.safeParse({ ...EMPTY, vatStatus: [{ validFrom: '2026-02-30', status: 'small' }] }))).toBe(
       v.vatDateRequired
     )
+    expect(firstError(schema.safeParse({ ...EMPTY, vatStatus: [{ validFrom: '1999-12-31', status: 'small' }] }))).toBe(
+      v.vatDateRange
+    )
     expect(firstError(schema.safeParse({ ...EMPTY, vatStatus: [{ validFrom: '2026-07-01', status: '' }] }))).toBe(
       v.vatStatusRequired
     )

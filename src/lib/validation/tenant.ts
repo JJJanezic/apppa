@@ -11,6 +11,8 @@ type T = (key: string) => string
 
 // Obergrenze für den Verlauf; gleicher Wert in der Datenbank-Funktion
 export const VAT_STATUS_MAX = 50
+const VAT_DATE_MIN = '2000-01-01'
+const VAT_DATE_MAX = '2100-12-31'
 
 // Leere Eingabe (auch nur Leerzeichen) → null; sonst getrimmt und begrenzt
 const optional = (t: T, max: number) =>
@@ -43,7 +45,11 @@ export const tenantMasterDataSchema = (t: T) =>
     vatStatus: z
       .array(
         z.object({
-          validFrom: z.string().refine(isIsoDate, t('vatDateRequired')),
+          validFrom: z
+            .string()
+            .refine(isIsoDate, t('vatDateRequired'))
+            // gleicher Bereich wie in der Datenbank
+            .refine((v) => !isIsoDate(v) || (v >= VAT_DATE_MIN && v <= VAT_DATE_MAX), t('vatDateRange')),
           status: z
             .string()
             .refine((v) => v === 'small' || v === 'regular', t('vatStatusRequired'))
