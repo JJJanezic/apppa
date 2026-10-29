@@ -1,0 +1,141 @@
+# PROJ-36: Kleinunternehmer-Status
+
+## Status: Planned
+**Created:** 2026-10-29
+**Last Updated:** 2026-10-29
+
+## Dependencies
+- Requires: PROJ-28 (Kundenstammdaten) — Stammdaten-Formular für Inhaber und Betreiber, Konfliktschutz, Protokoll
+- Requires: PROJ-8 (Manuelle Buchungen) — Abreise und Storno einer Buchung
+- Requires: PROJ-30 (Buchungs-Erweiterung) — geplante und tatsächliche Abreise
+- Wird genutzt von: PROJ-35 (Umsatzsteuersatz je Position) — blendet USt-Angaben bei Kleinunternehmern aus; später Rechnungsmodul (Pflichthinweis)
+
+## Überblick
+Viele Privatvermieter sind umsatzsteuerliche Kleinunternehmer und verrechnen keine Umsatzsteuer. Der Status kann sich ändern: Ein Kunde überschreitet die Umsatzgrenze, optiert freiwillig zur Regelbesteuerung oder wird später wieder Kleinunternehmer. Deshalb wird nicht ein einzelner Schalter gespeichert, sondern ein **Verlauf von Statuswechseln**.
+
+**Verlauf in den Kundenstammdaten (PROJ-28):**
+- Neuer Bereich „Umsatzsteuer“ im bestehenden Stammdaten-Formular, gespeichert mit derselben Speichern-Schaltfläche.
+- Oben der aktuelle Status, z. B. „Aktuell: Kleinunternehmer – keine Umsatzsteuer, seit Fr, 14.08.2026“ bzw. „Aktuell: mit Umsatzsteuer“.
+- Darunter die Liste der Wechsel, neueste oben. Jeder Eintrag: **ab Datum** + **Status** („Kleinunternehmer – keine Umsatzsteuer“ oder „mit Umsatzsteuer“). Einträge lassen sich hinzufügen, ändern und entfernen.
+- Ohne Eintrag gilt „mit Umsatzsteuer“ (Ausgangszustand für bestehende und neue Kunden).
+
+**Regel: Welcher Status gilt für eine Buchung?**
+- Maßgeblicher Tag ist die **Abreise** (tatsächliche Abreise laut PROJ-30, sonst geplante), weil die Beherbergung mit dem Aufenthaltsende erbracht ist.
+- Bei einer **stornierten** Buchung ist der maßgebliche Tag das **Stornodatum** (für die Stornogebühr).
+- Es gilt der Status des jüngsten Eintrags, dessen „ab“-Datum am oder vor dem maßgeblichen Tag liegt. Gibt es keinen solchen Eintrag, gilt „mit Umsatzsteuer“.
+- Die Buchung wird immer als Ganzes eingestuft, auch wenn der Aufenthalt über einen Stichtag reicht.
+- Die Regel steht an einer Stelle zur Verfügung, damit PROJ-35 und später das Rechnungsmodul gleich entscheiden.
+
+**Wer darf was:** wie die übrigen Stammdaten (PROJ-28): Inhaber und Betreiber bearbeiten, bei deaktivierten Kunden nur lesen, Mitarbeiter haben keinen Zugang.
+
+## User Stories
+- Als **Inhaber** möchte ich hinterlegen, dass ich Kleinunternehmer bin, damit die App mir keine Umsatzsteuer anzeigt, die ich nicht schulde.
+- Als **Inhaber** möchte ich einen Statuswechsel mit Datum erfassen (z. B. Umsatzgrenze überschritten), damit Buchungen vor und nach dem Wechsel richtig behandelt werden.
+- Als **Inhaber** möchte ich auch einen Wechsel in der Zukunft eintragen (z. B. Regelbesteuerung ab 1.1.), damit ich ihn nicht am Stichtag vergessen kann.
+- Als **Betreiber** möchte ich den Status beim Onboarding für den Kunden eintragen und korrigieren, ohne mich als Inhaber anzumelden.
+- Als **Inhaber oder Betreiber** möchte ich auf einen Blick sehen, welcher Status heute gilt.
+- Als **Betreiber** möchte ich im Protokoll sehen, wer den Status-Verlauf wann geändert hat.
+
+## Out of Scope
+- Anzeige oder Ausblenden der USt-Angaben in Buchungen (PROJ-35)
+- Pflichthinweis „umsatzsteuerbefreit – Kleinunternehmer“ auf Rechnungen und Festhalten des Status je Rechnung (Rechnungsmodul)
+- Automatische Überwachung der Umsatzgrenze oder Warnung bei Überschreitung
+- Prüfung von Sperrfristen (z. B. Bindung an die Regelbesteuerung nach Option)
+- Status je Wohnung oder je Objekt (gilt für den ganzen Kunden)
+- Erfassung des Status beim Anlegen eines Kunden (Anlegen bleibt Name + E-Mail, PROJ-5)
+- Anzeige des Status in der Kundenübersicht des Betreibers
+- Zugang für Mitarbeiter
+
+## Acceptance Criteria
+
+**Format:** Angenommen [Vorbedingung] / Wenn [Aktion] / Dann [Ergebnis]
+
+### Anzeige und Erfassung
+- [ ] Angenommen ein Inhaber öffnet *Einstellungen → Kunde*, wenn die Seite lädt, dann gibt es im Stammdaten-Formular den Bereich „Umsatzsteuer“ mit dem aktuellen Status und der Liste der Wechsel
+- [ ] Angenommen ein Kunde ohne Einträge, wenn der Bereich angezeigt wird, dann steht „Aktuell: mit Umsatzsteuer“ und ein Hinweis, dass noch kein Wechsel erfasst ist
+- [ ] Angenommen ein Inhaber fügt „ab Mi, 01.07.2026: Kleinunternehmer – keine Umsatzsteuer“ hinzu, wenn er speichert, dann ist der Eintrag nach dem Neuladen sichtbar und der aktuelle Status lautet „Kleinunternehmer – keine Umsatzsteuer, seit Mi, 01.07.2026“
+- [ ] Angenommen mehrere Einträge, wenn die Liste angezeigt wird, dann ist sie nach Datum absteigend sortiert (neuester oben)
+- [ ] Angenommen ein Eintrag mit Datum in der Zukunft, wenn der aktuelle Status angezeigt wird, dann gilt bis dahin der vorige Status und der künftige Wechsel ist in der Liste als „geplant“ erkennbar
+- [ ] Angenommen ein Inhaber ändert Datum oder Status eines Eintrags, wenn er speichert, dann gilt der geänderte Eintrag
+- [ ] Angenommen ein Inhaber entfernt einen Eintrag, wenn er speichert, dann ist der Eintrag weg und der Status richtet sich nach den übrigen Einträgen
+- [ ] Angenommen der Inhaber ändert den Verlauf, verlässt die Seite aber ohne Speichern, wenn er zurückkehrt, dann ist der Verlauf unverändert
+- [ ] Angenommen Datumsangaben im Bereich, wenn sie angezeigt werden, dann im Format „Mi, 01.07.2026“ (PROJ-31)
+
+### Validierung
+- [ ] Angenommen ein Eintrag ohne Datum oder ohne Status, wenn gespeichert wird, dann erscheint beim Eintrag eine Fehlermeldung und nichts wird gespeichert
+- [ ] Angenommen zwei Einträge mit demselben Datum, wenn gespeichert wird, dann erscheint die Meldung „Für dieses Datum gibt es bereits einen Eintrag“ und nichts wird gespeichert
+- [ ] Angenommen jemand umgeht die Prüfung im Browser, wenn ein doppeltes Datum oder ein ungültiger Status gesendet wird, dann lehnt die Datenbank ihn ab
+
+### Regel je Buchung
+- [ ] Angenommen Verlauf „ab 01.07.2026: Kleinunternehmer“, wenn eine Buchung am 30.06.2026 abreist, dann gilt für sie „mit Umsatzsteuer“
+- [ ] Angenommen Verlauf „ab 01.07.2026: Kleinunternehmer“, wenn eine Buchung am 01.07.2026 abreist, dann gilt „Kleinunternehmer“ (das „ab“-Datum zählt mit)
+- [ ] Angenommen Verlauf „ab 01.07.2026: Kleinunternehmer“, wenn eine Buchung vom 28.06. bis 03.07.2026 dauert, dann gilt für die ganze Buchung „Kleinunternehmer“
+- [ ] Angenommen eine Buchung mit vorgezogener tatsächlicher Abreise (PROJ-30), wenn der Status bestimmt wird, dann zählt die tatsächliche Abreise
+- [ ] Angenommen Verlauf „ab 01.01.2026: Kleinunternehmer“, „ab 15.08.2026: mit Umsatzsteuer“, wenn eine Buchung am 20.08.2026 abreist, dann gilt „mit Umsatzsteuer“; reist sie am 10.08.2026 ab, gilt „Kleinunternehmer“
+- [ ] Angenommen eine stornierte Buchung mit Abreise 20.08.2026, storniert am 05.08.2026, Verlauf wie oben, wenn der Status bestimmt wird, dann zählt das Stornodatum und es gilt „Kleinunternehmer“
+- [ ] Angenommen ein Kunde ohne Einträge, wenn der Status einer beliebigen Buchung bestimmt wird, dann gilt „mit Umsatzsteuer“
+
+### Rollen, Konflikte und Protokoll
+- [ ] Angenommen der Betreiber öffnet die Detailseite eines aktiven Kunden, wenn die Stammdaten angezeigt werden, dann sieht und bearbeitet er den Bereich „Umsatzsteuer“ wie der Inhaber
+- [ ] Angenommen ein deaktivierter Kunde, wenn der Betreiber die Detailseite öffnet, dann ist der Verlauf nur lesbar
+- [ ] Angenommen ein Mitarbeiter, wenn er versucht, den Verlauf zu lesen oder zu ändern (auch am Formular vorbei), dann wird das abgelehnt
+- [ ] Angenommen ein Inhaber eines Kunden A, wenn er versucht, den Verlauf von Kunde B zu lesen oder zu ändern, dann wird das abgelehnt (Mandantentrennung)
+- [ ] Angenommen Betreiber und Inhaber haben die Stammdaten gleichzeitig geöffnet und einer hat den Verlauf gespeichert, wenn der andere speichert, dann erhält er den Hinweis „Die Kundendaten wurden inzwischen geändert“ (wie PROJ-28)
+- [ ] Angenommen der Verlauf wird geändert, wenn gespeichert wird, dann steht im Protokoll, wer wann den Umsatzsteuer-Status geändert hat
+
+### Allgemein
+- [ ] Angenommen bestehende Kunden, wenn das Feature eingespielt wird, dann haben sie keine Einträge und gelten als „mit Umsatzsteuer“; alle übrigen Stammdaten bleiben unverändert
+- [ ] Angenommen das Formular auf einem Handy (375 px), wenn der Bereich bedient wird, dann sind Einträge ohne seitliches Scrollen hinzufügbar, änderbar und entfernbar
+
+## Edge Cases
+- **Zwei aufeinanderfolgende Einträge mit gleichem Status** (z. B. nach dem Entfernen eines mittleren Eintrags): erlaubt, ohne Wirkung; keine Fehlermeldung.
+- **Erster Eintrag „mit Umsatzsteuer“:** erlaubt, ändert nichts am Ausgangszustand.
+- **Eintrag weit in der Vergangenheit** (z. B. 2019): erlaubt; alle Buchungen ab dann sind betroffen.
+- **Viele Einträge (z. B. 10):** Liste bleibt vollständig sichtbar, keine Blätterfunktion nötig.
+- **Option (unbestätigte Buchung):** wie eine Buchung nach der Abreise eingestuft.
+- **Sperren:** haben keine Preise; der Status spielt keine Rolle.
+- **Abreise wird nachträglich geändert** und fällt dadurch auf die andere Seite eines Stichtags: der Status der Buchung ändert sich entsprechend.
+- **Stornodatum:** zählt der Kalendertag der Stornierung in österreichischer Zeit (Storno um 23:30 am 31.07. zählt als 31.07.).
+- **Statuswechsel nachträglich zurückdatiert:** wirkt auf alle betroffenen Buchungen; bis zum Rechnungsmodul gibt es keine festgeschriebenen Belege.
+
+## Technical Requirements (optional)
+- Regel „Status für Buchung“ an einer Stelle, nutzbar von Formular, Detail und späterem Rechnungsmodul
+- Rechte serverseitig durchgesetzt wie bei PROJ-28; Prüfregeln in Browser und Datenbank
+- Konfliktschutz und Protokoll über die bestehenden Mechanismen der Stammdaten (PROJ-28)
+- Deutsche Texte über die bestehende i18n-Struktur; Barrierefreiheit WCAG 2.1 AA
+
+## Open Questions
+- [ ] Genauer Wortlaut der Statusbezeichnungen und ggf. ein kurzer Erklärtext zur Kleinunternehmerregelung (fachliche Prüfung durch den Nutzer)
+- [ ] Soll das Rechnungsmodul den Status je Rechnung festhalten? Klärung im Spec des Rechnungsmoduls
+
+## Decision Log
+
+### Product Decisions
+| Decision | Rationale | Date |
+|----------|-----------|------|
+| Eigenes Feature statt Teil von PROJ-35 | Mit Stichtag und Verlauf deutlich größer; Kundeneinstellung eigenständig test- und deploybar; PROJ-35 nutzt nur die Regel | 2026-10-29 |
+| Verlauf von Statuswechseln statt einfachem Schalter | Status kann mehrfach wechseln (Grenze überschritten, Option, wieder Kleinunternehmer); ein einziges Datum würde frühere Buchungen falsch einstufen | 2026-10-29 |
+| Ohne Eintrag „mit Umsatzsteuer“ | Sicherer Ausgangszustand; Betreiber trägt Kleinunternehmer beim Onboarding ein | 2026-10-29 |
+| Maßgeblich ist die (tatsächliche) Abreise, bei Storno das Stornodatum | Beherbergung gilt mit Aufenthaltsende als erbracht; Stornogebühr entsteht mit der Stornierung | 2026-10-29 |
+| Buchung als Ganzes einstufen, keine Aufteilung über den Stichtag | Eine Leistung, ein Leistungszeitpunkt; einfach nachvollziehbar | 2026-10-29 |
+| Bearbeitung im bestehenden Stammdaten-Formular, eine Speichern-Schaltfläche | Vorgabe des Nutzers; Konfliktschutz und Protokoll wie bei den übrigen Stammdaten | 2026-10-29 |
+| Inhaber und Betreiber bearbeiten, Mitarbeiter ohne Zugang | Gleiche Rechte wie die übrigen Stammdaten (PROJ-28) | 2026-10-29 |
+| Künftige Wechsel erlaubt und als „geplant“ erkennbar | Wechsel zum Jahresbeginn lässt sich vorab eintragen | 2026-10-29 |
+| Keine Überwachung der Umsatzgrenze | Umsatz außerhalb der App (andere Einkünfte) nicht bekannt; Verantwortung beim Vermieter bzw. der Steuerberatung | 2026-10-29 |
+
+### Technical Decisions
+<!-- Added by /architecture -->
+| Decision | Rationale | Date |
+|----------|-----------|------|
+
+---
+<!-- Sections below are added by subsequent skills -->
+
+## Tech Design (Solution Architect)
+_To be added by /architecture_
+
+## QA Test Results
+_To be added by /qa_
+
+## Deployment
+_To be added by /deploy_
