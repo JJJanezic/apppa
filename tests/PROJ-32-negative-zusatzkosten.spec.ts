@@ -346,14 +346,15 @@ test.describe('Anzeige', () => {
 })
 
 test.describe('Vorschläge', () => {
-  test('AC: Vorschläge enthalten „Rabatt“ und „Nächtigungsabgabe“; der Betrag bleibt leer', async ({ page, users }) => {
+  // PROJ-35: Die Auswahl enthält nur noch „Reinigung“ und „Nächtigungsabgabe“; „Rabatt“ wird frei eingetippt
+  test('AC: Auswahl enthält „Nächtigungsabgabe“ (PROJ-35: ohne „Rabatt“); der Betrag bleibt leer', async ({ page, users }) => {
     desktopOnly()
     const { tenantId } = await setup(page, users)
     const booking = await addBooking(tenantId, await addApartment(tenantId), await addGuest(tenantId), { nightsCents: 30000 })
     await edit(page, booking.id)
-    const options = await panel(page).locator('#zusatzkosten-vorschlaege option').evaluateAll((els) => els.map((e) => (e as HTMLOptionElement).value))
-    expect(options).toEqual(expect.arrayContaining(['Reinigung', 'Rabatt', 'Nächtigungsabgabe']))
     await panel(page).getByRole('button', { name: 'Position hinzufügen' }).click()
+    await chargeLabel(page, 0).click()
+    await expect(panel(page).getByRole('option')).toHaveText(['Reinigung', 'Nächtigungsabgabe'])
     await chargeLabel(page, 0).fill('Nächtigungsabgabe')
     await expect(chargeAmount(page, 0)).toHaveValue('')
     await save(page)

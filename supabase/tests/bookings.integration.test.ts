@@ -65,8 +65,21 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-8 Manuelle Buchungen', () => {
     if (error) throw error
     return data.id
   }
+  // Umsatzsteuersätze sind seit PROJ-35 Pflicht: fehlende Sätze mit den Vorbelegungen ergänzen (10 % / 20 %)
+  const withRates = (input: Record<string, unknown>) => {
+    const amounts = input.amounts as { nights_vat_rate?: string; charges?: Record<string, unknown>[] } | null | undefined
+    if (!amounts) return input
+    return {
+      ...input,
+      amounts: {
+        nights_vat_rate: '10.00',
+        ...amounts,
+        charges: (amounts.charges ?? []).map((c) => ({ vat_rate: '20.00', ...c })),
+      },
+    }
+  }
   const save = async (client: Client, input: Record<string, unknown>, confirm = false) => {
-    const { data, error } = await client.rpc('save_booking', { p_input: input as Json, p_confirm: confirm })
+    const { data, error } = await client.rpc('save_booking', { p_input: withRates(input) as Json, p_confirm: confirm })
     return { result: data as unknown as Saved | null, error }
   }
   const savedId = (r: { result: Saved | null; error: unknown }) => {

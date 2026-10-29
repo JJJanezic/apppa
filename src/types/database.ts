@@ -141,10 +141,12 @@ export type Database = {
         Row: {
           billed_nights_cents: number
           cancellation_fee_cents: number | null
+          cancellation_fee_vat_rate: number
           created_at: string
           created_by: string | null
           id: string
           nights_cents: number
+          nights_vat_rate: number
           tenant_id: string
           updated_at: string
           updated_by: string | null
@@ -152,10 +154,12 @@ export type Database = {
         Insert: {
           billed_nights_cents?: number
           cancellation_fee_cents?: number | null
+          cancellation_fee_vat_rate?: number
           created_at?: string
           created_by?: string | null
           id: string
           nights_cents: number
+          nights_vat_rate?: number
           tenant_id: string
           updated_at?: string
           updated_by?: string | null
@@ -163,10 +167,12 @@ export type Database = {
         Update: {
           billed_nights_cents?: number
           cancellation_fee_cents?: number | null
+          cancellation_fee_vat_rate?: number
           created_at?: string
           created_by?: string | null
           id?: string
           nights_cents?: number
+          nights_vat_rate?: number
           tenant_id?: string
           updated_at?: string
           updated_by?: string | null
@@ -200,6 +206,7 @@ export type Database = {
           tenant_id: string
           updated_at: string
           updated_by: string | null
+          vat_rate: number
         }
         Insert: {
           amount_cents: number
@@ -212,6 +219,7 @@ export type Database = {
           tenant_id: string
           updated_at?: string
           updated_by?: string | null
+          vat_rate?: number
         }
         Update: {
           amount_cents?: number
@@ -224,6 +232,7 @@ export type Database = {
           tenant_id?: string
           updated_at?: string
           updated_by?: string | null
+          vat_rate?: number
         }
         Relationships: [
           {
@@ -1147,7 +1156,12 @@ export type Database = {
         Returns: Json
       }
       cancel_booking: {
-        Args: { p_booking_id: string; p_fee_cents?: number; p_reason?: string }
+        Args: {
+          p_booking_id: string
+          p_fee_cents?: number
+          p_fee_vat_rate?: string
+          p_reason?: string
+        }
         Returns: undefined
       }
       confirm_option: {
@@ -1248,6 +1262,7 @@ export type Database = {
         Args: {
           p_booking_id: string
           p_fee_cents?: number
+          p_fee_vat_rate?: string
           p_note: string
           p_set_fee?: boolean
           p_updated_at: string

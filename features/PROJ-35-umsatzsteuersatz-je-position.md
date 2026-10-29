@@ -1,6 +1,6 @@
 # PROJ-35: Umsatzsteuersatz je Position
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-10-29
 **Last Updated:** 2026-10-29
 
@@ -225,6 +225,36 @@ Reine Rechenfunktion in der App mit Unit-Tests:
 
 ### Abhängigkeiten (Pakete)
 Keine neuen Pakete (`Popover` und `Command` sind bereits installiert).
+
+### Umsetzung Frontend (2026-10-29)
+- **Rechenregeln** `src/lib/vat.ts` (+ `vat.test.ts`): Sätze als ganze Zahl in Hundertstel-Prozent (`vatBp`); `parseVatRate` („13“, „5,5“, „10.5“, „10 %“; leer → null; ungültig → NaN), `vatRateInput` („13,00“), `formatVatRate` („10 %“, „5,5 %“), `vatRateToDb`/`vatRateFromDb` (exakte Dezimalzahl „5.50“), `vatBreakdown` (je Satz summieren, dann kaufmännisch runden, ohne 0 %, aufsteigend), `vatBpForLabel` (Umstellungsregel), `VAT_DEFAULTS`, `CHARGE_CHOICES` (Reinigung 10 %, Nächtigungsabgabe 0 %).
+- **Kleinunternehmer-Verlauf** einmal je Anfrage im App-Layout (`src/lib/vat-status-data.ts`, nur Inhaber) und als Kontext `src/components/vat/vat-status-context.tsx` für Formular, Stornoformular und Stornogebühr; das Detail (Server-Komponente) liest ihn direkt.
+- **Buchungsformular** (`booking-panel.tsx`): Feld „USt %“ neben dem Übernachtungspreis, je Zusatzposition Satzfeld mit „% USt“; Bezeichnung als Kombinationsfeld `src/components/vat/label-combobox.tsx` (ersetzt `datalist`); Auswahl setzt den Satz, Tippen nicht; neue Position 20,00, automatisch eingetragene Reinigung 10,00. Bei Kleinunternehmer (laut tatsächlicher Abreise, sonst heute) sind die Satzfelder ausgeblendet, die Werte werden trotzdem gesendet. Escape bei offener Auswahl schließt nur die Auswahl.
+- **Zeilenraster** (`sortable-charges.tsx`): mit Satz Betrag + Satz in einer Zelle (`chargeMoneyCell`), am Handy in der zweiten Zeile; ohne Satz bisheriges Raster.
+- **Satz-Eingabefeld** `src/components/vat/vat-rate-input.tsx` (wie Betragsfeld, beim Verlassen „13,00“).
+- **Storno** (`cancel-dialog.tsx`) und **Stornogebühr ändern** (`booking-actions.tsx`): Satzfeld (vorbelegt 0,00), bei Kleinunternehmer ausgeblendet (Storno: heute; Ändern: Stornodatum).
+- **Detail** (`booking-detail.tsx`): „Bezeichnung · 10 %“, Bereich „darin enthaltene USt“ je Satz; storniert nur die Stornogebühr; Kleinunternehmer: Hinweis „Keine Umsatzsteuer (Kleinunternehmer)“.
+- **Prüfregeln** (`validation/bookings.ts`): `nightsVat` (nur Inhaber), `charges[].vat`, `cancelSchema.feeVat`; Meldungen `vatRequired`, `vatInvalid`. Tests ergänzt.
+- **Aktionen** (`buchungen/actions.ts`): `nights_vat_rate`, `charges[].vat_rate` an `save_booking`; `p_fee_vat_rate` an `cancel_booking` und `save_booking_note`.
+- **Abweichung vom Design:** Kombinationsfeld als eigenes ARIA-1.2-Combobox aus `Input` + Liste statt `Popover` + `Command` – `Command` filtert und übernimmt beim Tippen selbst und passt nicht zu freiem Text.
+- **Bezeichnungs-Vorschläge** Haustier, Frühstück, Parkplatz, Rabatt aus den Texten entfernt (Spec).
+- **Typen** `src/types/database.ts` von Hand ergänzt (`nights_vat_rate`, `cancellation_fee_vat_rate`, `booking_charges.vat_rate`, `p_fee_vat_rate`); `/backend` erzeugt sie neu.
+- **Offen für /backend:** Spalten mit Prüfregeln und Umstellung bestehender Buchungen; `save_booking` (Inhaber: Sätze lesen/prüfen; Mitarbeiter: Übernachtung 10,00, automatische Reinigung 10,00, beim Ändern unverändert), `cancel_booking` und `save_booking_note` mit `p_fee_vat_rate` (Text, höchstens zwei Nachkommastellen). **Ohne Migration schlagen Buchungs-Detail und Speichern fehl.**
+
+### Umsetzung Backend (2026-10-29)
+- **Migration** `supabase/migrations/20261029181138_vat_rates.sql`, eingespielt in Dev:
+  - `booking_amounts.nights_vat_rate` (numeric(5,2), Standard 10,00) und `cancellation_fee_vat_rate` (Standard 0,00); `booking_charges.vat_rate` (Standard 20,00); je Prüfregel 0–100.
+  - Umstellung bestehender Positionen: „Reinigung“ 10,00, „Nächtigungsabgabe“ 0,00 (lower/btrim, auch „NÄCHTIGUNGSABGABE“ geprüft), sonst 20,00; Übernachtung 10,00 und Stornogebühr 0,00 über die Standardwerte. Beträge unverändert.
+  - `private.vat_rate(text, required)`: Format `^[0-9]{1,3}(\.[0-9]{1,2})?$` und ≤ 100, sonst 22023; Format und Grenze getrennt geprüft (kein Cast-Fehler bei Text).
+  - `save_booking`: Inhaber speichert `nights_vat_rate` und `charges[].vat_rate` (Pflicht); Mitarbeiter: Standard 10,00, automatische „Reinigung“ 10,00, beim Ändern unverändert.
+  - `cancel_booking(…, p_fee_vat_rate text)` (ohne Angabe 0,00) und `save_booking_note(…, p_fee_vat_rate text)` (ohne Angabe bleibt der Satz); beide neu angelegt, da sich die Signatur ändert; Rechte wie bisher.
+- **Typen** mit `npm run db:types` neu erzeugt; Advisors nur die zwei bekannten Auth-Hinweise.
+- **Frontend-Korrektur:** Betrag und Satz einer Position mit fester Breite – eine lange Fehlermeldung am Betrag hatte die Bezeichnung auf Breite 0 gedrückt (gefunden durch PROJ-8-Regression).
+- **Tests:**
+  - neu `tests/PROJ-35-umsatzsteuersatz.spec.ts`: Speicherfunktionen (Sätze speichern, Grenzwerte 0/100, ungültig 22023 für „10.555“, „101“, „100.01“, Text, Minus, leer; Mitarbeiter-Standard und unverändert beim Ändern; Mitarbeiter lesen keine Sätze; Stornieren/Gebühr ändern mit Satz), Formular (Vorbelegung, Auswahl per Tastatur und Maus setzt den Satz, Tippen nicht, „13,00“, Escape schließt nur die Liste, ungültiger Satz gemeldet), Detail (Beispiel der Spec 10 % € 32,73 / 20 % € 5,00), Kleinunternehmer (keine Felder, Hinweis, Sätze gespeichert), Storno (nur Gebühr in der Aufstellung), Layout + axe (Desktop, Tablet, Handy).
+  - angepasst: `tests/PROJ-32-negative-zusatzkosten.spec.ts` (Auswahl statt `datalist`, ohne „Rabatt“), `supabase/tests/bookings.integration.test.ts` (Sätze ergänzt).
+  - Regression grün: PROJ-8 (desktop, alle Gruppen), PROJ-27, PROJ-32, PROJ-34 (desktop + mobile).
+  - Unit/Integration: 504/504 grün. Der RLS-Test „Person ohne Mitgliedschaft …“ fiel im Gesamtlauf zunächst wegen 13.691 Waisenzeilen im Dev-audit_log aus; nach Bereinigung in Dev (mit Zustimmung des Nutzers, 2026-10-29) grün.
 
 ## QA Test Results
 _To be added by /qa_
