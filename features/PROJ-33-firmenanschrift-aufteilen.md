@@ -212,6 +212,22 @@ Stand 2026-10-29. Die Oberfläche ist fertig, funktioniert aber erst nach `/back
 - Texte: `guests.panel.addressLine1/2`, `guests.panel.companyCountry` („Staat“)
 - Tests: Unit-Tests für Prüfregeln, Adresszeilen, `hasCompany` und Zusammenführen (gesamt 347 grün)
 
+## Implementation Notes (Backend)
+Stand 2026-10-29, in Dev („apppa-dev“) eingespielt.
+
+- `supabase/migrations/20261029043623_guest_company_address.sql`:
+  - Neue Spalten `company_address_line1/2`, `company_postal_code`, `company_city`, `company_country` mit denselben Prüfregeln wie PROJ-28 (leer bzw. nur Leerzeichen abgelehnt, 200/10/100 Zeichen, Ländercode `^[A-Z]{2}$`)
+  - Übernahme: `company_billing_address` → Adresszeile 1, alle Leerraum-Folgen (Umbrüche, mehrfache Leerzeichen) zu einem Leerzeichen, Ränder weg. Dabei sind die Tabellen-Trigger kurz aus, damit die Strukturumstellung weder `updated_at` ändert (sonst „veralteter Stand“ in offenen Formularen) noch als Nutzeränderung ins Änderungsprotokoll geht
+  - Regel „Adresszeile 1 bis 200 Zeichen“ zuerst `not valid` angelegt und nur dann rückwirkend geprüft, wenn keine längeren Altdaten existieren (sonst Hinweis im Migrationslog mit Anzahl). In Dev: keine Altdaten, Regel voll gültig
+  - Spalte `company_billing_address` entfernt
+  - Funktionen neu: `private.save_booking` (neuer Gast mit den fünf Feldern), `private.merge_guests` („Firma“ übernimmt Name, UID und alle Adressfelder gemeinsam), `private.anonymize_guest` (leert auch die Adressfelder). Sonst unverändert gegenüber dem letzten Stand (PROJ-30 bzw. PROJ-29)
+- `supabase/migrations/20261029043831_guest_company_address_grants.sql`: Schreibrechte (insert/update) für die neuen Spalten. **Nachtrag aus den Tests:** Die Gäste-Tabelle vergibt Schreibrechte spaltenweise (PROJ-7); ohne diese Freigabe scheiterte jedes Speichern eines Gastes mit „permission denied“
+- Änderungsprotokoll und RLS: keine Änderung nötig (Protokoll erfasst neue Spalten automatisch; Lesen ist tabellenweit freigegeben)
+- `npm run db:types` erzeugt dieselben Typen, die das Frontend schon von Hand nachgezogen hatte
+- Advisors: nur die zwei bekannten Auth-Hinweise der Dev-Umgebung (OTP-Ablaufzeit, Passwortprüfung gegen Datenlecks), nichts aus dieser Migration
+- Tests: `supabase/tests/guests.integration.test.ts` (neuer Block „PROJ-33 Firmenanschrift“: Speichern, Prüfregeln inkl. Grenzwerte und ausländischer PLZ, Zusammenführen, Anonymisieren samt bereinigtem Protokoll, Änderungsprotokoll), `supabase/tests/bookings.integration.test.ts` (neuer Gast aus dem Buchungsformular mit Firmenanschrift)
+- Übernahme-Logik in Dev mit Beispieltext geprüft („  Muster GmbH⏎Hauptstraße 1⏎⏎1010   Wien  “ → „Muster GmbH Hauptstraße 1 1010 Wien“); Dev hatte keine Altdaten
+
 ## QA Test Results
 _To be added by /qa_
 

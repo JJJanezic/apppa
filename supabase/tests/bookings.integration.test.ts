@@ -168,14 +168,22 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-8 Manuelle Buchungen', () => {
 
     it('legt einen neuen Gast nur zusammen mit der Buchung an (alles oder nichts), auch für Mitarbeiter', async () => {
       const apt = await apartment(tenantA, 'Neugast')
-      const newGuest = { last_name: `Neu ${runId}`, first_name: 'Nina', country: 'DE' }
+      // PROJ-33: Firmenanschrift in Feldern
+      const company = { company_name: 'Nina GmbH', company_address_line1: 'Hauptstraße 1', company_postal_code: '80331', company_city: 'München', company_country: 'DE' }
+      const newGuest = { last_name: `Neu ${runId}`, first_name: 'Nina', country: 'DE', ...company }
       const bad = await save(staffA, bookingInput(tenantA, apt, '', '2027-07-05', '2027-07-01', { guest_id: null, new_guest: newGuest }))
       expect(bad.error).not.toBeNull()
       expect((await service.from('guests').select('id').eq('last_name', newGuest.last_name)).data).toHaveLength(0)
 
       const id = savedId(await save(staffA, bookingInput(tenantA, apt, '', '2027-07-01', '2027-07-05', { guest_id: null, new_guest: newGuest })))
-      const created = (await service.from('guests').select('id, tenant_id').eq('last_name', newGuest.last_name)).data!
+      const created = (
+        await service
+          .from('guests')
+          .select('id, tenant_id, company_name, company_address_line1, company_address_line2, company_postal_code, company_city, company_country')
+          .eq('last_name', newGuest.last_name)
+      ).data!
       expect(created).toHaveLength(1)
+      expect(created[0]).toMatchObject({ ...company, company_address_line2: null })
       expect((await row(id)).guest_id).toBe(created[0].id)
     })
 
