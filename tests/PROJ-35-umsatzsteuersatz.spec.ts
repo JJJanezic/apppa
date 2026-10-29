@@ -384,6 +384,76 @@ test.describe('Formular und Detail', () => {
     await expect.poll(async () => text(await vat.innerText())).toBe('20 % € 20,00')
   })
 
+  test('AC: Satz wandert beim Verschieben mit (PROJ-34); Auswahl überschreibt einen Hand-Satz', async ({ page, users }) => {
+    desktopOnly()
+    const { owner, tenantId } = await setup(users)
+    const b = await addBooking(tenantId, {
+      charges: [
+        { label: 'Reinigung', cents: 6000, rate: 10 },
+        { label: 'Parkplatz', cents: 3000, rate: 5.5 },
+      ],
+    })
+    await signInAs(page, owner)
+    await page.goto(`/buchungen/${b.id}`)
+    await ready(page)
+    await page.getByRole('button', { name: 'Bearbeiten', exact: true }).click()
+    const p = panel(page)
+    await p.evaluate((e) => Promise.all(e.getAnimations().map((a) => a.finished)))
+
+    // „Parkplatz“ per Tastatur nach oben: der Satz 5,50 geht mit
+    await p.getByRole('button', { name: 'Parkplatz verschieben', exact: true }).focus()
+    const live = page.locator('[id^="DndLiveRegion"]')
+    await page.keyboard.press('Space')
+    await expect(live).toContainText('Parkplatz aufgenommen')
+    await page.keyboard.press('ArrowUp')
+    await expect(live).toContainText('Parkplatz auf Position 1 von 2.')
+    await page.keyboard.press('Space')
+    await expect(live).toContainText('Parkplatz abgelegt auf Position 1 von 2.')
+    await expect(p.getByRole('combobox', { name: 'Bezeichnung' }).first()).toHaveValue('Parkplatz')
+    await expect(p.getByLabel('Umsatzsteuersatz in Prozent, Position 1')).toHaveValue('5,50')
+    await expect(p.getByLabel('Umsatzsteuersatz in Prozent, Position 2')).toHaveValue('10,00')
+
+    // Hand-Satz 13,00 an Position 2, dann „Reinigung“ aus der Auswahl wählen → 10,00
+    const rate2 = p.getByLabel('Umsatzsteuersatz in Prozent, Position 2')
+    await rate2.fill('13')
+    await rate2.blur()
+    const label2 = p.getByRole('combobox', { name: 'Bezeichnung' }).nth(1)
+    await label2.fill('')
+    await p.getByRole('option', { name: 'Reinigung' }).click()
+    await expect(rate2).toHaveValue('10,00')
+
+    await p.getByRole('button', { name: 'Änderungen speichern' }).click()
+    await expect(panel(page)).toBeHidden()
+    expect((await stored(b.id)).charges).toMatchObject([
+      { position: 1, label: 'Parkplatz', vat_rate: 5.5 },
+      { position: 2, label: 'Reinigung', vat_rate: 10 },
+    ])
+  })
+
+  test('AC: Kleinunternehmer-Stichtag – Abreise darüber verschoben blendet die Satzfelder ein bzw. aus', async ({ page, users }) => {
+    desktopOnly()
+    const { owner, tenantId } = await setup(users)
+    // Kleinunternehmer ab 13.11.2026; die Buchung reist am 13.11. ab
+    const { error } = await service().from('vat_status_changes').insert({ tenant_id: tenantId, valid_from: '2026-11-13', small_business: true })
+    expect(error).toBeNull()
+    const b = await addBooking(tenantId, { charges: [{ label: 'Reinigung', cents: 6000, rate: 10 }] })
+    await signInAs(page, owner)
+    await page.goto(`/buchungen/${b.id}`)
+    await ready(page)
+    await page.getByRole('button', { name: 'Bearbeiten', exact: true }).click()
+    const p = panel(page)
+    const nightsVat = p.getByLabel('USt %', { exact: true })
+    await expect(nightsVat).toHaveCount(0)
+
+    // Tatsächliche Abreise vor den Stichtag → mit Umsatzsteuer: Felder erscheinen mit den gespeicherten Sätzen
+    await p.getByLabel('Abreise', { exact: true }).fill('2026-11-12')
+    await expect(nightsVat).toHaveValue('10,00')
+    await expect(p.getByLabel('Umsatzsteuersatz in Prozent, Position 1')).toHaveValue('10,00')
+    // Zurück auf den Stichtag → wieder ausgeblendet
+    await p.getByLabel('Abreise', { exact: true }).fill('2026-11-13')
+    await expect(nightsVat).toHaveCount(0)
+  })
+
   test('Layout: Formular mit Sätzen ohne seitliches Scrollen, keine automatisch erkennbaren WCAG-2.1-AA-Verstöße', async ({ page, users }) => {
     const { owner, tenantId } = await setup(users)
     const b = await addBooking(tenantId, {

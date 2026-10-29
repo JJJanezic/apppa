@@ -1,6 +1,6 @@
 # PROJ-35: Umsatzsteuersatz je Position
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-10-29
 **Last Updated:** 2026-10-29
 
@@ -257,7 +257,108 @@ Keine neuen Pakete (`Popover` und `Command` sind bereits installiert).
   - Unit/Integration: 504/504 grün. Der RLS-Test „Person ohne Mitgliedschaft …“ fiel im Gesamtlauf zunächst wegen 13.691 Waisenzeilen im Dev-audit_log aus; nach Bereinigung in Dev (mit Zustimmung des Nutzers, 2026-10-29) grün.
 
 ## QA Test Results
-_To be added by /qa_
+
+**Tested:** 2026-10-29
+**App URL:** http://localhost:3000 (Produktions-Build, Supabase „apppa-dev“)
+**Tester:** QA Engineer (AI)
+
+### Acceptance Criteria Status
+
+#### Eingabe im Buchungsformular (6)
+- [x] Feld „USt %“ bei Übernachtung und jeder Zusatzposition (E2E)
+- [x] Neue/bestehende Buchung: Übernachtung „10,00“ (E2E)
+- [x] Neue Zusatzposition „20,00“ (E2E)
+- [x] „13“ → „13,00“, „5,5“ → „5,50“ beim Verlassen (E2E + Unit)
+- [x] Leer, Text, < 0, > 100, mehr als zwei Nachkommastellen → Meldung am Feld, nichts gespeichert (E2E „10,555“ + Unit)
+- [x] Grenzwerte 0 und 100 angenommen (Datenbank-Test + Unit)
+
+#### Auswahl der Bezeichnung (7)
+- [x] Sichtbare Auswahl mit genau „Reinigung“ und „Nächtigungsabgabe“ (E2E PROJ-35 + angepasster PROJ-32-Test)
+- [x] „Reinigung“ → Satz 10,00 (E2E Tastatur)
+- [x] „Nächtigungsabgabe“ → 0,00 (E2E Maus)
+- [x] Hand-Satz 13,00, danach „Reinigung“ gewählt → 10,00 (E2E)
+- [x] Bezeichnung frei geändert („Reinigung Extra“) → Satz bleibt (E2E)
+- [x] Eigene Bezeichnung wird mit eingetragenem Satz gespeichert (E2E, Datenbank-Test)
+- [x] Tastatur: Pfeiltasten + Enter, freie Eingabe möglich; Escape schließt nur die Liste, das Panel bleibt offen (E2E)
+
+#### Stornogebühr (2)
+- [x] Stornoformular mit „USt %“ = „0,00“; gespeichert mit eingetragenem Satz (E2E + Datenbank-Test)
+- [x] Storniert: Aufstellung nur aus der Stornogebühr (E2E: „20 % € 20,00“)
+
+#### Anzeige im Buchungs-Detail (7)
+- [x] Satz neben der Bezeichnung („Reinigung Extra · 13 %“, „Nächtigungsabgabe · 0 %“); Nachkommastellen nur wenn nötig (E2E + Unit „5,5 %“)
+- [x] Beispiel der Spec: „10 %: € 32,73“, „20 %: € 5,00“, keine Zeile für 0 % (E2E)
+- [x] Je Satz erst summieren, dann runden (Unit)
+- [x] Negative Position mindert die Summe (Unit)
+- [x] Negative Summe mit Minus in Rot (Unit Rechenregel; Anzeige über die bestehende Betragskomponente aus PROJ-32)
+- [x] Vorgezogene Abreise: anteiliger Übernachtungspreis zählt (per Code: Aufstellung nutzt den abgerechneten Preis aus PROJ-30)
+- [x] Alle Sätze 0 % → keine Aufstellung (Unit)
+
+#### Bestehende Buchungen (3)
+- [x] Umstellung nach Bezeichnung (Migration; Regel in Dev mit Beispielwerten geprüft, auch „NÄCHTIGUNGSABGABE“) – Dev hatte keine Altpositionen, daher beim Staging-Deploy nochmals prüfen
+- [x] Groß-/Kleinschreibung und Rand-Leerzeichen egal (SQL-Probe + Unit `vatBpForLabel`)
+- [x] Beträge unverändert (Migration ändert nur neue Spalten)
+
+#### Rollen und Zusammenspiel (4)
+- [x] Mitarbeiter sehen weder Sätze noch Steuer (Datenbank-Test: kein Lesen; Preisbereich nur für Inhaber, PROJ-8)
+- [x] Mitarbeiter-Bearbeitung lässt Sätze unverändert (Datenbank-Test)
+- [x] Verschieben (PROJ-34) behält den Satz (E2E per Tastatur)
+- [x] Datenbank lehnt Sätze außerhalb 0–100 bzw. mit mehr als zwei Nachkommastellen ab (22023)
+
+#### Kleinunternehmer (10)
+- [x] Keine „USt %“-Felder im Formular (E2E)
+- [x] Detail ohne Sätze und Aufstellung, Hinweis „Keine Umsatzsteuer (Kleinunternehmer)“ (E2E)
+- [x] Neue Positionen werden im Hintergrund mit Vorbelegung gespeichert (E2E: „Parkplatz“ 20,00)
+- [x] Bestehende Sätze bleiben beim Bearbeiten (E2E)
+- [x] Abreise über den Stichtag verschoben → Felder erscheinen/verschwinden sofort, Werte bleiben (E2E)
+- [x] Storno bei Kleinunternehmer (heute): kein Feld, gespeichert 0,00 (per Code; Vorbelegung 0,00 wird gesendet)
+- [x] Stornierte Buchung: Stornodatum entscheidet (Regel aus PROJ-36, Unit; Detail nutzt sie)
+- [x] Änderung des Verlaufs wirkt sofort auf die Anzeige; gespeicherte Werte unverändert (Anzeige liest den Verlauf bei jedem Aufruf)
+- [x] Wechsel zur Regelbesteuerung zeigt die gespeicherten Sätze (E2E Stichtag-Test: nach Verschieben erscheinen „10,00“)
+- [x] Mitarbeiter sehen auch den Hinweis nicht (Preisbereich nur für Inhaber)
+
+### Edge Cases Status
+- [x] Komma/Punkt/„%“ (Unit, E2E)
+- [x] Auswahl, dann Hand-Satz → bleibt bis zur nächsten Auswahl (E2E)
+- [x] Position mit 0 € braucht gültigen Satz (Prüfregel Pflicht)
+- [x] Viele Sätze aufsteigend (Unit)
+- [x] Rundung je Satz (Unit, inkl. Halbwerte und negativ)
+- [x] Stornierte Buchung ohne Gebühr: keine Aufstellung (Code: leere Liste)
+- [x] Option wie Buchung; Sperren ohne Preise (unverändert)
+- [x] 375 px / Tablet: ohne seitliches Scrollen, axe ohne Verstöße (E2E mobile/tablet/desktop)
+- [x] Lange Fehlermeldung am Betrag verdrängt die Bezeichnung nicht mehr (beim Backend gefunden und behoben, PROJ-8-Regression grün)
+
+### Cross-Browser / Responsive
+- [x] Chromium Desktop: 12/12 PROJ-35-Tests
+- [x] Firefox: alle Formular-/Detail-Abläufe (9/9 inkl. Setup)
+- [x] Tablet und Handy: Layout + axe
+- [ ] Safari nicht getestet (läuft laut Runbook nur gegen `npm run dev`); keine Safari-spezifischen Bausteine
+
+### Security Audit Results
+- [x] Leserechte unverändert: Sätze nur für Inhaber/Admin; Mitarbeiter lesen `booking_charges` nicht (Datenbank-Test)
+- [x] Mitarbeiter können über `save_booking` keine Beträge/Sätze setzen (Datenbank-Test)
+- [x] Mandantentrennung: Speicherfunktionen prüfen Mitgliedschaft/Inhaberrolle wie bisher
+- [x] Eingaben: Sätze serverseitig per Muster + Grenze geprüft (22023), kein Cast-Fehler bei Text; Bezeichnungen werden als Text gerendert (kein XSS-Pfad)
+- [x] Keine neuen Umgebungsvariablen oder Schlüssel
+
+### Regression
+- [x] PROJ-8 (desktop, alle Gruppen), PROJ-27, PROJ-32 (Auswahl-Test an PROJ-35 angepasst), PROJ-34 (desktop + mobile)
+- [x] Unit/Integration 504/504 (nach Bereinigung der Dev-Testreste)
+
+### Bugs Found
+Keine offenen Bugs. Beim Backend gefunden und bereits behoben: lange Betragsmeldung drückte die Bezeichnung auf Breite 0 (Medium).
+
+#### Hinweise (keine Bugs)
+- Im Detail heißt die Zeile „Übernachtungen · 10 %“ (bisherige Bezeichnung aus PROJ-8), in der Spec „Übernachtung · 10 %“.
+- Die Auswahlliste öffnet sich beim Fokussieren der Bezeichnung auch dann, wenn schon „Reinigung“ drinsteht; Escape oder Weitertippen schließt sie.
+- Die Umstellung der Altbuchungen ließ sich in Dev mangels Altpositionen nur mit Beispielwerten prüfen → beim Staging-Deploy eine Buchung mit „Reinigung“/„Nächtigungsabgabe“ ansehen.
+
+### Summary
+- **Acceptance Criteria:** 39/39 passed
+- **Bugs Found:** 0 offen (1 Medium während der Umsetzung behoben)
+- **Security:** Pass
+- **Production Ready:** YES
+- **Recommendation:** Deploy
 
 ## Deployment
 _To be added by /deploy_
