@@ -1,6 +1,6 @@
 # PROJ-36: Kleinunternehmer-Status
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-10-29
 **Last Updated:** 2026-10-29
 
@@ -107,6 +107,7 @@ Viele Privatvermieter sind umsatzsteuerliche Kleinunternehmer und verrechnen kei
 ## Open Questions
 - [ ] Genauer Wortlaut der Statusbezeichnungen und ggf. ein kurzer Erklärtext zur Kleinunternehmerregelung (fachliche Prüfung durch den Nutzer)
 - [ ] Soll das Rechnungsmodul den Status je Rechnung festhalten? Klärung im Spec des Rechnungsmoduls
+- [ ] Braucht das Rechnungsmodul die Regel zusätzlich in der Datenbank? Klärung bei dessen Architektur
 
 ## Decision Log
 
@@ -127,12 +128,93 @@ Viele Privatvermieter sind umsatzsteuerliche Kleinunternehmer und verrechnen kei
 <!-- Added by /architecture -->
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Eigene Tabelle je Statuswechsel statt Liste in einem Feld der Kundentabelle | Datenbank kann „ein Datum je Kunde“ selbst erzwingen; spätere Abfragen (Rechnungsmodul) einfach; eigene Leserechte möglich | 2026-10-29 |
+| Speichern über die bestehende Funktion `update_tenant_master_data`, Verlauf wird vollständig ersetzt | Ein Formular, eine Speicherung; Rechte, Aktiv-Prüfung, Konfliktschutz und Protokoll bleiben an einer Stelle; vollständiges Ersetzen ist bei wenigen Einträgen am einfachsten und eindeutig | 2026-10-29 |
+| „Zuletzt geändert am“ des Kunden auch bei reiner Verlaufsänderung setzen | Vorhandener Konfliktschutz greift ohne eigenen Stand für den Verlauf | 2026-10-29 |
+| Lesen nur für Inhaber und Admin, nicht für Mitarbeiter | Spec: Mitarbeiter ohne Zugang; Status lässt Rückschlüsse auf den Umsatz zu | 2026-10-29 |
+| Regel als reine Rechenfunktion in der App, nicht in der Datenbank | Wird jetzt nur zur Anzeige gebraucht (PROJ-35); einfach testbar; eine Datenbank-Fassung kommt erst, wenn das Rechnungsmodul den Status serverseitig festschreiben muss | 2026-10-29 |
+| Maßgebliche Abreise = Spalte „Abreise“ der Buchung | Seit PROJ-30 enthält sie die tatsächliche Abreise und sonst die geplante; kein Sonderfall nötig | 2026-10-29 |
+| Stornotag aus dem Stornozeitpunkt in österreichischer Zeit | Spec-Edge-Case (Storno 23:30 zählt am selben Tag); gleiches Vorgehen wie „heute“ in der Datenbank | 2026-10-29 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### A) Überblick
+Keine neue Seite, kein neues Paket. Erweitert werden:
+- das gemeinsame Stammdaten-Formular aus PROJ-28 (Inhaber unter *Einstellungen → Kunde*, Betreiber auf der Kunden-Detailseite) um den Bereich „Umsatzsteuer“,
+- die bestehende geschützte Speicherfunktion der Stammdaten, die den Verlauf mitspeichert,
+- eine neue Tabelle für die Statuswechsel,
+- eine neue Regel „Welcher Status gilt für diese Buchung?“, die PROJ-35 verwendet.
+
+### B) Oberfläche (Komponenten)
+```
+Stammdaten-Formular (PROJ-28, gemeinsam für Inhaber und Betreiber)
++-- Kundenname, Adresse, Staat, UID, Steuernummer, Registernummer (unverändert)
++-- NEU Bereich „Umsatzsteuer“
+|   +-- Zeile „Aktuell: …“ (z. B. „Kleinunternehmer – keine Umsatzsteuer, seit Mi, 01.07.2026“)
+|   +-- Leerzustand „Noch kein Wechsel erfasst – es gilt: mit Umsatzsteuer“
+|   +-- Liste der Wechsel (neueste oben)
+|   |   +-- je Eintrag: „ab“-Datum | Status (Auswahl, zwei Werte) | Kennzeichen „geplant“ bei künftigem Datum | Entfernen
+|   +-- Schaltfläche „Wechsel hinzufügen“ (neue Zeile oben, Datum leer, Status vorbelegt mit dem Gegenteil des aktuellen)
++-- Hinweis „inzwischen geändert“ + „Aktuelle Fassung laden“ (unverändert, gilt nun auch für den Verlauf)
++-- Speichern (eine Schaltfläche für alles)
+```
+- **Bausteine:** vorhandene shadcn-Komponenten: Datumsfeld (`Input` wie im Buchungsformular), `Select` für den Status, `Badge` für „geplant“, `Button` für Hinzufügen/Entfernen. Keine neuen Komponenten installieren.
+- **Handy (375 px):** jeder Eintrag zweizeilig (Datum + Entfernen oben, Status darunter), ohne seitliches Scrollen.
+- **Deaktivierter Kunde:** Liste nur lesbar, ohne Hinzufügen/Entfernen (wie die übrigen Felder).
+- **Sortierung:** Nach dem Speichern bzw. Laden absteigend nach Datum. Während der Bearbeitung bleiben die Zeilen, wo der Nutzer sie hat, damit nichts unter dem Finger springt.
+- **Fehleranzeige:** fehlendes Datum/Status und doppeltes Datum direkt an der betroffenen Zeile.
+
+### C) Datenmodell (in Worten)
+**Neue Tabelle „Umsatzsteuer-Statuswechsel“** — je Eintrag:
+- Kunde (Mandant)
+- „ab“-Datum (Kalendertag, ohne Uhrzeit)
+- Status: Kleinunternehmer ja/nein
+- die üblichen Felder „angelegt/geändert von/am“
+
+Regeln in der Datenbank: je Kunde jedes Datum höchstens einmal; Datum und Status Pflicht. Bestehende Kunden haben keine Einträge (= „mit Umsatzsteuer“), es gibt keine Datenübernahme.
+
+**Lesen:** Inhaber des Kunden und Betreiber-Admin. Mitarbeiter können die Tabelle nicht lesen (strenger als die übrigen Stammdaten, weil der Status Rückschlüsse auf den Umsatz zulässt und Mitarbeiter keine Preise sehen).
+**Schreiben:** nur über die Speicherfunktion; direktes Ändern ist für alle gesperrt.
+
+**Kunde (bestehend):** „zuletzt geändert am“ wird auch dann weitergesetzt, wenn sich nur der Verlauf ändert. So greift der vorhandene Konfliktschutz ohne Zusatzaufwand.
+
+**Betreiber-Protokoll:** In der Feldliste des Eintrags „Stammdaten geändert“ erscheint „Umsatzsteuer-Status“, wenn sich der Verlauf geändert hat. Das allgemeine Änderungsprotokoll (PROJ-1) erfasst die neue Tabelle wie alle Mandantentabellen mit alten und neuen Werten.
+
+### D) Speichern
+Die bestehende Funktion `update_tenant_master_data` (PROJ-28) erhält den Verlauf als zusätzlichen Teil der Formulardaten. Ablauf unverändert plus ein Schritt:
+1. Rechte prüfen (Inhaber dieses Kunden oder Admin mit 2FA)
+2. Kunde aktiv
+3. Stand vergleichen („inzwischen geändert“)
+4. Stammdaten bereinigen und speichern
+5. **NEU:** Verlauf mit dem gespeicherten vergleichen; bei Unterschied den Verlauf des Kunden vollständig durch den neuen ersetzen und „zuletzt geändert am“ setzen
+6. Protokoll nur bei echter Änderung, Feldliste ggf. mit „Umsatzsteuer-Status“
+
+Alles geschieht in einem Schritt: Entweder werden Stammdaten und Verlauf gemeinsam gespeichert oder gar nichts.
+
+### E) Regel „Status für eine Buchung“
+Eine reine Rechenregel in der App (ohne Datenbankzugriff), mit Unit-Tests:
+- Eingabe: Verlauf des Kunden + die Buchung (Abreise, ggf. Stornozeitpunkt)
+- Maßgeblicher Tag: bei stornierten Buchungen der Kalendertag der Stornierung in österreichischer Zeit, sonst die Abreise. Die Abreise in der Datenbank ist seit PROJ-30 bereits die tatsächliche (bei vorgezogener Abreise) bzw. sonst gleich der geplanten.
+- Ergebnis: Status des jüngsten Eintrags am oder vor diesem Tag, sonst „mit Umsatzsteuer“
+- Dieselbe Regel liefert ohne Buchung den heutigen Status (Zeile „Aktuell“, Kennzeichen „geplant“) und dient PROJ-35 im Formular, solange noch keine Abreise eingegeben ist.
+
+Die Buchungsseiten laden den Verlauf künftig für Inhaber mit (wenige Zeilen je Kunde). Das baut PROJ-35; PROJ-36 liefert nur die Regel und das Laden.
+
+### F) Tests
+- **Unit:** Regel (vor/am/nach Stichtag, mehrere Wechsel, Storno nach Stornotag, Storno kurz vor Mitternacht österreichischer Zeit, ohne Einträge, künftige Einträge, gleiche Status hintereinander); Prüfregeln des Formulars (Pflichtfelder, doppeltes Datum).
+- **Datenbank/E2E:** Speichern mit Verlauf (hinzufügen, ändern, entfernen), nur Verlauf geändert → Konflikthinweis beim anderen Nutzer, Protokoll mit „Umsatzsteuer-Status“, doppeltes Datum von der Datenbank abgelehnt, Mitarbeiter kann den Verlauf weder lesen noch ändern, fremder Inhaber abgewiesen, deaktivierter Kunde nur lesbar, Handy-Breite, axe.
+- **Regression:** PROJ-28 (Stammdaten, Konflikt, Protokoll), PROJ-4/PROJ-5 Kundenname.
+
+### G) Was sich an Sicherheit und Datenbank ändert (Freigabe nötig)
+- Neue Tabelle mit Mandantentrennung; Lesen nur Inhaber + Admin, kein direktes Schreiben
+- Speicherfunktion der Stammdaten erweitert (Verlauf, Feldliste)
+- Änderungsprotokoll erfasst die neue Tabelle
+
+### Abhängigkeiten (Pakete)
+Keine neuen Pakete.
 
 ## QA Test Results
 _To be added by /qa_
