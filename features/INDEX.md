@@ -49,12 +49,13 @@
 | PROJ-32 | Negative Beträge bei Zusatzkosten | Zusatzkosten-Positionen auch negativ (Rabatt, Gutschrift), Endbetrag darf unter 0 fallen, Anzeige „-€ 50,00“ in Rot; Vorschläge „Rabatt“ und „Nächtigungsabgabe“ | P0 | PROJ-8, PROJ-30, PROJ-31 | Deployed | [Spec](PROJ-32-negative-zusatzkosten.md) | 2026-10-28 |
 | PROJ-33 | Firmenanschrift des Gastes aufteilen | Rechnungsadresse der Firma statt einem Textfeld in Adresszeile 1/2, PLZ, Ort, Staat; Firmenname und UID unverändert; Altdaten in Adresszeile 1 | P0 | PROJ-7, PROJ-29 | Deployed | [Spec](PROJ-33-firmenanschrift-aufteilen.md) | 2026-10-29 |
 | PROJ-34 | Preispositionen ordnen | Zusatzkosten einer Buchung im Buchungsformular per Griff ordnen (Maus, Touch, Tastatur); Übernachtung bleibt oben; Reihenfolge im Detail und für die Rechnung | P0 | PROJ-8, PROJ-32 | Planned | [Spec](PROJ-34-preispositionen-ordnen.md) | 2026-10-29 |
+| PROJ-35 | Umsatzsteuersatz je Position | USt-Satz (Prozent, 2 Nachkommastellen) für Übernachtung, jede Zusatzposition und Stornogebühr; Preise brutto; Auswahl „Reinigung“ 10 %/„Nächtigungsabgabe“ 0 %, sonst 20 %; Detail zeigt enthaltene USt je Satz | P0 | PROJ-8, PROJ-32, PROJ-34 | Planned | [Spec](PROJ-35-umsatzsteuersatz-je-position.md) | 2026-10-29 |
 
 <!-- Add features above this line -->
 
 ## Build Order
-1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 29 → 30 → 31 → 32 → 33 → 34 → 10 → 11 → 12 → 13 → 14 → 15 → 16 → 26 → 17 (**Pilotstand**, ca. 3 Monate) → 18 → 19 (**MVP komplett**, ca. 4–5 Monate) → P2 nach Bedarf.
+1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 29 → 30 → 31 → 32 → 33 → 34 → 35 → 10 → 11 → 12 → 13 → 14 → 15 → 16 → 26 → 17 (**Pilotstand**, ca. 3 Monate) → 18 → 19 (**MVP komplett**, ca. 4–5 Monate) → P2 nach Bedarf.
 
 Den Channex-Block (PROJ-10 bis PROJ-12) früh angehen: Er ist das größte Risiko (Testzugang, Webhooks, Abläufe mit den Plattformen).
 
-## Next Available ID: PROJ-35
+## Next Available ID: PROJ-36
