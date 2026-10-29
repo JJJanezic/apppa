@@ -1,6 +1,6 @@
 # PROJ-35: Umsatzsteuersatz je Position
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-10-29
 **Last Updated:** 2026-10-29
 
@@ -147,12 +147,84 @@ Gilt für eine Buchung laut PROJ-36 „Kleinunternehmer – keine Umsatzsteuer�
 <!-- Added by /architecture -->
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Satz als Spalten an Beträgen und Zusatzkosten (Dezimalzahl, zwei Nachkommastellen) | Satz gehört fest zur Position; exakte Speicherung ohne Kommazahl-Fehler; keine neue Tabelle nötig | 2026-10-29 |
+| Speicherfunktionen lehnen mehr als zwei Nachkommastellen ab, statt zu runden | Akzeptanzkriterium „Datenbank lehnt ab“; stilles Runden würde Eingaben verfälschen | 2026-10-29 |
+| Umstellung bestehender Buchungen in derselben Migration nach Bezeichnung | Keine Nacharbeit für Inhaber; Regeln aus der Spec; Beträge bleiben unberührt | 2026-10-29 |
+| Bezeichnung als Kombinationsfeld (shadcn Popover + Command) statt Browser-`datalist` | Nur so lässt sich „Eintrag gewählt“ von „getippt“ unterscheiden (Satz setzen ja/nein); einheitlich in allen Browsern und für Screenreader | 2026-10-29 |
+| Rechenregel „enthaltene USt je Satz“ als reine App-Funktion mit ganzen Zahlen | Eine Stelle für Detail und späteres Rechnungsmodul; keine Rundungsfehler; einfach testbar | 2026-10-29 |
+| Sichtbarkeit über die PROJ-36-Regel; Server speichert Sätze unabhängig vom Status | Sätze bleiben für einen Wechsel zur Regelbesteuerung erhalten; keine zweite Logik in der Datenbank | 2026-10-29 |
+| Mitarbeiter-Buchungen: Übernachtung 10,00, automatische „Reinigung“ 10,00, beim Ändern Sätze unverändert | Gleiche Vorbelegung wie beim Inhaber; Mitarbeiter sehen keine Preise (PROJ-8) | 2026-10-29 |
+| Auch „Stornogebühr ändern“ (Detail) bekommt ein Satz-Feld | Stornogebühr ist dort ebenfalls änderbar; ohne Feld bliebe der Satz dort unerreichbar | 2026-10-29 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### A) Überblick
+Keine neue Seite, keine neuen Pakete. Erweitert werden:
+- die Beträge einer Buchung (Übernachtungspreis, Stornogebühr) und die Zusatzkosten-Positionen um je einen Umsatzsteuersatz,
+- die bestehenden geschützten Funktionen „Buchung speichern“, „Stornieren“ und „Notiz/Stornogebühr ändern“, die die Sätze mitspeichern,
+- das Buchungsformular, das Stornoformular, das Ändern der Stornogebühr und das Buchungs-Detail,
+- eine neue Rechenregel „enthaltene Umsatzsteuer je Satz“ (eine Stelle für Detail und späteres Rechnungsmodul).
+
+Ob die Felder sichtbar sind, entscheidet die Regel aus PROJ-36 (`vatStatusForBooking`). Die Buchungsseiten laden dazu für Inhaber den Verlauf des Kleinunternehmer-Status mit.
+
+### B) Oberfläche (Komponenten)
+```
+Buchungsformular (nur Inhaber sehen Preise, PROJ-8)
++-- Übernachtungspreis | NEU „USt %“ (vorbelegt 10,00)
++-- Zusatzkosten (PROJ-34, sortierbar)
+|   +-- je Zeile: Griff | Bezeichnung (NEU Auswahlfeld) | Betrag | NEU „USt %“ | Entfernen
+|       +-- Auswahl: „Reinigung“ (setzt 10,00), „Nächtigungsabgabe“ (setzt 0,00); freie Eingabe bleibt möglich
++-- bei Kleinunternehmer (laut Abreise): Felder „USt %“ ausgeblendet, Werte bleiben im Formular erhalten
+
+Stornoformular und „Stornogebühr ändern“
++-- Betrag | NEU „USt %“ (vorbelegt 0,00); bei Kleinunternehmer (laut heutigem bzw. Stornodatum) ausgeblendet
+
+Buchungs-Detail (Inhaber)
++-- Positionen mit Satz („Übernachtung · 10 %“, „Reinigung · 10 %“)
++-- Endbetrag
++-- NEU „darin enthaltene USt“: eine Zeile je Satz > 0 %, aufsteigend; negative Summen rot (PROJ-32)
++-- bei Kleinunternehmer: keine Sätze, keine Aufstellung, stattdessen „Keine Umsatzsteuer (Kleinunternehmer)“
+```
+- **Auswahlfeld der Bezeichnung:** ersetzt die bisherige Vorschlagsliste des Browsers (`datalist`) durch ein zugängliches Kombinationsfeld aus vorhandenen shadcn-Bausteinen (`Popover` + `Command`, beide installiert). Tastatur: Pfeiltasten, Enter übernimmt, Escape schließt; freie Eingabe bleibt Text. Grund: Die Browser-Liste zeigt je nach Browser nicht verlässlich alle Einträge und meldet nicht, ob ein Eintrag gewählt oder getippt wurde. Genau das muss das Formular aber wissen, weil nur ein gewählter Eintrag den Satz setzt.
+- **Satz-Feld:** Textfeld mit Dezimaltastatur wie die Betragsfelder (PROJ-31); beim Verlassen auf zwei Nachkommastellen gebracht („13“ → „13,00“); Komma, Punkt und „%“ werden toleriert.
+- **Handy (375 px):** Zusatzkosten-Zeile zweizeilig: oben Griff, Bezeichnung und Entfernen, darunter Betrag und „USt %“.
+- **Reinigungsgebühr der Wohnung**, die das Formular selbst als Position „Reinigung“ einträgt (PROJ-27), bekommt 10,00.
+
+### C) Datenmodell (in Worten)
+- **Beträge einer Buchung** (bestehend): neu „USt-Satz Übernachtung“ (Pflicht, Standard 10,00) und „USt-Satz Stornogebühr“ (Pflicht, Standard 0,00).
+- **Zusatzkosten-Position** (bestehend): neu „USt-Satz“ (Pflicht).
+- Satz als Dezimalzahl mit genau zwei Nachkommastellen, 0,00 bis 100,00. Die Datenbank prüft die Grenzen; die Speicherfunktionen lehnen Eingaben mit mehr als zwei Nachkommastellen ab, statt sie still zu runden.
+- **Umstellung bestehender Buchungen** in derselben Migration: Übernachtung 10,00; Positionen „Reinigung“ 10,00 und „Nächtigungsabgabe“ 0,00 (ohne Groß-/Kleinschreibung und Rand-Leerzeichen); alle übrigen 20,00; Stornogebühr 0,00. Beträge bleiben unverändert.
+- Lesen wie bisher: nur Inhaber und Admin (Mitarbeiter sehen weder Beträge noch Sätze).
+
+### D) Speichern
+- **Buchung speichern (Inhaber):** übergibt je Position den Satz und den Satz der Übernachtung. Fehlt ein Satz oder ist er ungültig, wird nichts gespeichert.
+- **Buchung speichern (Mitarbeiter):** unverändert. Beim Anlegen erhält die Übernachtung den Standard 10,00 und die automatisch eingetragene „Reinigung“ 10,00; beim Ändern bleiben alle Sätze, wie sie sind.
+- **Stornieren** und **Stornogebühr ändern:** übergeben zusätzlich den Satz der Stornogebühr.
+- **Kleinunternehmer:** Das Formular schickt die (ausgeblendeten) Vorbelegungen bzw. vorhandenen Sätze mit; der Server unterscheidet nicht. So bleiben Sätze für einen späteren Wechsel zur Regelbesteuerung erhalten.
+
+### E) Rechenregel „enthaltene USt je Satz“
+Reine Rechenfunktion in der App mit Unit-Tests:
+- Eingabe: Positionen mit Bruttobetrag (Cent) und Satz; für stornierte Buchungen nur die Stornogebühr, sonst abgerechneter Übernachtungspreis (PROJ-30, anteilig) + Zusatzkosten.
+- Je Satz die Bruttobeträge summieren, dann Steuer = Brutto × Satz / (100 + Satz), kaufmännisch auf den Cent gerundet (bei negativen Summen symmetrisch).
+- Ergebnis: Zeilen je Satz > 0 aufsteigend; leer, wenn alle Sätze 0 sind.
+- Rechnet intern mit ganzen Zahlen (Cent, Satz in Hundertstel-Prozent), damit keine Kommazahl-Fehler entstehen.
+
+### F) Tests
+- **Unit:** Rechenregel (Beispiel aus den Akzeptanzkriterien: 10 % → € 32,73, 20 % → € 5,00; negative Position; negative Summe; vorgezogene Abreise; nur 0 %; Rundung), Satz-Eingabe („13“, „5,5“, „10.5“, „10 %“, Grenzen, drei Nachkommastellen, Text).
+- **Datenbank/E2E:** Inhaber speichert Sätze; Auswahl „Reinigung“/„Nächtigungsabgabe“ setzt den Satz, freies Tippen nicht; Satz wandert beim Verschieben mit; Stornogebühr mit Satz; Detail mit Aufstellung; Kleinunternehmer ohne Felder und mit Hinweis, Sätze trotzdem gespeichert; Mitarbeiter sieht keine Sätze und ändert sie nicht; ungültiger Satz am Formular vorbei abgelehnt; Umstellung bestehender Buchungen; Handy-Breite; axe.
+- **Regression:** PROJ-8, PROJ-27, PROJ-30, PROJ-32, PROJ-34 (Preise, Zusatzkosten, Sortieren, Storno).
+
+### G) Was sich an Sicherheit und Datenbank ändert (Freigabe nötig)
+- Neue Pflichtfelder an Beträgen und Zusatzkosten, mit Umstellung aller bestehenden Buchungen
+- Speicherfunktionen „Buchung speichern“, „Stornieren“ und „Notiz/Stornogebühr ändern“ erweitert (Stornieren und Notiz/Stornogebühr erhalten einen zusätzlichen Parameter)
+- Keine Änderung an Leserechten
+
+### Abhängigkeiten (Pakete)
+Keine neuen Pakete (`Popover` und `Command` sind bereits installiert).
 
 ## QA Test Results
 _To be added by /qa_
