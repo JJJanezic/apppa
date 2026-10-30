@@ -1,10 +1,10 @@
 # PROJ-30: Buchungs-Erweiterung: Meldedaten, Buchungsquelle, Monatsauswahl
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-10-26
 **Last Updated:** 2026-10-30
 
-> Grundumfang ausgeliefert (Deployed). Änderung „Preisregel bei Verlängerung wählbar“ am 2026-10-30 per `/refine` festgelegt und entworfen (Tech Design unten), noch nicht gebaut.
+> Grundumfang ausgeliefert 2026-10-27 (v1.7.0). Änderung „Preisregel bei Verlängerung wählbar“ ausgeliefert 2026-10-30 (v1.15.0), siehe Abschnitt Deployment.
 
 ## Dependencies
 - Requires: PROJ-8 (Manuelle Buchungen): Buchungsformular, Buchungs-Detail, Buchungsliste mit Monatsleiste und Filtern, Mitreisende, Preisvorschlag
@@ -628,3 +628,14 @@ _Stand 2026-10-27 (/deploy, Tag `v1.7.0`)_
 - **Migration** in Staging und Production eingespielt: `20261027063426_booking_extension.sql` (Abreise geplant, Gästeblattnummer, Wohnsitz, Buchungsquelle, abgerechneter Preis, Funktionen)
 - **Advisors:** kein Befund zur Datenbank. Nur bekannte Auth-Hinweise (Staging: Gültigkeit der Mail-Links, Passwort-Leak-Prüfung; Production: Gültigkeit der Mail-Links)
 - Keine neuen Umgebungsvariablen, kein `config push`
+
+### Änderung „Preisregel bei Verlängerung wählbar“ – 2026-10-30, Version v1.15.0
+- **Commit:** `7166d26` (Branches `staging` und `production`); Staging und Production vom Nutzer geprüft
+- **Staging:** https://staging.apppa.at · **Production:** https://app.apppa.at
+- **Migration** in Staging und Production: `20261030131114_booking_extension_pricing.sql` (Preisregel `nights_extension_pricing`, Befüllung des Bestands, Rechenregel, `save_booking`)
+- **Datenkontrolle Production** (nur Anzahlen und Summen, vor und nach `db push`): 56 Buchungen mit Beträgen, davon 2 verlängert; nach der Migration beide mit „anteilig“, alle übrigen „gesamter Aufenthalt“; Summe abgerechnet gesamt 22.849,21 € und der verlängerten 1.779,96 € jeweils unverändert. Staging ohne Buchungen
+- **Advisors:** nur bekannte Auth-Hinweise (Staging: Mail-Link-Gültigkeit, Passwort-Leak-Prüfung; Production: Mail-Link-Gültigkeit)
+- Keine neuen Pakete oder Umgebungsvariablen, kein `config push`
+- **Mit ausgeliefert:** Buchhaltungs-Commit PROJ-37 (`09dbd18`)
+- **Nach dem Release:** Den Anlassfall stellt der Nutzer selbst auf „Preis gilt für den gesamten Aufenthalt“ um
+- **Tag:** `v1.15.0-PROJ-30` auf `7166d26`

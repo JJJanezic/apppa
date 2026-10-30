@@ -30,7 +30,7 @@ Die App wird als Mehrmandanten-SaaS betrieben: Jeder Kunde (Vermieter) hat ein e
 | P0 (Pilot) | Zahlungserfassung je Buchung, Dashboard | Roadmap |
 | P0 (Pilot) | Tourismusabgabe: Regeln je Gemeinde, Berechnung und Monatsbericht | Roadmap |
 | P0 (Pilot) | Gast-Erweiterung: Titel, Geschlecht, Reisedokument | Deployed (PROJ-29) |
-| P0 (Pilot) | Buchungs-Erweiterung: Meldedaten, Buchungsquelle, Monatsauswahl; Preisregel bei Verlängerung wählbar | Planned (PROJ-30, Grundumfang live) |
+| P0 (Pilot) | Buchungs-Erweiterung: Meldedaten, Buchungsquelle, Monatsauswahl; Preisregel bei Verlängerung wählbar | Deployed (PROJ-30) |
 | P0 (Pilot) | Einheitliche Datums- und Betragsformate | Deployed (PROJ-31) |
 | P0 (Pilot) | Negative Beträge bei Zusatzkosten | Deployed (PROJ-32) |
 | P0 (Pilot) | Firmenanschrift des Gastes in Feldern | Deployed (PROJ-33) |
