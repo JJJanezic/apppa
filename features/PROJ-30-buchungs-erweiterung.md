@@ -1,8 +1,10 @@
 # PROJ-30: Buchungs-Erweiterung: Meldedaten, Buchungsquelle, Monatsauswahl
 
-## Status: Deployed
+## Status: Planned
 **Created:** 2026-10-26
-**Last Updated:** 2026-10-27
+**Last Updated:** 2026-10-30
+
+> Grundumfang ausgeliefert (Deployed). Änderung „Preisregel bei Verlängerung wählbar“ am 2026-10-30 per `/refine` festgelegt, noch nicht gebaut.
 
 ## Dependencies
 - Requires: PROJ-8 (Manuelle Buchungen): Buchungsformular, Buchungs-Detail, Buchungsliste mit Monatsleiste und Filtern, Mitreisende, Preisvorschlag
@@ -32,7 +34,13 @@ Gilt für **Buchungen und Optionen**, nicht für Sperren.
   - Abreise = geplant oder später → Nächte bis zur tatsächlichen Abreise.
   - Abreise früher als geplant → voller gebuchter Zeitraum (bis geplante Abreise).
 - **Ortstaxe-Nächte** (für PROJ-16) = Nächte von der Anreise bis zur **tatsächlichen** Abreise.
-- **Preis:** Der vom Inhaber eingetragene Nächtigungspreis gilt als **vereinbarter Preis für den geplanten Zeitraum**. Liegt die tatsächliche Abreise später, wird der Nächtigungspreis automatisch anteilig hochgerechnet: vereinbarter Preis ÷ geplante Nächte × abzurechnende Nächte (auf Cent gerundet). Beispiel: 500 € für 5 Nächte, 1 Nacht länger → 600 €. Wird die Abreise wieder auf oder vor die geplante gesetzt, gilt wieder der vereinbarte Preis. Zusatzkosten bleiben unverändert.
+- **Preis:** Bei gleicher oder früherer tatsächlicher Abreise gilt der eingetragene Nächtigungspreis unverändert (bei früherer Abreise ist der volle Zeitraum zu bezahlen).
+- **Preis bei Verlängerung – wählbar je Buchung (geändert 2026-10-30):** Liegt die tatsächliche Abreise **nach** der geplanten, wählt der Inhaber im Buchungsformular unter dem Nächtigungspreis:
+  - **„Preis gilt für den gesamten Aufenthalt“** (Voreinstellung): Der eingetragene Betrag wird unverändert abgerechnet.
+  - **„Anteilig hochrechnen“**: vereinbarter Preis ÷ geplante Nächte × abzurechnende Nächte (auf Cent gerundet). Beispiel: 500 € für 5 Nächte, 1 Nacht länger → 600 €. Der hochgerechnete Betrag ist im Formular sofort sichtbar.
+  - Die Auswahl erscheint **ausschließlich** bei tatsächlicher Abreise nach der geplanten (seltener Fall); sonst bleibt das Formular wie bisher. Im Buchungsdetail wird die gewählte Regel nicht eigens angezeigt.
+  - Die Wahl wird an der Buchung gespeichert. Wird die Abreise wieder auf oder vor die geplante gesetzt, gilt der eingetragene Preis; die gespeicherte Wahl greift wieder, falls erneut verlängert wird.
+  - Zusatzkosten bleiben in beiden Fällen unverändert.
 - Der **Preisvorschlag** (PROJ-27) rechnet weiterhin für den geplanten Zeitraum.
 
 ### Buchungsquelle
@@ -63,7 +71,7 @@ Der **Belegungskalender bleibt unverändert**.
 ## User Stories
 - Als Vermieter (Inhaber oder Mitarbeiter) möchte ich die Gästeblattnummer bei der Buchung eintragen, damit ich Buchung und Meldung eindeutig zuordnen kann.
 - Als Vermieter möchte ich neben der geplanten auch die tatsächliche Abreise erfassen, damit frühere oder spätere Abreisen im Kalender, im Preis und später in der Ortstaxe richtig berücksichtigt werden.
-- Als Inhaber möchte ich, dass sich der Preis bei einer Verlängerung automatisch anteilig erhöht, damit ich ihn nicht von Hand nachrechnen muss und ein gewährter Rabatt erhalten bleibt.
+- Als Inhaber möchte ich bei einer Verlängerung wählen, ob der eingetragene Preis für den gesamten Aufenthalt gilt oder anteilig hochgerechnet wird, damit ein mit dem Gast vereinbarter Pauschalpreis nicht ungewollt steigt und ich trotzdem bequem hochrechnen kann (Rabatt bleibt erhalten).
 - Als Vermieter möchte ich bei einer Buchung „Wohnsitz angemeldet“ ankreuzen, damit für diesen Aufenthalt später keine Ortstaxe berechnet wird.
 - Als Vermieter möchte ich bei jeder Buchung die Buchungsquelle auswählen (inkl. booking.com), damit ich weiß, woher meine Buchungen kommen, und booking.com-Buchungen im Kalender sofort erkenne.
 - Als Vermieter möchte ich die Buchungsliste nach Quelle filtern, damit ich z. B. alle booking.com-Buchungen eines Monats sehe.
@@ -113,13 +121,18 @@ Der **Belegungskalender bleibt unverändert**.
 - [ ] Angenommen eine Option wird in eine Buchung umgewandelt, wenn das passiert, dann bleiben beide Abreisedaten erhalten
 
 ### Preis bei Verlängerung und früherer Abreise
-- [ ] Angenommen eine Buchung mit vereinbartem Nächtigungspreis 500 € für 5 geplante Nächte, wenn die tatsächliche Abreise 1 Tag später gesetzt wird, dann beträgt der Nächtigungspreis 600 €
-- [ ] Angenommen dieselbe Buchung, wenn die tatsächliche Abreise 2 Tage früher gesetzt wird, dann bleibt der Nächtigungspreis bei 500 €
-- [ ] Angenommen die Abreise wurde verlängert und der Preis auf 600 € hochgerechnet, wenn die Abreise wieder auf das geplante Datum gesetzt wird, dann beträgt der Preis wieder 500 €
-- [ ] Angenommen eine Verlängerung, wenn der Inhaber das Formular sieht, dann zeigt es den vereinbarten Preis, die abzurechnenden Nächte und den hochgerechneten Preis
-- [ ] Angenommen eine Buchung mit Zusatzkosten, wenn die Abreise verlängert wird, dann bleiben die Zusatzkosten unverändert
-- [ ] Angenommen ein Mitarbeiter verlängert die Abreise, wenn er speichert, dann wird der Preis ebenso automatisch hochgerechnet, ohne dass der Mitarbeiter Beträge sieht
-- [ ] Angenommen ein ungerader Betrag (z. B. 333,33 € für 3 Nächte, 1 Nacht länger), wenn hochgerechnet wird, dann wird auf Cent gerundet (444,44 €)
+- [ ] Angenommen eine Buchung mit tatsächlicher Abreise gleich oder vor der geplanten, wenn der Inhaber das Formular öffnet, dann gibt es keine Auswahl zur Preisregel
+- [ ] Angenommen eine Buchung mit Nächtigungspreis 500 € für 5 geplante Nächte, wenn der Inhaber die tatsächliche Abreise 1 Tag später setzt, dann erscheint die Auswahl mit „Preis gilt für den gesamten Aufenthalt“ vorausgewählt und der Preis bleibt bei 500 €
+- [ ] Angenommen dieselbe Verlängerung, wenn der Inhaber „Anteilig hochrechnen“ wählt, dann zeigt das Formular sofort 600 € (und die abzurechnenden Nächte), und nach dem Speichern gilt 600 € in Detail, Liste und Gesamtpreis
+- [ ] Angenommen „Preis gilt für den gesamten Aufenthalt“, wenn gespeichert wird, dann gilt der eingetragene Betrag in Detail, Liste und Gesamtpreis unverändert
+- [ ] Angenommen eine Verlängerung mit gespeicherter Wahl, wenn die Buchung erneut bearbeitet wird, dann ist die gespeicherte Wahl ausgewählt
+- [ ] Angenommen die Abreise wurde verlängert und „Anteilig hochrechnen“ gewählt, wenn die Abreise wieder auf das geplante Datum gesetzt wird, dann verschwindet die Auswahl und es gilt wieder der eingetragene Preis (500 €)
+- [ ] Angenommen dieselbe Buchung, wenn die tatsächliche Abreise 2 Tage früher gesetzt wird, dann gibt es keine Auswahl und der Preis bleibt bei 500 €
+- [ ] Angenommen eine Buchung mit Zusatzkosten, wenn die Abreise verlängert wird, dann bleiben die Zusatzkosten bei beiden Regeln unverändert
+- [ ] Angenommen ein Mitarbeiter verlängert die Abreise, wenn er speichert, dann gilt die an der Buchung gespeicherte Regel (ohne gespeicherte Wahl: „gesamter Aufenthalt“); der Mitarbeiter sieht weder Beträge noch die Auswahl
+- [ ] Angenommen „Anteilig hochrechnen“ und ein ungerader Betrag (z. B. 333,33 € für 3 Nächte, 1 Nacht länger), wenn hochgerechnet wird, dann wird auf Cent gerundet (444,44 €)
+- [ ] Angenommen eine schon vor dieser Änderung verlängerte und hochgerechnete Buchung, wenn die Änderung ausgerollt ist, dann bleibt ihr Betrag unverändert und beim Bearbeiten ist „Anteilig hochrechnen“ ausgewählt
+- [ ] Angenommen jemand sendet eine Preisregel direkt an den Server, wenn sie ungültig ist oder von einem Mitarbeiter kommt, dann wird sie abgelehnt bzw. nicht übernommen
 
 ### Wohnsitz angemeldet
 - [ ] Angenommen eine neue Buchung oder Option, wenn das Formular geöffnet wird, dann ist „Wohnsitz angemeldet“ nicht angehakt
@@ -153,6 +166,9 @@ Der **Belegungskalender bleibt unverändert**.
 
 ## Edge Cases
 - **Abreise geplant und Abreise gleichzeitig geändert:** Beide gelten wie eingegeben; Preis- und Belegungsregeln rechnen mit den gespeicherten Werten.
+- **Pauschalpreis für einen verlängerten Aufenthalt** (Anlassfall 2026-10-30): Inhaber wählt „Preis gilt für den gesamten Aufenthalt“ und trägt den vereinbarten Gesamtbetrag ein. Der eine betroffene Bestandsfall in Produktion wird vom Nutzer von Hand umgestellt.
+- **Verlängerung durch einen Mitarbeiter bei neuer Buchung ohne gespeicherte Wahl:** gilt „gesamter Aufenthalt“, der Betrag ändert sich nicht; der Inhaber kann später auf „anteilig“ umstellen.
+- **Bereits erfasste Rechnungen (PROJ-37):** bleiben unverändert (Positionen sind eine Kopie); im Buchungsdetail kann sich „Gesamtpreis“ gegenüber „Verrechnet“ verschieben, wenn die Regel nachträglich umgestellt wird.
 - **Planung wird nachträglich verlängert** (Gast bucht offiziell länger): Der Inhaber ändert „Abreise geplant“ und trägt ggf. einen neuen vereinbarten Preis ein; der Preisvorschlag rechnet für den neuen geplanten Zeitraum.
 - **Tatsächliche Abreise später, aber Konflikt mit Folgebuchung:** Überschneidungswarnung wie bisher; Inhaber dürfen bewusst übersteuern, Mitarbeiter nicht (Regel aus PROJ-8).
 - **Frühere Abreise und neue Buchung in der freigewordenen Zeit:** Erlaubt, da die Belegung nach der tatsächlichen Abreise geht. Wird die tatsächliche Abreise danach wieder nach hinten verschoben, greift die Überschneidungswarnung.
@@ -189,6 +205,11 @@ Der **Belegungskalender bleibt unverändert**.
 | Belegung nach tatsächlicher Abreise | Frühe Abreise gibt die Wohnung frei, Verlängerung muss Konflikte prüfen | 2026-10-26 |
 | Preis nach späterer Abreise, Ortstaxe nach tatsächlicher | Vorgabe des Nutzers: bei früherer Abreise ist der volle Zeitraum zu bezahlen, Abgabe nur für den tatsächlichen Aufenthalt | 2026-10-26 |
 | Preis bei Verlängerung automatisch anteilig hochrechnen | Nutzerwunsch „automatisch anpassen“; anteilig, damit ein eigener Preis bzw. Rabatt erhalten bleibt | 2026-10-26 |
+| **Geändert:** Preisregel bei Verlängerung je Buchung wählbar – „Preis gilt für den gesamten Aufenthalt“ (Voreinstellung) oder „Anteilig hochrechnen“ | Anlassfall im Livebetrieb: vereinbarter Pauschalpreis wurde ungewollt erhöht und ließ sich nicht verhindern; Hochrechnen bleibt als Option für Preise pro Nacht/Rabatte | 2026-10-30 |
+| Auswahl nur bei tatsächlicher Abreise nach der geplanten | Seltener Fall; Formular soll sonst übersichtlich bleiben (Nutzervorgabe) | 2026-10-30 |
+| Keine Anzeige der gewählten Regel im Buchungsdetail | Nutzerentscheidung; der Betrag genügt | 2026-10-30 |
+| Bestehende verlängerte Buchungen behalten „Anteilig hochrechnen“ | Keine stillen Betragsänderungen an Buchungen und Rechnungen; der eine Anlassfall wird vom Nutzer von Hand umgestellt | 2026-10-30 |
+| Mitarbeiter sehen die Auswahl nicht; ihre Verlängerungen folgen der gespeicherten Regel (sonst „gesamter Aufenthalt“) | Mitarbeiter sehen keine Beträge (PROJ-8); kein ungewolltes Erhöhen durch Mitarbeiter | 2026-10-30 |
 | Eigene Buchungsquelle, nicht an die Gäste-Liste gekoppelt | Die Marketing-Quelle der Gäste wird später entfernt; nur die Liste bei der Buchung bleibt | 2026-10-26 |
 | Nur booking.com bekommt eine eigene Farbe, kein Airbnb | Nutzerwunsch; Airbnb kommt über den Import (PROJ-11) | 2026-10-26 |
 | Quelle als Filter in der Buchungsliste | Schnelle Übersicht z. B. über alle booking.com-Buchungen | 2026-10-26 |
