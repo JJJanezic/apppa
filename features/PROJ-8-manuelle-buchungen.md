@@ -832,3 +832,4 @@ _Stand 2026-10-25 (/deploy, Tag `v1.2.0`)_
 - **Änderung:** `booking-detail.tsx` ordnet die Abschnitte in zwei Spalten: links „Hauptgast“, „Mitreisende“, „Aufenthalt“, rechts „Preis“ und „Rechnungen“. Einspaltig in derselben Reihenfolge. Inhalte, Bedingungen und Rechte unverändert
 - **Test:** neuer E2E-Test „Anordnung Buchungsdetail“ in `tests/PROJ-8-manuelle-buchungen.spec.ts` (Spalten und Reihenfolge am Desktop, Reihenfolge untereinander auf Tablet und Handy); Layout/axe auf allen drei Breiten grün
 - **Regression grün:** PROJ-8 Detail, Mitreisende, Stornieren, Mitarbeiter (8), PROJ-9 Detailpanel (5), PROJ-30 (11), PROJ-35 Detail (3), PROJ-37 Rechnungsabschnitt (2)
+- **Ausgeliefert 2026-10-30, Tag `v1.15.1-PROJ-8`:** Commit `2113117` auf `staging` und `production`, Staging und Production vom Nutzer geprüft; keine Migration, keine neuen Umgebungsvariablen. Mit ausgeliefert: Buchhaltungs-Commit PROJ-30 (`c6dcfe3`)
