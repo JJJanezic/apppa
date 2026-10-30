@@ -1,6 +1,6 @@
 # PROJ-37: Rechnungen nacherfassen
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-10-30
 **Last Updated:** 2026-10-30
 
@@ -146,7 +146,7 @@ Teil A kommt zuerst: Kunden bringen Rechnungen aus ihrem bisherigen System mit. 
 - [ ] Angenommen der Betreiber öffnet die Detailseite eines aktiven Kunden, wenn die Stammdaten angezeigt werden, dann kann er den Schalter umlegen
 
 ### Buchungsdetail
-- [ ] Angenommen eine Buchung mit zwei verknüpften Rechnungen, wenn ein Inhaber oder Mitarbeiter das Buchungsdetail öffnet, dann steht unter dem Preis der Abschnitt „Rechnungen“ mit beiden Rechnungen (Link), „Verrechnet: € …“ und dem Gesamtpreis
+- [ ] Angenommen eine Buchung mit zwei verknüpften Rechnungen, wenn ein Inhaber oder Mitarbeiter das Buchungsdetail öffnet, dann steht unter dem Preis der Abschnitt „Rechnungen“ mit beiden Rechnungen (Link), „Verrechnet: € …“ und dem Gesamtpreis (auch für Mitarbeiter)
 - [ ] Angenommen die Summe der Rechnungen liegt über dem Gesamtpreis, wenn der Abschnitt angezeigt wird, dann erscheint der Hinweis „Verrechnet mehr als Gesamtpreis“
 - [ ] Angenommen eine Buchung ohne Rechnungen, wenn das Buchungsdetail angezeigt wird, dann gibt es keinen Abschnitt „Rechnungen“
 - [ ] Angenommen das Buchungsdetail im Kalender-Panel (PROJ-9), wenn es Rechnungen gibt, dann erscheint der Abschnitt dort ebenso
@@ -181,7 +181,7 @@ Teil A kommt zuerst: Kunden bringen Rechnungen aus ihrem bisherigen System mit. 
 - Browser: Chrome, Firefox, Safari; responsiv für Desktop und Handy
 
 ## Open Questions
-- [ ] Kleinunternehmer-Status einer Rechnung: Rechnungsdatum (so festgelegt) oder bei verknüpfter Buchung deren Regel aus PROJ-36 (Abreise bzw. Stornodatum)? Wird spätestens in PROJ-38 einheitlich entschieden
+- [ ] Kleinunternehmer-Status einer Rechnung: Rechnungsdatum (so festgelegt und an der Rechnung festgehalten) oder bei verknüpfter Buchung deren Regel aus PROJ-36 (Abreise bzw. Stornodatum)? Wird spätestens in PROJ-38 einheitlich entschieden
 
 ## Decision Log
 
@@ -205,17 +205,153 @@ Teil A kommt zuerst: Kunden bringen Rechnungen aus ihrem bisherigen System mit. 
 | Wählbar: alle Buchungen und Optionen inkl. stornierter, keine Sperren | Alte Stornorechnungen gehören zu stornierten Buchungen; Sperren haben weder Gast noch Preis | 2026-10-30 |
 | Rechnungen überstehen Anonymisieren; Gast mit Rechnungen nur anonymisierbar; Zusammenführen zieht Rechnungen mit | Aufbewahrungspflicht 7 Jahre (BAO) geht vor; gleiche Regel wie Buchungen in PROJ-7 | 2026-10-30 |
 | Kein zweiter Einstieg im Buchungsdetail | Knopfleiste bleibt schlank; Buchungssuche im Formular reicht | 2026-10-30 |
+| Mitarbeiter sehen im Rechnungsabschnitt des Buchungsdetails auch Gesamtpreis und Vergleich | Entscheidung des Nutzers in /architecture; abweichend von PROJ-8/35, wo Mitarbeiter keine Buchungspreise sehen | 2026-10-30 |
 
 ### Technical Decisions
 <!-- Added by /architecture -->
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Eigene Tabellen „Rechnung“ und „Rechnungsposition“ statt Felder an der Buchung | Mehrere Rechnungen je Buchung, Rechnungen ohne Buchung; Positionen sind eine unabhängige Kopie | 2026-10-30 |
+| Gleiches Datenmodell wie später für ausgestellte Rechnungen (Feld „Herkunft“) | PROJ-38/39 bauen ohne Umbau darauf auf; Liste, Summen und Nummernprüfung gelten für beide | 2026-10-30 |
+| Gesamtbetrag und Kleinunternehmer-Kennzeichen von der Datenbank gebildet und gespeichert | Liste und Summen brauchen keine Neuberechnung; Werte lassen sich nicht vom Browser verfälschen; Mitarbeiter brauchen den Status-Verlauf nicht | 2026-10-30 |
+| Kleinunternehmer-Kennzeichen nach Rechnungsdatum, festgehalten an der Rechnung | Wie im Spec-Interview festgelegt; ändert sich der Verlauf später, bleibt die erfasste Rechnung stabil | 2026-10-30 |
+| Eindeutigkeit über einen Vergleichsschlüssel (Kleinschreibung, ohne Rand-Leerzeichen) je Kunde in der Datenbank | Doppelte Nummern werden auch bei gleichzeitigen Eingaben sicher abgelehnt | 2026-10-30 |
+| Neuer privater Speicherbereich „Rechnungen“, Upload direkt vom Browser | Trennung von Ausweisbildern (andere Regeln, Größe, Typ); Vercel-Grenze von 4,5 MB je Server-Anfrage | 2026-10-30 |
+| Bestehende tägliche Bereinigung erweitern statt zweitem Zeitplan | Ein Zeitplan, ein Schlüssel, gleiche Logik („älter als 24 Stunden und unverwendet“) | 2026-10-30 |
+| Eine Speicherfunktion für Anlegen und Ändern, Positionen im selben Schritt | Rechnung und Positionen gelingen oder scheitern gemeinsam; Konfliktschutz wie PROJ-28 | 2026-10-30 |
+| Eigene Lesefunktion „Rechnungen einer Buchung“ mit Gesamtpreis für alle Mitglieder | Nutzerentscheidung: Mitarbeiter sehen im Rechnungsabschnitt auch den Gesamtpreis; Buchungspreise bleiben sonst für sie verborgen | 2026-10-30 |
+| Buchungssuche als Datenbank-Funktion, höchstens 20 Treffer | Suche über Gast, Wohnung und Zeitraum über alle Jahre; schnelle Antwort auch bei vielen Buchungen | 2026-10-30 |
+| Formular als seitliches Panel, Liste und Detail als eigene Seiten | Gleiches Bedienmuster wie Buchungen und Gäste; Detail per Adresse verlinkbar (Buchungsdetail, Liste) | 2026-10-30 |
+| Suchbegriff und Seite in der Adresszeile | Zurück-Knopf und Rückkehr aus dem Detail behalten den Stand; Vorbereitung für die Filter in PROJ-39 | 2026-10-30 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### Ausgangslage (bereits vorhanden)
+- **Privater Dateispeicher** samt Muster aus PROJ-29: Upload direkt vom Browser in einen Ordner je Kunde, kurzlebige Abruf-Links, Löschen nur durch den Server, tägliche Bereinigung per Vercel Cron (`/api/cron/ausweisbilder`).
+- **Geschützte Datenbank-Funktionen** mit Konfliktschutz („erwarteter Stand“) wie bei den Kundenstammdaten (PROJ-28) und automatisches **Änderungsprotokoll** für Tabellen.
+- **Bausteine:** Gastauswahl samt Neuanlage (`guest-picker`), sortierbare Positionen mit USt-Satz (`sortable-charges`, `vat-rate-input`, `label-combobox`), Betragsfeld und -anzeige (PROJ-31/32), Rechenregel `vatBreakdown` (PROJ-35), Detail-Panel, Seitenkopf, leere Zustände, Bestätigungsdialog, zentrale Navigation.
+- **Gast-Funktionen** Löschen, Anonymisieren und Zusammenführen (PROJ-7), **Kunde löschen** durch den Betreiber (PROJ-5).
+
+### A) Seiten und Bausteine
+```
+Navigation
++-- NEU „Rechnungen“ (/rechnungen) nach „Gäste“, für Inhaber und Mitarbeiter; am Handy unter „Mehr“
+
+Rechnungsliste (/rechnungen)
++-- Seitenkopf „Rechnungen“ + Knopf „Rechnung nacherfassen“ (nur Inhaber, nur wenn Schalter ein)
++-- Suchfeld (Nummer oder Empfänger; Suchbegriff steht in der Adresszeile)
++-- Tabelle (Desktop) bzw. Karten (Handy): Nummer · Datum · Empfänger · Buchung · Betrag · Status
+|   +-- Nummer ist der Link (kein Overlay über der Zeile – Safari-Fehler)
++-- Blättern je 50 (vorhandener Baustein „Pagination“)
++-- Leerer Zustand „Noch keine Rechnungen“ (+ Knopf für Inhaber)
+
+Rechnungsdetail (/rechnungen/[id])
++-- Kopf: Nummer, Datum, Status („nacherfasst“, ggf. „ohne PDF“)
++-- Empfänger · Gast (Link) · Buchung (Link)
++-- Positionen (Bezeichnung · Satz · Betrag), Gesamtbetrag
++-- „darin enthaltene USt“ je Satz bzw. „Keine Umsatzsteuer (Kleinunternehmer)“
++-- PDF: „Öffnen“ (neuer Tab) und „Herunterladen“
++-- Inhaber: „Bearbeiten“ (öffnet Formular-Panel) · „Löschen“ (Bestätigungsdialog)
+
+Formular-Panel „Rechnung nacherfassen“ / „Rechnung bearbeiten“ (seitliches Panel wie Buchungen)
++-- Rechnungsnummer · Rechnungsdatum (Hinweis bei > 7 Jahren)
++-- NEU Buchungsauswahl (Kombinationsfeld mit Suche, Popover + Command)
+|   +-- bei Wahl: Gast und Empfänger vorbelegen, Positionen übernehmen (Rückfrage, falls schon Positionen da sind)
++-- Gastauswahl (vorhandener Baustein, inkl. Neuanlage)
++-- Empfänger (Text; bleibt, sobald von Hand geändert)
++-- Positionen: vorhandene sortierbare Zeilen mit Bezeichnung · Betrag · USt-Satz · Entfernen; „Position hinzufügen“
++-- Summe und USt je Satz, laufend neu gerechnet
++-- PDF-Feld: Datei wählen · Fortschritt · „Ersetzen“ · „Entfernen“
++-- Speichern · Abbrechen
+
+Buchungsdetail (Seite und Kalender-Panel)
++-- NEU Abschnitt „Rechnungen“ unter dem Preis (nur wenn vorhanden)
+    +-- je Rechnung: Nummer (Link) · Datum · Empfänger · Betrag · Status
+    +-- „Verrechnet: € …“ · „Gesamtpreis: € …“ · ggf. Hinweis „Verrechnet mehr als Gesamtpreis“
+
+Einstellungen → Kunde (Inhaber) und Betreiber-Kundendetail
++-- NEU Schalter „Rechnungen nacherfassen“ im Stammdaten-Formular
+```
+
+### B) Datenmodell (in Worten)
+
+**Rechnung** (neue Tabelle, je Kunde):
+- Rechnungsnummer (Text, höchstens 30 Zeichen) und ein daraus abgeleiteter **Vergleichsschlüssel** (ohne Rand-Leerzeichen, Kleinschreibung), der je Kunde eindeutig sein muss
+- Rechnungsdatum (nicht nach heute, Zeitzone Wien)
+- Herkunft: „nacherfasst“ (PROJ-38 ergänzt „ausgestellt“)
+- Buchung (optional; nur Buchungen und Optionen desselben Kunden, keine Sperren)
+- Gast (optional; nur Gäste desselben Kunden)
+- Empfänger (Text, Pflicht, höchstens 200 Zeichen)
+- **Kleinunternehmer-Kennzeichen**: beim Speichern aus dem Verlauf (PROJ-36) zum Rechnungsdatum ermittelt und an der Rechnung festgehalten
+- **Gesamtbetrag** in Cent, von der Datenbank aus den Positionen gebildet (nie vom Browser übernommen)
+- PDF: Speicherort der Datei (optional)
+- Zeitstempel und Bearbeiter wie bei allen Tabellen; Änderungsprotokoll
+
+**Rechnungsposition** (neue Tabelle):
+- Rechnung, Reihenfolge, Bezeichnung, Bruttobetrag in Cent (auch negativ), USt-Satz (0,00–100,00)
+- Grenzen wie bei den Zusatzkosten der Buchungen (PROJ-32/35); mindestens eine Position je Rechnung
+
+**Kunde** (bestehende Tabelle): neues Feld „Rechnungen nacherfassen“ (ja/nein, Standard ja; bestehende Kunden bekommen „ja“).
+
+**Rechnungs-PDFs** liegen in einem neuen **privaten Speicherbereich** („Rechnungen“) in Supabase Storage (EU): ein Ordner je Kunde, zufälliger Dateiname, nur PDF, höchstens 10 MB, kein öffentlicher Zugriff.
+
+### C) Rechte
+
+| Aktion | Inhaber | Mitarbeiter | Betreiber-Admin |
+|---|---|---|---|
+| Rechnungen, Positionen, PDF lesen | ✓ | ✓ | ✓ (Datenbank, wie alle Kundendaten; keine eigene Oberfläche) |
+| Abschnitt im Buchungsdetail inkl. Gesamtpreis | ✓ | ✓ | – |
+| Nacherfassen (nur bei Schalter ein), bearbeiten, löschen | ✓ | – | – |
+| PDF hochladen | ✓ (in den eigenen Ordner) | – | – |
+| Schalter umlegen | ✓ | – | ✓ |
+
+- Alle Prüfungen (Rolle, Schalter, Mandant, Nummer, Datum, Positionen, Datei gehört zum Kunden und hängt an keiner anderen Rechnung) macht die **Datenbank**, nicht nur die Oberfläche.
+- Der Schalter gilt nur fürs **Anlegen**; Bearbeiten und Löschen bleiben immer möglich.
+- Bei **deaktivierten Kunden** sind Rechnungen wie alle Daten nur lesbar.
+- **Mitarbeiter** sehen Buchungspreise weiterhin nicht im Preisbereich der Buchung. Für den Rechnungsabschnitt liefert eine eigene Lesefunktion Rechnungen, verrechnete Summe und Gesamtpreis an alle Mitglieder (Entscheidung des Nutzers).
+
+### D) Speichern und Löschen
+- **Rechnung speichern** (eine geschützte Funktion für Anlegen und Ändern): Rechnung und alle Positionen in einem Schritt; beim Ändern mit Konfliktschutz („inzwischen geändert“). Sie bildet Gesamtbetrag und Kleinunternehmer-Kennzeichen selbst und meldet die nicht mehr verwendete PDF-Datei zurück (ersetzt oder entfernt). Doppelte Nummern meldet sie mit Datum der vorhandenen Rechnung.
+- **Rechnung löschen** (geschützte Funktion): entfernt Rechnung und Positionen und meldet das PDF zurück. Der Server löscht die gemeldeten Dateien sofort.
+- Nach dem Anlegen leitet die Server-Aktion selbst auf die neue Rechnung weiter (bewährtes Muster gegen verworfene Navigation in Next 16).
+
+### E) PDF hochladen und abrufen
+1. Der Browser prüft Dateityp und Größe (PDF, ≤ 10 MB) und lädt die Datei **direkt in den privaten Speicher**, nicht über den App-Server (Vercel begrenzt Server-Anfragen auf 4,5 MB). Der Speicher prüft Typ und Größe ein zweites Mal.
+2. Das Formular merkt sich den Speicherort; erst **Speichern** hängt die Datei an die Rechnung.
+3. **Abruf:** Der Server erzeugt beim Öffnen des Rechnungsdetails kurzlebige Links (10 Minuten) zum Öffnen und Herunterladen – nur wenn die Datei an einer Rechnung des eigenen Kunden hängt.
+4. **Bereinigung:** Die bestehende tägliche Bereinigung wird auf den neuen Speicherbereich erweitert: Dateien älter als 24 Stunden, die an keiner Rechnung hängen, werden gelöscht (Upload ohne Speichern, abgebrochene Löschungen).
+
+### F) Buchungsauswahl und Übernahme der Positionen
+- Neue **Suchfunktion für Buchungen** (nur Inhaber): sucht in Gastname, Wohnung und Zeitraum, liefert höchstens 20 Treffer, neueste zuerst, ohne Sperren, mit stornierten.
+- Bei Wahl einer Buchung lädt das Formular deren Positionen (Inhaber dürfen Buchungspreise lesen): bei aktiven Buchungen abgerechnete Übernachtung (anteilig nach PROJ-30) und Zusatzkosten in der Reihenfolge aus PROJ-34; bei stornierten nur die Stornogebühr. Je Position werden Bezeichnung, Betrag und Satz kopiert.
+- Summe und USt je Satz rechnet das Formular mit der vorhandenen Regel `vatBreakdown`; die Datenbank rechnet den Gesamtbetrag beim Speichern unabhängig nach.
+
+### G) Anpassungen an bestehenden Funktionen
+- **Gast löschen:** Hat ein Gast Rechnungen (auch ohne Buchungen), wird er anonymisiert statt gelöscht.
+- **Gast anonymisieren:** keine Änderung an Rechnungen; die Verknüpfung bleibt, der Gast heißt „Gelöschter Gast“.
+- **Gäste zusammenführen:** hängt die Rechnungen des aufgelösten Gastes an den verbleibenden.
+- **Kunde löschen (Betreiber):** Rechnungen und Positionen gehen mit; der Server entfernt zusätzlich den PDF-Ordner des Kunden.
+- **Kundenstammdaten speichern:** nimmt den neuen Schalter mit (Inhaber und Betreiber, bestehender Konfliktschutz).
+- **Navigation:** neuer Eintrag „Rechnungen“ (bereit, für beide Rollen, Handy „Mehr“).
+
+### H) Tests
+- **Unit:** Vergleichsschlüssel der Nummer, Übernahme der Positionen aus einer Buchung (aktiv, anteilig, storniert), Summen und USt je Satz, Empfänger-Vorbelegung (Firma/Gast, von Hand geändert bleibt), Datei-Prüfung (Typ, Größe).
+- **Datenbank (gegen „apppa-dev“):** doppelte Nummer je Kunde (Groß-/Kleinschreibung, Leerzeichen) abgelehnt, bei anderem Kunden erlaubt; Datum in der Zukunft, leere Positionsliste, Sperre als Buchung, fremde Buchung/fremder Gast abgelehnt; Gesamtbetrag aus Positionen; Kleinunternehmer-Kennzeichen nach Rechnungsdatum; Schalter aus → Anlegen abgelehnt, Ändern erlaubt; Mitarbeiter darf nichts schreiben; Kunde B sieht keine Rechnungen/PDFs von Kunde A; Konfliktschutz; Gast mit Rechnungen wird anonymisiert statt gelöscht; Zusammenführen zieht Rechnungen mit; Bereinigung löscht nur unverwendete Dateien.
+- **E2E:** Nacherfassen mit und ohne Buchung inkl. PDF; Bearbeiten, PDF ersetzen, Löschen; Suche und Blättern; Abschnitt im Buchungsdetail (auch Kalender-Panel, auch als Mitarbeiter); Schalter; Handy-Breite; Safari-Zeilenklick; axe.
+- **Regression:** PROJ-7 (Löschen/Zusammenführen), PROJ-8/30/35 (Buchungsdetail), PROJ-28 (Stammdaten), PROJ-29 (Bereinigung).
+
+### I) Was sich an Sicherheit und Datenbank ändert (Freigabe nötig)
+- Zwei neue Tabellen (Rechnung, Rechnungsposition) mit Mandanten-Zugriffsregeln und Protokoll
+- Neues Feld am Kunden („Rechnungen nacherfassen“)
+- Neuer privater Speicherbereich „Rechnungen“ mit Zugriffsregeln
+- Neue geschützte Funktionen: Rechnung speichern, Rechnung löschen, Buchungssuche, Rechnungen einer Buchung (mit Gesamtpreis, auch für Mitarbeiter)
+- Geänderte Funktionen: Gast löschen, Gäste zusammenführen, Kunde löschen, Kundenstammdaten speichern; tägliche Bereinigung
+
+### Abhängigkeiten (Pakete)
+Keine neuen Pakete. Genutzt werden vorhandene shadcn-Bausteine (`Popover`, `Command`, `Switch`, `Table`, `Pagination`, `Sheet`, `AlertDialog`), das Sortieren aus PROJ-34 und Supabase Storage.
 
 ## QA Test Results
 _To be added by /qa_
