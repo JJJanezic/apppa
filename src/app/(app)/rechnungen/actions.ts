@@ -85,6 +85,8 @@ const revalidate = (input: { id?: string; bookingIds?: (string | null | undefine
   if (input.id) revalidatePath(`${LIST}/${input.id}`)
   // Abschnitt „Rechnungen“ im Buchungsdetail und im Kalender-Panel
   for (const b of new Set(input.bookingIds ?? [])) if (b) revalidatePath(`/buchungen/${b}`)
+  // Spalte „Rechnungen“ und Filter „Rechnung“ der Buchungsübersicht
+  revalidatePath('/buchungen')
   revalidatePath('/belegung')
 }
 

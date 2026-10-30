@@ -1032,7 +1032,8 @@
       "apartment": "Wohnung",
       "persons": "Personen",
       "status": "Art",
-      "amount": "Betrag"
+      "amount": "Betrag",
+      "invoices": "Rechnungen"
     },
     "nightsCount": "{nights, plural, one {# Nacht} other {# Nächte}}",
     "personsCount": "{persons, plural, one {# Person} other {# Personen}}",
@@ -1293,6 +1294,27 @@
       "description": "Dieser Eintrag ist nicht mehr aktiv. Änderbar sind nur Notiz und Stornogebühr.",
       "descriptionStaff": "Dieser Eintrag ist nicht mehr aktiv. Änderbar ist nur die Notiz.",
       "save": "Speichern"
+    },
+    "filterInvoice": "Rechnung",
+    "allInvoices": "Alle",
+    "invoiceFilter": {
+      "without": "ohne Rechnung",
+      "with": "mit Rechnung"
+    },
+    "invoiceCount": {
+      "without": "{count, plural, =0 {Keine Buchungen ohne Rechnung} one {# Buchung ohne Rechnung} other {# Buchungen ohne Rechnung}} in allen Monaten",
+      "with": "{count, plural, =0 {Keine Buchungen mit Rechnung} one {# Buchung mit Rechnung} other {# Buchungen mit Rechnung}} in allen Monaten"
+    },
+    "allMonths": "Alle Monate",
+    "noResultsInvoice": "Keine Buchung passt zu diesem Filter.",
+    "noResultsPage": "Auf dieser Seite stehen keine Buchungen.",
+    "toFirstPage": "Zur ersten Seite",
+    "invoicesLine": "Rechnungen: {numbers}",
+    "pagination": {
+      "nav": "Seiten der Buchungsliste",
+      "previous": "Zurück",
+      "next": "Weiter",
+      "pageOf": "Seite {page} von {pageCount}"
     }
   },
   "calendar": {

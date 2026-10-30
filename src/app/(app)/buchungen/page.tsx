@@ -7,6 +7,7 @@ import { BookingFilterBar } from '@/components/bookings/booking-filters'
 import { BookingList } from '@/components/bookings/booking-list'
 import { NewBookingButtons } from '@/components/bookings/new-booking-buttons'
 import { EmptyState } from '@/components/empty-state'
+import { ListPagination } from '@/components/list-pagination'
 import { PageHeader } from '@/components/page-header'
 import { Button } from '@/components/ui/button'
 import { requireArea } from '@/lib/areas'
@@ -21,7 +22,8 @@ export async function generateMetadata(): Promise<Metadata> {
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>
 
-// Buchungsliste (PROJ-8) für alle Mitglieder: Monat mit Blättern, Filter, Suche über alle Monate
+// Buchungsliste (PROJ-8) für alle Mitglieder: Monat mit Blättern, Filter, Suche über alle Monate;
+// Filter „Rechnung“ (PROJ-37) über alle Monate mit Seiten je 50
 export default async function BookingsPage({ searchParams }: { searchParams: SearchParams }) {
   await requireArea('bookings')
   const t = await getTranslations('bookings')
@@ -78,16 +80,32 @@ export default async function BookingsPage({ searchParams }: { searchParams: Sea
       <section className="flex flex-col gap-4">
         <BookingFilterBar filters={filters} apartments={apartments} today={today} />
         <p className="text-sm text-ds-neutral-800" aria-live="polite">
-          {list.searching ? t('searchCount', { count: list.rows.length }) : t('count', { count: list.rows.length })}
+          {filters.invoice
+            ? t(`invoiceCount.${filters.invoice}`, { count: list.total })
+            : list.searching
+              ? t('searchCount', { count: list.rows.length })
+              : t('count', { count: list.rows.length })}
         </p>
         {list.truncated && <p className="text-sm text-ds-neutral-800">{t('truncated')}</p>}
-        {list.rows.length === 0 ? (
+        {list.rows.length === 0 && filters.invoice && filters.page > 1 ? (
+          // Seite hinter dem Ende (z. B. nach Zuordnen einer Rechnung): zurück zur ersten Seite
           <EmptyState
             icon={MagnifyingGlass}
             title={t('noResultsTitle')}
-            text={list.searching ? t('noResultsSearch') : t('noResultsMonth')}
+            text={t('noResultsPage')}
             action={
-              (filters.query || filters.apartment || filters.kind || filters.state || filters.source) && (
+              <Button asChild variant="outline" className="min-h-11">
+                <Link href={bookingListHref({ ...filters, page: 1 }, today)}>{t('toFirstPage')}</Link>
+              </Button>
+            }
+          />
+        ) : list.rows.length === 0 ? (
+          <EmptyState
+            icon={MagnifyingGlass}
+            title={t('noResultsTitle')}
+            text={filters.invoice ? t('noResultsInvoice') : list.searching ? t('noResultsSearch') : t('noResultsMonth')}
+            action={
+              (filters.query || filters.apartment || filters.kind || filters.state || filters.source || filters.invoice) && (
                 <Button asChild variant="outline" className="min-h-11">
                   <Link href={bookingListHref({ month: filters.month }, today)}>{t('clearFilters')}</Link>
                 </Button>
@@ -95,7 +113,22 @@ export default async function BookingsPage({ searchParams }: { searchParams: Sea
             }
           />
         ) : (
-          <BookingList rows={list.rows} showAmounts={owner} />
+          <>
+            <BookingList rows={list.rows} showAmounts={owner} />
+            {list.invoiceFilter && list.pageCount > 1 && (
+              <ListPagination
+                page={filters.page}
+                pageCount={list.pageCount}
+                href={(n) => bookingListHref({ ...filters, page: n }, today)}
+                labels={{
+                  nav: t('pagination.nav'),
+                  previous: t('pagination.previous'),
+                  next: t('pagination.next'),
+                  pageOf: t('pagination.pageOf', { page: filters.page, pageCount: list.pageCount }),
+                }}
+              />
+            )}
+          </>
         )}
       </section>
     </>

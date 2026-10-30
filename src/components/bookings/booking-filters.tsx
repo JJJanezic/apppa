@@ -12,11 +12,13 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
+  BOOKING_INVOICE_FILTERS,
   BOOKING_KINDS,
   BOOKING_SOURCES,
   BOOKING_STATES,
   type BookableApartment,
   type BookingFilters,
+  type BookingInvoiceFilter,
   type BookingKind,
   bookingListHref,
   type BookingSource,
@@ -36,7 +38,7 @@ interface BookingFilterBarProps {
 }
 
 // Monatsleiste (mit Sprungauswahl wie im Belegungskalender, PROJ-30), Suche und Filter der Buchungsliste. Alles steht in der Adresse (teilbar, „Zurück“ funktioniert).
-// Die Suche gilt für alle Monate; die Monatsleiste ist während einer Suche ausgeblendet.
+// Die Suche und der Filter „Rechnung“ (PROJ-37) gelten für alle Monate; die Monatsleiste ist dann durch „Alle Monate“ ersetzt.
 export function BookingFilterBar({ filters, apartments, today }: BookingFilterBarProps) {
   const t = useTranslations('bookings')
   const format = useFormatter()
@@ -46,7 +48,9 @@ export function BookingFilterBar({ filters, apartments, today }: BookingFilterBa
   const [seenQuery, setSeenQuery] = useState(filters.query)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const searching = filters.query.length >= 2
-  const href = (next: Partial<BookingFilters>) => bookingListHref({ ...filters, ...next }, today)
+  const allMonths = searching || filters.invoice !== null
+  // Jede Filteränderung beginnt wieder bei Seite 1
+  const href = (next: Partial<BookingFilters>) => bookingListHref({ ...filters, page: 1, ...next }, today)
 
   // Zurück-Taste bzw. „Zurücksetzen“ ändern die Adresse: Feld nachziehen (nicht beim eigenen Tippen)
   if (filters.query !== seenQuery) {
@@ -77,7 +81,9 @@ export function BookingFilterBar({ filters, apartments, today }: BookingFilterBa
 
   return (
     <div className="flex flex-col gap-4" aria-busy={pending}>
-      {!searching && (
+      {allMonths ? (
+        <h2 className="text-2xl">{t('allMonths')}</h2>
+      ) : (
         <nav aria-label={t('month.label')} className="flex flex-wrap items-center gap-2">
           <Button asChild variant="outline" size="icon" className="size-11">
             <Link href={href({ month: shiftMonth(filters.month, -1) })} aria-label={t('month.previous')} scroll={false}>
@@ -209,6 +215,28 @@ export function BookingFilterBar({ filters, apartments, today }: BookingFilterBa
                 {BOOKING_SOURCES.map((source) => (
                   <SelectItem key={source} value={source} className="min-h-11">
                     {t(`source.${source}`)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* PROJ-37: ohne bzw. mit verknüpfter Rechnung, über alle Monate */}
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="filter-rechnung" className="text-[13px] text-ds-neutral-800">
+              {t('filterInvoice')}
+            </Label>
+            <Select value={filters.invoice ?? ALL} onValueChange={(v) => go({ invoice: v === ALL ? null : (v as BookingInvoiceFilter) })}>
+              <SelectTrigger id="filter-rechnung" className="min-h-11 lg:w-44">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL} className="min-h-11">
+                  {t('allInvoices')}
+                </SelectItem>
+                {BOOKING_INVOICE_FILTERS.map((f) => (
+                  <SelectItem key={f} value={f} className="min-h-11">
+                    {t(`invoiceFilter.${f}`)}
                   </SelectItem>
                 ))}
               </SelectContent>

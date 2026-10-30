@@ -6,6 +6,7 @@ import { BookingBadges } from '@/components/bookings/booking-badges'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { formatDate, formatNumber, formatPeriod } from '@/lib/format'
 import { bookingHref, type BookingRow, nightsBetween } from '@/lib/bookings'
+import { invoiceHref } from '@/lib/invoices'
 
 interface BookingListProps {
   rows: BookingRow[]
@@ -37,6 +38,7 @@ export function BookingList({ rows, showAmounts }: BookingListProps) {
             <TableHead className="text-right">{t('col.nights')}</TableHead>
             <TableHead className="text-right">{t('col.persons')}</TableHead>
             <TableHead>{t('col.status')}</TableHead>
+            <TableHead>{t('col.invoices')}</TableHead>
             {showAmounts && <TableHead className="text-right">{t('col.amount')}</TableHead>}
           </TableRow>
         </TableHeader>
@@ -60,6 +62,20 @@ export function BookingList({ rows, showAmounts }: BookingListProps) {
               <TableCell className="text-right tabular-nums">{formatNumber(nightsBetween(r.arrival, r.departure))}</TableCell>
               <TableCell className="text-right tabular-nums">{r.kind === 'block' ? '–' : formatNumber(r.persons)}</TableCell>
               <TableCell>{badges(r)}</TableCell>
+              {/* Rechnungen der Buchung (PROJ-37): Nummern als Links, untereinander nach Rechnungsdatum; sonst leer */}
+              <TableCell className="max-w-[160px]">
+                {r.invoices.length > 0 && (
+                  <ul className="flex flex-col gap-1">
+                    {r.invoices.map((i) => (
+                      <li key={i.id}>
+                        <Link href={invoiceHref(i.id)} className="break-words text-ds-accent-700 underline underline-offset-[3px] hover:decoration-2">
+                          {i.number}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </TableCell>
               {showAmounts && <TableCell className="whitespace-nowrap text-right tabular-nums">{amount(r)}</TableCell>}
             </TableRow>
           ))}
@@ -88,6 +104,10 @@ export function BookingList({ rows, showAmounts }: BookingListProps) {
                 {r.apartmentLabel}
                 {(r.number || r.guestSheetNumber) && <> · {numbers(r)}</>}
               </span>
+              {/* Handy: die Karte ist der Link zur Buchung, Rechnungsnummern daher als Text (kein Link im Link) */}
+              {r.invoices.length > 0 && (
+                <span className="break-words text-[13px] text-ds-neutral-800">{t('invoicesLine', { numbers: r.invoices.map((i) => i.number).join(', ') })}</span>
+              )}
               {badges(r)}
             </Link>
           </li>

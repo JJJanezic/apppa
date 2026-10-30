@@ -1,6 +1,6 @@
 # PROJ-37: Rechnungen nacherfassen
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-10-30
 **Last Updated:** 2026-10-30
 
@@ -440,6 +440,18 @@ Buchungsübersicht (/buchungen)
 **Abhängigkeiten (Pakete):** keine neuen.
 
 **Umfang:** reine Frontend-/Abfrage-Änderung; `/backend` ist voraussichtlich nicht nötig.
+
+### Umsetzung Erweiterung Buchungsübersicht (Frontend, 2026-10-30)
+- **Regeln** `src/lib/bookings.ts`: `BookingFilters` um `invoice` (`without`/`with`) und `page` erweitert; Adresse `rechnung=ohne|mit`, `seite` (nur mit Rechnungsfilter, ab 2); Monat bleibt in der Adresse; `BOOKING_PAGE_SIZE` = 50; `BookingRow.invoices` (Kennung, Nummer). Unit-Tests in `bookings.test.ts`.
+- **Abfrage** `src/lib/bookings-data.ts` (`getBookingList`): Rechnungen der Buchung in derselben Abfrage (`invoices(id, number, invoice_date)`, nach Datum sortiert). Rechnungsfilter: ohne Sperren, alle Monate, Anreise absteigend, `range` je 50 mit exakter Gesamtzahl; „ohne“ über leere Verknüpfung, „mit“ über inneren Verbund. Ohne Rechnungsfilter unverändert (Monat bis 1.000, Suche bis 50). Keine Migration.
+- **Liste** `booking-list.tsx`: Spalte „Rechnungen“ hinter „Art“ (Status) mit Nummern als Links untereinander; Handy-Karte mit Zeile „Rechnungen: …“ als Text.
+- **Filterleiste** `booking-filters.tsx`: Auswahl „Rechnung“ (Alle / ohne Rechnung / mit Rechnung); bei Rechnungsfilter oder Suche ersetzt die Überschrift „Alle Monate“ die Monatsauswahl; jede Filteränderung setzt die Seite auf 1.
+- **Seite** `/buchungen`: Anzahl „N Buchungen ohne/mit Rechnung in allen Monaten“, Leerzustand „Keine Buchung passt zu diesem Filter.“, Seite hinter dem Ende → „Zur ersten Seite“; „Suche und Filter zurücksetzen“ berücksichtigt den Rechnungsfilter.
+- **Gemeinsamer Baustein** `src/components/list-pagination.tsx` (aus der Rechnungsliste herausgelöst, dort jetzt ebenfalls genutzt).
+- **Rechnung speichern/löschen** lädt zusätzlich `/buchungen` neu.
+- **Texte** `messages/de.json`: `bookings.col.invoices`, `filterInvoice`, `allInvoices`, `invoiceFilter.*`, `invoiceCount.*`, `allMonths`, `noResultsInvoice`, `noResultsPage`, `toFirstPage`, `invoicesLine`, `pagination.*`.
+- **Kleine Abweichung:** Die Überschrift „Alle Monate“ erscheint auch bei der Suche (bisher war die Monatsauswahl dort nur ausgeblendet) – einheitlich mit dem Rechnungsfilter.
+- Geprüft gegen Dev (gebauter Server): Spalte, „ohne Rechnung“ über Monatsgrenze ohne Sperre, „mit Rechnung“.
 
 ### Umsetzung Frontend (2026-10-30)
 - **Regeln** `src/lib/invoices.ts`: Typen (Rechnung, Zeile, Liste, Buchungsabschnitt), Grenzen (`INVOICE_LIMITS`: Nummer 30, Empfänger 200, 50 Positionen, PDF 10 MB), `invoiceNumberKey`, `recipientFor` (Firma, sonst „Nachname Vorname“), `linesFromBooking` (aktiv: abgerechnete Übernachtung + Zusatzkosten in Reihenfolge; storniert: nur Stornogebühr), `invoiceVatShares`, `isOldInvoiceDate` (> 7 Jahre), `checkPdfFile`, Adresse der Liste (`?q=…&seite=…`). Unit-Tests `invoices.test.ts`.

@@ -1,11 +1,9 @@
-import { CaretLeft, CaretRight } from '@phosphor-icons/react/ssr'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 
 import { Amount } from '@/components/amount'
 import { InvoiceStatus } from '@/components/invoices/invoice-status'
-import { Button } from '@/components/ui/button'
-import { Pagination, PaginationContent, PaginationItem } from '@/components/ui/pagination'
+import { ListPagination } from '@/components/list-pagination'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { bookingHref } from '@/lib/bookings'
 import { formatDate } from '@/lib/format'
@@ -79,46 +77,19 @@ export function InvoiceList({ page }: { page: InvoicePage }) {
         ))}
       </ul>
 
-      {page.pageCount > 1 && <InvoicePagination page={page} />}
+      {page.pageCount > 1 && (
+        <ListPagination
+          page={page.page}
+          pageCount={page.pageCount}
+          href={(n) => invoiceListHref({ query: page.query, page: n })}
+          labels={{
+            nav: t('list.pagination'),
+            previous: t('list.previous'),
+            next: t('list.next'),
+            pageOf: t('list.pageOf', { page: page.page, pageCount: page.pageCount }),
+          }}
+        />
+      )}
     </div>
-  )
-}
-
-function InvoicePagination({ page }: { page: InvoicePage }) {
-  const t = useTranslations('invoices')
-  const href = (n: number) => invoiceListHref({ query: page.query, page: n })
-  const step = (n: number, label: string, icon: React.ReactNode, iconFirst: boolean) => {
-    const content = iconFirst ? (
-      <>
-        {icon}
-        {label}
-      </>
-    ) : (
-      <>
-        {label}
-        {icon}
-      </>
-    )
-    return n >= 1 && n <= page.pageCount ? (
-      <Button asChild variant="outline" className="min-h-11">
-        <Link href={href(n)}>{content}</Link>
-      </Button>
-    ) : (
-      <Button variant="outline" className="min-h-11" disabled>
-        {content}
-      </Button>
-    )
-  }
-
-  return (
-    <Pagination aria-label={t('list.pagination')}>
-      <PaginationContent className="gap-3">
-        <PaginationItem>{step(page.page - 1, t('list.previous'), <CaretLeft size={16} aria-hidden="true" />, true)}</PaginationItem>
-        <PaginationItem className="text-sm text-ds-neutral-800" aria-current="page">
-          {t('list.pageOf', { page: page.page, pageCount: page.pageCount })}
-        </PaginationItem>
-        <PaginationItem>{step(page.page + 1, t('list.next'), <CaretRight size={16} aria-hidden="true" />, false)}</PaginationItem>
-      </PaginationContent>
-    </Pagination>
   )
 }

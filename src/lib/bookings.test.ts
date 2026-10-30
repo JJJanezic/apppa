@@ -210,7 +210,7 @@ describe('Monat und Filter', () => {
   })
 
   it('liest Filter aus der Adresse und ignoriert ungültige Werte', () => {
-    expect(parseBookingFilters({}, TODAY)).toEqual({ month: '2026-10', apartment: null, kind: null, state: null, source: null, query: '' })
+    expect(parseBookingFilters({}, TODAY)).toEqual({ month: '2026-10', apartment: null, kind: null, state: null, source: null, query: '', invoice: null, page: 1 })
     expect(parseBookingFilters({ monat: '2027-02', art: 'sperre', zustand: 'storniert', q: ' Huber ' }, TODAY)).toMatchObject({
       month: '2027-02',
       kind: 'block',
@@ -249,6 +249,7 @@ describe('Monat und Filter', () => {
       totalCents: null,
       overlapping: false,
       priceReview: false,
+      invoices: [],
       ...over,
     })
     const rows = [row('a', {}), row('b', { state: 'cancelled' }), row('c', { arrival: '2026-11-03', departure: '2026-11-05' }), row('d', { apartmentId: 'w2' })]
@@ -278,12 +279,26 @@ describe('Monat und Filter', () => {
       totalCents: null,
       overlapping: false,
       priceReview: false,
+      invoices: [],
       ...over,
     })
     const rows = [row('a', { source: 'booking_com' }), row('b', { kind: 'option', source: 'booking_com' }), row('c', {}), row('d', { kind: 'block' })]
     const base = parseBookingFilters({}, TODAY)
     expect(filterRows(rows, { ...base, source: 'booking_com' }, false).map((r) => r.id)).toEqual(['a', 'b'])
     expect(filterRows(rows, { ...base, source: 'none' }, false).map((r) => r.id)).toEqual(['c'])
+  })
+
+  it('liest und schreibt den Filter „Rechnung“ und die Seite (PROJ-37)', () => {
+    expect(parseBookingFilters({ rechnung: 'ohne', seite: '3' }, TODAY)).toMatchObject({ invoice: 'without', page: 3 })
+    expect(parseBookingFilters({ rechnung: 'mit' }, TODAY)).toMatchObject({ invoice: 'with', page: 1 })
+    expect(parseBookingFilters({ rechnung: 'alle', seite: 'x' }, TODAY)).toMatchObject({ invoice: null, page: 1 })
+    expect(parseBookingFilters({ seite: '-2' }, TODAY).page).toBe(1)
+    expect(parseBookingFilters({ seite: '2.7' }, TODAY).page).toBe(2)
+    // Monat bleibt in der Adresse, damit „Alle“ in den zuvor gewählten Monat zurückführt
+    expect(bookingListHref({ month: '2026-11', invoice: 'without', page: 2 }, TODAY)).toBe('/buchungen?monat=2026-11&rechnung=ohne&seite=2')
+    expect(bookingListHref({ month: '2026-10', invoice: 'with', page: 1 }, TODAY)).toBe('/buchungen?rechnung=mit')
+    // Seite nur mit Rechnungsfilter
+    expect(bookingListHref({ month: '2026-10', page: 3 }, TODAY)).toBe('/buchungen')
   })
 
   it('liest und schreibt die Quelle in der Adresse', () => {

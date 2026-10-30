@@ -11,6 +11,7 @@ import {
   type BookingFilters,
   type BookingKind,
   type BookingRow,
+  BOOKING_PAGE_SIZE,
   type BookingSource,
   bookingState,
   type Conflict,
@@ -79,7 +80,9 @@ export const getBookableApartments = cache(async (): Promise<BookableApartment[]
 })
 
 const ROW_COLUMNS =
-  'id, kind, number, apartment_id, arrival, departure, adults, child_ages, block_reason, option_until, cancelled_at, price_review, guest_sheet_number, source, guest:guests(id, last_name, first_name, title_prefix, title_suffix), apartment:apartments!inner(name, property:properties!inner(name)), amounts:booking_amounts(billed_nights_cents), charges:booking_charges(amount_cents)'
+  'id, kind, number, apartment_id, arrival, departure, adults, child_ages, block_reason, option_until, cancelled_at, price_review, guest_sheet_number, source, guest:guests(id, last_name, first_name, title_prefix, title_suffix), apartment:apartments!inner(name, property:properties!inner(name)), amounts:booking_amounts(billed_nights_cents), charges:booking_charges(amount_cents), ' +
+  // PROJ-37: verknüpfte Rechnungen (Lesen für alle Mitglieder, RLS)
+  'invoices(id, number, invoice_date)'
 
 type ListDbRow = {
   id: string
@@ -102,6 +105,7 @@ type ListDbRow = {
   // abgerechneter Übernachtungspreis (PROJ-30)
   amounts: { billed_nights_cents: number }[]
   charges: { amount_cents: number }[]
+  invoices?: { id: string; number: string; invoice_date: string }[]
 }
 
 // Aktive Einträge (für das Kennzeichen „überschneidet sich“) der betroffenen Wohnungen im Zeitraum
@@ -166,10 +170,14 @@ function toRow(r: ListDbRow, owner: boolean, today: string, occupancy: Occupancy
     totalCents: owner && r.amounts[0] ? totalCents({ nightsCents: r.amounts[0].billed_nights_cents, charges: r.charges.map((c) => ({ label: '', amountCents: c.amount_cents })) }) : null,
     overlapping: state === 'active' && findConflicts({ id: r.id, apartmentId: r.apartment_id, arrival: r.arrival, departure: r.departure }, occupancy, today).length > 0,
     priceReview: r.price_review,
+    invoices: [...(r.invoices ?? [])]
+      .sort((a, b) => a.invoice_date.localeCompare(b.invoice_date) || a.number.localeCompare(b.number, 'de', { numeric: true }))
+      .map((i) => ({ id: i.id, number: i.number })),
   }
 }
 
-export type BookingList = { rows: BookingRow[]; searching: boolean; truncated: boolean }
+// invoiceFilter: Liste mit Rechnungsfilter über alle Monate, seitenweise (total = Gesamtzahl aller Seiten)
+export type BookingList = { rows: BookingRow[]; searching: boolean; truncated: boolean; invoiceFilter: boolean; total: number; pageCount: number }
 
 // Suchbegriff für die Adresse der Datenbank-Abfrage: nur Buchstaben, Ziffern, Leerzeichen und Bindestrich
 const cleanQuery = (value: string) => value.replace(/[^\p{L}\d\s-]/gu, ' ').replace(/\s+/g, ' ').trim()
@@ -179,6 +187,7 @@ const cleanSheetQuery = (value: string) =>
   value.replace(/[^\p{L}\d\s\-/._]/gu, '').replace(/\s+/g, ' ').trim().slice(0, LIMITS.guestSheetNumberMax)
 
 // Monatsliste bzw. Suche über alle Monate (neueste zuerst, höchstens 50 Treffer). Ohne Zustandsfilter nur aktive Einträge.
+// Mit Rechnungsfilter (PROJ-37): über alle Monate, ohne Sperren, neueste zuerst, je 50 mit Gesamtzahl.
 export async function getBookingList(filters: BookingFilters): Promise<BookingList> {
   const { tenantId, role } = await requireMember()
   const owner = role === 'owner'
@@ -187,7 +196,14 @@ export async function getBookingList(filters: BookingFilters): Promise<BookingLi
   const query = cleanQuery(filters.query)
   const searching = query.length >= 2
 
-  let request = supabase.from('bookings').select(ROW_COLUMNS).eq('tenant_id', tenantId)
+  const invoiceFilter = filters.invoice !== null
+  // „mit Rechnung“: nur Buchungen mit mindestens einer Rechnung (innerer Verbund), es kommen trotzdem alle ihre Rechnungen mit
+  const columns = filters.invoice === 'with' ? ROW_COLUMNS.replace('invoices(', 'invoices!inner(') : ROW_COLUMNS
+
+  let request = supabase.from('bookings').select(columns, { count: invoiceFilter ? 'exact' : undefined }).eq('tenant_id', tenantId)
+  // Rechnungsfilter (PROJ-37): Sperren bekommen nie eine Rechnung; „ohne Rechnung“ = keine verknüpfte Rechnung
+  if (invoiceFilter) request = request.neq('kind', 'block')
+  if (filters.invoice === 'without') request = request.is('invoices' as 'id', null)
   if (filters.apartment) request = request.eq('apartment_id', filters.apartment)
   if (filters.kind) request = request.eq('kind', filters.kind)
   // Quelle nur bei Buchungen und Optionen (Sperren haben „none“)
@@ -207,15 +223,22 @@ export async function getBookingList(filters: BookingFilters): Promise<BookingLi
     const sheet = cleanSheetQuery(filters.query) || query
     const numbers = `number.ilike.%${number}%,guest_sheet_number.ilike."%${sheet}%"`
     request = request.or(ids.length ? `${numbers},guest_id.in.(${ids.join(',')})` : numbers)
+  }
+  if (invoiceFilter) {
+    // über alle Monate, Anreise absteigend, je 50
+    const from = (filters.page - 1) * BOOKING_PAGE_SIZE
+    request = request.order('arrival', { ascending: false }).order('number', { ascending: false }).range(from, from + BOOKING_PAGE_SIZE - 1)
+  } else if (searching) {
     request = request.order('arrival', { ascending: false }).limit(SEARCH_LIMIT + 1)
   } else {
     const { from, to } = monthRange(filters.month)
     request = request.lt('arrival', to).gt('departure', from).order('arrival').order('number').limit(LIST_LIMIT)
   }
 
-  const { data, error } = await request
+  const { data, error, count } = await request
   if (error) console.error('[buchungen] Liste nicht lesbar', error.message)
-  const rows = ((data ?? []) as unknown as ListDbRow[]).slice(0, searching ? SEARCH_LIMIT : LIST_LIMIT)
+  const limit = invoiceFilter ? BOOKING_PAGE_SIZE : searching ? SEARCH_LIMIT : LIST_LIMIT
+  const rows = ((data ?? []) as unknown as ListDbRow[]).slice(0, limit)
   let occupancy: Occupancy[] = []
   if (rows.length) {
     const from = rows.reduce((m, r) => (r.arrival < m ? r.arrival : m), rows[0].arrival)
@@ -225,7 +248,10 @@ export async function getBookingList(filters: BookingFilters): Promise<BookingLi
   return {
     rows: rows.map((r) => toRow(r, owner, today, occupancy)),
     searching,
-    truncated: searching && (data?.length ?? 0) > SEARCH_LIMIT,
+    truncated: !invoiceFilter && searching && (data?.length ?? 0) > SEARCH_LIMIT,
+    invoiceFilter,
+    total: invoiceFilter ? (count ?? 0) : rows.length,
+    pageCount: invoiceFilter ? Math.max(1, Math.ceil((count ?? 0) / BOOKING_PAGE_SIZE)) : 1,
   }
 }
 

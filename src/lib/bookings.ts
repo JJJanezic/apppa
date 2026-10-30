@@ -189,7 +189,16 @@ export type BookingRow = {
   totalCents: number | null
   overlapping: boolean
   priceReview: boolean
+  // Verknüpfte Rechnungen nach Rechnungsdatum (PROJ-37), für alle Mitglieder
+  invoices: { id: string; number: string }[]
 }
+
+// Filter „Rechnung“ der Buchungsliste (PROJ-37): ohne bzw. mit verknüpfter Rechnung, über alle Monate
+export const BOOKING_INVOICE_FILTERS = ['without', 'with'] as const
+export type BookingInvoiceFilter = (typeof BOOKING_INVOICE_FILTERS)[number]
+
+// Blättern bei aktivem Rechnungsfilter
+export const BOOKING_PAGE_SIZE = 50
 
 export type BookingFilters = {
   // JJJJ-MM
@@ -199,6 +208,9 @@ export type BookingFilters = {
   state: BookingState | null
   source: BookingSource | null
   query: string
+  invoice: BookingInvoiceFilter | null
+  // Seite (nur mit Rechnungsfilter)
+  page: number
 }
 
 export const bookingHref = (id: string) => `/buchungen/${id}`
@@ -318,10 +330,12 @@ export const touchesMonth = (b: { arrival: string; departure: string }, month: s
 const isKind = (v: string): v is BookingKind => (BOOKING_KINDS as readonly string[]).includes(v)
 const isState = (v: string): v is BookingState => (BOOKING_STATES as readonly string[]).includes(v)
 const isSource = (v: string): v is BookingSource => (BOOKING_SOURCES as readonly string[]).includes(v)
+const isInvoiceFilter = (v: string): v is BookingInvoiceFilter => (BOOKING_INVOICE_FILTERS as readonly string[]).includes(v)
 
 // Adresswerte (deutsch) ↔ interne Werte
 const KIND_PARAM: Record<BookingKind, string> = { booking: 'buchung', option: 'option', block: 'sperre' }
 const STATE_PARAM: Record<BookingState, string> = { active: 'aktiv', expired: 'verfallen', cancelled: 'storniert' }
+const INVOICE_PARAM: Record<BookingInvoiceFilter, string> = { without: 'ohne', with: 'mit' }
 const SOURCE_PARAM: Record<BookingSource, string> = {
   website: 'website',
   instagram: 'instagram',
@@ -336,7 +350,7 @@ const SOURCE_PARAM: Record<BookingSource, string> = {
 const fromParam = <K extends string>(map: Record<K, string>, value: string): K | null =>
   (Object.entries(map) as [K, string][]).find(([, v]) => v === value)?.[0] ?? null
 
-// Gelesene Filter aus der Adresse (?monat, wohnung, art, zustand, quelle, q) – ungültige Werte werden ignoriert
+// Gelesene Filter aus der Adresse (?monat, wohnung, art, zustand, quelle, q, rechnung, seite) – ungültige Werte werden ignoriert
 export function parseBookingFilters(params: Record<string, string | string[] | undefined>, today: string = todayIso()): BookingFilters {
   const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? ''
   const month = first(params.monat)
@@ -344,6 +358,7 @@ export function parseBookingFilters(params: Record<string, string | string[] | u
   const kind = fromParam(KIND_PARAM, first(params.art))
   const state = fromParam(STATE_PARAM, first(params.zustand))
   const source = fromParam(SOURCE_PARAM, first(params.quelle))
+  const invoice = fromParam(INVOICE_PARAM, first(params.rechnung))
   return {
     month: MONTH.test(month) ? month : currentMonth(today),
     apartment: /^[0-9a-f-]{36}$/i.test(apartment) ? apartment : null,
@@ -352,10 +367,13 @@ export function parseBookingFilters(params: Record<string, string | string[] | u
     state: state && isState(state) && state !== 'active' ? state : null,
     source: source && isSource(source) ? source : null,
     query: first(params.q).trim().slice(0, 100),
+    invoice: invoice && isInvoiceFilter(invoice) ? invoice : null,
+    page: Math.min(10_000, Math.max(1, Math.floor(Number(first(params.seite)) || 1))),
   }
 }
 
-// Adresse der Buchungsliste (leere Werte und den aktuellen Monat weglassen)
+// Adresse der Buchungsliste (leere Werte, den aktuellen Monat und Seite 1 weglassen). Der Monat bleibt auch bei
+// Rechnungsfilter stehen, damit „Alle“ in den zuvor gewählten Monat zurückführt.
 export function bookingListHref(filters: Partial<BookingFilters>, today: string = todayIso()): string {
   const params = new URLSearchParams()
   if (filters.month && filters.month !== currentMonth(today)) params.set('monat', filters.month)
@@ -364,6 +382,8 @@ export function bookingListHref(filters: Partial<BookingFilters>, today: string 
   if (filters.state) params.set('zustand', STATE_PARAM[filters.state])
   if (filters.source) params.set('quelle', SOURCE_PARAM[filters.source])
   if (filters.query) params.set('q', filters.query)
+  if (filters.invoice) params.set('rechnung', INVOICE_PARAM[filters.invoice])
+  if (filters.invoice && filters.page && filters.page > 1) params.set('seite', String(filters.page))
   const search = params.toString()
   return search ? `/buchungen?${search}` : '/buchungen'
 }
