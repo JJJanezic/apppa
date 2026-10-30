@@ -51,12 +51,13 @@
 | PROJ-34 | Preispositionen ordnen | Zusatzkosten einer Buchung im Buchungsformular per Griff ordnen (Maus, Touch, Tastatur); Übernachtung bleibt oben; Reihenfolge im Detail und für die Rechnung | P0 | PROJ-8, PROJ-32 | Deployed | [Spec](PROJ-34-preispositionen-ordnen.md) | 2026-10-29 |
 | PROJ-35 | Umsatzsteuersatz je Position | USt-Satz (Prozent, 2 Nachkommastellen) für Übernachtung, jede Zusatzposition und Stornogebühr; Preise brutto; Auswahl „Reinigung“ 10 %/„Nächtigungsabgabe“ 0 %, sonst 20 %; Detail zeigt enthaltene USt je Satz | P0 | PROJ-8, PROJ-32, PROJ-34, PROJ-36 | Deployed | [Spec](PROJ-35-umsatzsteuersatz-je-position.md) | 2026-10-29 |
 | PROJ-36 | Kleinunternehmer-Status | Verlauf von Statuswechseln (ab Datum: Kleinunternehmer ja/nein) in den Kundenstammdaten für Inhaber und Betreiber; Regel je Buchung nach Abreise bzw. Stornodatum; Grundlage für das Ausblenden der USt in PROJ-35 | P0 | PROJ-8, PROJ-28, PROJ-30 | Deployed | [Spec](PROJ-36-kleinunternehmer-status.md) | 2026-10-29 |
+| PROJ-37 | Rechnungen nacherfassen | Bestehende Rechnungen aus dem bisherigen System erfassen: PDF hochladen, Nummer/Datum/Empfänger/Betrag von Hand, Buchung optional; Menüpunkt „Rechnungen“ mit Liste; Rechnungen je Buchung im Buchungsdetail | P0 | PROJ-4, PROJ-7, PROJ-8, PROJ-28, PROJ-32, PROJ-34, PROJ-35, PROJ-36 | Planned | [Spec](PROJ-37-rechnungen-nacherfassen.md) | 2026-10-30 |
 
 <!-- Add features above this line -->
 
 ## Build Order
-1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 29 → 30 → 31 → 32 → 33 → 34 → 36 → 35 → 10 → 11 → 12 → 13 → 14 → 15 → 16 → 26 → 17 (**Pilotstand**, ca. 3 Monate) → 18 → 19 (**MVP komplett**, ca. 4–5 Monate) → P2 nach Bedarf.
+1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 29 → 30 → 31 → 32 → 33 → 34 → 36 → 35 → 37 → 10 → 11 → 12 → 13 → 14 → 15 → 16 → 26 → 17 (**Pilotstand**, ca. 3 Monate) → 18 → 19 (**MVP komplett**, ca. 4–5 Monate) → P2 nach Bedarf.
 
 Den Channex-Block (PROJ-10 bis PROJ-12) früh angehen: Er ist das größte Risiko (Testzugang, Webhooks, Abläufe mit den Plattformen).
 
-## Next Available ID: PROJ-37
+## Next Available ID: PROJ-38
