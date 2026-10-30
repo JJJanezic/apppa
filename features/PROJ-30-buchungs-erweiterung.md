@@ -1,10 +1,10 @@
 # PROJ-30: Buchungs-Erweiterung: Meldedaten, Buchungsquelle, Monatsauswahl
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-10-26
 **Last Updated:** 2026-10-30
 
-> Grundumfang ausgeliefert (Deployed). Änderung „Preisregel bei Verlängerung wählbar“ am 2026-10-30 per `/refine` festgelegt, noch nicht gebaut.
+> Grundumfang ausgeliefert (Deployed). Änderung „Preisregel bei Verlängerung wählbar“ am 2026-10-30 per `/refine` festgelegt und entworfen (Tech Design unten), noch nicht gebaut.
 
 ## Dependencies
 - Requires: PROJ-8 (Manuelle Buchungen): Buchungsformular, Buchungs-Detail, Buchungsliste mit Monatsleiste und Filtern, Mitreisende, Preisvorschlag
@@ -227,6 +227,10 @@ Der **Belegungskalender bleibt unverändert**.
 | Gästeblattnummer ohne Unique-Constraint, Index auf Kleinschreibung je Kunde | Doppelung ist nur Warnung; Index für Prüfung (Groß/Klein egal) und Suche | 2026-10-27 |
 | Nummer-Warnung mit eigener Bestätigung, für Inhaber und Mitarbeiter | Übersteuern von Überschneidungen bleibt Inhabern vorbehalten (PROJ-8); Nummer-Doppelung gefährdet keine Belegung | 2026-10-27 |
 | „Preis prüfen“ nicht bei reiner Änderung der tatsächlichen Abreise | Preis folgt automatisch anteilig; nur geänderte Planung braucht die Prüfung durch den Inhaber | 2026-10-27 |
+| Preisregel bei Verlängerung als eigene Angabe bei den Beträgen der Buchung (nur Inhaber lesbar) | Gehört zum Preis; Mitarbeiter sehen keine Beträge und brauchen die Regel nicht; gleiche Leseregeln wie die übrigen Beträge | 2026-10-30 |
+| Abgerechneter Preis bleibt gespeichert und wird von der Datenbank gebildet, jetzt mit der gewählten Regel | Detail, Liste, Gesamtpreis und Rechnungsabschnitt lesen weiter einen fertigen Betrag; Browser kann ihn nicht verfälschen | 2026-10-30 |
+| Bestand: verlängerte Buchungen erhalten „anteilig“, alle anderen „gesamter Aufenthalt“ | Keine Betragsänderung durch das Ausrollen; neue Verlängerungen starten mit der vom Nutzer gewünschten Voreinstellung | 2026-10-30 |
+| Wahl wird auch ohne aktuelle Verlängerung gespeichert; Mitarbeiter-Speichern lässt sie unverändert | Erneute Verlängerung behält die Entscheidung des Inhabers; Mitarbeiter können den Preis nicht ungewollt erhöhen | 2026-10-30 |
 | Sprungauswahl als gemeinsamer Baustein für Kalender und Buchungsliste | Einheitliche Bedienung, eine Stelle für Pflege; Kalender-E2E-Tests sichern Unverändertheit | 2026-10-27 |
 | Ganzzahlige Cent-Rechnung, kaufmännisch gerundet, gleiche Regel in Browser und Server | Identische Werte in Vorschau und gespeichertem Betrag | 2026-10-27 |
 | Sperren: geplante = tatsächliche Abreise, Quelle „none“, keine Nummer, per Datenbankregel | Spec: neue Felder nicht für Sperren; Regel verhindert inkonsistente Daten | 2026-10-27 |
@@ -342,6 +346,60 @@ Eine Migration: neue Spalten mit Standardwerten, Befüllen von „Abreise geplan
 
 ### F) Pakete
 Keine neuen Pakete. Genutzt werden vorhandene shadcn/ui-Bausteine (Popover, Select, Checkbox, Input, Label, Button).
+
+### Änderung: Preisregel bei Verlängerung wählbar (Tech Design 2026-10-30)
+
+**Ausgangslage:** Der eingetragene Preis steht im Feld „Nächtigungspreis vereinbart“, daneben speichert die Datenbank den „abgerechneten“ Preis. Diesen bildet die Speicherfunktion der Buchung bei jedem Speichern; heute bei Verlängerung immer anteilig. Formular-Vorschau, Detail, Liste, Gesamtpreis und die Rechnungen je Buchung (PROJ-37) lesen den abgerechneten Preis.
+
+**A) Oberfläche**
+```
+Buchungsformular (nur Inhaber, Abschnitt Preis)
++-- Nächtigungspreis (wie bisher)
++-- NEU Auswahl „Preis bei Verlängerung“ – nur wenn tatsächliche Abreise nach der geplanten
+|   +-- ( ) Preis gilt für den gesamten Aufenthalt   (vorausgewählt)
+|   +-- ( ) Anteilig hochrechnen → zeigt sofort den hochgerechneten Betrag und die Nächte
++-- Gesamtpreis (rechnet mit der gewählten Regel)
+
+Buchungsdetail: unverändert (die bestehende Zeile „vereinbart … für N Nächte“ erscheint wie bisher nur, wenn tatsächlich hochgerechnet wurde)
+Mitarbeiter: sehen weder Beträge noch die Auswahl
+```
+
+**B) Daten**
+- **Neue Angabe „Preisregel bei Verlängerung“** an den Beträgen der Buchung: „gesamter Aufenthalt“ oder „anteilig“. Sie liegt bei den übrigen Beträgen, die nur Inhaber lesen dürfen.
+- **Neue Buchungen:** „gesamter Aufenthalt“.
+- **Bestand:** Buchungen, deren tatsächliche Abreise schon nach der geplanten liegt, bekommen beim Ausrollen „anteilig“. Ihre Beträge bleiben unverändert. Alle übrigen bekommen „gesamter Aufenthalt“; bei ihnen ändert sich nichts, weil die Regel nur bei Verlängerung wirkt.
+- **Abgerechneter Preis:** Die Datenbank bildet ihn weiterhin bei jedem Speichern selbst: bei Verlängerung mit „anteilig“ hochgerechnet, sonst der eingetragene Preis.
+
+**C) Abläufe**
+- **Inhaber speichert:** Die Wahl wird mitgeschickt und gespeichert, auch wenn gerade keine Verlängerung vorliegt. So greift sie bei einer erneuten Verlängerung wieder.
+- **Mitarbeiter speichert:** Die gespeicherte Wahl bleibt unverändert. Ein Wert vom Mitarbeiter wird ignoriert, ungültige Werte werden abgelehnt.
+- Die **Vorschau im Formular** nutzt dieselbe Rechenregel wie die Datenbank (Browser und Server gleich, wie bisher).
+- **Nicht betroffen:**
+  - Zusatzkosten
+  - Stornogebühr
+  - Ortstaxe-Nächte
+  - Preisvorschlag (rechnet weiter für den geplanten Zeitraum)
+  - bereits erfasste Rechnungen (Kopie)
+
+**D) Rechte und Sicherheit**
+- Die neue Angabe ist nur für Inhaber lesbar und nur über die Speicherfunktion änderbar, wie die übrigen Beträge.
+- Die Datenbank prüft den Wert selbst.
+
+**E) Ausrollen:** Eine Migration mit dem neuen Feld samt Voreinstellung und der Befüllung des Bestands. Dazu kommen die angepasste Rechenregel und die angepasste Speicherfunktion. Keine neuen Pakete, keine Umgebungsvariablen.
+
+**F) Tests**
+- **Unit:** Rechenregel mit beiden Wahlen; Grenzfälle wie gleiche und frühere Abreise oder Rundung.
+- **Datenbank (gegen Dev):** neue Buchung mit Voreinstellung; Verlängerung mit beiden Wahlen; Zurücksetzen und erneutes Verlängern; Mitarbeiter-Verlängerung behält die Wahl; Mitarbeiter-Wert wird ignoriert; ungültiger Wert wird abgelehnt; Bestand nach Migration.
+- **E2E:**
+  - Auswahl nur bei Verlängerung sichtbar, Vorauswahl
+  - Umschalten zeigt sofort den Betrag
+  - Detail und Liste nach dem Speichern
+  - erneutes Bearbeiten zeigt die gespeicherte Wahl
+  - Mitarbeiter ohne Auswahl
+  - Layout und axe
+- **Regression:** PROJ-8/27/32/35 (Preise, Zusatzkosten, USt), PROJ-37 (Gesamtpreis im Rechnungsabschnitt)
+
+**Umfang:** Frontend (Auswahl, Vorschau) und Backend (Migration, Speicherfunktion).
 
 ## Implementation Notes (Frontend)
 **Stand 2026-10-27.** Die Oberfläche ist fertig. **Ohne die Migration aus `/backend` schlagen Buchungsliste, Buchungs-Detail, Gast-Detail und Kalender beim Laden fehl**, weil sie die neuen Spalten abfragen (wie bei PROJ-28/29).
