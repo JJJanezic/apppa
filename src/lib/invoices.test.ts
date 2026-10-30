@@ -7,6 +7,7 @@ import {
   INVOICE_LIMITS,
   invoiceListHref,
   invoiceNumberKey,
+  invoiceSearchPattern,
   invoiceVatShares,
   isOldInvoiceDate,
   linesFromBooking,
@@ -119,5 +120,14 @@ describe('Adresse der Liste', () => {
   it('entfernt Steuerzeichen der Datenbank-Abfrage aus dem Suchbegriff', () => {
     expect(cleanInvoiceQuery('2025/0042')).toBe('2025/0042')
     expect(cleanInvoiceQuery('a,b(c)"%_*')).toBe('a b c')
+  })
+
+  it('Suchmuster der Liste: „%“ und „_“ als Zeichen, Anführungszeichen/Backslash/„*“ entfernt (BUG-4)', () => {
+    expect(invoiceSearchPattern('2025/0042')).toBe('%2025/0042%')
+    expect(invoiceSearchPattern('2025_01')).toBe('%2025\\\\_01%')
+    expect(invoiceSearchPattern('10%')).toBe('%10\\\\%%')
+    expect(invoiceSearchPattern('Huber, Maria (GmbH)')).toBe('%Huber, Maria (GmbH)%')
+    expect(invoiceSearchPattern(' a"b\\c*d ')).toBe('%a b c d%')
+    expect(invoiceSearchPattern('  "*  ')).toBeNull()
   })
 })

@@ -196,3 +196,16 @@ export const cleanInvoiceQuery = (value: string) =>
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, 100)
+
+// Suchmuster der Rechnungsliste (ilike, Wert in Anführungszeichen): „%“ und „_“ kommen in Rechnungsnummern vor und
+// werden als Zeichen gesucht, nicht als Platzhalter. Anführungszeichen, Backslash und „*“ (Platzhalter bei PostgREST)
+// fallen weg. Ein Backslash im Anführungszeichen-Wert maskiert das nächste Zeichen, darum doppelt („\\_“ → LIKE „\_“).
+// Leerer Suchbegriff → null.
+export function invoiceSearchPattern(value: string): string | null {
+  const query = value
+    .replace(/["\\*]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 100)
+  return query ? `%${query.replace(/[%_]/g, (c) => `\\\\${c}`)}%` : null
+}

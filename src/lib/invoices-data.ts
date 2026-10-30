@@ -7,7 +7,6 @@ import { cache } from 'react'
 import { apartmentLabel } from '@/lib/apartments'
 import {
   type BookingInvoices,
-  cleanInvoiceQuery,
   type Invoice,
   INVOICE_BUCKET,
   INVOICE_PAGE_SIZE,
@@ -16,6 +15,7 @@ import {
   type InvoicePage,
   type InvoicePdfLinks,
   type InvoiceRow,
+  invoiceSearchPattern,
 } from '@/lib/invoices'
 import type { Role } from '@/lib/navigation'
 import { createClient } from '@/lib/supabase/server'
@@ -62,12 +62,12 @@ const toRow = (r: ListDbRow): InvoiceRow => ({
 export async function getInvoicePage(filters: InvoiceFilters): Promise<InvoicePage> {
   const { tenantId } = await requireMember()
   const supabase = await createClient()
-  const query = cleanInvoiceQuery(filters.query)
+  const pattern = invoiceSearchPattern(filters.query)
   const from = (filters.page - 1) * INVOICE_PAGE_SIZE
 
   let request = supabase.from('invoices').select(LIST_COLUMNS, { count: 'exact' }).eq('tenant_id', tenantId)
-  // Werte in Anführungszeichen: Punkt, Schrägstrich und Leerzeichen bleiben Teil des Suchbegriffs
-  if (query) request = request.or(`number.ilike."%${query}%",recipient.ilike."%${query}%"`)
+  // Werte in Anführungszeichen: Punkt, Komma, Klammern, Schrägstrich und Leerzeichen bleiben Teil des Suchbegriffs
+  if (pattern) request = request.or(`number.ilike."${pattern}",recipient.ilike."${pattern}"`)
   const { data, count, error } = await request
     .order('invoice_date', { ascending: false })
     .order('number', { ascending: false })
