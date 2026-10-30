@@ -116,69 +116,77 @@ export async function BookingDetail({ booking, apartments, owner, today, layout,
         <BookingActions booking={booking} apartments={apartments} owner={owner} today={today} closeHref={closeHref} />
       </div>
 
+      {/* Anordnung (PROJ-8, 2026-10-30): links Hauptgast, Mitreisende, Aufenthalt; rechts Preis und Rechnungen.
+          Einspaltig (Handy, Kalender-Panel) in derselben Reihenfolge untereinander. */}
       <div className={cn('grid gap-8', layout === 'page' && 'lg:grid-cols-2')}>
-        <DetailSection title={t('detail.stay')} headingSize={headingSize}>
-          <Fact label={t('detail.arrival')}>{date(booking.arrival)}</Fact>
-          {departureDiffers && <Fact label={t('detail.plannedDeparture')}>{date(booking.plannedDeparture)}</Fact>}
-          <Fact label={t('detail.departure')}>{date(booking.departure)}</Fact>
-          <Fact label={t('detail.nights')}>
-            {formatNumber(stayNights)}
-            {billable !== stayNights && <span className="text-ds-neutral-800"> · {t('detail.billableNights', { nights: billable })}</span>}
-          </Fact>
-          {isBlock ? (
-            <Fact label={t('detail.reason')}>{booking.blockReason ? t(`blockReason.${booking.blockReason}`) : missing}</Fact>
-          ) : (
+        <div className="flex flex-col gap-8">
+          {!isBlock && (
             <>
-              <Fact label={t('detail.persons')}>
-                {booking.childAges.length > 0
-                  ? t('detail.personsValue', { persons, adults: booking.adults, children: booking.childAges.length })
-                  : t('detail.personsAdultsOnly', { persons })}
-              </Fact>
-              {booking.childAges.length > 0 && (
-                <Fact label={t('detail.childAges')}>{t('detail.agesValue', { ages: booking.childAges.join(', ') })}</Fact>
+              {booking.guest && (
+                <DetailSection title={t('detail.guest')} headingSize={headingSize}>
+                  <Fact label={t('detail.guest')}>
+                    <Link href={guestHref(booking.guest.id)} className="text-ds-accent-700 underline-offset-[3px] hover:underline">
+                      {guestDisplayName(booking.guest)}
+                    </Link>
+                  </Fact>
+                  <Fact label={t('detail.country')}>{countryName(booking.guest.country, locale)}</Fact>
+                </DetailSection>
               )}
-              <Fact label={t('detail.channel')}>{t('detail.channelDirect')}</Fact>
-              <Fact label={t('detail.source')}>{booking.source === 'none' ? missing : <span className="break-words">{sourceLabel}</span>}</Fact>
-              <Fact label={t('detail.guestSheetNumber')}>{booking.guestSheetNumber ?? missing}</Fact>
-              {booking.residenceRegistered && <Fact label={t('detail.residence')}>{t('detail.residenceRegistered')}</Fact>}
+
+              <section className="flex flex-col gap-3">
+                <h2 className={headingSize}>{t('detail.companions')}</h2>
+                {booking.companions.length === 0 ? (
+                  <p className="rounded-lg bg-ds-surface px-4 py-3 text-ds-neutral-800">
+                    {persons > 1 ? t('detail.companionsEmpty') : t('detail.companionsNone')}
+                  </p>
+                ) : (
+                  <ul className="flex flex-col divide-y rounded-lg bg-ds-surface px-4">
+                    {booking.companions.map((c, i) => (
+                      <li key={i} className="flex flex-wrap justify-between gap-2 py-3">
+                        <span>{guestSortName(c)}</span>
+                        {c.birthDate && <span className="text-ds-neutral-800 tabular-nums">{formatDatePlain(c.birthDate)}</span>}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
             </>
           )}
-          {booking.kind === 'option' && booking.optionUntil && <Fact label={t('detail.optionUntil')}>{date(booking.optionUntil)}</Fact>}
-          {booking.cancelReason && <Fact label={t('detail.cancelReason')}>{booking.cancelReason}</Fact>}
-          <Fact label={t('detail.note')}>{booking.note ? <span className="whitespace-pre-line break-words">{booking.note}</span> : missing}</Fact>
-        </DetailSection>
+
+          <DetailSection title={t('detail.stay')} headingSize={headingSize}>
+            <Fact label={t('detail.arrival')}>{date(booking.arrival)}</Fact>
+            {departureDiffers && <Fact label={t('detail.plannedDeparture')}>{date(booking.plannedDeparture)}</Fact>}
+            <Fact label={t('detail.departure')}>{date(booking.departure)}</Fact>
+            <Fact label={t('detail.nights')}>
+              {formatNumber(stayNights)}
+              {billable !== stayNights && <span className="text-ds-neutral-800"> · {t('detail.billableNights', { nights: billable })}</span>}
+            </Fact>
+            {isBlock ? (
+              <Fact label={t('detail.reason')}>{booking.blockReason ? t(`blockReason.${booking.blockReason}`) : missing}</Fact>
+            ) : (
+              <>
+                <Fact label={t('detail.persons')}>
+                  {booking.childAges.length > 0
+                    ? t('detail.personsValue', { persons, adults: booking.adults, children: booking.childAges.length })
+                    : t('detail.personsAdultsOnly', { persons })}
+                </Fact>
+                {booking.childAges.length > 0 && (
+                  <Fact label={t('detail.childAges')}>{t('detail.agesValue', { ages: booking.childAges.join(', ') })}</Fact>
+                )}
+                <Fact label={t('detail.channel')}>{t('detail.channelDirect')}</Fact>
+                <Fact label={t('detail.source')}>{booking.source === 'none' ? missing : <span className="break-words">{sourceLabel}</span>}</Fact>
+                <Fact label={t('detail.guestSheetNumber')}>{booking.guestSheetNumber ?? missing}</Fact>
+                {booking.residenceRegistered && <Fact label={t('detail.residence')}>{t('detail.residenceRegistered')}</Fact>}
+              </>
+            )}
+            {booking.kind === 'option' && booking.optionUntil && <Fact label={t('detail.optionUntil')}>{date(booking.optionUntil)}</Fact>}
+            {booking.cancelReason && <Fact label={t('detail.cancelReason')}>{booking.cancelReason}</Fact>}
+            <Fact label={t('detail.note')}>{booking.note ? <span className="whitespace-pre-line break-words">{booking.note}</span> : missing}</Fact>
+          </DetailSection>
+        </div>
 
         {!isBlock && (
           <div className="flex flex-col gap-8">
-            {booking.guest && (
-              <DetailSection title={t('detail.guest')} headingSize={headingSize}>
-                <Fact label={t('detail.guest')}>
-                  <Link href={guestHref(booking.guest.id)} className="text-ds-accent-700 underline-offset-[3px] hover:underline">
-                    {guestDisplayName(booking.guest)}
-                  </Link>
-                </Fact>
-                <Fact label={t('detail.country')}>{countryName(booking.guest.country, locale)}</Fact>
-              </DetailSection>
-            )}
-
-            <section className="flex flex-col gap-3">
-              <h2 className={headingSize}>{t('detail.companions')}</h2>
-              {booking.companions.length === 0 ? (
-                <p className="rounded-lg bg-ds-surface px-4 py-3 text-ds-neutral-800">
-                  {persons > 1 ? t('detail.companionsEmpty') : t('detail.companionsNone')}
-                </p>
-              ) : (
-                <ul className="flex flex-col divide-y rounded-lg bg-ds-surface px-4">
-                  {booking.companions.map((c, i) => (
-                    <li key={i} className="flex flex-wrap justify-between gap-2 py-3">
-                      <span>{guestSortName(c)}</span>
-                      {c.birthDate && <span className="text-ds-neutral-800 tabular-nums">{formatDatePlain(c.birthDate)}</span>}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
-
             {owner && booking.amounts && (
               <section className="flex flex-col gap-3">
                 <h2 className={headingSize}>{t('detail.price')}</h2>

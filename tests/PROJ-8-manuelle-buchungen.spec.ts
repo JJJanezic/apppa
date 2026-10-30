@@ -742,6 +742,35 @@ test.describe('Safari-Zeilenklick', () => {
 })
 
 test.describe('Layout und Barrierefreiheit', () => {
+  test('Anordnung Buchungsdetail (2026-10-30): links Hauptgast, Mitreisende, Aufenthalt, rechts Preis und Rechnungen; einspaltig in derselben Reihenfolge', async ({ page, users }) => {
+    const { tenantId } = await setup(page, users)
+    const { top1 } = await withApartments(tenantId)
+    const guest = await addGuest(tenantId, { last_name: 'Huber', first_name: 'Anna' })
+    const booking = await addBooking(tenantId, top1, { guestId: guest, arrival: day(3), departure: day(6), nightsCents: 30000 })
+    // Rechnung zur Buchung direkt anlegen (Abschnitt „Rechnungen“ erscheint nur mit Rechnung)
+    const { error } = await service().from('invoices').insert({ tenant_id: tenantId, booking_id: booking.id, number: 'ORD-1', invoice_date: TODAY, recipient: 'Huber Anna', total_cents: 30000 } as never)
+    expect(error).toBeNull()
+    await openBooking(page, booking.id)
+    const names = ['Hauptgast', 'Mitreisende', 'Aufenthalt', 'Preis', 'Rechnungen']
+    const boxes = await Promise.all(names.map(async (n) => (await page.getByRole('heading', { name: n, exact: true }).first().boundingBox())!))
+    const [guestBox, companionsBox, stayBox, priceBox, invoicesBox] = boxes
+    const mobile = test.info().project.name === 'mobile'
+    if (mobile || test.info().project.name === 'tablet') {
+      // einspaltig: untereinander in dieser Reihenfolge
+      for (let i = 1; i < boxes.length; i++) expect(boxes[i].y, names[i]).toBeGreaterThan(boxes[i - 1].y)
+    } else {
+      // zwei Spalten: links untereinander Hauptgast, Mitreisende, Aufenthalt; rechts Preis über Rechnungen
+      expect(companionsBox.y).toBeGreaterThan(guestBox.y)
+      expect(stayBox.y).toBeGreaterThan(companionsBox.y)
+      expect(Math.abs(companionsBox.x - guestBox.x)).toBeLessThan(2)
+      expect(Math.abs(stayBox.x - guestBox.x)).toBeLessThan(2)
+      expect(priceBox.x).toBeGreaterThan(guestBox.x + 100)
+      expect(Math.abs(invoicesBox.x - priceBox.x)).toBeLessThan(2)
+      expect(invoicesBox.y).toBeGreaterThan(priceBox.y)
+      expect(Math.abs(priceBox.y - guestBox.y)).toBeLessThan(2)
+    }
+  })
+
   test('Liste, Detail und Panel: keine automatisch erkennbaren WCAG-2.1-AA-Verstöße, kein seitliches Scrollen, Karten auf dem Handy', async ({ page, users }) => {
     const { tenantId } = await setup(page, users)
     const { top1 } = await withApartments(tenantId)

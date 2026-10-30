@@ -2,7 +2,7 @@
 
 ## Status: Deployed
 **Created:** 2026-10-26
-**Last Updated:** 2026-10-26
+**Last Updated:** 2026-10-30
 
 ## Dependencies
 - Requires: PROJ-1 (Supabase Infrastructure Setup): Mandanten-Abschottung, Änderungsprotokoll
@@ -63,6 +63,7 @@ Neues optionales Feld **Reinigungsgebühr** (Euro) je Wohnung, nur vom Inhaber p
 ### Bereiche
 - **Buchungen** (Navigationspunkt): Liste eines Monats mit Blättern (Vor/Zurück/Heute); ein Eintrag erscheint in jedem Monat, in den sein Zeitraum fällt. Filter nach Wohnung, Art (Buchung, Option, Sperre) und Zustand (aktiv, storniert, verfallen); Suche nach Gast oder Buchungsnummer über alle Monate.
 - **Buchungs-Detail:** Zeitraum, Wohnung, Gast (mit Link zur Gast-Detailseite), Personen, Mitreisende, Preis (nur Inhaber), Zustand, Aktionen je nach Rolle.
+  - **Anordnung (geändert 2026-10-30):** links untereinander „Hauptgast“, „Mitreisende“, „Aufenthalt“; rechts „Preis“ und darunter „Rechnungen“ (PROJ-37). Einspaltig (Handy, Kalender-Panel) in derselben Reihenfolge untereinander. Mitarbeiter (ohne Preis) sehen rechts nur „Rechnungen“, falls vorhanden; Sperren zeigen nur „Aufenthalt“.
 - **Neue Buchung / bearbeiten:** Formular mit Art (Buchung oder Option), Konflikt- und Kapazitätswarnung, Preisvorschlag.
 - **Neue Sperre / bearbeiten.**
 - **Gast-Detail (PROJ-7):** Aufenthalte (Anzahl, letzter, nächster) und Liste der Buchungen des Gastes.
@@ -225,6 +226,7 @@ Der Betreiber-Admin liest wie überall nur (PROJ-1).
 | Liste mit Monatsblättern, Filtern und Suche über alle Monate | Vom Nutzer so entschieden; bis zum Kalender (PROJ-9) die zentrale Übersicht | 2026-10-26 |
 | Buchungsnummer fortlaufend je Kunde und Anreisejahr, gemeinsam für Buchungen und Optionen, Sperren ohne Nummer | Bezug in Telefonat, E-Mail und Rechnung; die Option behält beim Bestätigen ihre Nummer | 2026-10-26 |
 | Mitarbeiter-Buchungen erhalten den Preisvorschlag; bei Änderungen durch Mitarbeiter Hinweis „Preis prüfen“ | Mitarbeiter sehen keine Preise, die Buchung soll trotzdem einen Betrag haben | 2026-10-26 |
+| Buchungsdetail neu angeordnet: links Hauptgast, Mitreisende, Aufenthalt; rechts Preis und Rechnungen | Nutzerwunsch: wer und mit wem zuerst, Geld gebündelt auf einer Seite; als kleine Ergänzung ohne eigenes Spec-Gespräch umgesetzt (reine Umordnung, keine Daten oder Rechte betroffen) | 2026-10-30 |
 
 ### Technical Decisions
 <!-- Added by /architecture -->
@@ -825,3 +827,8 @@ _Stand 2026-10-25 (/deploy, Tag `v1.2.0`)_
 - **Ursache:** `router.push` direkt nach der Server-Aktion konkurrierte mit der von `revalidatePath` ausgelösten Aktualisierung (Next.js 16 gibt das Aktionsergebnis vor dem Einarbeiten der Seite zurück)
 - **Fix:** Die Aktionen `saveBooking`/`saveBlock` leiten mit `open: true` nach dem Anlegen selbst per `redirect()` weiter; `callAction` meldet die Weiterleitung als Erfolg (`redirectTo`). Details: PROJ-34, QA-Abschnitt „Behebung (2026-10-29)“
 - **Test:** E2E „Pflichtfelder, Zeitraum, …“ prüft den ungültigen Betrag jetzt mit „5-“ (negative Beträge sind seit PROJ-32 gültig)
+
+### Nachtrag 2026-10-30: Buchungsdetail neu angeordnet
+- **Änderung:** `booking-detail.tsx` ordnet die Abschnitte in zwei Spalten: links „Hauptgast“, „Mitreisende“, „Aufenthalt“, rechts „Preis“ und „Rechnungen“. Einspaltig in derselben Reihenfolge. Inhalte, Bedingungen und Rechte unverändert
+- **Test:** neuer E2E-Test „Anordnung Buchungsdetail“ in `tests/PROJ-8-manuelle-buchungen.spec.ts` (Spalten und Reihenfolge am Desktop, Reihenfolge untereinander auf Tablet und Handy); Layout/axe auf allen drei Breiten grün
+- **Regression grün:** PROJ-8 Detail, Mitreisende, Stornieren, Mitarbeiter (8), PROJ-9 Detailpanel (5), PROJ-30 (11), PROJ-35 Detail (3), PROJ-37 Rechnungsabschnitt (2)
