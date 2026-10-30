@@ -1,6 +1,6 @@
 # PROJ-37: Rechnungen nacherfassen
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-10-30
 **Last Updated:** 2026-10-30
 
@@ -397,7 +397,180 @@ Keine neuen Pakete. Genutzt werden vorhandene shadcn-Bausteine (`Popover`, `Comm
 - **Hinweis für /deploy:** Neuer Speicherbereich entsteht per Migration; kein neuer Umgebungs-Schlüssel.
 
 ## QA Test Results
-_To be added by /qa_
+
+**Tested:** 2026-10-30
+**App URL:** http://localhost:3000 (gebauter Server, Supabase „apppa-dev“; Safari gegen `npm run dev`)
+**Tester:** QA Engineer (AI)
+
+### Automatisierte Tests
+- `npm test`: 48 Dateien, **550/550 grün** (inkl. `supabase/tests/invoices.integration.test.ts` mit 26 Datenbank-Tests und Cron-Test der PDF-Bereinigung)
+- `npm run lint`, `npm run build`: grün
+- **Neu** `tests/PROJ-37-rechnungen-nacherfassen.spec.ts` (20 Tests): Desktop 20/20, Tablet und Handy (Navigation, Layout) grün, Firefox (Nacherfassen, 7 Tests) grün, Safari (Liste mit Zeilenklick, Nacherfassen mit PDF) grün
+- Regression E2E: PROJ-7 (Löschen, Zusammenführen, Anonymisieren) 5/5, PROJ-8 (Gast-Detail, Layout Liste/Detail/Panel) 4/4, PROJ-35 (Formular und Detail) 8/8; PROJ-28 lief im Backend-Schritt (19/19), der Schalter ist zusätzlich in PROJ-37 abgedeckt
+
+### Acceptance Criteria Status
+
+#### Menüpunkt und Liste (10)
+- [x] „Rechnungen“ zwischen „Gäste“ und „Einstellungen“ (Desktop); am Handy unter „Mehr“
+- [x] Spalten Nummer, Datum „Mi, 28.10.2026“, Empfänger, Buchung (Link bzw. „–“), Betrag (negativ rot „-€ 50,00“), Status „nacherfasst“ – am Handy siehe BUG-3
+- [x] Zusatz „ohne PDF“
+- [x] Sortierung Datum absteigend, bei gleichem Datum Nummer absteigend
+- [x] Seitenweise je 50 (51 Rechnungen → Seite 2 mit einer Zeile)
+- [x] Suche nach Teil der Nummer („2024/“) und des Empfängers („gutschr“), Begriff in der Adresse
+- [x] Leerzustand Inhaber mit Knopf, Mitarbeiter ohne Knopf
+- [x] Klick öffnet genau diese Rechnung (Chrome, Firefox, Safari; Handy über die Karte)
+
+#### Nacherfassen: Formular und Pflichtangaben (9)
+- [x] Formular mit Nummer, Datum, Buchung, Gast, Empfänger, Positionen, PDF
+- [x] Leeres Formular: Meldungen bei Nummer, Datum, Empfänger, Positionen; nichts gespeichert
+- [x] Datum in der Zukunft → „Das Rechnungsdatum darf nicht in der Zukunft liegen“
+- [x] Datum älter als 7 Jahre → Hinweis, Speichern möglich (vor 1990 siehe BUG-2)
+- [x] Nummer > 30 Zeichen → Meldung
+- [x] Doppelte Nummer „ 2025-0042 “ bzw. „R-1“ zu „r-1“ → „… bereits vergeben (Rechnung vom Fr, 14.03.2025)“
+- [x] Gleiche Nummer bei anderem Kunden wird gespeichert
+- [x] Gültig → Rechnung in der Liste, Weiterleitung auf die Detailseite
+- [x] Server lehnt doppelte Nummer, Datum in der Zukunft, leere Positionen ab (Integrationstests)
+
+#### Buchung, Gast und Empfänger (9)
+- [x] Treffer „Huber Maria · Haus See · Top 3 · Mi, 14.10.2026 – Sa, 17.10.2026“ (Suche nach Gast, Wohnung, Monat „10.2026“)
+- [x] Stornierte Buchung wird gefunden, Sperre nicht
+- [x] Hauptgast der Buchung vorbelegt
+- [x] Empfänger = Firma, sonst „Nachname Vorname“ (auch beim neuen Gast)
+- [x] Überschriebener Empfänger wird gespeichert
+- [x] Von Hand geänderter Empfänger bleibt beim Gastwechsel
+- [x] Anderer Gast bei gewählter Buchung wird verknüpft
+- [x] Ohne Buchung: bestehenden Gast suchen oder neu anlegen
+- [x] Weder Buchung noch Gast: Speichern mit Empfänger und Positionen
+
+#### Positionen und Beträge (9)
+- [x] Übernachtung, Reinigung, Rabatt mit Betrag und Satz in der Reihenfolge der Buchung
+- [x] Stornierte Buchung → Stornogebühr als Position
+- [x] Abwählen, Betrag ändern, Position hinzufügen → Summe und USt je Satz sofort neu
+- [x] Andere Buchung bei vorhandenen Positionen → Rückfrage „Positionen ersetzen?“ (Ersetzen/Behalten)
+- [x] Ohne Buchung leere Positionsliste
+- [x] Gesamtbetrag unter 0 wird gespeichert, rot mit „-€“
+- [x] 10 % und 20 %: Gesamtbetrag brutto und enthaltene USt je Satz (€ 18,18 / € 8,33)
+- [x] Kleinunternehmer am Rechnungsdatum: keine Satzfelder, im Detail „Keine Umsatzsteuer (Kleinunternehmer)“; Datum mit USt blendet die Felder wieder ein
+- [x] Spätere Änderung der Buchung lässt die Positionen der Rechnung unverändert
+
+#### PDF (7)
+- [x] PDF bis 10 MB wird abgelegt (Pfad im Ordner des Kunden)
+- [x] Kein PDF bzw. > 10 MB → verständliche Meldung, nichts abgelegt
+- [x] PDF nachreichen → „ohne PDF“ entfällt
+- [x] Ersetzen → altes PDF gelöscht, alter Link liefert nichts mehr
+- [x] Öffnen und Herunterladen liefern das PDF (Inhaber und Mitarbeiter)
+- [x] Ohne Anmeldung bzw. fremder Kunde: kein Abruf-Link, kein Download
+- [x] Upload ohne Speichern: nicht an der Rechnung, Bereinigung nach 24 Stunden (Integrations- und Cron-Test)
+
+#### Bearbeiten und Löschen (5)
+- [x] Bearbeiten mit denselben Regeln
+- [x] Buchung nachträglich setzen → im Buchungsdetail; entfernen → verschwindet dort
+- [x] Löschen: Abbrechen behält alles, Bestätigen entfernt Rechnung und PDF
+- [x] Gleichzeitige Bearbeitung → Hinweis „Die Rechnung wurde inzwischen geändert …“, nichts überschrieben
+- [x] Protokoll mit Person: „insert“ und „delete“ mit Inhaber als Akteur
+
+#### Schalter „Rechnungen nacherfassen“ (5)
+- [x] Voreinstellung ein
+- [x] Aus → kein Knopf, Rechnungen sichtbar und bearbeitbar
+- [x] Aus → Anlegen am Server abgelehnt (Integrationstest P0905)
+- [x] Wieder ein → Knopf da
+- [x] Betreiber legt den Schalter auf der Kunden-Detailseite um
+
+#### Buchungsdetail (4)
+- [x] Zwei Rechnungen mit Link, „Verrechnet“, „Gesamtpreis“, auch für Mitarbeiter
+- [x] Summe über Gesamtpreis → „Verrechnet mehr als Gesamtpreis“
+- [x] Ohne Rechnungen kein Abschnitt
+- [x] Kalender-Panel zeigt den Abschnitt ebenso
+
+#### Rollen (3)
+- [x] Mitarbeiter: alle Angaben, PDF öffnen, keine Knöpfe
+- [x] Mitarbeiter-Schreibzugriffe am Server abgelehnt (Integrationstests; Server-Aktionen prüfen zusätzlich die Rolle)
+- [x] Kunde B ruft Rechnung von Kunde A auf → „Seite nicht gefunden“
+
+#### Gäste (3)
+- [x] Anonymisierter Gast: Empfänger und Positionen unverändert, Gast „Gelöschter Gast“
+- [x] Gast nur mit Rechnungen → anonymisiert statt gelöscht, eigener Erklärungstext
+- [x] Zusammenführen hängt Rechnungen um (Integrationstest; PROJ-7-Regression grün)
+
+### Edge Cases Status
+- [x] Teilrechnung/Anzahlung: Summe unter dem Gesamtpreis, kein Hinweis
+- [x] Mehrere Rechnungen je Buchung, Summe darüber → nur Hinweis
+- [x] Alte Gutschrift mit negativen Positionen mindert die verrechnete Summe
+- [x] Buchung seit der Altrechnung geändert → Rechnung behält ihre Kopie
+- [x] Empfänger bleibt, wenn der Gast entfernt bzw. gewechselt wird
+- [x] Nummer mit anderem Format („2024/17“) wird gespeichert und gefunden
+- [x] Upload-Fehler: eigene Meldung, übrige Eingaben bleiben (Code geprüft)
+- [x] Inhalt des PDFs wird nicht geprüft (Minimal-PDF wird abgelegt)
+- [x] Kunde deaktiviert: Schreiben am Server gesperrt (`has_role` nur bei aktivem Kunden); Meldung lautet „Das darf nur ein Inhaber.“ statt des Deaktiviert-Texts – Mitglieder deaktivierter Kunden kommen laut PROJ-5 ohnehin nicht in die App
+- [x] Kunde gelöscht: Rechnungen per Fremdschlüssel mitgelöscht, PDF-Ordner durch den Server (Code und Integrationstest)
+
+### Security Audit Results
+- [x] Authentifizierung: Seiten und Aktionen nur angemeldet; PDF-Download anonym liefert nichts
+- [x] Mandantentrennung: Rechnungen, Positionen, PDFs nur für Mitglieder; Detailseite fremder Rechnung „nicht gefunden“; fremde Buchung/Gast/PDF-Pfad in `save_invoice` abgelehnt
+- [x] Rollen: Schreiben nur über `save_invoice`/`delete_invoice` (kein direktes insert/update/delete), Inhaber-Prüfung in Datenbank und Server-Aktion
+- [x] Speicher: privat, nur `application/pdf`, 10 MB; Upload nur in den eigenen Ordner, Lesen nur für an einer Rechnung hängende PDFs, Löschen nur der Server; Abruf-Links 10 Minuten
+- [x] Eingaben: Suchbegriff für PostgREST bereinigt (Anführungszeichen, Komma, Klammern, Platzhalter); Texte werden von React escaped; Dateiname des Downloads bereinigt
+- [x] Gesamtbetrag und Kleinunternehmer-Kennzeichen bildet die Datenbank, nicht der Browser
+- [x] Keine Geheimnisse im Browser (Upload über serverseitig erzeugten, einmaligen Upload-Schlüssel)
+- [ ] Hinweis (kein Bug): `prepareInvoiceUpload` ist nicht begrenzt; ein Inhaber kann beliebig viele unbenutzte PDFs hochladen, die erst nach 24 Stunden weggeräumt werden. Risiko gering (nur angemeldete Inhaber, 10 MB je Datei)
+
+### Bugs Found
+
+#### BUG-1: Leere Trefferliste der Buchungs- und Gastsuche verletzt WCAG (axe „aria-required-children“, critical)
+- **Severity:** Medium
+- **Steps to Reproduce:**
+  1. Rechnung öffnen → „Bearbeiten“ (oder „Rechnung nacherfassen“)
+  2. axe-Prüfung (WCAG 2.1 AA) über das Formular laufen lassen
+  3. Expected: keine Verstöße
+  4. Actual: Die `CommandList` von `booking-picker` und `guest-picker` hat `role="listbox"`, enthält ohne Suchbegriff aber nur den Hinweis „Mindestens 2 Zeichen eingeben …“ und keine `option`. Betrifft auch die Gastsuche im neuen Buchungsformular (PROJ-8), dort bisher ungetestet
+- **Test:** `PROJ-37 … Layout` nimmt die Regel im Formular bis zur Behebung aus
+- **Priority:** Fix before deployment (empfohlen) – Hinweise außerhalb der `CommandList` setzen oder die Liste erst mit Treffern rendern
+- **Status:** ✅ Behoben 2026-10-30 – Hinweise stehen in `booking-picker` und `guest-picker` neben der Liste; die Liste enthält nur noch Treffer. Gilt damit auch für das Buchungsformular und das Zusammenführen
+
+#### BUG-2: Rechnungsdatum vor 1990 führt zu „Etwas ist schiefgelaufen“
+- **Severity:** Low
+- **Steps to Reproduce:**
+  1. „Rechnung nacherfassen“, Datum z. B. 15.05.1985, übrige Angaben gültig
+  2. Speichern
+  3. Expected: verständliche Meldung am Datumsfeld
+  4. Actual: Das Formular zeigt nur den 7-Jahre-Hinweis; die Datenbank lehnt per Prüfregel (`invoice_date >= 1990-01-01`, Fehler 23514) ab, die Aktion meldet „Etwas ist schiefgelaufen. Bitte versuche es erneut.“
+- **Priority:** Fix in next sprint (Untergrenze ins Schema und `min` am Datumsfeld)
+- **Status:** Kein Fehler (Entscheidung des Nutzers 2026-10-30): So alte Rechnungen werden nicht nacherfasst
+
+#### BUG-3: Handy-Karten der Rechnungsliste zeigen die Buchung nicht als Link
+- **Severity:** Low
+- **Steps to Reproduce:**
+  1. Rechnungsliste unter 768 px Breite öffnen, Rechnung mit Buchung
+  2. Expected (AC): Buchung als Link
+  3. Actual: „Buchung 2026-0001“ als Text, weil die ganze Karte der Link zur Rechnung ist (bewusst: kein Link im Link). Die Buchung ist über die Detailseite erreichbar
+- **Priority:** Nice to have (oder Spec an die Umsetzung anpassen)
+- **Status:** Akzeptiert (Entscheidung des Nutzers 2026-10-30): Die Buchung bleibt am Handy Text in der Karte
+
+#### BUG-4: Suche findet Nummern mit „_“ oder „%“ nicht
+- **Severity:** Low
+- **Steps to Reproduce:**
+  1. Rechnung „2025_01“ erfassen
+  2. In der Liste nach „2025_01“ suchen
+  3. Expected: Treffer
+  4. Actual: `cleanInvoiceQuery` ersetzt „_“ und „%“ durch Leerzeichen, gesucht wird „2025 01“ → „Keine Treffer“ (Suche nach „2025“ findet sie)
+- **Priority:** Nice to have (Platzhalter escapen statt entfernen)
+- **Status:** ✅ Behoben 2026-10-30 – neues `invoiceSearchPattern` maskiert „%“ und „_“ für die Liste (Komma und Klammern bleiben Teil des Suchbegriffs); die Buchungssuche nutzt weiter `cleanInvoiceQuery`
+
+### Summary
+- **Acceptance Criteria:** 64/64 erfüllt (eine Abweichung am Handy: BUG-3)
+- **Bugs Found:** 4 total (0 critical, 0 high, 1 medium, 3 low)
+- **Security:** Pass
+- **Production Ready:** YES
+- **Recommendation:** Deploy möglich; BUG-1 vorher beheben empfohlen
+
+### Nachtest 2026-10-30 (nach Behebung von BUG-1 und BUG-4)
+- `npm test`: 48 Dateien, **551/551 grün** (neuer Unit-Test für `invoiceSearchPattern`); Lint, Typprüfung, Build grün
+- E2E `tests/PROJ-37-rechnungen-nacherfassen.spec.ts` (jetzt 21 Tests): Desktop 21/21, Tablet 4/4, Handy 4/4, Firefox 6/6 (Suche, Buchungs- und Gastsuche, neuer Gast, Layout)
+  - Layout-Test prüft das Formular wieder ohne Ausnahme mit axe, zusätzlich mit Hinweis „Mindestens 2 Zeichen“ und mit „Keine passende Buchung gefunden“
+  - neuer Test BUG-4: „2025_01“, „10%“, „Huber, Maria (“ finden genau die passenden Rechnungen
+- Regression der geänderten Gastsuche: PROJ-8 Buchungsformular (7 Tests) und PROJ-7 Zusammenführen (3 Tests) grün
+- Safari in diesem Durchgang nicht erneut gelaufen (Änderung nur an der Reihenfolge der Elemente; erster Durchgang grün)
+- **Ergebnis:** 0 offene Bugs (BUG-1, BUG-4 behoben; BUG-2, BUG-3 vom Nutzer akzeptiert). **Production Ready: YES** → Status Approved
 
 ## Deployment
 _To be added by /deploy_
