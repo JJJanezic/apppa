@@ -200,20 +200,9 @@ export async function getBookingList(filters: BookingFilters): Promise<BookingLi
   // „mit Rechnung“: nur Buchungen mit mindestens einer Rechnung (innerer Verbund), es kommen trotzdem alle ihre Rechnungen mit
   const columns = filters.invoice === 'with' ? ROW_COLUMNS.replace('invoices(', 'invoices!inner(') : ROW_COLUMNS
 
-  let request = supabase.from('bookings').select(columns, { count: invoiceFilter ? 'exact' : undefined }).eq('tenant_id', tenantId)
-  // Rechnungsfilter (PROJ-37): Sperren bekommen nie eine Rechnung; „ohne Rechnung“ = keine verknüpfte Rechnung
-  if (invoiceFilter) request = request.neq('kind', 'block')
-  if (filters.invoice === 'without') request = request.is('invoices' as 'id', null)
-  if (filters.apartment) request = request.eq('apartment_id', filters.apartment)
-  if (filters.kind) request = request.eq('kind', filters.kind)
-  // Quelle nur bei Buchungen und Optionen (Sperren haben „none“)
-  if (filters.source) request = request.eq('source', filters.source).neq('kind', 'block')
-  if (filters.state === 'cancelled') request = request.not('cancelled_at', 'is', null)
-  else if (filters.state === 'expired') request = request.eq('kind', 'option').is('cancelled_at', null).lt('option_until', today)
-  else request = request.is('cancelled_at', null).or(`kind.neq.option,option_until.gte.${today}`)
-
+  // Suche: Gäste über den vereinheitlichten Suchtext (PROJ-7), dazu Buchungs- und Gästeblattnummer (PROJ-30)
+  let searchFilter: string | null = null
   if (searching) {
-    // Gäste über den vereinheitlichten Suchtext (PROJ-7), dazu Buchungs- und Gästeblattnummer (PROJ-30)
     const words = searchKey(query).split(' ').filter(Boolean)
     let guests = supabase.from('guests').select('id').eq('tenant_id', tenantId)
     for (const w of words) guests = guests.like('search_text', `%${w}%`)
@@ -222,8 +211,27 @@ export async function getBookingList(filters: BookingFilters): Promise<BookingLi
     const number = query.replace(/\s/g, '')
     const sheet = cleanSheetQuery(filters.query) || query
     const numbers = `number.ilike.%${number}%,guest_sheet_number.ilike."%${sheet}%"`
-    request = request.or(ids.length ? `${numbers},guest_id.in.(${ids.join(',')})` : numbers)
+    searchFilter = ids.length ? `${numbers},guest_id.in.(${ids.join(',')})` : numbers
   }
+
+  // Alle Filter außer Zeitraum, Sortierung und Seite; head: nur die Gesamtzahl (Rechnungsfilter, Seite hinter dem Ende)
+  const filtered = (head = false) => {
+    let r = supabase.from('bookings').select(columns, { count: invoiceFilter ? 'exact' : undefined, head }).eq('tenant_id', tenantId)
+    // Rechnungsfilter (PROJ-37): Sperren bekommen nie eine Rechnung; „ohne Rechnung“ = keine verknüpfte Rechnung
+    if (invoiceFilter) r = r.neq('kind', 'block')
+    if (filters.invoice === 'without') r = r.is('invoices' as 'id', null)
+    if (filters.apartment) r = r.eq('apartment_id', filters.apartment)
+    if (filters.kind) r = r.eq('kind', filters.kind)
+    // Quelle nur bei Buchungen und Optionen (Sperren haben „none“)
+    if (filters.source) r = r.eq('source', filters.source).neq('kind', 'block')
+    if (filters.state === 'cancelled') r = r.not('cancelled_at', 'is', null)
+    else if (filters.state === 'expired') r = r.eq('kind', 'option').is('cancelled_at', null).lt('option_until', today)
+    else r = r.is('cancelled_at', null).or(`kind.neq.option,option_until.gte.${today}`)
+    if (searchFilter) r = r.or(searchFilter)
+    return r
+  }
+
+  let request = filtered()
   if (invoiceFilter) {
     // über alle Monate, Anreise absteigend, je 50
     const from = (filters.page - 1) * BOOKING_PAGE_SIZE
@@ -235,8 +243,15 @@ export async function getBookingList(filters: BookingFilters): Promise<BookingLi
     request = request.lt('arrival', to).gt('departure', from).order('arrival').order('number').limit(LIST_LIMIT)
   }
 
-  const { data, error, count } = await request
-  if (error) console.error('[buchungen] Liste nicht lesbar', error.message)
+  const result = await request
+  const { data, error } = result
+  let count = result.count
+  // Seite hinter dem Ende (veraltete Adresse, PROJ-37 BUG-5): keine Zeilen, aber die richtige Gesamtzahl
+  if (error?.code === 'PGRST103' && invoiceFilter) {
+    const head = await filtered(true)
+    if (head.error) console.error('[buchungen] Anzahl nicht lesbar', head.error.message)
+    count = head.count
+  } else if (error) console.error('[buchungen] Liste nicht lesbar', error.message)
   const limit = invoiceFilter ? BOOKING_PAGE_SIZE : searching ? SEARCH_LIMIT : LIST_LIMIT
   const rows = ((data ?? []) as unknown as ListDbRow[]).slice(0, limit)
   let occupancy: Occupancy[] = []
