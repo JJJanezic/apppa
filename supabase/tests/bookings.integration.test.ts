@@ -528,6 +528,8 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-8 Manuelle Buchungen', () => {
 
   describe('Buchungs-Erweiterung (PROJ-30)', () => {
     const billed = async (id: string) => (await service.from('booking_amounts').select('nights_cents, billed_nights_cents').eq('id', id).single()).data
+    const pricing = async (id: string) =>
+      (await service.from('booking_amounts').select('nights_extension_pricing').eq('id', id).single()).data?.nights_extension_pricing
     const duplicates = (r: { result: Saved | null }) =>
       r.result?.status === 'warnings' ? (r.result.warnings.guest_sheet_duplicates ?? []) : []
 
@@ -548,11 +550,15 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-8 Manuelle Buchungen', () => {
       expect(await row(id)).toMatchObject({ planned_departure: '2029-01-04', departure: '2029-01-04', source: 'none', residence_registered: false, guest_sheet_number: null })
     })
 
-    it('Verlängerung rechnet den Preis anteilig hoch, frühere Abreise nicht; zurück auf geplant = vereinbart', async () => {
+    it('Preisregel „anteilig“: Verlängerung rechnet anteilig hoch, frühere Abreise nicht; zurück auf geplant = vereinbart', async () => {
       const apt = await apartment(tenantA, 'Verlängerung')
       const g = await guest(tenantA, 'Lang')
       const input = (departure: string, extra: Record<string, unknown> = {}) =>
-        bookingInput(tenantA, apt, g, '2029-02-01', departure, { planned_departure: '2029-02-06', amounts: { nights_cents: 50000, charges: [{ label: 'Reinigung', amount_cents: 6000 }] }, ...extra })
+        bookingInput(tenantA, apt, g, '2029-02-01', departure, {
+          planned_departure: '2029-02-06',
+          amounts: { nights_cents: 50000, nights_extension_pricing: 'prorated', charges: [{ label: 'Reinigung', amount_cents: 6000 }] },
+          ...extra,
+        })
       const id = savedId(await save(ownerA, input('2029-02-06')))
       expect(await billed(id)).toEqual({ nights_cents: 50000, billed_nights_cents: 50000 })
 
@@ -573,16 +579,25 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-8 Manuelle Buchungen', () => {
 
       // Rundung auf Cent: 333,33 € für 3 Nächte, 1 Nacht länger → 444,44 €
       const odd = savedId(
-        await save(ownerA, bookingInput(tenantA, apt, g, '2029-03-01', '2029-03-05', { planned_departure: '2029-03-04', amounts: { nights_cents: 33333, charges: [] } }))
+        await save(
+          ownerA,
+          bookingInput(tenantA, apt, g, '2029-03-01', '2029-03-05', {
+            planned_departure: '2029-03-04',
+            amounts: { nights_cents: 33333, nights_extension_pricing: 'prorated', charges: [] },
+          })
+        )
       )
       expect(await billed(odd)).toEqual({ nights_cents: 33333, billed_nights_cents: 44444 })
     })
 
-    it('Mitarbeiter verlängern: Preis wird hochgerechnet, ohne „Preis prüfen“; geänderte Planung setzt „Preis prüfen“', async () => {
+    it('Mitarbeiter verlängern: gespeicherte Preisregel gilt (hier „anteilig“), ohne „Preis prüfen“; geänderte Planung setzt „Preis prüfen“', async () => {
       const apt = await apartment(tenantA, 'Verlängerung Staff')
       const g = await guest(tenantA, 'Staffverlängerung')
       const id = savedId(
-        await save(ownerA, bookingInput(tenantA, apt, g, '2029-04-01', '2029-04-06', { amounts: { nights_cents: 50000, charges: [] } }))
+        await save(
+          ownerA,
+          bookingInput(tenantA, apt, g, '2029-04-01', '2029-04-06', { amounts: { nights_cents: 50000, nights_extension_pricing: 'prorated', charges: [] } })
+        )
       )
       savedId(await save(staffA, { ...bookingInput(tenantA, apt, g, '2029-04-01', '2029-04-07', { planned_departure: '2029-04-06' }), id, updated_at: (await row(id)).updated_at }))
       expect(await billed(id)).toEqual({ nights_cents: 50000, billed_nights_cents: 60000 })
@@ -592,6 +607,67 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-8 Manuelle Buchungen', () => {
       expect((await row(id)).price_review).toBe(true)
       // Mitarbeiter sehen keine Beträge
       expect((await staffA.from('booking_amounts').select('billed_nights_cents').eq('id', id)).data ?? []).toHaveLength(0)
+    })
+
+    it('Preisregel (2026-10-30): Voreinstellung „gesamter Aufenthalt“, Umschalten, Wahl bleibt bei Rücksetzen und erneuter Verlängerung', async () => {
+      const apt = await apartment(tenantA, 'Preisregel')
+      const g = await guest(tenantA, 'Pauschal')
+      const input = (departure: string, pricingValue?: string) =>
+        bookingInput(tenantA, apt, g, '2029-06-01', departure, {
+          planned_departure: '2029-06-06',
+          amounts: { nights_cents: 50000, ...(pricingValue ? { nights_extension_pricing: pricingValue } : {}), charges: [] },
+        })
+      const resave = async (departure: string, pricingValue?: string) =>
+        savedId(await save(ownerA, { ...input(departure, pricingValue), id, updated_at: (await row(id)).updated_at }))
+
+      // neue Buchung ohne Angabe: „gesamter Aufenthalt“
+      const id = savedId(await save(ownerA, input('2029-06-06')))
+      expect(await pricing(id)).toBe('total')
+      // verlängert ohne Angabe: Preis bleibt
+      await resave('2029-06-08')
+      expect(await billed(id)).toEqual({ nights_cents: 50000, billed_nights_cents: 50000 })
+      // ausdrücklich „gesamter Aufenthalt“
+      await resave('2029-06-08', 'total')
+      expect(await billed(id)).toEqual({ nights_cents: 50000, billed_nights_cents: 50000 })
+      // umgeschaltet auf „anteilig“: 500 € für 5 Nächte, 7 Nächte → 700 €
+      await resave('2029-06-08', 'prorated')
+      expect(await billed(id)).toEqual({ nights_cents: 50000, billed_nights_cents: 70000 })
+      // Inhaber speichert ohne Angabe (älterer Stand des Formulars): gespeicherte Wahl bleibt
+      await resave('2029-06-08')
+      expect(await pricing(id)).toBe('prorated')
+      expect(await billed(id)).toEqual({ nights_cents: 50000, billed_nights_cents: 70000 })
+      // zurück auf geplant: eingetragener Preis, Wahl bleibt gespeichert
+      await resave('2029-06-06', 'prorated')
+      expect(await billed(id)).toEqual({ nights_cents: 50000, billed_nights_cents: 50000 })
+      expect(await pricing(id)).toBe('prorated')
+      // erneut verlängert: gespeicherte Wahl greift wieder
+      await resave('2029-06-07')
+      expect(await billed(id)).toEqual({ nights_cents: 50000, billed_nights_cents: 60000 })
+      // zurück auf „gesamter Aufenthalt“
+      await resave('2029-06-07', 'total')
+      expect(await billed(id)).toEqual({ nights_cents: 50000, billed_nights_cents: 50000 })
+    })
+
+    it('Preisregel: ungültiger Wert → 22023; Mitarbeiter können sie nicht setzen; Mitarbeiter-Verlängerung ohne Wahl erhöht nicht', async () => {
+      const apt = await apartment(tenantA, 'Preisregel Rechte')
+      const g = await guest(tenantA, 'Preisrechte')
+      const base = (departure: string, amounts: Record<string, unknown>) =>
+        bookingInput(tenantA, apt, g, '2029-07-01', departure, { planned_departure: '2029-07-06', amounts })
+      expect((await save(ownerA, base('2029-07-07', { nights_cents: 50000, nights_extension_pricing: 'pauschal', charges: [] }))).error?.code).toBe('22023')
+
+      const id = savedId(await save(ownerA, base('2029-07-06', { nights_cents: 50000, charges: [] })))
+      // Mitarbeiter verlängert und schickt „anteilig“ mit: wird nicht übernommen, Preis bleibt
+      savedId(
+        await save(staffA, { ...base('2029-07-08', { nights_cents: 1, nights_extension_pricing: 'prorated', charges: [] }), id, updated_at: (await row(id)).updated_at })
+      )
+      expect(await pricing(id)).toBe('total')
+      expect(await billed(id)).toEqual({ nights_cents: 50000, billed_nights_cents: 50000 })
+      // Mitarbeiter lesen die Preisregel nicht
+      expect((await staffA.from('booking_amounts').select('nights_extension_pricing').eq('id', id)).data ?? []).toHaveLength(0)
+      // niemand schreibt direkt
+      const direct = await ownerA.from('booking_amounts').update({ nights_extension_pricing: 'prorated' }).eq('id', id).select('id')
+      expect(direct.data ?? []).toHaveLength(0)
+      expect(await pricing(id)).toBe('total')
     })
 
     it('Gästeblattnummer: Warnung bei Doppelung (Groß/Klein, auch storniert, nur eigenes Konto), alle dürfen bestätigen', async () => {

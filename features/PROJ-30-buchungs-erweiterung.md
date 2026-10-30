@@ -417,6 +417,21 @@ Mitarbeiter: sehen weder Beträge noch die Auswahl
   - Integrationstests
   - **Bis zur Migration** schlagen Buchungsdetail und „Bearbeiten“ in Dev beim Laden fehl (Spalte fehlt).
 
+### Umsetzung Backend: Preisregel bei Verlängerung (2026-10-30)
+- **Migration** `supabase/migrations/20261030131114_booking_extension_pricing.sql`, eingespielt in Dev:
+  - `booking_amounts.nights_extension_pricing` (`total`/`prorated`, Standard `total`, Prüfregel); Bestand mit `departure > planned_departure` → `prorated` (Beträge unverändert)
+  - `private.extension_pricing(text)`: null = nicht angegeben, sonst nur die beiden Werte (ungültig → 22023)
+  - `private.refresh_billed_nights`: `total` → eingetragener Preis, `prorated` → anteilig wie bisher
+  - `private.save_booking` (sonst unverändert gegenüber `20261029181138_vat_rates.sql`): Inhaber setzt die Regel beim Anlegen (ohne Angabe `total`) und Ändern (ohne Angabe bleibt die gespeicherte); Mitarbeiter-Speichern lässt sie unverändert, ein mitgeschickter Wert wird ignoriert
+  - Lesen wie bisher nur für Inhaber (RLS der Beträge), kein direktes Schreiben
+- **Typen** mit `npm run db:types` neu erzeugt (identisch mit der Handergänzung). Advisors: nur die zwei bekannten Auth-Hinweise.
+- **Tests** `supabase/tests/bookings.integration.test.ts`, Block PROJ-30:
+  - bestehende Verlängerungstests auf `prorated` umgestellt
+  - neu: Voreinstellung `total`, Umschalten, Speichern ohne Angabe behält die Wahl, Rücksetzen und erneutes Verlängern, ungültiger Wert 22023, Mitarbeiter kann die Regel nicht setzen und erhöht ohne Wahl nicht, Mitarbeiter liest sie nicht, kein direktes Schreiben
+  - `npm test` 556/556 grün; Lint und Build grün
+- **Für /qa:** E2E `tests/PROJ-30-buchungs-erweiterung.spec.ts` Zeile ~271 erwartet noch das automatische Hochrechnen (600 €) und muss auf die Auswahl umgestellt werden.
+- **Für /deploy:** Die Befüllung des Bestands ließ sich in Dev nicht an Daten zeigen (keine Buchungen). Nach `db push` in Staging/Produktion lesend prüfen: verlängerte Buchungen haben `prorated`, ihre Beträge sind unverändert.
+
 ## Implementation Notes (Frontend)
 **Stand 2026-10-27.** Die Oberfläche ist fertig. **Ohne die Migration aus `/backend` schlagen Buchungsliste, Buchungs-Detail, Gast-Detail und Kalender beim Laden fehl**, weil sie die neuen Spalten abfragen (wie bei PROJ-28/29).
 
