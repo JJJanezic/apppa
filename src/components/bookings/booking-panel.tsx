@@ -37,6 +37,7 @@ import {
   amountInput,
   billableNights,
   billedNightsCents,
+  EXTENSION_PRICING,
   type BookableApartment,
   type Booking,
   BOOKING_SOURCES,
@@ -107,6 +108,7 @@ function initialValues(
       children: booking.childAges.map((age) => ({ age: String(age) })),
       optionUntil: booking.optionUntil ?? '',
       nightsPrice: amountInput(booking.amounts?.nightsCents ?? null),
+      extensionPricing: booking.amounts?.extensionPricing ?? 'total',
       nightsVat: vatRateInput(booking.amounts?.nightsVatBp ?? VAT_DEFAULTS.nights),
       charges: (booking.amounts?.charges ?? []).map((c) => ({ label: c.label, amount: amountInput(c.amountCents), vat: vatRateInput(c.vatBp) })),
       note: booking.note ?? '',
@@ -133,6 +135,7 @@ function initialValues(
     children: [],
     optionUntil: addDays(today, LIMITS.optionDefaultDays),
     nightsPrice: '',
+    extensionPricing: 'total',
     nightsVat: vatRateInput(VAT_DEFAULTS.nights),
     // Vorausgewählte Wohnung: ihre Reinigungsgebühr gleich eintragen (wie beim Wählen), mit dem Satz der Reinigung
     charges:
@@ -182,10 +185,24 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
   const labelListOpen = useRef(false)
   const vatHistory = useVatStatus()
 
-  const [kind, apartmentId, arrival, plannedDeparture, departure, guestMode, adults, childRows, nightsPrice, chargeRows, source, guestSheetNumber] =
+  const [kind, apartmentId, arrival, plannedDeparture, departure, guestMode, adults, childRows, nightsPrice, chargeRows, source, guestSheetNumber, extensionPricing] =
     useWatch({
       control: form.control,
-      name: ['kind', 'apartmentId', 'arrival', 'plannedDeparture', 'departure', 'guestMode', 'adults', 'children', 'nightsPrice', 'charges', 'source', 'guestSheetNumber'],
+      name: [
+        'kind',
+        'apartmentId',
+        'arrival',
+        'plannedDeparture',
+        'departure',
+        'guestMode',
+        'adults',
+        'children',
+        'nightsPrice',
+        'charges',
+        'source',
+        'guestSheetNumber',
+        'extensionPricing',
+      ],
     })
   const guestValues = JSON.stringify(useWatch({ control: guestForm.control }))
   const visibleDuplicates = duplicates && duplicates.values === guestValues ? duplicates.matches : null
@@ -228,10 +245,12 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
   const sheetOk = sheetOverride?.version === version
   const blocked = (warn && !overrideOk) || (sheetWarn && !sheetOk)
 
-  // Vereinbarter Preis → abgerechneter Preis (anteilig bei Verlängerung); verbindlich rechnet der Server
+  // Eingetragener Preis → abgerechneter Preis (bei Verlängerung nach der gewählten Preisregel); verbindlich rechnet der Server
   const agreedCents = parseAmountCents(nightsPrice ?? '')
   const billedCents =
-    agreedCents !== null && !Number.isNaN(agreedCents) && nights > 0 && billable > 0 ? billedNightsCents(agreedCents, nights, billable) : agreedCents
+    agreedCents !== null && !Number.isNaN(agreedCents) && nights > 0 && billable > 0
+      ? billedNightsCents(agreedCents, nights, billable, extensionPricing)
+      : agreedCents
   const extended = billable > nights && nights > 0
   const totalParts = [billedCents, ...chargeRows.map((c) => parseAmountCents(c.amount ?? '', { negative: true }))]
   // Kleinunternehmer laut PROJ-36 (maßgeblich: tatsächliche Abreise, solange keine da ist: heute) → keine USt-Felder;
@@ -713,7 +732,7 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
                         </FormDescription>
                       )}
                       {apartment && !hasPricing && <FormDescription>{t('panel.noDefaultPrice')}</FormDescription>}
-                      {extended && agreedCents !== null && !Number.isNaN(agreedCents) && billedCents !== null && (
+                      {extended && extensionPricing === 'prorated' && agreedCents !== null && !Number.isNaN(agreedCents) && billedCents !== null && (
                         <FormDescription className="text-ds-text" aria-live="polite">
                           {t('panel.extension', { agreed: euro(agreedCents), nights, billable, billed: euro(billedCents) })}
                         </FormDescription>
@@ -752,6 +771,33 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
                   />
                 )}
               </div>
+
+              {/* Preisregel bei Verlängerung (PROJ-30): nur wenn die tatsächliche Abreise nach der geplanten liegt */}
+              {extended && (
+                <FormField
+                  control={form.control}
+                  name="extensionPricing"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('panel.extensionPricing')}</FormLabel>
+                      <FormControl>
+                        <RadioGroup value={field.value} onValueChange={field.onChange} className="grid gap-3 sm:grid-cols-2">
+                          {EXTENSION_PRICING.map((p) => (
+                            <Label
+                              key={p}
+                              className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 font-normal has-[[data-state=checked]]:border-ds-accent-700"
+                            >
+                              <RadioGroupItem value={p} />
+                              {t(`panel.extensionPricingOption.${p}`)}
+                            </Label>
+                          ))}
+                        </RadioGroup>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
 
               <div className="flex flex-col gap-3">
                 <span className="text-sm font-semibold">{t('panel.charges')}</span>

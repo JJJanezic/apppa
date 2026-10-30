@@ -168,7 +168,7 @@ describe('Personen und Preis', () => {
     expect(totalCents({ nightsCents: 30000, charges: [{ label: 'Reinigung', amountCents: 6000 }, { label: 'Rabatt', amountCents: -5000 }] })).toBe(31000)
     expect(totalCents({ nightsCents: 10000, charges: [{ label: 'Gutschrift', amountCents: -15000 }] })).toBe(-5000)
     // Anteilige Abrechnung (PROJ-30): nur der Übernachtungspreis ändert sich, Positionen bleiben
-    expect(totalCents({ nightsCents: billedNightsCents(30000, 3, 4), charges: [{ label: 'Rabatt', amountCents: -5000 }] })).toBe(35000)
+    expect(totalCents({ nightsCents: billedNightsCents(30000, 3, 4, 'prorated'), charges: [{ label: 'Rabatt', amountCents: -5000 }] })).toBe(35000)
   })
 
   it('liest Beträge mit Komma, Punkt und Tausenderpunkt', () => {
@@ -320,12 +320,19 @@ describe('Abreise geplant / tatsächlich (PROJ-30)', () => {
     expect(taxNights({ arrival: stay.arrival, departure: '2026-11-04' })).toBe(3)
   })
 
-  it('rechnet den vereinbarten Preis bei Verlängerung anteilig hoch, sonst bleibt er', () => {
-    expect(billedNightsCents(50000, 5, 6)).toBe(60000)
-    expect(billedNightsCents(50000, 5, 5)).toBe(50000)
-    expect(billedNightsCents(33333, 3, 4)).toBe(44444)
-    expect(billedNightsCents(10000, 3, 4)).toBe(13333)
-    expect(billedNightsCents(0, 3, 5)).toBe(0)
+  it('Preisregel „anteilig“: bei Verlängerung anteilig hochgerechnet, sonst bleibt der Preis', () => {
+    expect(billedNightsCents(50000, 5, 6, 'prorated')).toBe(60000)
+    expect(billedNightsCents(50000, 5, 5, 'prorated')).toBe(50000)
+    expect(billedNightsCents(33333, 3, 4, 'prorated')).toBe(44444)
+    expect(billedNightsCents(10000, 3, 4, 'prorated')).toBe(13333)
+    expect(billedNightsCents(0, 3, 5, 'prorated')).toBe(0)
+  })
+
+  it('Preisregel „gesamter Aufenthalt“ (Voreinstellung, geändert 2026-10-30): eingetragener Preis bleibt auch bei Verlängerung', () => {
+    expect(billedNightsCents(50000, 5, 6, 'total')).toBe(50000)
+    expect(billedNightsCents(50000, 5, 10, 'total')).toBe(50000)
+    expect(billedNightsCents(50000, 5, 5, 'total')).toBe(50000)
+    expect(billedNightsCents(33333, 3, 4, 'total')).toBe(33333)
   })
 
   it('vergleicht Gästeblattnummern ohne Groß/Klein und Rand-Leerzeichen', () => {

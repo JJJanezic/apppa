@@ -235,6 +235,8 @@ export async function saveBooking(input: SaveBooking): Promise<Result<{ id: stri
       // vereinbarter Preis; den abgerechneten berechnet die Datenbank (auch bei Mitarbeiter-Änderungen)
       amounts: v.amounts && {
         nights_cents: v.amounts.nightsCents,
+        // Preisregel bei Verlängerung (PROJ-30): „total“ = gesamter Aufenthalt, „prorated“ = anteilig
+        nights_extension_pricing: v.amounts.extensionPricing,
         // Sätze als exakte Dezimalzahl („10.00“), PROJ-35
         nights_vat_rate: vatRateToDb(v.amounts.nightsVatBp),
         charges: v.amounts.charges.map((c) => ({ label: c.label, amount_cents: c.amountCents, vat_rate: vatRateToDb(c.vatBp) })),

@@ -5,6 +5,7 @@ import {
   BLOCK_REASONS,
   BOOKING_SOURCES,
   type BookingAmounts,
+  EXTENSION_PRICING,
   isIsoDate,
   LIMITS,
   nightsBetween,
@@ -106,6 +107,8 @@ export const bookingSchema = (t: T, { owner, today = todayIso() }: { owner: bool
       sourceCustom: z.string().trim().max(LIMITS.sourceCustomMax, t('tooLong')),
       nightsPrice: z.string(),
       nightsVat: z.string(),
+      // Preisregel bei Verlängerung (PROJ-30); wird auch ohne aktuelle Verlängerung gespeichert
+      extensionPricing: z.enum(EXTENSION_PRICING),
       charges: z
         .array(
           z.object({
@@ -165,6 +168,7 @@ export const bookingSchema = (t: T, { owner, today = todayIso() }: { owner: bool
       amounts: owner
         ? ({
             nightsCents: parseAmountCents(v.nightsPrice) ?? 0,
+            extensionPricing: v.extensionPricing,
             nightsVatBp: parseVatRate(v.nightsVat) ?? VAT_DEFAULTS.nights,
             charges: v.charges.map((c) => ({
               label: c.label.trim(),

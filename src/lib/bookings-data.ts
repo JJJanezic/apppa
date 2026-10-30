@@ -299,7 +299,7 @@ export const findBooking = cache(async (id: string): Promise<Booking | null> => 
   const { data: b, error } = await supabase
     .from('bookings')
     .select(
-      'id, kind, channel, number, apartment_id, arrival, planned_departure, departure, check_in, check_out, adults, child_ages, block_reason, option_until, guest_sheet_number, residence_registered, source, source_custom, note, cancelled_at, cancelled_by, cancel_reason, override_by, price_review, updated_at, guest:guests(id, last_name, first_name, title_prefix, title_suffix, country, anonymized_at), apartment:apartments!inner(name, max_guests, archived_at, property:properties!inner(name)), companions:booking_companions(position, first_name, last_name, birth_date), amounts:booking_amounts(nights_cents, billed_nights_cents, cancellation_fee_cents, nights_vat_rate, cancellation_fee_vat_rate), charges:booking_charges(position, label, amount_cents, vat_rate)'
+      'id, kind, channel, number, apartment_id, arrival, planned_departure, departure, check_in, check_out, adults, child_ages, block_reason, option_until, guest_sheet_number, residence_registered, source, source_custom, note, cancelled_at, cancelled_by, cancel_reason, override_by, price_review, updated_at, guest:guests(id, last_name, first_name, title_prefix, title_suffix, country, anonymized_at), apartment:apartments!inner(name, max_guests, archived_at, property:properties!inner(name)), companions:booking_companions(position, first_name, last_name, birth_date), amounts:booking_amounts(nights_cents, billed_nights_cents, nights_extension_pricing, cancellation_fee_cents, nights_vat_rate, cancellation_fee_vat_rate), charges:booking_charges(position, label, amount_cents, vat_rate)'
     )
     .eq('id', id)
     .eq('tenant_id', tenantId)
@@ -361,6 +361,7 @@ export const findBooking = cache(async (id: string): Promise<Booking | null> => 
       role === 'owner' && kind !== 'block'
         ? {
             nightsCents: amounts?.nights_cents ?? 0,
+            extensionPricing: amounts?.nights_extension_pricing === 'prorated' ? 'prorated' : 'total',
             nightsVatBp: amounts ? vatRateFromDb(amounts.nights_vat_rate) : VAT_DEFAULTS.nights,
             billedNightsCents: amounts?.billed_nights_cents ?? amounts?.nights_cents ?? 0,
             charges: byPosition(b.charges).map((c) => ({ label: c.label, amountCents: c.amount_cents, vatBp: vatRateFromDb(c.vat_rate) })),

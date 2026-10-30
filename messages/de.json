@@ -1159,7 +1159,12 @@
       "noteHint": "Nur intern sichtbar.",
       "save": "Buchung speichern",
       "saveOption": "Option speichern",
-      "saveChanges": "Änderungen speichern"
+      "saveChanges": "Änderungen speichern",
+      "extensionPricing": "Preis bei Verlängerung",
+      "extensionPricingOption": {
+        "total": "Preis gilt für den gesamten Aufenthalt",
+        "prorated": "Anteilig hochrechnen"
+      }
     },
     "chargeSuggestions": {
       "cleaning": "Reinigung",

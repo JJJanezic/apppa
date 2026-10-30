@@ -146,6 +146,7 @@ export type Database = {
           created_by: string | null
           id: string
           nights_cents: number
+          nights_extension_pricing: string
           nights_vat_rate: number
           tenant_id: string
           updated_at: string
@@ -159,6 +160,7 @@ export type Database = {
           created_by?: string | null
           id: string
           nights_cents: number
+          nights_extension_pricing?: string
           nights_vat_rate?: number
           tenant_id: string
           updated_at?: string
@@ -172,6 +174,7 @@ export type Database = {
           created_by?: string | null
           id?: string
           nights_cents?: number
+          nights_extension_pricing?: string
           nights_vat_rate?: number
           tenant_id?: string
           updated_at?: string

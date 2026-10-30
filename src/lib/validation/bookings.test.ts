@@ -25,6 +25,7 @@ const valid: BookingInput = {
   children: [{ age: '4' }],
   optionUntil: '',
   nightsPrice: '360',
+  extensionPricing: 'total',
   nightsVat: '10,00',
   charges: [{ label: 'Reinigung', amount: '60', vat: '10,00' }],
   note: '',
@@ -43,9 +44,17 @@ describe('Buchung', () => {
       adults: 2,
       childAges: [4],
       optionUntil: null,
-      amounts: { nightsCents: 36000, nightsVatBp: 1000, charges: [{ label: 'Reinigung', amountCents: 6000, vatBp: 1000 }] },
+      amounts: { nightsCents: 36000, extensionPricing: 'total', nightsVatBp: 1000, charges: [{ label: 'Reinigung', amountCents: 6000, vatBp: 1000 }] },
       note: null,
     })
+  })
+
+  it('übernimmt die Preisregel bei Verlängerung (PROJ-30) und lehnt unbekannte Werte ab', () => {
+    const schema = bookingSchema(t, { owner: true, today: TODAY })
+    const extended = { ...valid, departure: '2026-11-06' }
+    expect(schema.parse({ ...extended, extensionPricing: 'prorated' }).amounts?.extensionPricing).toBe('prorated')
+    expect(schema.parse({ ...extended, extensionPricing: 'total' }).amounts?.extensionPricing).toBe('total')
+    expect(schema.safeParse({ ...extended, extensionPricing: 'pauschal' as never }).success).toBe(false)
   })
 
   it('verlangt Pflichtfelder beim leeren Formular', () => {

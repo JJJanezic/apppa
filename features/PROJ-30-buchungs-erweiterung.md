@@ -1,6 +1,6 @@
 # PROJ-30: Buchungs-Erweiterung: Meldedaten, Buchungsquelle, Monatsauswahl
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-10-26
 **Last Updated:** 2026-10-30
 
@@ -400,6 +400,22 @@ Mitarbeiter: sehen weder Beträge noch die Auswahl
 - **Regression:** PROJ-8/27/32/35 (Preise, Zusatzkosten, USt), PROJ-37 (Gesamtpreis im Rechnungsabschnitt)
 
 **Umfang:** Frontend (Auswahl, Vorschau) und Backend (Migration, Speicherfunktion).
+
+### Umsetzung Frontend: Preisregel bei Verlängerung (2026-10-30)
+- **Regeln** `src/lib/bookings.ts`: `EXTENSION_PRICING` (`total` = gesamter Aufenthalt, `prorated` = anteilig), `BookingAmounts.extensionPricing`. `billedNightsCents(…, pricing)` liefert bei `total` immer den eingetragenen Preis. Unit-Tests für beide Regeln in `bookings.test.ts`.
+- **Prüfschema** `src/lib/validation/bookings.ts`: Feld `extensionPricing` (nur die beiden Werte), wird mit den Beträgen übergeben. Test in `validation/bookings.test.ts`.
+- **Formular** `booking-panel.tsx`: Auswahl „Preis bei Verlängerung“ (RadioGroup, gleiches Muster wie „Art“) unter Nächtigungspreis und USt-Satz, nur bei tatsächlicher Abreise nach der geplanten. Vorausgewählt ist bei neuen Buchungen „Preis gilt für den gesamten Aufenthalt“, beim Bearbeiten die gespeicherte Wahl. Gesamtpreis und Hinweis „Verlängert: vereinbart … abzurechnen …“ folgen der Wahl; der Hinweis erscheint nur bei „anteilig“. Der Preisbereich ist weiterhin nur für Inhaber sichtbar.
+- **Server-Aktion** `saveBooking`: übergibt `nights_extension_pricing` in den Beträgen (Inhaber). Mitarbeiter schicken wie bisher keine Beträge.
+- **Lesen** `getBooking`: liest `booking_amounts.nights_extension_pricing` (Inhaber); fehlt der Wert, gilt `total`.
+- **Buchungsdetail:** unverändert (die bestehende Zeile „vereinbart … für N Nächte“ erscheint nur, wenn der abgerechnete vom eingetragenen Preis abweicht, also bei „anteilig“).
+- **Texte** `messages/de.json`: `bookings.panel.extensionPricing`, `bookings.panel.extensionPricingOption.total|prorated`.
+- **Typen** `src/types/database.ts` von Hand ergänzt (`booking_amounts.nights_extension_pricing`); `/backend` erzeugt sie neu.
+- **Offen für /backend:**
+  - Spalte `booking_amounts.nights_extension_pricing` (`total`/`prorated`, Standard `total`, Prüfregel); Bestand mit `departure > planned_departure` → `prorated`
+  - `private.billed_nights_cents` bzw. `refresh_billed_nights` mit der Regel
+  - `save_booking` übernimmt `amounts.nights_extension_pricing` nur vom Inhaber (ungültig → 22023); Mitarbeiter-Speichern lässt den Wert unverändert
+  - Integrationstests
+  - **Bis zur Migration** schlagen Buchungsdetail und „Bearbeiten“ in Dev beim Laden fehl (Spalte fehlt).
 
 ## Implementation Notes (Frontend)
 **Stand 2026-10-27.** Die Oberfläche ist fertig. **Ohne die Migration aus `/backend` schlagen Buchungsliste, Buchungs-Detail, Gast-Detail und Kalender beim Laden fehl**, weil sie die neuen Spalten abfragen (wie bei PROJ-28/29).

@@ -71,9 +71,15 @@ export const LIMITS = {
 export type Charge = { label: string; amountCents: number; vatBp: number }
 
 // Beträge sehen nur Inhaber (eigene Tabellen, Tech Design C)
+// Preisregel bei Verlängerung (PROJ-30, geändert 2026-10-30): eingetragener Preis gilt für den gesamten Aufenthalt
+// (Voreinstellung) oder wird anteilig auf die abzurechnenden Nächte hochgerechnet
+export const EXTENSION_PRICING = ['total', 'prorated'] as const
+export type ExtensionPricing = (typeof EXTENSION_PRICING)[number]
+
 export type BookingAmounts = {
-  // vereinbarter Übernachtungspreis für den geplanten Zeitraum (PROJ-30)
+  // eingetragener Übernachtungspreis (PROJ-30): bei Verlängerung je nach Preisregel für den gesamten Aufenthalt oder für den geplanten Zeitraum
   nightsCents: number
+  extensionPricing: ExtensionPricing
   nightsVatBp: number
   charges: Charge[]
   cancellationFeeCents: number | null
@@ -287,10 +293,11 @@ export const billableNights = (b: { arrival: string; plannedDeparture: string; d
 // Ortstaxe-Nächte (für PROJ-16): bis zur tatsächlichen Abreise
 export const taxNights = (b: { arrival: string; departure: string }) => nightsBetween(b.arrival, b.departure)
 
-// Abgerechneter Übernachtungspreis: vereinbarter Preis anteilig auf die abzurechnenden Nächte, kaufmännisch auf Cent.
-// Gleiche Regel in der Datenbank (save_booking). Ganzzahlig gerechnet: 33333 × 4 / 3 = 44444.
-export function billedNightsCents(agreedCents: number, plannedNights: number, billable: number): number {
-  if (plannedNights < 1 || billable <= plannedNights) return agreedCents
+// Abgerechneter Übernachtungspreis: bei Verlängerung und Preisregel „anteilig“ der eingetragene Preis anteilig auf die
+// abzurechnenden Nächte, kaufmännisch auf Cent; sonst der eingetragene Preis. Gleiche Regel in der Datenbank
+// (save_booking). Ganzzahlig gerechnet: 33333 × 4 / 3 = 44444.
+export function billedNightsCents(agreedCents: number, plannedNights: number, billable: number, pricing: ExtensionPricing): number {
+  if (pricing === 'total' || plannedNights < 1 || billable <= plannedNights) return agreedCents
   return Math.round((agreedCents * billable) / plannedNights)
 }
 
