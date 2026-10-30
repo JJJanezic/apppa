@@ -66,6 +66,8 @@ export const tenantMasterDataSchema = (t: T) =>
         })
       })
       .transform((rows) => rows.map((r) => ({ validFrom: r.validFrom, smallBusiness: r.status }))),
+    // Schalter „Rechnungen nacherfassen“ (PROJ-37)
+    invoiceBackfill: z.boolean(),
   })
 
 export type TenantMasterDataInput = z.input<ReturnType<typeof tenantMasterDataSchema>>

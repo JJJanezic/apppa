@@ -12,6 +12,7 @@ export type NavItemId =
   | 'calendar'
   | 'bookings'
   | 'guests'
+  | 'invoices'
   | 'payments'
   | 'reports'
   | 'tax'
@@ -38,6 +39,8 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { id: 'calendar', href: '/belegung', roles: ALL, ready: true, mobile: 'primary' },
   { id: 'bookings', href: '/buchungen', roles: ALL, ready: true, mobile: 'primary' },
   { id: 'guests', href: '/gaeste', roles: ALL, ready: true, mobile: 'primary' },
+  // PROJ-37: Rechnungen für Inhaber und Mitarbeiter, am Handy unter „Mehr“
+  { id: 'invoices', href: '/rechnungen', roles: ALL, ready: true, mobile: 'more' },
   { id: 'payments', href: '/zahlungen', roles: OWNER, ready: false, mobile: 'more' },
   { id: 'reports', href: '/auswertungen', roles: OWNER, ready: false, mobile: 'more' },
   { id: 'tax', href: '/tourismusabgabe', roles: OWNER, ready: false, mobile: 'more' },

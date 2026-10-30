@@ -725,6 +725,142 @@ export type Database = {
           },
         ]
       }
+      invoice_lines: {
+        Row: {
+          amount_cents: number
+          created_at: string
+          created_by: string | null
+          id: string
+          invoice_id: string
+          label: string
+          position: number
+          tenant_id: string
+          updated_at: string
+          updated_by: string | null
+          vat_rate: number
+        }
+        Insert: {
+          amount_cents: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          invoice_id: string
+          label: string
+          position: number
+          tenant_id: string
+          updated_at?: string
+          updated_by?: string | null
+          vat_rate?: number
+        }
+        Update: {
+          amount_cents?: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          invoice_id?: string
+          label?: string
+          position?: number
+          tenant_id?: string
+          updated_at?: string
+          updated_by?: string | null
+          vat_rate?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_lines_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_lines_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoices: {
+        Row: {
+          booking_id: string | null
+          created_at: string
+          created_by: string | null
+          guest_id: string | null
+          id: string
+          invoice_date: string
+          number: string
+          number_key: string
+          origin: string
+          pdf_path: string | null
+          recipient: string
+          small_business: boolean
+          tenant_id: string
+          total_cents: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          booking_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          guest_id?: string | null
+          id?: string
+          invoice_date: string
+          number: string
+          number_key?: string
+          origin?: string
+          pdf_path?: string | null
+          recipient: string
+          small_business?: boolean
+          tenant_id: string
+          total_cents?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          booking_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          guest_id?: string | null
+          id?: string
+          invoice_date?: string
+          number?: string
+          number_key?: string
+          origin?: string
+          pdf_path?: string | null
+          recipient?: string
+          small_business?: boolean
+          tenant_id?: string
+          total_cents?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_guest_id_fkey"
+            columns: ["guest_id"]
+            isOneToOne: false
+            referencedRelation: "guests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       login_failures: {
         Row: {
           account_hash: string
@@ -987,6 +1123,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          invoice_backfill_enabled: boolean
           name: string
           name_line2: string | null
           postal_code: string | null
@@ -1005,6 +1142,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          invoice_backfill_enabled?: boolean
           name: string
           name_line2?: string | null
           postal_code?: string | null
@@ -1023,6 +1161,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          invoice_backfill_enabled?: boolean
           name?: string
           name_line2?: string | null
           postal_code?: string | null
@@ -1142,6 +1281,7 @@ export type Database = {
       }
       anonymize_guest: { Args: { p_guest_id: string }; Returns: undefined }
       belongs_to_deactivated_tenant: { Args: never; Returns: boolean }
+      booking_invoices: { Args: { p_booking_id: string }; Returns: Json }
       booking_warnings: {
         Args: {
           p_adults?: number
@@ -1191,6 +1331,7 @@ export type Database = {
         Returns: undefined
       }
       delete_guest: { Args: { p_guest_id: string }; Returns: string }
+      delete_invoice: { Args: { p_invoice_id: string }; Returns: string }
       guest_duplicate_candidates: {
         Args: {
           p_email: string
@@ -1273,7 +1414,24 @@ export type Database = {
         Args: { p_booking_id: string; p_companions: Json; p_updated_at: string }
         Returns: undefined
       }
+      save_invoice: { Args: { p_input: Json }; Returns: Json }
+      search_invoice_bookings: {
+        Args: { p_limit?: number; p_query: string; p_tenant_id: string }
+        Returns: {
+          apartment_name: string
+          arrival: string
+          cancelled: boolean
+          departure: string
+          guest_first_name: string
+          guest_last_name: string
+          id: string
+          kind: string
+          number: string
+          property_name: string
+        }[]
+      }
       unused_guest_documents: { Args: { p_limit?: number }; Returns: string[] }
+      unused_invoice_pdfs: { Args: { p_limit?: number }; Returns: string[] }
       update_tenant_master_data: {
         Args: {
           p_data: Json

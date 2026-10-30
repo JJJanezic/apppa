@@ -1,6 +1,6 @@
 # PROJ-37: Rechnungen nacherfassen
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-10-30
 **Last Updated:** 2026-10-30
 
@@ -352,6 +352,32 @@ Einstellungen → Kunde (Inhaber) und Betreiber-Kundendetail
 
 ### Abhängigkeiten (Pakete)
 Keine neuen Pakete. Genutzt werden vorhandene shadcn-Bausteine (`Popover`, `Command`, `Switch`, `Table`, `Pagination`, `Sheet`, `AlertDialog`), das Sortieren aus PROJ-34 und Supabase Storage.
+
+### Umsetzung Frontend (2026-10-30)
+- **Regeln** `src/lib/invoices.ts`: Typen (Rechnung, Zeile, Liste, Buchungsabschnitt), Grenzen (`INVOICE_LIMITS`: Nummer 30, Empfänger 200, 50 Positionen, PDF 10 MB), `invoiceNumberKey`, `recipientFor` (Firma, sonst „Nachname Vorname“), `linesFromBooking` (aktiv: abgerechnete Übernachtung + Zusatzkosten in Reihenfolge; storniert: nur Stornogebühr), `invoiceVatShares`, `isOldInvoiceDate` (> 7 Jahre), `checkPdfFile`, Adresse der Liste (`?q=…&seite=…`). Unit-Tests `invoices.test.ts`.
+- **Prüfregeln** `src/lib/validation/invoices.ts` (Browser und Server): Pflicht Nummer/Datum/Empfänger/≥ 1 Position, Datum ≤ heute, Positionen wie Zusatzkosten (negativ erlaubt, Satz 0–100), Upload muss fertig sein. Tests `invoices.test.ts`.
+- **Seiten:** `/rechnungen` (Liste, Suchfeld, Blättern je 50, Leerzustände; Knopf nur Inhaber + Schalter ein) und `/rechnungen/[id]` (Angaben, Gast/Buchung als Link, Positionen mit Satz, Gesamtbetrag, USt je Satz bzw. „Keine Umsatzsteuer (Kleinunternehmer)“ nach dem an der Rechnung gespeicherten Kennzeichen, PDF öffnen/herunterladen; Inhaber: Bearbeiten, Löschen mit Bestätigung).
+- **Bausteine** `src/components/invoices/`: `invoice-list` (Tabelle, nur die Nummer ist der Link – Safari; Handy-Karten), `invoice-search`, `invoice-status` („nacherfasst“, „ohne PDF“), `invoice-panel` (Formular), `booking-picker`, `invoice-pdf-field`, `invoice-buttons` (Nacherfassen, Bearbeiten, Löschen), `booking-invoices` (Abschnitt im Buchungsdetail).
+- **Formular:** Buchungssuche ab 2 Zeichen (übernimmt Hauptgast, Empfänger solange nicht von Hand geändert, Positionen; sind schon Positionen eingetragen → Rückfrage „Positionen ersetzen?“). Gast: bestehend (Suche) oder neu (Gast-Felder + Dublettenprüfung wie im Buchungsformular); Empfänger läuft beim neuen Gast mit. Positionen sortierbar (Baustein aus PROJ-34), Bezeichnungsauswahl und Satz (PROJ-35); Satz-Felder und USt-Aufstellung entfallen, wenn am Rechnungsdatum (sonst heute) Kleinunternehmer gilt. Doppelte Nummer → Fehler am Feld „… (Rechnung vom …)“. Nach dem Anlegen leitet die Aktion selbst zur Detailseite (redirect).
+- **Abweichung vom Tech Design:** Buchungsauswahl als eingebettete Suche wie die Gastsuche (Command ohne Popover), damit beide Felder gleich bedient werden.
+- **PDF:** Prüfung im Browser (PDF, ≤ 10 MB), Upload direkt in den Speicherbereich `invoices` über `prepareInvoiceUpload` (Pfad `<Kunde>/<zufällig>.pdf`); erst „Speichern“ hängt die Datei an. Abruf-Links 10 Minuten (`getInvoice`).
+- **Server-Aktionen** `src/app/(app)/rechnungen/actions.ts` (nur Inhaber): `saveInvoice`, `deleteInvoice`, `prepareInvoiceUpload`, `searchInvoiceBookings`, `loadInvoiceBooking`. Löschen gemeldeter PDFs über `src/lib/invoice-files.ts`.
+- **Lesen** `src/lib/invoices-data.ts`: `getInvoicePage`, `hasAnyInvoice`, `getInvoice`, `getInvoiceBackfillEnabled`, `getBookingInvoices`.
+- **Buchungsdetail** (Seite und Kalender-Panel): Abschnitt „Rechnungen“ unter dem Preis für alle Mitglieder, nur wenn Rechnungen verknüpft sind; „Verrechnet“, „Gesamtpreis“, Hinweis „Verrechnet mehr als Gesamtpreis“.
+- **Navigation:** Eintrag „Rechnungen“ (`invoices`, Symbol Receipt) nach „Gäste“, beide Rollen, Handy unter „Mehr“; Tests in `navigation.test.ts` angepasst.
+- **Schalter** „Rechnungen nacherfassen“ im Stammdaten-Formular (Inhaber und Betreiber), Abschnitt „Rechnungen“; Feld `invoiceBackfill` in Schema, Laden (`MASTER_DATA_COLUMNS`) und Speichern (`invoice_backfill_enabled` in `p_data`).
+- **Gast löschen:** `guestStays` zählt Rechnungen (`stays.invoices`); mit Rechnungen wird anonymisiert, eigener Erklärungstext (`guests.delete.textAnonymizeInvoices`).
+- **Texte** `messages/de.json`: `nav.invoices`, Namespace `invoices`, `tenantData.fields.invoiceBackfill*`, `tenantData.sections.invoices`.
+- **Typen** `src/types/database.ts` von Hand ergänzt (Tabellen `invoices`, `invoice_lines`, Feld `tenants.invoice_backfill_enabled`, Funktionen); `/backend` erzeugt sie neu.
+- **Offen für /backend** (Schnittstelle, die das Frontend erwartet):
+  - Tabellen `invoices` (tenant_id, number, number_key eindeutig je Kunde, invoice_date, origin 'backfilled', booking_id, guest_id, recipient, small_business, total_cents, pdf_path, Standardfelder) und `invoice_lines` (invoice_id, tenant_id, position, label, amount_cents, vat_rate); RLS Lesen für Mitglieder, kein direktes Schreiben; Änderungsprotokoll.
+  - `tenants.invoice_backfill_enabled` (Standard true) und `update_tenant_master_data` mit Schlüssel `invoice_backfill_enabled`.
+  - `save_invoice(p_input jsonb) → jsonb {id, unused_pdf, previous_booking_id}`; Eingabe: id, updated_at, tenant_id, number, invoice_date, booking_id, guest_id, new_guest, recipient, lines[{label, amount_cents, vat_rate}], pdf_path. Fehlercodes: P0901 nur Inhaber, P0902 nicht gefunden, P0903 inzwischen geändert, P0904 Nummer vergeben (Datum der vorhandenen Rechnung als `detail` „JJJJ-MM-TT“), P0905 Schalter aus, P0906 Datum in der Zukunft, P0907 PDF fehlt/vergeben, P0908 Buchung ungültig, P0909 Gast ungültig, P0016 Kunde deaktiviert, P0705/P0804 wie Buchungen.
+  - `delete_invoice(p_invoice_id) → text` (PDF-Pfad oder null).
+  - `search_invoice_bookings(p_tenant_id, p_query, p_limit)` → id, kind, number, guest_last_name, guest_first_name, apartment_name, property_name, arrival, departure, cancelled.
+  - `booking_invoices(p_booking_id) → jsonb {booking_total_cents, invoices[{id, number, invoice_date, recipient, total_cents, origin, has_pdf}]}` für alle Mitglieder.
+  - Speicherbereich `invoices` (privat, nur PDF, 10 MB, Upload nur Inhaber in den eigenen Ordner), Bereinigung `unused_invoice_pdfs` im Cron, PDF-Ordner beim Löschen des Kunden, Gast löschen/zusammenführen.
+  - **Ohne Migration schlagen *Einstellungen → Kunde* und die Betreiber-Detailseite beim Laden fehl** (Spalte `invoice_backfill_enabled` fehlt); Rechnungsliste zeigt den Leerzustand, Speichern meldet einen Fehler.
 
 ## QA Test Results
 _To be added by /qa_

@@ -92,6 +92,8 @@ export type GuestStays = {
   count: number
   // alle Einträge des Gastes, auch Optionen und stornierte (dann wird beim Löschen anonymisiert)
   bookings: number
+  // verknüpfte Rechnungen (PROJ-37); auch sie verhindern das endgültige Löschen
+  invoices: number
   // ISO-Datum (Anreise) des letzten bzw. nächsten Aufenthalts; bis PROJ-8 immer leer
   last: string | null
   next: string | null

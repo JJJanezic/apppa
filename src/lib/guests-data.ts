@@ -73,17 +73,16 @@ export const GUEST_COLUMNS =
   'id, last_name, first_name, country, email, email_source, phone, phone_source, language, birth_date, street, postal_code, city, address_country, marketing_source, marketing_custom, company_name, company_vat_id, company_address_line1, company_address_line2, company_postal_code, company_city, company_country, note, title_prefix, title_suffix, gender, document_type, document_number, document_issued_on, document_authority, document_country, document_front_path, document_back_path, anonymized_at, updated_at'
 
 // Aufenthalte werden aus den Buchungen berechnet (PROJ-8), nicht am Gast gespeichert
-const NO_STAYS: GuestStays = { count: 0, bookings: 0, last: null, next: null, channels: [] }
+const NO_STAYS: GuestStays = { count: 0, bookings: 0, invoices: 0, last: null, next: null, channels: [] }
 
 export async function guestStays(tenantId: string, guestId: string): Promise<GuestStays> {
   const supabase = await createClient()
-  const { data, error } = await supabase
-    .from('bookings')
-    .select('kind, channel, arrival, cancelled_at')
-    .eq('tenant_id', tenantId)
-    .eq('guest_id', guestId)
-    .limit(2000)
+  const [{ data, error }, invoices] = await Promise.all([
+    supabase.from('bookings').select('kind, channel, arrival, cancelled_at').eq('tenant_id', tenantId).eq('guest_id', guestId).limit(2000),
+    supabase.from('invoices').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('guest_id', guestId),
+  ])
   if (error) console.error('[gaeste] Aufenthalte nicht lesbar', error.message)
+  if (invoices.error) console.error('[gaeste] Rechnungen des Gastes nicht lesbar', invoices.error.message)
   const all = data ?? []
   const stays = all.filter((b) => b.kind === 'booking' && b.cancelled_at === null)
   const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Vienna' })
@@ -92,6 +91,7 @@ export async function guestStays(tenantId: string, guestId: string): Promise<Gue
   return {
     count: stays.length,
     bookings: all.length,
+    invoices: invoices.count ?? 0,
     last: past.at(-1) ?? null,
     next: future[0] ?? null,
     channels: [...new Set(stays.map((b) => b.channel))],

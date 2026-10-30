@@ -11,6 +11,7 @@
     "calendar": "Belegung",
     "bookings": "Buchungen",
     "guests": "Gäste",
+    "invoices": "Rechnungen",
     "payments": "Zahlungen",
     "reports": "Auswertungen",
     "tax": "Tourismusabgabe",
@@ -315,7 +316,9 @@
       "taxNumber": "Steuernummer",
       "registerNumber": "Registernummer",
       "registerNumberHint": "Zum Beispiel Firmenbuchnummer FN 123456a.",
-      "vatStatus": "Umsatzsteuer-Status"
+      "vatStatus": "Umsatzsteuer-Status",
+      "invoiceBackfill": "Rechnungen nacherfassen",
+      "invoiceBackfillHint": "Zeigt in „Rechnungen“ den Knopf „Rechnung nacherfassen“, um Rechnungen aus dem bisherigen System zu übernehmen. Ausgeschaltet bleiben erfasste Rechnungen sichtbar und bearbeitbar."
     },
     "vat": {
       "title": "Umsatzsteuer",
@@ -339,7 +342,8 @@
     },
     "sections": {
       "address": "Adresse",
-      "numbers": "Steuer und Register"
+      "numbers": "Steuer und Register",
+      "invoices": "Rechnungen"
     },
     "save": "Speichern",
     "saved": "Kundendaten gespeichert.",
@@ -871,7 +875,8 @@
       "textAnonymize": "Der Gast hat Aufenthalte, die für Tourismusabgabe und Steuer erhalten bleiben müssen. Er wird deshalb anonymisiert: Name, Kontakt, Adresse, Sprache, Geburtsdatum, Firma, Marketing-Quelle und Notiz werden entfernt, Herkunftsland und Aufenthalte bleiben. Das lässt sich nicht rückgängig machen.",
       "confirmDelete": "Endgültig löschen",
       "confirmAnonymize": "Anonymisieren",
-      "cancel": "Abbrechen"
+      "cancel": "Abbrechen",
+      "textAnonymizeInvoices": "Der Gast ist mit Rechnungen verknüpft, die 7 Jahre aufbewahrt werden müssen. Er wird deshalb anonymisiert: Name, Kontakt, Adresse, Sprache, Geburtsdatum, Firma, Marketing-Quelle und Notiz werden entfernt, Herkunftsland und Rechnungen bleiben. Das lässt sich nicht rückgängig machen."
     },
     "done": {
       "created": "„{name}“ angelegt",
@@ -1335,5 +1340,185 @@
     "loadErrorText": "Bitte versuche es gleich noch einmal. Die übrigen Bereiche funktionieren weiter.",
     "retry": "Erneut versuchen",
     "entryMissing": "Dieser Eintrag wurde nicht gefunden. Er wurde vielleicht gelöscht."
+  },
+  "invoices": {
+    "title": "Rechnungen",
+    "lead": "Alle Rechnungen an einem Ort. Rechnungen aus dem bisherigen System lassen sich samt PDF nacherfassen.",
+    "create": "Rechnung nacherfassen",
+    "emptyTitle": "Noch keine Rechnungen",
+    "emptyTextOwner": "Erfasse Rechnungen aus deinem bisherigen System, damit die Nummernfolge vollständig ist und du im Buchungsdetail siehst, was schon verrechnet ist.",
+    "emptyTextStaff": "Sobald ein Inhaber Rechnungen erfasst, stehen sie hier.",
+    "withoutPdf": "ohne PDF",
+    "origin": {
+      "backfilled": "nacherfasst"
+    },
+    "col": {
+      "number": "Nummer",
+      "date": "Datum",
+      "recipient": "Empfänger",
+      "booking": "Buchung",
+      "amount": "Betrag",
+      "status": "Status"
+    },
+    "list": {
+      "searchLabel": "Rechnungen suchen",
+      "searchPlaceholder": "Nummer oder Empfänger",
+      "count": "{count, plural, =1 {1 Rechnung} other {# Rechnungen}}",
+      "searchCount": "{count, plural, =0 {Keine Treffer} =1 {1 Treffer} other {# Treffer}}",
+      "noResultsTitle": "Keine Rechnungen gefunden",
+      "noResultsSearch": "Keine Rechnung passt zu dieser Nummer bzw. diesem Empfänger.",
+      "noResultsPage": "Auf dieser Seite stehen keine Rechnungen.",
+      "clearSearch": "Suche zurücksetzen",
+      "toBooking": "Zur Buchung",
+      "bookingShort": "Buchung {number}",
+      "pagination": "Seiten der Rechnungsliste",
+      "previous": "Zurück",
+      "next": "Weiter",
+      "pageOf": "Seite {page} von {pageCount}"
+    },
+    "form": {
+      "createTitle": "Rechnung nacherfassen",
+      "editTitle": "Rechnung bearbeiten",
+      "description": "Übernimm eine Rechnung aus deinem bisherigen System. Die Angaben trägst du von Hand ein; das PDF legst du dazu ab.",
+      "number": "Rechnungsnummer",
+      "date": "Rechnungsdatum",
+      "dateOld": "Diese Rechnung ist älter als {years} Jahre. Du kannst sie trotzdem speichern.",
+      "booking": "Buchung (optional)",
+      "bookingSearch": "Buchung suchen",
+      "bookingPlaceholder": "Gastname, Wohnung oder Zeitraum",
+      "bookingMinChars": "Mindestens 2 Zeichen eingeben, z. B. einen Gastnamen, eine Wohnung oder „10.2026“.",
+      "bookingLoading": "Suche läuft …",
+      "bookingNone": "Keine passende Buchung gefunden.",
+      "bookingNoGuest": "ohne Gast",
+      "bookingRemove": "Entfernen",
+      "bookingHint": "Mit Buchung werden Gast, Empfänger und Positionen vorbelegt. Spätere Änderungen an der Buchung wirken nicht auf die Rechnung.",
+      "bookingLoadingLines": "Positionen der Buchung werden geladen …",
+      "nightsLabel": "Übernachtung",
+      "cancellationFeeLabel": "Stornogebühr",
+      "guest": "Gast (optional)",
+      "guestExisting": "Bestehender Gast",
+      "guestNew": "Neuer Gast",
+      "guestSearch": "Gast suchen",
+      "guestChange": "Ändern",
+      "guestHint": "Ohne Gast wird die Rechnung nur mit dem Empfänger gespeichert.",
+      "recipient": "Empfänger",
+      "recipientHint": "Name oder Firma, wie auf der Rechnung. Wird aus dem Gast vorbelegt, solange du ihn nicht änderst.",
+      "lines": "Positionen",
+      "linesEmpty": "Noch keine Positionen. Wähle eine Buchung oder füge Positionen hinzu.",
+      "lineLabel": "Bezeichnung der Position {n}",
+      "lineLabelPlaceholder": "Bezeichnung",
+      "lineAmount": "Betrag der Position {n}",
+      "lineAmountPlaceholder": "Betrag",
+      "lineVat": "Umsatzsteuersatz der Position {n}",
+      "lineRemove": "Position {n} entfernen",
+      "lineAdd": "Position hinzufügen",
+      "total": "Gesamtbetrag",
+      "vatShare": "darin USt {rate}",
+      "pdf": "PDF (optional)",
+      "pdfHint": "Eine PDF-Datei bis 10 MB.",
+      "save": "Rechnung speichern",
+      "saveChanges": "Änderungen speichern",
+      "replaceTitle": "Positionen ersetzen?",
+      "replaceText": "Es sind schon Positionen eingetragen. Sollen sie durch {count, plural, =0 {die Positionen der Buchung (keine)} =1 {die Position der Buchung} other {die # Positionen der Buchung}} ersetzt werden?",
+      "replaceConfirm": "Ersetzen",
+      "replaceKeep": "Behalten"
+    },
+    "pdf": {
+      "choose": "PDF wählen",
+      "uploading": "PDF wird hochgeladen …",
+      "saved": "PDF hinterlegt",
+      "ready": "PDF hochgeladen",
+      "pendingHint": "Wird mit „Speichern“ an der Rechnung abgelegt.",
+      "open": "Öffnen",
+      "replace": "Ersetzen",
+      "remove": "Entfernen",
+      "fileName": "Rechnung",
+      "errors": {
+        "pdfNotPdf": "Bitte wähle eine PDF-Datei.",
+        "pdfTooLarge": "Die Datei ist größer als 10 MB. Bitte wähle eine kleinere PDF-Datei.",
+        "uploadFailed": "Das PDF konnte nicht hochgeladen werden. Bitte prüfe deine Verbindung und versuche es erneut. Deine übrigen Eingaben bleiben erhalten."
+      }
+    },
+    "detail": {
+      "metaTitle": "Rechnung {number}",
+      "back": "Alle Rechnungen",
+      "eyebrow": "Rechnung",
+      "edit": "Bearbeiten",
+      "delete": "Löschen",
+      "data": "Angaben",
+      "date": "Rechnungsdatum",
+      "recipient": "Empfänger",
+      "guest": "Gast",
+      "booking": "Buchung",
+      "pdf": "PDF",
+      "pdfOpen": "PDF öffnen",
+      "pdfDownload": "Herunterladen",
+      "pdfNone": "Kein PDF hinterlegt.",
+      "pdfUnavailable": "Das PDF ist gerade nicht abrufbar. Bitte lade die Seite neu.",
+      "lines": "Positionen",
+      "total": "Gesamtbetrag",
+      "vatIncluded": "Darin enthaltene Umsatzsteuer",
+      "noVat": "Keine Umsatzsteuer (Kleinunternehmer)",
+      "copyNote": "Die Positionen wurden beim Erfassen aus der Buchung kopiert; spätere Änderungen an der Buchung wirken nicht auf die Rechnung."
+    },
+    "delete": {
+      "title": "Rechnung „{number}“ löschen?",
+      "text": "Die Rechnung wird endgültig gelöscht. Das lässt sich nicht rückgängig machen.",
+      "textWithPdf": "Die Rechnung und ihr PDF werden endgültig gelöscht. Das lässt sich nicht rückgängig machen.",
+      "confirm": "Endgültig löschen",
+      "cancel": "Abbrechen"
+    },
+    "booking": {
+      "title": "Rechnungen",
+      "billed": "Verrechnet",
+      "bookingTotal": "Gesamtpreis",
+      "overBilled": "Verrechnet mehr als Gesamtpreis"
+    },
+    "done": {
+      "created": "Rechnung gespeichert.",
+      "saved": "Änderungen gespeichert.",
+      "deleted": "Rechnung gelöscht."
+    },
+    "stale": {
+      "text": "Die Rechnung wurde inzwischen geändert. Deine Eingaben sind noch nicht gespeichert.",
+      "reload": "Aktuelle Fassung laden"
+    },
+    "validation": {
+      "numberRequired": "Bitte gib die Rechnungsnummer ein.",
+      "numberTooLong": "Höchstens 30 Zeichen.",
+      "numberTaken": "Diese Rechnungsnummer ist bereits vergeben.",
+      "numberTakenOn": "Diese Rechnungsnummer ist bereits vergeben (Rechnung vom {date}).",
+      "dateRequired": "Bitte gib das Rechnungsdatum ein.",
+      "dateInvalid": "Bitte ein gültiges Datum eingeben.",
+      "dateInFuture": "Das Rechnungsdatum darf nicht in der Zukunft liegen",
+      "recipientRequired": "Bitte gib den Empfänger ein.",
+      "linesRequired": "Bitte mindestens eine Position eintragen.",
+      "linesTooMany": "Höchstens 50 Positionen.",
+      "lineLabelRequired": "Bitte eine Bezeichnung eingeben.",
+      "amountRequired": "Bitte einen Betrag eingeben.",
+      "amountInvalid": "Bitte einen Betrag wie 125 oder 125,50 eingeben.",
+      "vatRequired": "Bitte einen Umsatzsteuersatz eingeben.",
+      "vatInvalid": "Bitte einen Satz zwischen 0 und 100 mit höchstens zwei Nachkommastellen eingeben, z. B. 10 oder 5,5.",
+      "pdfUploading": "Bitte warte, bis das PDF hochgeladen ist.",
+      "tooLong": "Dieser Text ist zu lang."
+    },
+    "errors": {
+      "ownerOnly": "Das darf nur ein Inhaber.",
+      "notFound": "Diese Rechnung gibt es nicht mehr.",
+      "staleInvoice": "Die Rechnung wurde inzwischen von jemand anderem geändert.",
+      "numberTaken": "Diese Rechnungsnummer ist bereits vergeben.",
+      "backfillDisabled": "Das Nacherfassen von Rechnungen ist ausgeschaltet. Ein Inhaber kann es unter Einstellungen → Kunde wieder einschalten.",
+      "dateInFuture": "Das Rechnungsdatum darf nicht in der Zukunft liegen",
+      "pdfMissing": "Das PDF ist nicht mehr verfügbar. Bitte lade es erneut hoch und speichere noch einmal.",
+      "bookingInvalid": "Diese Buchung kann nicht gewählt werden.",
+      "guestInvalid": "Dieser Gast kann nicht gewählt werden.",
+      "guestAnonymized": "Ein anonymisierter Gast kann nicht gewählt werden.",
+      "tenantDeactivated": "Der Kunde ist deaktiviert. Rechnungen sind nur lesbar.",
+      "documentImageMissing": "Ein Ausweisbild ist nicht mehr verfügbar. Bitte lade es erneut hoch und speichere noch einmal.",
+      "network": "Keine Verbindung. Bitte prüfe deine Internetverbindung und versuche es erneut.",
+      "sessionExpired": "Deine Sitzung ist abgelaufen. Bitte melde dich erneut an.",
+      "notImplemented": "Diese Funktion wird gerade eingerichtet.",
+      "unknown": "Etwas ist schiefgelaufen. Bitte versuche es erneut."
+    }
   }
 }

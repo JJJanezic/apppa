@@ -17,6 +17,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
+import { Switch } from '@/components/ui/switch'
 import { DEFAULT_TENANT_COUNTRY, MASTER_DATA_LIMITS as L, type TenantMasterData } from '@/lib/tenant-master-data'
 import { tenantMasterDataSchema, type TenantMasterDataInput } from '@/lib/validation/tenant'
 
@@ -32,6 +33,7 @@ const toInput = (d: TenantMasterData): TenantMasterDataInput => ({
   taxNumber: d.taxNumber ?? '',
   registerNumber: d.registerNumber ?? '',
   vatStatus: d.vatStatus.map((c) => ({ validFrom: c.validFrom, status: c.smallBusiness ? 'small' : 'regular' })),
+  invoiceBackfill: d.invoiceBackfill,
 })
 
 interface TenantMasterDataFormProps {
@@ -72,7 +74,7 @@ export function TenantMasterDataForm({ data, mode, readOnly = false }: TenantMas
   }
 
   const text = (
-    name: Exclude<keyof TenantMasterDataInput, 'country' | 'vatStatus'>,
+    name: Exclude<keyof TenantMasterDataInput, 'country' | 'vatStatus' | 'invoiceBackfill'>,
     max: number,
     opts: { hint?: string; autoComplete?: string } = {}
   ) => (
@@ -150,6 +152,26 @@ export function TenantMasterDataForm({ data, mode, readOnly = false }: TenantMas
           </div>
 
           <VatStatusFields control={form.control} saved={data.vatStatus} readOnly={readOnly} />
+
+          {/* Schalter „Rechnungen nacherfassen“ (PROJ-37): wirkt nur auf den Knopf in der Rechnungsliste */}
+          <div className="flex flex-col gap-4">
+            <h3 className="text-lg">{t('sections.invoices')}</h3>
+            <FormField
+              control={form.control}
+              name="invoiceBackfill"
+              render={({ field }) => (
+                <FormItem className="flex items-start gap-3">
+                  <FormControl>
+                    <Switch checked={field.value} onCheckedChange={field.onChange} className="mt-0.5" />
+                  </FormControl>
+                  <div className="flex flex-col gap-0.5">
+                    <FormLabel className="font-normal">{t('fields.invoiceBackfill')}</FormLabel>
+                    <FormDescription>{t('fields.invoiceBackfillHint')}</FormDescription>
+                  </div>
+                </FormItem>
+              )}
+            />
+          </div>
         </fieldset>
 
         {!readOnly && (

@@ -19,6 +19,7 @@ const EMPTY = {
   taxNumber: '',
   registerNumber: '',
   vatStatus: [] as { validFrom: string; status: string }[],
+  invoiceBackfill: true,
 }
 
 const firstError = (r: { success: boolean; error?: { issues: { message: string }[] } }) => r.error?.issues[0]?.message
@@ -37,6 +38,7 @@ describe('tenantMasterDataSchema', () => {
       taxNumber: null,
       registerNumber: null,
       vatStatus: [],
+      invoiceBackfill: true,
     })
   })
 

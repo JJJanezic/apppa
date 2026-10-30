@@ -29,13 +29,16 @@ export type TenantMasterData = {
   registerNumber: string | null
   // Kleinunternehmer-Status (PROJ-36), neueste zuerst
   vatStatus: VatStatusChange[]
+  // Schalter „Rechnungen nacherfassen“ (PROJ-37), Voreinstellung ein
+  invoiceBackfill: boolean
   // Stand beim Laden; Schutz vor Überschreiben bei gleichzeitiger Bearbeitung
   updatedAt: string
 }
 
-// Spalten der Tabelle tenants, dazu der Verlauf des Kleinunternehmer-Status (PROJ-36)
+// Spalten der Tabelle tenants (inkl. Schalter „Rechnungen nacherfassen“, PROJ-37), dazu der Verlauf des
+// Kleinunternehmer-Status (PROJ-36)
 export const MASTER_DATA_COLUMNS =
-  'id, name, name_line2, address_line1, address_line2, postal_code, city, country, vat_id, tax_number, register_number, updated_at, vat_status_changes(valid_from, small_business)'
+  'id, name, name_line2, address_line1, address_line2, postal_code, city, country, vat_id, tax_number, register_number, invoice_backfill_enabled, updated_at, vat_status_changes(valid_from, small_business)'
 
 export type TenantMasterDataRow = {
   id: string
@@ -49,6 +52,7 @@ export type TenantMasterDataRow = {
   vat_id: string | null
   tax_number: string | null
   register_number: string | null
+  invoice_backfill_enabled: boolean
   updated_at: string
   vat_status_changes: VatStatusChangeRow[]
 }
@@ -66,6 +70,7 @@ export const masterDataFromRow = (row: TenantMasterDataRow): TenantMasterData =>
   taxNumber: row.tax_number,
   registerNumber: row.register_number,
   vatStatus: vatStatusFromRows(row.vat_status_changes),
+  invoiceBackfill: row.invoice_backfill_enabled,
   updatedAt: row.updated_at,
 })
 

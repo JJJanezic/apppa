@@ -4,6 +4,7 @@ import { getLocale, getTranslations } from 'next-intl/server'
 import { Amount } from '@/components/amount'
 import { BookingActions } from '@/components/bookings/booking-actions'
 import { BookingBadges } from '@/components/bookings/booking-badges'
+import { BookingInvoicesSection } from '@/components/invoices/booking-invoices'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { billableNights, type BookableApartment, type Booking, bookingState, nightsBetween, personCount, totalCents } from '@/lib/bookings'
 import { formatCents, formatDate, formatDatePlain, formatNumber, formatPeriod } from '@/lib/format'
@@ -230,6 +231,9 @@ export async function BookingDetail({ booking, apartments, owner, today, layout,
                 )}
               </section>
             )}
+
+            {/* Rechnungen zur Buchung (PROJ-37): für alle Mitglieder, nur wenn welche verknüpft sind */}
+            <BookingInvoicesSection bookingId={booking.id} headingSize={headingSize} />
           </div>
         )}
       </div>
