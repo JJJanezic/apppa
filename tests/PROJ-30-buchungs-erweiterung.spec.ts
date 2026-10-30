@@ -256,7 +256,7 @@ test.describe('Formular', () => {
 })
 
 test.describe('Abreise und Preis', () => {
-  test('AC: Verlängerung rechnet 500 € → 600 €, frühere Abreise bleibt 500 €, zurück auf geplant 500 €; Detail zeigt beide Abreisen nur bei Abweichung', async ({ page, users }) => {
+  test('AC: Verlängerung mit „Anteilig hochrechnen“ 500 € → 600 €, frühere Abreise bleibt 500 €, zurück auf geplant 500 €; Detail zeigt beide Abreisen nur bei Abweichung', async ({ page, users }) => {
     desktopOnly()
     const { tenantId } = await setup(page, users)
     const apt = await addApartment(tenantId)
@@ -268,6 +268,11 @@ test.describe('Abreise und Preis', () => {
     await expect(page.getByText('Abreise geplant')).toHaveCount(0)
     await edit(page)
     await departure(page).fill(day(6, FUTURE))
+    // Preisregel (2026-10-30): Auswahl erscheint, „gesamter Aufenthalt“ vorausgewählt, Preis bleibt 500 + 60
+    await expect(panel(page).getByRole('radio', { name: 'Preis gilt für den gesamten Aufenthalt' })).toBeChecked()
+    await expect(panel(page).getByText(money('560'))).toBeVisible()
+    await expect(panel(page).getByText(/Verlängert: vereinbart/)).toHaveCount(0)
+    await panel(page).getByRole('radio', { name: 'Anteilig hochrechnen' }).click()
     await expect(panel(page).getByText(/Verlängert: vereinbart €\s?500,00 für 5 Nächte, abzurechnen 6 Nächte: €\s?600,00/)).toBeVisible()
     await expect(panel(page).getByText(money('660'))).toBeVisible() // 600 + Reinigung 60
     await submit(page, 'Änderungen speichern')
@@ -282,6 +287,8 @@ test.describe('Abreise und Preis', () => {
     await edit(page)
     await departure(page).fill(day(3, FUTURE))
     await expect(panel(page).getByText('Frühere Abreise: abgerechnet wird der volle gebuchte Zeitraum (5 Nächte).')).toBeVisible()
+    // keine Auswahl bei früherer Abreise
+    await expect(panel(page).getByRole('radio', { name: 'Anteilig hochrechnen' })).toHaveCount(0)
     await submit(page, 'Änderungen speichern')
     await expect(page.getByText('Änderungen gespeichert.').first()).toBeVisible()
     await expect.poll(() => billed(booking.id)).toEqual({ nights_cents: 50000, billed_nights_cents: 50000 })
@@ -290,12 +297,50 @@ test.describe('Abreise und Preis', () => {
     // zurück auf geplant: nur ein Abreisedatum
     await edit(page)
     await departure(page).fill(day(5, FUTURE))
+    await expect(panel(page).getByRole('radio', { name: 'Anteilig hochrechnen' })).toHaveCount(0)
     await submit(page, 'Änderungen speichern')
     await expect(page.getByText('Abreise geplant')).toHaveCount(0)
     expect(await billed(booking.id)).toEqual({ nights_cents: 50000, billed_nights_cents: 50000 })
+
+    // erneut verlängert: gespeicherte Wahl „anteilig“ ist ausgewählt
+    await edit(page)
+    await departure(page).fill(day(7, FUTURE))
+    await expect(panel(page).getByRole('radio', { name: 'Anteilig hochrechnen' })).toBeChecked()
+    await expect(panel(page).getByText(money('760'))).toBeVisible() // 700 + 60
   })
 
-  test('AC: Mitarbeiter verlängert: Preis wird hochgerechnet, ohne dass er Beträge sieht; frühere Abreise gibt den Kalender frei', async ({ page, users }) => {
+  test('AC: „Preis gilt für den gesamten Aufenthalt“ – Auswahl nur bei Verlängerung, Betrag bleibt in Formular, Detail und Liste; Wahl bleibt beim erneuten Bearbeiten', async ({ page, users }) => {
+    desktopOnly()
+    const { tenantId } = await setup(page, users)
+    const apt = await addApartment(tenantId)
+    const guest = await addGuest(tenantId, 'Pauschal', 'Paula')
+    const booking = await addBooking(tenantId, apt, { guestId: guest, arrival: FUTURE, departure: day(5, FUTURE), nightsCents: 50000 })
+
+    await openBooking(page, booking.id)
+    await edit(page)
+    // ohne Verlängerung keine Auswahl
+    await expect(panel(page).getByText('Preis bei Verlängerung')).toHaveCount(0)
+    await expect(panel(page).getByRole('radio', { name: 'Anteilig hochrechnen' })).toHaveCount(0)
+    await departure(page).fill(day(8, FUTURE))
+    await expect(panel(page).getByText('Preis bei Verlängerung')).toBeVisible()
+    await expect(panel(page).getByRole('radio', { name: 'Preis gilt für den gesamten Aufenthalt' })).toBeChecked()
+    // Auswahl ohne automatisch erkennbare WCAG-2.1-AA-Verstöße
+    const a11y = await new AxeBuilder({ page }).include('[role="dialog"]').withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze()
+    expect(a11y.violations).toEqual([])
+    await panel(page).getByLabel('Übernachtungspreis (€)').fill('800')
+    await expect(panel(page).getByText(money('800'))).toBeVisible()
+    await submit(page, 'Änderungen speichern')
+    await expect(page.getByText('Änderungen gespeichert.')).toBeVisible()
+    await expect.poll(() => billed(booking.id)).toEqual({ nights_cents: 80000, billed_nights_cents: 80000 })
+    // Detail: Betrag wie eingetragen, kein Hinweis auf Hochrechnung
+    await expect(page.getByText(money('800,00')).first()).toBeVisible()
+    await expect(page.getByText(/anteilig auf \d+ Nächte hochgerechnet/)).toHaveCount(0)
+    // erneut bearbeiten: gespeicherte Wahl
+    await edit(page)
+    await expect(panel(page).getByRole('radio', { name: 'Preis gilt für den gesamten Aufenthalt' })).toBeChecked()
+  })
+
+  test('AC: Mitarbeiter verlängert: gespeicherte Preisregel gilt (ohne Wahl „gesamter Aufenthalt“, mit „anteilig“ hochgerechnet), ohne Beträge oder Auswahl; frühere Abreise gibt den Kalender frei', async ({ page, users }) => {
     desktopOnly()
     const { tenantId } = await setup(page, users, 'staff')
     const apt = await addApartment(tenantId)
@@ -305,15 +350,32 @@ test.describe('Abreise und Preis', () => {
     await edit(page)
     await expect(panel(page).getByText(/€/)).toHaveCount(0)
     await departure(page).fill(day(7))
+    await expect(panel(page).getByRole('radio', { name: 'Anteilig hochrechnen' })).toHaveCount(0)
     await submit(page, 'Änderungen speichern')
     await expect(page.getByText('Änderungen gespeichert.')).toBeVisible()
-    expect(await billed(booking.id)).toEqual({ nights_cents: 50000, billed_nights_cents: 60000 })
+    // ohne gespeicherte Wahl: „gesamter Aufenthalt“, Preis bleibt
+    await expect.poll(() => billed(booking.id)).toEqual({ nights_cents: 50000, billed_nights_cents: 50000 })
+    // Inhaber hatte „anteilig“ gewählt: Mitarbeiter-Verlängerung rechnet hoch
+    await service().from('booking_amounts').update({ nights_extension_pricing: 'prorated' } as never).eq('id', booking.id)
+    await page.reload()
+    await ready(page)
+    await edit(page)
+    await departure(page).fill(day(8))
+    // Panel rechnet nach der Datumsänderung neu (Warnungen): auf den bereiten Knopf warten
+    await expect(panel(page).getByRole('button', { name: 'Änderungen speichern', exact: true })).toBeEnabled()
+    await submit(page, 'Änderungen speichern')
+    await expect.poll(() => billed(booking.id)).toEqual({ nights_cents: 50000, billed_nights_cents: 70000 })
+    await expect(panel(page)).toBeHidden()
+    // Detailseite lädt nach dem Speichern neu; erst danach erneut bearbeiten (sonst baut sich das Panel neu auf)
+    await page.waitForLoadState('networkidle')
+    await expect(page.getByText(deDate(day(8))).first()).toBeVisible()
     expect((await service().from('bookings').select('price_review').eq('id', booking.id).single()).data?.price_review).toBe(false)
     await expect(page.getByText(/€/)).toHaveCount(0)
 
     // frühere Abreise am Tag +4: Kalender zeigt den Balken nur bis dahin
     await edit(page)
     await departure(page).fill(day(4))
+    await expect(panel(page).getByRole('button', { name: 'Änderungen speichern', exact: true })).toBeEnabled()
     await submit(page, 'Änderungen speichern')
     await expect(panel(page)).toBeHidden()
     await expect.poll(async () => (await service().from('bookings').select('departure').eq('id', booking.id).single()).data?.departure).toBe(day(4))

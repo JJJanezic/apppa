@@ -1,6 +1,6 @@
 # PROJ-30: Buchungs-Erweiterung: Meldedaten, Buchungsquelle, Monatsauswahl
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-10-26
 **Last Updated:** 2026-10-30
 
@@ -586,6 +586,39 @@ Das Detail zeigt weiterhin „Kanal: Direkt“ und darunter „Buchungsquelle: b
 - **Security:** Pass
 - **Production Ready:** YES
 - **Recommendation:** Deploy
+
+### QA Änderung „Preisregel bei Verlängerung wählbar“ (2026-10-30)
+
+**Getestet gegen:** gebauten Server (localhost:3000) mit Supabase „apppa-dev“. `.env.local` durfte nicht direkt geprüft werden; die Test-Helfer brechen bei Staging-/Produktions-URL selbst ab (`assertTestableProject`).
+
+**Automatisierte Tests**
+- `npm test`: 556/556 grün; neu bzw. umgestellt sind Unit-Tests der Rechenregel (beide Regeln) und des Prüfschemas sowie 7 Datenbank-Tests im Block PROJ-30
+- E2E `tests/PROJ-30-buchungs-erweiterung.spec.ts`, Block „Abreise und Preis“, auf die neue Regel umgestellt (Hochrechnen nur noch mit „Anteilig hochrechnen“) und um einen Test für „gesamter Aufenthalt“ mit axe-Prüfung bei sichtbarer Auswahl ergänzt; ganze Datei: Desktop 11/11, Handy (Layout) grün
+- Die Abläufe dieser Datei laufen absichtlich nur im Desktop-Projekt; Firefox und Safari waren für die Preisregel nicht dabei (normale Auswahlknöpfe ohne browserspezifische Logik)
+- Regression: PROJ-35 Formular und Detail 8/8, PROJ-32 Verlängerung und negative Positionen 3/3, PROJ-27 Preisvorschlag 2/2
+
+**Akzeptanzkriterien Preis bei Verlängerung (12/12 erfüllt)**
+- [x] Keine Auswahl bei gleicher oder früherer Abreise
+- [x] Verlängerung um 1 Tag: Auswahl erscheint, „Preis gilt für den gesamten Aufenthalt“ vorausgewählt, Preis bleibt 500 € (Gesamt 560 € mit Reinigung)
+- [x] „Anteilig hochrechnen“: Formular zeigt sofort 600 € (Gesamt 660 €) und den Hinweis mit den Nächten; nach dem Speichern 600 € in Detail und Gesamtpreis
+- [x] „Gesamter Aufenthalt“: eingetragener Betrag (800 €) gilt unverändert in Datenbank und Detail, kein Hinweis auf Hochrechnung
+- [x] Erneutes Bearbeiten zeigt die gespeicherte Wahl
+- [x] Abreise zurück auf geplant: Auswahl verschwindet, 500 €
+- [x] Frühere Abreise: keine Auswahl, 500 €
+- [x] Zusatzkosten bleiben bei beiden Regeln unverändert
+- [x] Mitarbeiter verlängert: ohne gespeicherte Wahl bleibt der Preis (500 €); mit gespeicherter „anteilig“ wird hochgerechnet (700 €); keine Beträge, keine Auswahl
+- [x] Rundung bei „anteilig“ auf Cent (333,33 € → 444,44 €, Datenbank-Test)
+- [x] Bestand: Migration setzt verlängerte Buchungen auf „anteilig“; in Dev nicht an Daten prüfbar (keine Buchungen), Prüfung beim Deploy nach `db push`
+- [x] Server lehnt ungültige Regel ab (22023); Mitarbeiter-Wert wird ignoriert; kein direktes Schreiben
+
+**Sicherheit**
+- [x] Preisregel nur für Inhaber lesbar (Leseregeln der Beträge), Mitarbeiter sehen sie weder in der Oberfläche noch über die Datenbank
+- [x] Ändern nur über `save_booking`; Wert geprüft (`private.extension_pricing`)
+
+**Hinweise (keine Bugs)**
+- Die E2E-Tests mussten an zwei Stellen nach dem Speichern auf das Nachladen der Detailseite warten. Öffnet man „Bearbeiten“, während die Seite noch lädt, baut sich das Panel mit dem neuen Stand neu auf, und eine gerade begonnene Eingabe geht verloren. Das betrifft nur Klicks innerhalb von Sekundenbruchteilen und ist kein neues Verhalten.
+
+**Ergebnis:** 12/12 Akzeptanzkriterien erfüllt, 0 Bugs, Sicherheit ohne Befund. **Production Ready: YES**
 
 ## Deployment
 _Stand 2026-10-27 (/deploy, Tag `v1.7.0`)_
