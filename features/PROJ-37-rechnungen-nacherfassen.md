@@ -1,10 +1,10 @@
 # PROJ-37: Rechnungen nacherfassen
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-10-30
 **Last Updated:** 2026-10-30
 
-> Grundumfang am 2026-10-30 in Production ausgeliefert (Commit 49a8b9b). Erweiterung „Rechnungen in der Buchungsübersicht“ am 2026-10-30 per `/refine` ergänzt, noch nicht gebaut.
+> Grundumfang am 2026-10-30 in Production ausgeliefert (Commit 49a8b9b). Erweiterung „Rechnungen in der Buchungsübersicht“ am 2026-10-30 per `/refine` ergänzt, gebaut und von QA freigegeben, noch nicht ausgeliefert.
 
 ## Dependencies
 - Requires: PROJ-4 (Kundenkonten & Rollen) — Rollen Inhaber/Mitarbeiter, Mandantentrennung
@@ -671,6 +671,60 @@ Buchungsübersicht (/buchungen)
 - Regression der geänderten Gastsuche: PROJ-8 Buchungsformular (7 Tests) und PROJ-7 Zusammenführen (3 Tests) grün
 - Safari in diesem Durchgang nicht erneut gelaufen (Änderung nur an der Reihenfolge der Elemente; erster Durchgang grün)
 - **Ergebnis:** 0 offene Bugs (BUG-1, BUG-4 behoben; BUG-2, BUG-3 vom Nutzer akzeptiert). **Production Ready: YES** → Status Approved
+
+### QA Erweiterung „Rechnungen in der Buchungsübersicht“ (2026-10-30)
+
+**Getestet gegen:** gebauten Server (localhost:3000) mit Supabase „apppa-dev“. Die direkte Prüfung von `.env.local` war in dieser Sitzung nicht freigegeben; die Test-Helfer brechen bei Staging-/Produktions-URL selbst ab (`assertTestableProject`).
+
+**Automatisierte Tests**
+- `npm test`: 552/552 grün (inkl. neuer Unit-Tests für `rechnung`/`seite` in `bookings.test.ts`)
+- Neu in `tests/PROJ-37-rechnungen-nacherfassen.spec.ts`, Block „Buchungsübersicht (Erweiterung)“ (7 Tests): Desktop 6/6, Handy (Karte, Layout) 2/2, Tablet (Layout) 1/1, Firefox 6/6
+- Regression: PROJ-8 Buchungsliste (Monatsliste, Filter, Suche, verfallene Option, Layout) 3/3, PROJ-30 (Nummer/Quelle, Kalenderfarbe, „Springen zu“, Layout) 4/4, PROJ-37 Rechnungsliste mit Blättern 7/7
+- Safari nicht gelaufen (Linkstruktur der Liste unverändert: nur Name bzw. Rechnungsnummer sind Links, kein Overlay)
+
+**Akzeptanzkriterien Buchungsübersicht (12/12 erfüllt)**
+- [x] Zwei Rechnungen untereinander nach Rechnungsdatum (absichtlich in anderer Reihenfolge angelegt), je als Link zur Rechnung; auch für Mitarbeiter
+- [x] Zelle leer ohne Rechnung und bei Sperren
+- [x] Handy: „Rechnungen: 2026-0001, 2026-0002“ als Text, kein Rechnungslink in der Karte, ohne Rechnung keine Zeile
+- [x] Auswahl „Rechnung“: Alle / ohne Rechnung / mit Rechnung
+- [x] „ohne Rechnung“ über alle Monate inkl. Folgejahr, ohne Sperren, Überschrift „Alle Monate“ statt Monatsauswahl, Anzahl „2 Buchungen ohne Rechnung in allen Monaten“
+- [x] Buchung mit nur einer Anzahlungsrechnung erscheint nicht unter „ohne“, aber unter „mit“
+- [x] „mit Rechnung“ über alle Monate
+- [x] Anreise absteigend; 51 Treffer → Seite 1 mit 50, Seite 2 mit 1; Filterwechsel setzt die Seite zurück
+- [x] Kombination mit Zustand „storniert“, Suche (Gastname) und Art; Leerzustand „Keine Buchung passt zu diesem Filter.“ mit „Suche und Filter zurücksetzen“
+- [x] Neu laden behält den Filter (Adresszeile `rechnung=ohne`)
+- [x] „Alle“ führt in den zuvor gewählten Monat zurück (Monat bleibt in der Adresse, außer es ist der aktuelle Monat – dann ist er ohnehin Standard)
+- [x] Rechnung im Formular einer Buchung zuordnen → über die Navigation zurück: Spalte und Filter zeigen den neuen Stand sofort
+
+**Grenzfälle**
+- [x] Viele Buchungen ohne Rechnung: vollständig, je 50, Gesamtzahl
+- [x] Lange Rechnungsnummer in der Spalte: umbricht, kein seitliches Scrollen (Layout-Test auf allen Breiten, axe ohne Verstöße)
+- [x] Gutschrift (negative Summe) zählt als Rechnung – folgt aus der Regel „mindestens eine verknüpfte Rechnung“ (Abfrage prüft nur das Vorhandensein)
+
+**Sicherheit**
+- [x] Abfrage auf den eigenen Kunden begrenzt; Rechnungen kommen nur über die bestehenden Leseregeln (Mitglieder des Kunden)
+- [x] Adresswerte geprüft: `rechnung` nur „ohne“/„mit“, `seite` ganzzahlig 1–10.000; ungültige Werte → Standard
+- [x] Keine neuen Schreibwege, keine Migration
+
+**Bugs**
+
+#### BUG-5: Seite hinter dem Ende zeigt „Keine Buchungen ohne Rechnung“ als Anzahl
+- **Severity:** Low
+- **Steps to Reproduce:**
+  1. 51 Buchungen ohne Rechnung, `/buchungen?rechnung=ohne&seite=9` öffnen
+  2. Expected: Anzahl „51 Buchungen ohne Rechnung …“ (oder keine Anzahl) und der Hinweis „Auf dieser Seite stehen keine Buchungen.“ mit „Zur ersten Seite“
+  3. Actual: Der Hinweis und „Zur ersten Seite“ stimmen, darüber steht aber „Keine Buchungen ohne Rechnung in allen Monaten“. Die Datenbank antwortet auf die zu hohe Seite mit „Requested range not satisfiable“ ohne Gesamtzahl; der Server schreibt dazu „[buchungen] Liste nicht lesbar“ ins Log
+- **Priority:** Nice to have (tritt nur bei veralteter Adresse auf, z. B. nach Zuordnen von Rechnungen auf der letzten Seite)
+- **Status:** ✅ Behoben 2026-10-30 – `getBookingList` holt bei zu hoher Seite nur die Gesamtzahl nach (gleiche Filter, ohne Zeilen) und schreibt keinen Fehler mehr ins Log; E2E-Test prüft Hinweis und Anzahl
+
+**Ergebnis:** 12/12 Akzeptanzkriterien erfüllt, 1 Bug (niedrig), Sicherheit ohne Befund. **Production Ready: YES**
+
+**Nachtest 2026-10-30 (nach Behebung von BUG-5)**
+- E2E Block „Buchungsübersicht (Erweiterung)“: Desktop 6/6, Handy 2/2, Tablet 1/1, Firefox 6/6; Server-Log ohne „Liste nicht lesbar“
+- Regression: PROJ-8 Buchungsliste 3/3, PROJ-30 4/4
+- `npm test`: 551/552 – rot nur der bekannte RLS-Test „Person ohne Mitgliedschaft sieht keinerlei Mandantendaten“: 13.750 von 13.763 Zeilen im Dev-Änderungsprotokoll gehören zu gelöschten Testkunden, die Abfrage reißt die 8-s-Grenze (Testmüll in Dev, kein Bezug zur Änderung; Staging/Produktion nicht betroffen)
+- Nach Bereinigung der Waisenzeilen im Dev-Protokoll (mit Zustimmung des Nutzers; 0 Waisen, 13 echte Zeilen, `VACUUM FULL`): `npm test` **552/552 grün**
+- **Ergebnis:** 0 offene Bugs (BUG-5 behoben). **Production Ready: YES** → Status Approved
 
 ## Deployment
 _To be added by /deploy_

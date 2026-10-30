@@ -869,6 +869,196 @@ test.describe('Schalter, Rollen, Gäste', () => {
   })
 })
 
+test.describe('Buchungsübersicht (Erweiterung)', () => {
+  const bookingRows = (page: Page) => page.getByRole('table').getByRole('row')
+  const rowOf = (page: Page, text: string) => bookingRows(page).filter({ hasText: text })
+  async function openBookings(page: Page, search = '') {
+    await page.goto(`/buchungen${search}`)
+    await ready(page)
+    await page.getByText(/in diesem Monat|in allen Monaten/).first().waitFor()
+  }
+  async function chooseInvoiceFilter(page: Page, label: string) {
+    await page.getByRole('combobox', { name: 'Rechnung', exact: true }).click()
+    await page.getByRole('option', { name: label, exact: true }).click()
+  }
+
+  // Kunde mit Oktober-Buchung (2 Rechnungen), Dezember-Buchung ohne, Folgejahr ohne, Anzahlung, Sperre, stornierte
+  async function seed(users: Users, opts: { staff?: boolean } = {}) {
+    const ctx = await setup(users, opts)
+    const apt = await addApartment(ctx.tenantId)
+    const huber = await addGuest(ctx.tenantId, { last: 'Huber', first: 'Maria' })
+    const berger = await addGuest(ctx.tenantId, { last: 'Berger', first: 'Paul' })
+    const billed = await addBooking(ctx.tenantId, apt, { guestId: huber, arrival: '2026-10-14', departure: '2026-10-17' })
+    const open = await addBooking(ctx.tenantId, apt, { guestId: berger, arrival: '2026-12-01', departure: '2026-12-03' })
+    const future = await addBooking(ctx.tenantId, apt, { guestId: berger, arrival: '2027-03-10', departure: '2027-03-12' })
+    const deposit = await addBooking(ctx.tenantId, apt, { guestId: huber, arrival: '2026-11-05', departure: '2026-11-08' })
+    const block = await addBooking(ctx.tenantId, apt, { kind: 'block', arrival: '2026-10-20', departure: '2026-10-22' })
+    const cancelled = await addBooking(ctx.tenantId, apt, { guestId: berger, arrival: '2026-09-01', departure: '2026-09-03', cancelled: true, fee: 5000 })
+    // Rechnungen absichtlich nicht in Datumsreihenfolge angelegt
+    const second = await addInvoice(ctx.owner, ctx.tenantId, { number: '2026-0002', date: '2026-10-25', bookingId: billed.id })
+    const first = await addInvoice(ctx.owner, ctx.tenantId, { number: '2026-0001', date: '2026-10-20', bookingId: billed.id })
+    await addInvoice(ctx.owner, ctx.tenantId, { number: 'AZ-1', date: '2026-10-01', bookingId: deposit.id, lines: [{ label: 'Anzahlung', cents: 5000, rate: 10 }] })
+    return { ...ctx, apt, billed, open, future, deposit, block, cancelled, first, second }
+  }
+
+  test('AC: Spalte „Rechnungen“ mit Nummern als Links nach Rechnungsdatum; leer ohne Rechnung und bei Sperre; auch für Mitarbeiter', async ({ page, users }) => {
+    desktopOnly()
+    const d = await seed(users, { staff: true })
+    for (const user of [d.owner, d.staff!]) {
+      await page.context().clearCookies()
+      await signInAs(page, user)
+      await openBookings(page, '?monat=2026-10')
+      await expect(bookingRows(page).first().getByRole('columnheader', { name: 'Rechnungen' })).toBeVisible()
+      const billed = rowOf(page, d.billed.number!)
+      const links = billed.getByRole('cell').nth(6).getByRole('link')
+      await expect(links).toHaveText(['2026-0001', '2026-0002'])
+      const blockCell = rowOf(page, 'Sperre').getByRole('cell').nth(6)
+      await expect(blockCell).toHaveText('')
+    }
+    await openBookings(page, '?monat=2026-12')
+    await expect(rowOf(page, d.open.number!).getByRole('cell').nth(6)).toHaveText('')
+    await openBookings(page, '?monat=2026-10')
+    await rowOf(page, d.billed.number!).getByRole('link', { name: '2026-0002' }).click()
+    await expect(page).toHaveURL(new RegExp(`/rechnungen/${d.second}$`))
+  })
+
+  test('AC: Handy-Karte zeigt „Rechnungen: …“ als Text, ohne Rechnung keine Zeile', async ({ page, users }) => {
+    test.skip(test.info().project.name !== 'mobile', 'nur Handy')
+    const d = await seed(users)
+    await signInAs(page, d.owner)
+    await openBookings(page, '?monat=2026-10')
+    const card = page.getByRole('listitem').filter({ hasText: d.billed.number! })
+    await expect(card.getByText('Rechnungen: 2026-0001, 2026-0002')).toBeVisible()
+    // kein Link auf eine Rechnung in der Karte (die Karte selbst ist der Link zur Buchung)
+    await expect(card.locator('a[href^="/rechnungen/"]')).toHaveCount(0)
+    await expect(page.getByRole('listitem').filter({ hasText: 'Sperre' }).getByText(/^Rechnungen:/)).toHaveCount(0)
+  })
+
+  test('AC: Filter „ohne Rechnung“ über alle Monate (auch künftig), ohne Sperren und ohne Anzahlungs-Buchung; „mit Rechnung“; Hinweis, Anzahl, Adresse', async ({ page, users }) => {
+    desktopOnly()
+    const d = await seed(users)
+    await signInAs(page, d.owner)
+    // Nicht der aktuelle Monat: nur dann steht er in der Adresse
+    await openBookings(page, '?monat=2026-12')
+    await page.getByRole('combobox', { name: 'Rechnung', exact: true }).click()
+    await expect(page.getByRole('option')).toHaveText(['Alle', 'ohne Rechnung', 'mit Rechnung'])
+    await page.keyboard.press('Escape')
+
+    await chooseInvoiceFilter(page, 'ohne Rechnung')
+    await expect(page).toHaveURL(/rechnung=ohne/)
+    await expect(page).toHaveURL(/monat=2026-12/)
+    await expect(page.getByRole('heading', { name: 'Alle Monate' })).toBeVisible()
+    await expect(page.getByRole('navigation', { name: /Monat/ })).toHaveCount(0)
+    await expect(page.getByText('2 Buchungen ohne Rechnung in allen Monaten')).toBeVisible()
+    // Anreise absteigend: Folgejahr vor Dezember
+    await expect(bookingRows(page)).toHaveCount(3)
+    await expect(bookingRows(page).nth(1)).toContainText(d.future.number!)
+    await expect(bookingRows(page).nth(2)).toContainText(d.open.number!)
+
+    await chooseInvoiceFilter(page, 'mit Rechnung')
+    await expect(page).toHaveURL(/rechnung=mit/)
+    await expect(page.getByText('2 Buchungen mit Rechnung in allen Monaten')).toBeVisible()
+    await expect(bookingRows(page).nth(1)).toContainText(d.deposit.number!)
+    await expect(bookingRows(page).nth(2)).toContainText(d.billed.number!)
+
+    // „Alle“ führt in den zuvor gewählten Monat zurück
+    await chooseInvoiceFilter(page, 'Alle')
+    await expect(page).not.toHaveURL(/rechnung=/)
+    await expect(page.getByRole('heading', { name: 'Alle Monate' })).toHaveCount(0)
+    await expect(page).toHaveURL(/monat=2026-12/)
+    await expect(page.getByText(/Dezember 2026/).first()).toBeVisible()
+  })
+
+  test('AC: Kombination mit Zustand „storniert“, Art und Suche; Leerzustand mit Zurücksetzen', async ({ page, users }) => {
+    desktopOnly()
+    const d = await seed(users)
+    await signInAs(page, d.owner)
+    await openBookings(page, '?rechnung=ohne&zustand=storniert')
+    await expect(page.getByText('1 Buchung ohne Rechnung in allen Monaten')).toBeVisible()
+    await expect(bookingRows(page).nth(1)).toContainText(d.cancelled.number!)
+    await openBookings(page, '?rechnung=ohne&q=Berger')
+    await expect(page.getByText('2 Buchungen ohne Rechnung in allen Monaten')).toBeVisible()
+    await openBookings(page, '?rechnung=ohne&art=option')
+    await expect(page.getByText('Keine Buchung passt zu diesem Filter.')).toBeVisible()
+    await page.getByRole('link', { name: 'Suche und Filter zurücksetzen' }).click()
+    await expect(page).toHaveURL(/\/buchungen(\?monat=\d{4}-\d{2})?$/)
+  })
+
+  test('AC: Neu laden behält den Filter; Rechnung zuordnen bzw. lösen wirkt sofort', async ({ page, users }) => {
+    desktopOnly()
+    const d = await seed(users)
+    await signInAs(page, d.owner)
+    await openBookings(page, '?rechnung=ohne')
+    await page.reload()
+    await ready(page)
+    await expect(page.getByText('2 Buchungen ohne Rechnung in allen Monaten')).toBeVisible()
+    await expect(page.getByRole('combobox', { name: 'Rechnung', exact: true })).toHaveText('ohne Rechnung')
+
+    // Rechnung im Formular der Dezember-Buchung zuordnen, dann über die Navigation zurück
+    const inv = await addInvoice(d.owner, d.tenantId, { number: 'NEU-1', date: '2026-10-28' })
+    await page.goto(`/rechnungen/${inv}`)
+    await ready(page)
+    await page.getByRole('button', { name: 'Bearbeiten' }).click()
+    await panel(page).getByLabel('Buchung suchen').fill('12.2026')
+    await panel(page).getByRole('option').first().click()
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Behalten' }).click()
+    const button = panel(page).getByRole('button', { name: 'Änderungen speichern', exact: true })
+    await button.scrollIntoViewIfNeeded()
+    await button.click()
+    await expect(panel(page)).toBeHidden()
+    await page.getByRole('navigation', { name: 'Hauptnavigation' }).getByRole('link', { name: 'Buchungen' }).click()
+    await chooseInvoiceFilter(page, 'mit Rechnung')
+    await expect(page.getByText('3 Buchungen mit Rechnung in allen Monaten')).toBeVisible()
+    await expect(rowOf(page, d.open.number!).getByRole('link', { name: 'NEU-1' })).toBeVisible()
+  })
+
+  test('AC: Mehr als 50 Buchungen ohne Rechnung – seitenweise je 50, Anreise absteigend; BUG-5: Seite hinter dem Ende mit richtiger Anzahl', async ({ page, users }) => {
+    desktopOnly()
+    const { owner, tenantId } = await setup(users)
+    const apt = await addApartment(tenantId)
+    const guest = await addGuest(tenantId, { last: 'Viel', first: 'Gast' })
+    const rows = Array.from({ length: 51 }, (_, i) => {
+      const day = new Date(Date.UTC(2025, 0, 1 + i * 3)).toISOString().slice(0, 10)
+      const out = new Date(Date.UTC(2025, 0, 2 + i * 3)).toISOString().slice(0, 10)
+      return { tenant_id: tenantId, apartment_id: apt, kind: 'booking', arrival: day, planned_departure: out, departure: out, guest_id: guest, check_in: '15:00', check_out: '10:00', adults: 2, child_ages: [], number_year: 2025, number_seq: 500 + i }
+    })
+    const { error } = await service().from('bookings').insert(rows as never)
+    expect(error).toBeNull()
+    await signInAs(page, owner)
+    await openBookings(page, '?rechnung=ohne')
+    await expect(page.getByText('51 Buchungen ohne Rechnung in allen Monaten')).toBeVisible()
+    await expect(bookingRows(page)).toHaveCount(51)
+    await expect(bookingRows(page).nth(1)).toContainText('2025-0550')
+    await expect(page.getByText('Seite 1 von 2')).toBeVisible()
+    await page.getByRole('link', { name: 'Weiter' }).click()
+    await expect(page).toHaveURL(/seite=2/)
+    await expect(bookingRows(page)).toHaveCount(2)
+    await expect(bookingRows(page).nth(1)).toContainText('2025-0500')
+    // Filterwechsel beginnt wieder bei Seite 1
+    await chooseInvoiceFilter(page, 'mit Rechnung')
+    await expect(page).not.toHaveURL(/seite=/)
+    // Seite hinter dem Ende: Hinweis mit Weg zur ersten Seite, Anzahl stimmt trotzdem (BUG-5)
+    await openBookings(page, '?rechnung=ohne&seite=9')
+    await expect(page.getByText('Auf dieser Seite stehen keine Buchungen.')).toBeVisible()
+    await expect(page.getByText('51 Buchungen ohne Rechnung in allen Monaten')).toBeVisible()
+    await page.getByRole('link', { name: 'Zur ersten Seite' }).click()
+    await expect(page.getByText('51 Buchungen ohne Rechnung in allen Monaten')).toBeVisible()
+  })
+
+  test('Layout: Buchungsübersicht mit Spalte und Filter ohne seitliches Scrollen, keine WCAG-2.1-AA-Verstöße', async ({ page, users }) => {
+    const d = await seed(users)
+    await addInvoice(d.owner, d.tenantId, { number: '2026-SEHR-LANGE-NUMMER-0003', date: '2026-10-26', bookingId: d.billed.id })
+    await signInAs(page, d.owner)
+    for (const q of ['?monat=2026-10', '?rechnung=mit']) {
+      await openBookings(page, q)
+      const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
+      expect(overflow, q).toBeLessThanOrEqual(0)
+      const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze()
+      expect(results.violations, q).toEqual([])
+    }
+  })
+})
+
 test.describe('Layout', () => {
   test('Liste, Detail und Formular ohne seitliches Scrollen, keine automatisch erkennbaren WCAG-2.1-AA-Verstöße', async ({ page, users }) => {
     const { owner, tenantId } = await setup(users)
