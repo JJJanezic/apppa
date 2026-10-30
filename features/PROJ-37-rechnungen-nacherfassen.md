@@ -1,10 +1,10 @@
 # PROJ-37: Rechnungen nacherfassen
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-10-30
 **Last Updated:** 2026-10-30
 
-> Grundumfang am 2026-10-30 in Production ausgeliefert (Commit 49a8b9b). Erweiterung „Rechnungen in der Buchungsübersicht“ am 2026-10-30 per `/refine` ergänzt, gebaut und von QA freigegeben, noch nicht ausgeliefert.
+> Grundumfang und Erweiterung „Rechnungen in der Buchungsübersicht“ am 2026-10-30 in Production ausgeliefert (siehe Abschnitt Deployment).
 
 ## Dependencies
 - Requires: PROJ-4 (Kundenkonten & Rollen) — Rollen Inhaber/Mitarbeiter, Mandantentrennung
@@ -727,4 +727,13 @@ Buchungsübersicht (/buchungen)
 - **Ergebnis:** 0 offene Bugs (BUG-5 behoben). **Production Ready: YES** → Status Approved
 
 ## Deployment
-_To be added by /deploy_
+- **Datum:** 2026-10-30, Version v1.14.0
+- **Release 1 – Grundumfang:** Commit `49a8b9b` (Branches `staging` und `production`); Staging und Produktion vom Nutzer geprüft
+- **Release 2 – Erweiterung „Rechnungen in der Buchungsübersicht“:** Commit `1e755af` (Branches `staging` und `production`); Staging und Produktion vom Nutzer geprüft
+- **Staging:** https://staging.apppa.at
+- **Production:** https://app.apppa.at
+- **Migrationen:** `20261030071155_invoices.sql` mit Release 1 (Staging und Produktion; Advisors nur bekannte Auth-Hinweise: Staging `auth_otp_long_expiry` + `auth_leaked_password_protection`, Produktion `auth_otp_long_expiry`); Release 2 ohne Migration
+- **Neuer Speicherbereich:** `invoices` (privat, per Migration angelegt)
+- **Neue Pakete / Umgebungsvariablen:** keine (`CRON_SECRET` besteht seit PROJ-29)
+- **Mit ausgeliefert:** Buchhaltungs-Commit PROJ-35 (`f35e344`) mit Release 1
+- **Tag:** `v1.14.0-PROJ-37` auf `1e755af`
