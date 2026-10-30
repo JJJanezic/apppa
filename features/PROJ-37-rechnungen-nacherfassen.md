@@ -1,6 +1,6 @@
 # PROJ-37: Rechnungen nacherfassen
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-10-30
 **Last Updated:** 2026-10-30
 
@@ -259,6 +259,10 @@ Teil A kommt zuerst: Kunden bringen Rechnungen aus ihrem bisherigen System mit. 
 | Buchungssuche als Datenbank-Funktion, höchstens 20 Treffer | Suche über Gast, Wohnung und Zeitraum über alle Jahre; schnelle Antwort auch bei vielen Buchungen | 2026-10-30 |
 | Formular als seitliches Panel, Liste und Detail als eigene Seiten | Gleiches Bedienmuster wie Buchungen und Gäste; Detail per Adresse verlinkbar (Buchungsdetail, Liste) | 2026-10-30 |
 | Suchbegriff und Seite in der Adresszeile | Zurück-Knopf und Rückkehr aus dem Detail behalten den Stand; Vorbereitung für die Filter in PROJ-39 | 2026-10-30 |
+| Buchungsübersicht: Rechnungen in derselben Abfrage wie die Buchungen mitlesen, keine neue Datenbank-Funktion, keine Migration | Bestehende Lese- und Mandantenregeln gelten; vorhandener Index reicht; kein zusätzlicher Code in der Datenbank | 2026-10-30 |
+| Rechnungsfilter als eigener Modus der Liste (alle Monate, je 50, Gesamtzahl), Monatsauswahl wird wie bei der Suche ersetzt | Bekanntes Bedienmuster; die Monatsliste mit bis zu 1.000 Zeilen wäre über alle Jahre zu groß | 2026-10-30 |
+| Filterwerte `rechnung=ohne/mit` und `seite` in der Adresszeile, Monat bleibt erhalten | Zurück-Knopf und Neuladen behalten den Stand; „Alle“ führt in den vorherigen Monat zurück | 2026-10-30 |
+| Rechnung speichern/löschen lädt zusätzlich die Buchungsübersicht neu | Spalte und Filter zeigen sofort den neuen Stand | 2026-10-30 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
@@ -388,6 +392,54 @@ Einstellungen → Kunde (Inhaber) und Betreiber-Kundendetail
 
 ### Abhängigkeiten (Pakete)
 Keine neuen Pakete. Genutzt werden vorhandene shadcn-Bausteine (`Popover`, `Command`, `Switch`, `Table`, `Pagination`, `Sheet`, `AlertDialog`), das Sortieren aus PROJ-34 und Supabase Storage.
+
+### Erweiterung: Rechnungen in der Buchungsübersicht (Tech Design 2026-10-30)
+
+**Ausgangslage:** Die Buchungsübersicht (`/buchungen`) lädt die Buchungen eines Monats direkt aus der Datenbank (bis 1.000) bzw. bei einer Suche bis zu 50 Treffer über alle Monate; im Suchmodus ersetzt ein Hinweis die Monatsauswahl. Rechnungen hängen über die Buchung (gleicher Kunde) an der Buchung; Mitglieder dürfen sie lesen (RLS aus dem Grundumfang).
+
+**A) Seiten und Bausteine**
+```
+Buchungsübersicht (/buchungen)
++-- Filterleiste (vorhanden)
+|   +-- Monatsauswahl – entfällt bei aktivem Rechnungsfilter oder Suche → Hinweis „Alle Monate“
+|   +-- Suche, Wohnung, Art, Zustand, Quelle (vorhanden)
+|   +-- NEU Auswahl „Rechnung“: Alle · ohne Rechnung · mit Rechnung
+|   +-- „Filter zurücksetzen“ (setzt „Rechnung“ und Seite mit zurück)
++-- Anzahl: „23 Buchungen ohne Rechnung“ / „… mit Rechnung“ (Gesamtzahl über alle Seiten)
++-- Tabelle (Desktop/Tablet)
+|   +-- NEU Spalte „Rechnungen“ hinter „Status“: Nummern als Links zur Rechnung, untereinander nach Rechnungsdatum; leer ohne Rechnung und bei Sperren
++-- Karten (Handy)
+|   +-- NEU Zeile „Rechnungen: 2026-0011, 2026-0012“ als Text (die Karte bleibt der Link zur Buchung)
++-- NEU Blättern je 50 (nur bei aktivem Rechnungsfilter; vorhandener Baustein „Pagination“ wie in der Rechnungsliste)
+```
+
+**B) Daten**
+- **Keine neue Tabelle, keine Migration.** Die Liste liest zu jeder Buchung ihre Rechnungen (Nummer, Datum, Kennung) in derselben Abfrage mit. Die Mandanten- und Rollenregeln der Rechnungen gelten dabei unverändert.
+- **Rechnungsfilter:** „ohne Rechnung“ = Buchungen und Optionen, an denen keine Rechnung hängt; „mit Rechnung“ = mindestens eine. Beide ohne Monatsgrenze, ohne Sperren, kombiniert mit Wohnung, Art, Zustand, Quelle und Suche. Sortiert nach Anreise absteigend (bei gleichem Tag Buchungsnummer), je 50, mit Gesamtzahl aus der Datenbank.
+- Für die Abfrage „Rechnungen einer Buchung“ gibt es schon einen passenden Index aus dem Grundumfang; auch mit vielen Buchungen bleibt die Liste schnell.
+
+**C) Adresse**
+- `?rechnung=ohne` bzw. `?rechnung=mit`, dazu `&seite=2` usw.; ohne Angabe „Alle“. Ungültige Werte gelten als „Alle“ bzw. Seite 1.
+- Monat (`monat`) bleibt in der Adresse erhalten, damit „Alle“ wieder in den zuvor gewählten Monat führt.
+- Ändert sich ein Filter, beginnt die Liste wieder bei Seite 1.
+
+**D) Anpassungen an bestehenden Teilen**
+- **Rechnung speichern/löschen:** Die Buchungsübersicht wird zusätzlich neu geladen, damit Spalte und Filter sofort stimmen (bisher nur Rechnungsliste, Buchungsdetail und Kalender).
+- **Suche ohne Rechnungsfilter** bleibt wie heute (bis 50 Treffer, Hinweis bei mehr). Mit Rechnungsfilter gilt das Blättern je 50.
+- **Überschneidungs-Hinweis** der Liste: wird wie bisher für die angezeigten Zeilen ermittelt; bei Rechnungsfilter können die Zeilen über mehrere Jahre reichen, die Abfrage bleibt auf die Wohnungen der Seite begrenzt.
+
+**E) Rechte**
+- Spalte und Filter für Inhaber und Mitarbeiter (Rechnungen sind für beide lesbar). Betreiber ohne Mitgliedschaft sehen die Buchungsübersicht wie bisher nicht.
+- Keine neuen Schreibrechte.
+
+**F) Tests**
+- **Unit:** Lesen und Schreiben der Adresse (`rechnung`, `seite`, Zurücksetzen, Seite 1 nach Filterwechsel).
+- **E2E:** Spalte mit Links (mehrere, Reihenfolge), leer ohne Rechnung und bei Sperre, Handy-Zeile; „ohne/mit Rechnung“ über mehrere Monate inkl. künftiger, ohne Sperren, Anzahlungsrechnung zählt, Kombination mit Zustand „storniert“ und Suche, Blättern ab 51, Gesamtzahl, Zurück zur Monatsansicht; Mitarbeiter; Rechnung zuordnen/lösen wirkt sofort; Layout/axe auf drei Breiten; Safari-Zeilenklick bleibt.
+- **Regression:** PROJ-8/PROJ-30 Buchungsliste (Monatsauswahl, Filter, Suche).
+
+**Abhängigkeiten (Pakete):** keine neuen.
+
+**Umfang:** reine Frontend-/Abfrage-Änderung; `/backend` ist voraussichtlich nicht nötig.
 
 ### Umsetzung Frontend (2026-10-30)
 - **Regeln** `src/lib/invoices.ts`: Typen (Rechnung, Zeile, Liste, Buchungsabschnitt), Grenzen (`INVOICE_LIMITS`: Nummer 30, Empfänger 200, 50 Positionen, PDF 10 MB), `invoiceNumberKey`, `recipientFor` (Firma, sonst „Nachname Vorname“), `linesFromBooking` (aktiv: abgerechnete Übernachtung + Zusatzkosten in Reihenfolge; storniert: nur Stornogebühr), `invoiceVatShares`, `isOldInvoiceDate` (> 7 Jahre), `checkPdfFile`, Adresse der Liste (`?q=…&seite=…`). Unit-Tests `invoices.test.ts`.
