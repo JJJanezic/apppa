@@ -767,11 +767,11 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "invoice_lines_invoice_id_fkey"
-            columns: ["invoice_id"]
+            foreignKeyName: "invoice_lines_invoice_fkey"
+            columns: ["invoice_id", "tenant_id"]
             isOneToOne: false
             referencedRelation: "invoices"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "tenant_id"]
           },
           {
             foreignKeyName: "invoice_lines_tenant_id_fkey"
@@ -791,7 +791,7 @@ export type Database = {
           id: string
           invoice_date: string
           number: string
-          number_key: string
+          number_key: string | null
           origin: string
           pdf_path: string | null
           recipient: string
@@ -809,7 +809,7 @@ export type Database = {
           id?: string
           invoice_date: string
           number: string
-          number_key?: string
+          number_key?: string | null
           origin?: string
           pdf_path?: string | null
           recipient: string
@@ -827,7 +827,7 @@ export type Database = {
           id?: string
           invoice_date?: string
           number?: string
-          number_key?: string
+          number_key?: string | null
           origin?: string
           pdf_path?: string | null
           recipient?: string
@@ -839,18 +839,18 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "invoices_booking_id_fkey"
-            columns: ["booking_id"]
+            foreignKeyName: "invoices_booking_fkey"
+            columns: ["booking_id", "tenant_id"]
             isOneToOne: false
             referencedRelation: "bookings"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "tenant_id"]
           },
           {
-            foreignKeyName: "invoices_guest_id_fkey"
-            columns: ["guest_id"]
+            foreignKeyName: "invoices_guest_fkey"
+            columns: ["guest_id", "tenant_id"]
             isOneToOne: false
             referencedRelation: "guests"
-            referencedColumns: ["id"]
+            referencedColumns: ["id", "tenant_id"]
           },
           {
             foreignKeyName: "invoices_tenant_id_fkey"

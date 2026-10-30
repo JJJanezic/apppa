@@ -379,6 +379,23 @@ Keine neuen Pakete. Genutzt werden vorhandene shadcn-Bausteine (`Popover`, `Comm
   - Speicherbereich `invoices` (privat, nur PDF, 10 MB, Upload nur Inhaber in den eigenen Ordner), Bereinigung `unused_invoice_pdfs` im Cron, PDF-Ordner beim Löschen des Kunden, Gast löschen/zusammenführen.
   - **Ohne Migration schlagen *Einstellungen → Kunde* und die Betreiber-Detailseite beim Laden fehl** (Spalte `invoice_backfill_enabled` fehlt); Rechnungsliste zeigt den Leerzustand, Speichern meldet einen Fehler.
 
+### Umsetzung Backend (2026-10-30)
+- **Migration** `supabase/migrations/20261030071155_invoices.sql`, eingespielt in Dev:
+  - `tenants.invoice_backfill_enabled` (Standard true, bestehende Kunden ein).
+  - Tabellen `invoices` (Nummer ≤ 30 Zeichen, `number_key` = Kleinschreibung, eindeutig je Kunde; Datum ≥ 1990; `origin` 'backfilled'; Empfänger ≤ 200; `small_business`; `total_cents` bigint; `pdf_path` eindeutig) und `invoice_lines` (Position 1–50, Bezeichnung 1–100, Betrag ±1.000.000,00 €, Satz 0–100). Buchung bzw. Gast über (id, tenant_id) desselben Kunden, beim Entfernen `set null` nur der Verknüpfung; Löschen des Kunden löscht alles mit. Indizes für Liste, Buchung, Gast.
+  - RLS: Lesen Mitglieder und Admin; kein direktes Schreiben (nur `select` gewährt). Änderungsprotokoll über `private.enable_tenant_table`.
+  - Speicherbereich `invoices` (privat, `application/pdf`, 10 MB). Hochladen nur Inhaber in den Ordner des eigenen Kunden; lesen Mitglieder/Admin nur PDFs, die an einer Rechnung des Kunden hängen; kein Ändern/Löschen durch Nutzer.
+  - `save_invoice`: Inhaber-Prüfung, Schalter nur beim Anlegen, Konfliktschutz, Prüfregeln, Nummer mit Datum der vorhandenen Rechnung (`detail`), Buchung ohne Sperren, Gast desselben Kunden bzw. neuer Gast (wie `save_booking`), PDF muss im eigenen Ordner liegen und unbenutzt sein, Kleinunternehmer nach Rechnungsdatum, Gesamtbetrag aus den Positionen, Positionen vollständig ersetzt; gleichzeitige Doppelungen über die Eindeutigkeit abgefangen. Ergebnis `{id, unused_pdf, previous_booking_id}`.
+  - `delete_invoice` (Inhaber; meldet das PDF), `search_invoice_bookings` (Inhaber; Wörter in Gast/Firma, Wohnung, Objekt, Buchungsnummer; „14.10.2026“ = Buchungen über diesen Tag, „10.2026“ = Monat; höchstens 20, neueste zuerst), `booking_invoices` (alle Mitglieder; Gesamtpreis aktiv = abgerechnete Übernachtung + Zusatzkosten, storniert = Stornogebühr), `unused_invoice_pdfs` (nur Server).
+  - Geändert: `update_tenant_master_data` (Schlüssel `invoice_backfill_enabled`, Protokoll-Feld), `delete_guest` (auch bei Rechnungen anonymisieren), `merge_guests` (Rechnungen umhängen).
+- **Server:** Tägliche Bereinigung (`/api/cron/ausweisbilder`) räumt zusätzlich unbenutzte PDFs älter als 24 Stunden weg (`removeUnusedInvoicePdfs`); Kunde löschen (Betreiber) entfernt den PDF-Ordner (`removeTenantInvoices`).
+- **Typen** mit `npm run db:types` neu erzeugt (Verknüpfungen jetzt über id + tenant_id). Advisors: nur die zwei bekannten Auth-Hinweise.
+- **Tests:**
+  - neu `supabase/tests/invoices.integration.test.ts` (26): Speichern, Gesamtbetrag, negative Beträge, doppelte Nummer (Groß-/Kleinschreibung, Leerzeichen, Datum im Detail), andere Kunden, Datum/Positionen/Pflichtangaben, Kleinunternehmer nach Datum, neuer Gast, fremde Buchung/Gast/Sperre, Konfliktschutz, Schalter aus (Anlegen nein, Ändern/Löschen ja), Löschen mit PDF, Protokoll, PDF-Regeln (Typ, Größe, Ordner, Rolle, vorhanden/unbenutzt, Lesen nach Ersetzen), Bereinigung, Rechte Mitarbeiter/fremder Kunde, Buchungssuche (Gast, Wohnung, Tag, Monat, storniert, ungültiges Datum), Rechnungen je Buchung inkl. Gesamtpreis für Mitarbeiter, Anonymisieren, Zusammenführen, Schalter über Stammdaten, Abfragen wie die App (Liste mit Suche, Detail).
+  - Cron-Test um die PDF-Bereinigung erweitert.
+  - Regression: alle 548 Unit-/Integrationstests grün; E2E PROJ-28 (desktop) 19/19 grün.
+- **Hinweis für /deploy:** Neuer Speicherbereich entsteht per Migration; kein neuer Umgebungs-Schlüssel.
+
 ## QA Test Results
 _To be added by /qa_
 
