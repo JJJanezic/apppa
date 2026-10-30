@@ -1,8 +1,10 @@
 # PROJ-37: Rechnungen nacherfassen
 
-## Status: Approved
+## Status: Planned
 **Created:** 2026-10-30
 **Last Updated:** 2026-10-30
+
+> Grundumfang am 2026-10-30 in Production ausgeliefert (Commit 49a8b9b). Erweiterung „Rechnungen in der Buchungsübersicht“ am 2026-10-30 per `/refine` ergänzt, noch nicht gebaut.
 
 ## Dependencies
 - Requires: PROJ-4 (Kundenkonten & Rollen) — Rollen Inhaber/Mitarbeiter, Mandantentrennung
@@ -42,11 +44,20 @@ Teil A kommt zuerst: Kunden bringen Rechnungen aus ihrem bisherigen System mit. 
 
 **Buchungsdetail:** Abschnitt „Rechnungen“ unter dem Preis, sobald mindestens eine Rechnung mit der Buchung verknüpft ist: je Rechnung Nummer, Datum, Empfänger, Betrag, Status mit Link; darunter „Verrechnet: € …“ und der Gesamtpreis zum Vergleich. Liegt die Summe über dem Gesamtpreis, erscheint der Hinweis „Verrechnet mehr als Gesamtpreis“ (keine Sperre). Ohne Rechnungen wird der Abschnitt ausgeblendet.
 
+**Buchungsübersicht** (`/buchungen`, Erweiterung 2026-10-30):
+- Neue Spalte „Rechnungen“ hinter „Status“: je verknüpfter Rechnung die Nummer als Link zur Rechnungsdetailseite, mehrere untereinander nach Rechnungsdatum; ohne Rechnung (und bei Sperren immer) leer. Für Inhaber und Mitarbeiter.
+- Am Handy (Karten, die ganze Karte ist der Link zur Buchung): Zeile „Rechnungen: 2026-0011, 2026-0012“ als Text; ohne Rechnung entfällt die Zeile.
+- Neues Filterfeld „Rechnung“: „Alle“ (Standard), „ohne Rechnung“, „mit Rechnung“. Als „Rechnung vorhanden“ zählt jede mit der Buchung verknüpfte Rechnung, unabhängig vom Betrag (eine Anzahlungsrechnung genügt).
+- „ohne Rechnung“ und „mit Rechnung“ wirken **über alle Buchungen**, nicht nur im gewählten Monat (auch künftige, ohne Stichtag): Die Monatsauswahl wird durch den Hinweis „Alle Monate“ ersetzt, sortiert nach Anreise absteigend, seitenweise je 50, mit Gesamtzahl (z. B. „23 Buchungen ohne Rechnung“). „Alle“ führt zurück in den gewählten Monat.
+- Sperren sind bei „ohne Rechnung“ und „mit Rechnung“ ausgeschlossen. Die übrigen Filter (Wohnung, Art, Zustand, Quelle, Suche) wirken mit; Standard-Zustand bleibt „aktiv“, stornierte Buchungen nur mit „storniert“.
+- Die Wahl steht in der Adresszeile (`?rechnung=ohne` bzw. `mit`); „Filter zurücksetzen“ setzt sie mit zurück.
+
 **Wer darf was:**
 
 | Aktion | Inhaber | Mitarbeiter | Betreiber |
 |---|---|---|---|
 | Rechnungsliste, Rechnungsdetail, Abschnitt im Buchungsdetail sehen | ✓ | ✓ | – |
+| Spalte „Rechnungen“ und Filter „Rechnung“ in der Buchungsübersicht | ✓ | ✓ | – |
 | PDF öffnen und herunterladen | ✓ | ✓ | – |
 | Rechnung nacherfassen, bearbeiten, PDF ersetzen/entfernen, löschen | ✓ | – | – |
 | Schalter „Rechnungen nacherfassen“ umlegen | ✓ | – | ✓ |
@@ -60,6 +71,8 @@ Teil A kommt zuerst: Kunden bringen Rechnungen aus ihrem bisherigen System mit. 
 - Als **Inhaber** möchte ich das Nacherfassen ausschalten, sobald alle Altrechnungen erfasst sind, damit der Knopf nicht mehr im Weg ist.
 - Als **Mitarbeiter** möchte ich die Rechnungen einer Buchung sehen und das PDF öffnen, damit ich weiß, was verrechnet wurde und was zu kassieren ist.
 - Als **Betreiber** möchte ich den Schalter beim Onboarding eines Kunden setzen können.
+- Als **Inhaber** möchte ich in der Buchungsübersicht die Rechnungen jeder Buchung sehen und anklicken, damit ich ohne Umweg zur Rechnung komme.
+- Als **Inhaber** möchte ich alle Buchungen ohne Rechnung auf einen Blick finden, damit ich nichts zu verrechnen vergesse.
 
 ## Out of Scope
 - Rechnungen in der App erstellen und ausstellen, Nummernformat, Startnummer und Nummernvorschlag, Knopf „Rechnung“ im Buchungsdetail (PROJ-38)
@@ -151,6 +164,20 @@ Teil A kommt zuerst: Kunden bringen Rechnungen aus ihrem bisherigen System mit. 
 - [ ] Angenommen eine Buchung ohne Rechnungen, wenn das Buchungsdetail angezeigt wird, dann gibt es keinen Abschnitt „Rechnungen“
 - [ ] Angenommen das Buchungsdetail im Kalender-Panel (PROJ-9), wenn es Rechnungen gibt, dann erscheint der Abschnitt dort ebenso
 
+### Buchungsübersicht (Erweiterung 2026-10-30)
+- [ ] Angenommen eine Buchung mit zwei Rechnungen, wenn ein Inhaber oder Mitarbeiter die Buchungsübersicht am Desktop öffnet, dann stehen in der Spalte „Rechnungen“ beide Nummern untereinander (nach Rechnungsdatum), jede als Link zur Rechnungsdetailseite
+- [ ] Angenommen eine Buchung ohne Rechnung bzw. eine Sperre, wenn die Übersicht angezeigt wird, dann bleibt die Zelle „Rechnungen“ leer
+- [ ] Angenommen ein Nutzer am Handy, wenn eine Buchung Rechnungen hat, dann zeigt ihre Karte „Rechnungen: …“ mit den Nummern als Text; ohne Rechnung fehlt die Zeile
+- [ ] Angenommen der Filter „Rechnung“, wenn der Nutzer ihn öffnet, dann gibt es „Alle“ (Standard), „ohne Rechnung“ und „mit Rechnung“
+- [ ] Angenommen Buchungen mit und ohne Rechnung in verschiedenen Monaten (auch künftige), wenn der Nutzer „ohne Rechnung“ wählt, dann zeigt die Liste alle Buchungen und Optionen ohne verknüpfte Rechnung über alle Monate, ohne Sperren, mit dem Hinweis „Alle Monate“ und der Gesamtzahl
+- [ ] Angenommen eine Buchung mit nur einer Anzahlungsrechnung unter dem Gesamtpreis, wenn „ohne Rechnung“ gewählt ist, dann erscheint sie nicht (bei „mit Rechnung“ schon)
+- [ ] Angenommen „mit Rechnung“, wenn die Liste angezeigt wird, dann stehen darin nur Buchungen mit mindestens einer verknüpften Rechnung, über alle Monate
+- [ ] Angenommen der Filter „ohne Rechnung“, wenn die Liste angezeigt wird, dann ist sie nach Anreise absteigend sortiert; bei mehr als 50 Treffern wird seitenweise je 50 geblättert
+- [ ] Angenommen „ohne Rechnung“ zusammen mit Wohnung, Art, Quelle oder Suche, wenn die Liste angezeigt wird, dann wirken alle Filter zusammen; stornierte Buchungen erscheinen nur mit Zustand „storniert“
+- [ ] Angenommen „ohne Rechnung“ ist gewählt, wenn der Nutzer die Seite neu lädt oder aus einer Buchung zurückkommt, dann ist der Filter noch gesetzt (Adresszeile)
+- [ ] Angenommen „ohne Rechnung“ ist gewählt, wenn der Nutzer „Alle“ wählt oder „Filter zurücksetzen“, dann zeigt die Liste wieder den gewählten Monat mit Monatsauswahl
+- [ ] Angenommen eine Rechnung wird einer Buchung zugeordnet oder von ihr gelöst, wenn der Nutzer danach die Übersicht öffnet, dann stimmen Spalte und Filter
+
 ### Rollen
 - [ ] Angenommen ein Mitarbeiter, wenn er Liste oder Detailseite öffnet, dann sieht er alle Angaben und kann PDFs öffnen, aber es gibt keine Knöpfe zum Nacherfassen, Bearbeiten oder Löschen
 - [ ] Angenommen ein Mitarbeiter sendet eine Nacherfassung, Änderung oder Löschung direkt an den Server, wenn sie ankommt, dann wird sie abgelehnt
@@ -173,6 +200,9 @@ Teil A kommt zuerst: Kunden bringen Rechnungen aus ihrem bisherigen System mit. 
 - **Beschädigtes oder passwortgeschütztes PDF**: wird abgelegt, sofern es eine PDF-Datei ist; die App prüft den Inhalt nicht
 - **Kunde deaktiviert** (PROJ-5): Rechnungen bleiben erhalten und lesbar; Erfassen und Bearbeiten wie bei den übrigen Daten gesperrt
 - **Kunde gelöscht** (PROJ-5): Rechnungen und PDFs werden mitgelöscht
+- **Buchungsübersicht, sehr viele Buchungen ohne Rechnung** (z. B. Altbuchungen vor der App): Liste bleibt vollständig, seitenweise je 50 mit Gesamtzahl
+- **Buchungsübersicht, Gutschrift mit negativer Summe an einer Buchung**: zählt als Rechnung; die Buchung erscheint unter „mit Rechnung“, nicht unter „ohne Rechnung“
+- **Buchungsübersicht, viele Rechnungen an einer Buchung**: alle Nummern untereinander, lange Nummern umbrechen; kein seitliches Scrollen
 
 ## Technical Requirements (optional)
 - Security: Mandantentrennung wie bei allen Kundendaten; Rollenprüfung serverseitig; PDFs nie über öffentliche Adressen
@@ -205,6 +235,12 @@ Teil A kommt zuerst: Kunden bringen Rechnungen aus ihrem bisherigen System mit. 
 | Wählbar: alle Buchungen und Optionen inkl. stornierter, keine Sperren | Alte Stornorechnungen gehören zu stornierten Buchungen; Sperren haben weder Gast noch Preis | 2026-10-30 |
 | Rechnungen überstehen Anonymisieren; Gast mit Rechnungen nur anonymisierbar; Zusammenführen zieht Rechnungen mit | Aufbewahrungspflicht 7 Jahre (BAO) geht vor; gleiche Regel wie Buchungen in PROJ-7 | 2026-10-30 |
 | Kein zweiter Einstieg im Buchungsdetail | Knopfleiste bleibt schlank; Buchungssuche im Formular reicht | 2026-10-30 |
+| Buchungsübersicht: Spalte „Rechnungen“ mit Nummern als Links und Filter „Rechnung“ (Alle / ohne / mit); als Refinement von PROJ-37, nicht als eigenes Feature | Nutzerwunsch nach dem Release: Rechnungen direkt aus der Liste erreichen und Unverrechnetes finden; gehört fachlich zu den Rechnungen je Buchung | 2026-10-30 |
+| „Rechnung vorhanden“ = mindestens eine verknüpfte Rechnung, unabhängig vom Betrag | Einfach und eindeutig; Teilverrechnung zeigt weiterhin das Buchungsdetail („Verrechnet“ / „Gesamtpreis“) | 2026-10-30 |
+| Filter „ohne/mit Rechnung“ wirkt über alle Buchungen (alle Monate, auch künftige), Sperren ausgeschlossen, übrige Filter wirken mit | Nutzerentscheidung: auf einen Blick alles Unverrechnete; Sperren bekommen nie eine Rechnung | 2026-10-30 |
+| Bei aktivem Rechnungsfilter Anreise absteigend, je 50 pro Seite, Gesamtzahl, Hinweis „Alle Monate“ statt Monatsauswahl | Wie die Suche; lange Listen bleiben vollständig und übersichtlich | 2026-10-30 |
+| Rechnungsnummern am Handy als Text in der Karte | Die Karte ist schon der Link zur Buchung (kein Link im Link); gleiche Lösung wie in der Rechnungsliste (BUG-3 akzeptiert) | 2026-10-30 |
+| Spalte und Filter für Inhaber und Mitarbeiter | Mitarbeiter dürfen Rechnungen sehen (Rollen-Tabelle) | 2026-10-30 |
 | Mitarbeiter sehen im Rechnungsabschnitt des Buchungsdetails auch Gesamtpreis und Vergleich | Entscheidung des Nutzers in /architecture; abweichend von PROJ-8/35, wo Mitarbeiter keine Buchungspreise sehen | 2026-10-30 |
 
 ### Technical Decisions
