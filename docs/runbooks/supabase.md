@@ -243,3 +243,9 @@ Die Gemeinden (Auswahl bei Objekten, später Grundlage der Tourismusabgabe) stam
 - **Tägliche Bereinigung:** Vercel Cron ruft täglich um 03:00 UTC `/api/cron/ausweisbilder` auf (`vercel.json`) und löscht Dateien, die älter als 24 Stunden sind und an keinem Gast hängen (`public.unused_guest_documents`, nur `service_role`).
 - **Umgebungsvariable `CRON_SECRET`:** zufälliger Wert (z. B. `openssl rand -hex 32`), in jedem Vercel-Projekt und jeder Umgebung eintragen (`apppa` Production + Preview, `apppa-staging` Production). Vercel schickt ihn als `Authorization: Bearer …`. Ohne Wert lehnt die Route jeden Aufruf ab (401); lokal ist er nur zum Testen der Route nötig.
 - **Manuell bereinigen:** `curl -H "Authorization: Bearer $CRON_SECRET" https://<app>/api/cron/ausweisbilder` → `{ "removed": n, "failed": false }`.
+
+## 15. Kunden-Logos (PROJ-38)
+- **Speicherbereich** `tenant-logos` (privat, nur PNG, höchstens 5 MB) legt die Migration `20261031063941_tenant_logo.sql` an. Ablage: `<Kunden-ID>/<Zufalls-ID>.png`; eingetragen ist das Logo in `tenants.logo_path` (Prüfregel: nur Dateien im Ordner desselben Kunden).
+- **Zugriff:** Hochladen Inhaber bzw. Betreiber-Admin mit 2FA, nur bei aktiven Kunden; Lesen nur das eingetragene Logo, durch Inhaber und Betreiber-Admin (Mitarbeiter nicht). Löschen und Überschreiben nur mit dem geheimen Schlüssel.
+- **Löschen:** Die Stammdaten-Funktion meldet ein ersetztes oder entferntes Logo (`unused_logo`), der Server löscht es sofort; beim Löschen eines Kunden der ganze Ordner.
+- **Tägliche Bereinigung:** derselbe Zeitplan wie bei den Ausweisbildern (`/api/cron/ausweisbilder`, Abschnitt 14) löscht auch Logos, die älter als 24 Stunden sind und an keinem Kunden hängen (`public.unused_tenant_logos`, nur `service_role`). Antwortfeld `logosRemoved`.

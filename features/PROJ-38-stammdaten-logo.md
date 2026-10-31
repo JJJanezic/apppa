@@ -1,6 +1,6 @@
 # PROJ-38: Stammdaten: Umbenennung und Logo
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-10-31
 **Last Updated:** 2026-10-31
 
@@ -498,4 +498,13 @@ Der Tabellenkommentar wird in der neuen Migration mitgeändert. Die alte Migrati
 - **Recommendation:** Deploy; danach am iPhone die Galerie-Auswahl und ein HEIC-Foto prüfen
 
 ## Deployment
-_To be added by /deploy_
+- **Datum:** 2026-10-31, Version v1.16.0
+- **Commit:** `a065790` (Branches `staging` und `production`); Staging vom Nutzer geprüft und für Production freigegeben
+- **Staging:** https://staging.apppa.at
+- **Production:** https://app.apppa.at
+- **Migrationen:** `20261031063941_tenant_logo.sql` (Staging und Produktion; Advisors nur bekannte Auth-Hinweise: Staging `auth_otp_long_expiry` + `auth_leaked_password_protection`, Produktion `auth_otp_long_expiry`)
+- **Neuer Speicherbereich:** `tenant-logos` (privat, nur PNG, 5 MB, per Migration angelegt)
+- **Neue Pakete / Umgebungsvariablen:** keine (Bereinigung über den bestehenden Zeitplan und `CRON_SECRET`)
+- **Mit ausgeliefert:** Buchhaltungs-Commit PROJ-8 (`b269e3f`)
+- **Tag:** `v1.16.0-PROJ-38` auf `a065790`
+- **Offen:** Galerie-Auswahl und HEIC-Foto am echten iPhone (manuell, Production oder Staging)
