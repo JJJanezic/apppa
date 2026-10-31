@@ -532,11 +532,12 @@ export function requiredChecks(d: {
 
 // ---- „Buchung geändert“ ---------------------------------------------------------------------------
 
-// Fingerabdruck der preisrelevanten Buchungsdaten (Positionen mit Herkunft, Bezeichnung, Betrag, Satz; Stornostatus).
+// Fingerabdruck der preisrelevanten Buchungsdaten (Positionen mit Herkunft, Bezeichnung, Betrag, Satz; Stornostatus)
+// und des Hauptgasts (QA BUG-3: die Empfängerkopie soll bei einem Gastwechsel nicht unbemerkt veralten).
 // Wird beim Speichern am Entwurf abgelegt; weicht er beim Öffnen ab, erscheint „Die Buchung wurde seit dem Entwurf
 // geändert“. FNV-1a (32 Bit) über eine feste Schreibweise – kurz und in Browser und Server gleich.
-export function bookingFingerprint(b: { cancelled: boolean; lines: readonly DraftLine[] }): string {
-  const text = [b.cancelled ? 'storniert' : 'aktiv', ...b.lines.map((l) => [l.source ?? '', l.label, l.amountCents, l.vatBp].join('\u001f'))].join('\u001e')
+export function bookingFingerprint(b: { cancelled: boolean; guestId: string | null; lines: readonly DraftLine[] }): string {
+  const text = [b.cancelled ? 'storniert' : 'aktiv', b.guestId ?? '', ...b.lines.map((l) => [l.source ?? '', l.label, l.amountCents, l.vatBp].join('\u001f'))].join('\u001e')
   let hash = 0x811c9dc5
   for (const ch of new TextEncoder().encode(text)) {
     hash ^= ch

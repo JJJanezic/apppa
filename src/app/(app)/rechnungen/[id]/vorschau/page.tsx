@@ -39,6 +39,7 @@ export default async function InvoiceDraftPreviewPage({ params }: { params: Para
     others,
     preview,
     smallBusiness,
+    deductionRemoved: draft.deductionRemoved,
   })
   const back = (
     <Button asChild variant="outline" className="min-h-11 self-start">

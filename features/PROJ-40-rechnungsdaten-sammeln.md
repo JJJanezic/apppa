@@ -1,6 +1,6 @@
 # PROJ-40: Rechnungsdaten sammeln (Entwurf)
 
-## Status: In Review
+## Status: Approved
 **Created:** 2026-10-31
 **Last Updated:** 2026-10-31
 
@@ -105,7 +105,7 @@ Im Entwurf und in der Vorschau sichtbare Liste „Pflichtangaben“ mit ✓ bzw.
 
 ### Entwurf ansehen, bearbeiten, löschen
 - **Detailseite des Entwurfs:** Status „Entwurf“, Art, Empfänger, Rechnungsdatum, Positionen bzw. Teilbetrag/Abzüge, Summen, Pflichtangaben-Liste; Knöpfe „Bearbeiten“, „Vorschau“, „Löschen“ (mit Bestätigung).
-- **Buchung geändert:** Wurden Preis, Positionen oder Stornostatus der Buchung nach dem letzten Speichern des Entwurfs geändert, zeigen Detailseite und Formular „Die Buchung wurde seit dem Entwurf geändert“ mit dem Knopf „Positionen neu übernehmen“ (ersetzt nach Rückfrage die Positionen; Vorauswahl wie beim Anlegen). Ohne Klick bleibt der Entwurf unverändert. Zeitraum, Wohnung und Gastnamen sind immer aktuell.
+- **Buchung geändert:** Wurden Preis, Positionen, Stornostatus oder Hauptgast der Buchung nach dem letzten Speichern des Entwurfs geändert, zeigen Detailseite und Formular „Die Buchung wurde seit dem Entwurf geändert“ mit dem Knopf „Positionen neu übernehmen“ (ersetzt nach Rückfrage die Positionen; Vorauswahl wie beim Anlegen). Ohne Klick bleibt der Entwurf unverändert. Zeitraum, Wohnung und Gastnamen sind immer aktuell.
 - **Rechnungsliste** (PROJ-37): Entwürfe erscheinen mit Nummer „–“, Datum = Rechnungsdatum des Entwurfs, Status „Entwurf“ und Art (bei Teil-/Schlussrechnung).
 - **Buchungsdetail:** Abschnitt „Rechnungen“ listet Entwürfe mit Status „Entwurf“; unter „Verrechnet: € …“ (nur nacherfasst und ausgestellt) steht „In Entwürfen: € …“.
 - **Buchungsübersicht** (Spalte „Rechnungen“): Entwürfe erscheinen als „Entwurf“ (Link zur Detailseite). Beim Filter „ohne/mit Rechnung“ zählen Entwürfe **nicht** als Rechnung.
@@ -262,7 +262,7 @@ Im Entwurf und in der Vorschau sichtbare Liste „Pflichtangaben“ mit ✓ bzw.
 - **Kein Baustein in Block 4/6/7 vorhanden:** Auswahl leer, Block bleibt leer, frei beschreibbar.
 - **Platzhalter für Anzahlung im Text, Anzahlung für diese Rechnung ausgeschaltet:** Hinweis „Platzhalter {Anzahlung} ohne Anzahlung“; Speichern verhindert wie bei unbekannten Platzhaltern.
 - **Gleichzeitiges Anlegen zweier Entwürfe** über den Rest des Gesamtpreises: beide werden gespeichert; der Knopf ist danach inaktiv, Summenhinweis.
-- **Wohnung oder Zeitraum der Buchung geändert:** Blöcke 2a/3 und Platzhalter folgen der Buchung; Fristen „vor Anreise“ werden neu berechnet; Änderungshinweis nur bei Preis/Positionen/Storno.
+- **Wohnung oder Zeitraum der Buchung geändert:** Blöcke 2a/3 und Platzhalter folgen der Buchung; Fristen „vor Anreise“ werden neu berechnet; Änderungshinweis nur bei Preis/Positionen/Storno/Hauptgast.
 - **Sehr lange Firmennamen, IBAN, Bezeichnungen am Handy:** werden umgebrochen, kein seitliches Scrollen.
 
 ## Technical Requirements
@@ -315,7 +315,7 @@ Im Entwurf und in der Vorschau sichtbare Liste „Pflichtangaben“ mit ✓ bzw.
 | Empfänger als eigene Felder an der Rechnung (Art Gast/Firma, Name, Adresszeilen, PLZ, Ort, Staat, UID); das bisherige Freitextfeld bleibt für nacherfasste Rechnungen und als Anzeigename | Pflichtangaben-Prüfung braucht einzelne Felder; nacherfasste Rechnungen bleiben unverändert | 2026-10-31 |
 | Herkunft jeder Rechnungsposition: „Übernachtung“, „Stornogebühr“ oder eine bestimmte Zusatzkosten-Position der Buchung | Grundlage für die Vorauswahl „noch nicht verrechnet“ | 2026-10-31 |
 | Zusatzkosten-Positionen einer Buchung behalten beim Speichern der Buchung ihre Kennung (bisher bei jedem Speichern neu angelegt) | Ohne stabile Kennung ginge die Verbindung Rechnungsposition → Buchungsposition bei jeder Buchungsänderung verloren; gelöschte Zusatzkosten verlieren die Verbindung bewusst | 2026-10-31 |
-| „Buchung geändert“ über einen Fingerabdruck der preisrelevanten Buchungsdaten (Positionen, Beträge, Sätze, Stornostatus), am Entwurf gespeichert | Hinweis erscheint nur bei Änderungen, die die Positionen betreffen, nicht bei jeder Änderung an Notiz oder Mitreisenden | 2026-10-31 |
+| „Buchung geändert“ über einen Fingerabdruck der preisrelevanten Buchungsdaten (Positionen, Beträge, Sätze, Stornostatus) und des Hauptgasts, am Entwurf gespeichert | Hinweis erscheint nur bei Änderungen, die Positionen oder Empfänger betreffen, nicht bei jeder Änderung an Notiz oder Mitreisenden; Hauptgast ergänzt nach QA BUG-3 (Nutzerentscheidung 2026-10-31: die Empfängerkopie soll nicht unbemerkt veralten) | 2026-10-31 |
 | Teilrechnung speichert die Eingabe (Prozent oder Betrag) und die daraus berechneten Zeilen je USt-Satz | Anzeige, Summen und Abzug in der Schlussrechnung lesen feste Werte; Aufteilung ist beim Speichern nachvollziehbar festgelegt | 2026-10-31 |
 | Abzüge der Schlussrechnung als eigene Verknüpfung Schlussrechnung → abgezogene Rechnung; Betrag und Sätze werden aus der abgezogenen Rechnung gelesen; Gesamtbetrag der Schlussrechnung wird neu gebildet, wenn sich eine abgezogene Rechnung ändert oder gelöscht wird | Keine doppelte Datenhaltung; Liste und Summen bleiben stimmig | 2026-10-31 |
 | Textblöcke als Kopie im selben strukturierten Format wie PROJ-39 (kein HTML), mit Verweis auf den gewählten Baustein nur zur Anzeige | Sicherheit und Prüfung wie bei den Bausteinen; Änderungen an Bausteinen wirken nicht auf Entwürfe | 2026-10-31 |
@@ -669,12 +669,30 @@ Keine neuen Pakete.
 - **Details:** Nach dem Löschen einer abgezogenen Teilrechnung zeigen Detailseite und Formular den Hinweis (`deduction_removed`). `/rechnungen/[id]/vorschau` rechnet zwar richtig, zeigt ihn aber nicht. Die Abzüge sind dort schon entfernt, deshalb ist `missingDeductions` 0.
 - **Priority:** Nice to have
 
-### Summary
+### Summary (Runde 1)
 - **Acceptance Criteria:** 72/74 bestanden (2 mit Bugs: Rückfrage bei Zurück-Taste, Teilbetrag nach Wechsel Prozent/Betrag)
 - **Bugs Found:** 5 total (0 critical, 1 high, 1 medium, 3 low)
 - **Security:** Pass
-- **Production Ready:** NO
-- **Recommendation:** BUG-2 (High) und BUG-1 (Medium) per `/frontend` beheben, BUG-3 per `/refine` entscheiden, BUG-4/5 nach Wahl; danach `/qa` Runde 2
+- **Production Ready:** NO (Runde 1)
 
-## Deployment
-_To be added by /deploy_
+### QA Runde 2 (2026-10-31)
+Alle fünf Bugs behoben (Nutzer: Option 3, BUG-3 entschieden mit „Ja“):
+- **BUG-1** behoben: `use-unsaved-guard` legt bei der ersten Änderung einen zweiten Verlaufseintrag derselben Seite an (gleicher Router-Zustand). Die Zurück-Taste landet dort, die Rückfrage erscheint; „Weiter bearbeiten“ legt ihn neu an, „Verwerfen“ geht einen Schritt weiter zurück. Getestet in Chrome, Firefox und Safari. Nebenwirkung: Nach dem Verlassen per Link oder Speichern bleibt ein doppelter Verlaufseintrag derselben Seite zurück (einmal mehr „Zurück“).
+- **BUG-2** behoben: eigener `key` für das Prozent- und das Betragsfeld der Teilrechnung. Speichern mit Betrag nach einem Wechsel und die Meldung bei 0 funktionieren (Chrome, Firefox, Safari).
+- **BUG-3** behoben: Der Fingerabdruck enthält den Hauptgast; Hinweistext „(Preis, Positionen, Storno oder Hauptgast)“; Spec angepasst. Der Knopf „Positionen neu übernehmen“ ersetzt weiter nur die Positionen; den Empfänger belegt der Inhaber bei Bedarf über die Wahl Gast/Firma neu. Bestehende Entwürfe in Dev zeigen den Hinweis einmal (neuer Fingerabdruck).
+- **BUG-4** behoben: Der Buchungslink im Kopf ist mindestens 44 px hoch; die Layoutprüfung erfasst Links wieder.
+- **BUG-5** behoben: Die Vorschau (Seite und Formular) zeigt „Abgezogene Rechnung existiert nicht mehr“ auch bei `deduction_removed`.
+
+Tests Runde 2:
+- E2E PROJ-40 desktop: alle grün, inkl. der Bug-Tests (BUG-1 erweitert um „Weiter bearbeiten“/„Verwerfen“, neue Tests für BUG-3 und BUG-5). Ein Ausreißer (Datum vor der Übernahme durch React eingetragen) war bei dreifacher Wiederholung grün.
+- Layout mobile/tablet/desktop grün; die Layoutprüfung übergeht jetzt unsichtbare Radix-Hilfsfelder (`aria-hidden`).
+- Firefox: Bug-Tests und Rückfrage grün. Safari: BUG-1 und BUG-2 grün.
+- `npm test`: 714/714 grün, auch der RLS-Test nach der Bereinigung des Dev-Protokolls (58.373 Waisenzeilen, vom Nutzer im SQL-Editor gelöscht).
+- Offen, manuell: Rechnungsdatum einmal im echten Safari wählen (WebKit-Automation übernimmt `fill` bei nativen Datumsfeldern nicht).
+
+### Summary
+- **Acceptance Criteria:** 74/74 bestanden
+- **Bugs Found:** 5 total, alle behoben
+- **Security:** Pass
+- **Production Ready:** YES
+- **Recommendation:** Deploy

@@ -1803,7 +1803,7 @@
       "cancelled": "Die Buchung ist storniert. Verrechnet wird nur die Stornogebühr."
     },
     "changed": {
-      "text": "Die Buchung wurde seit dem Entwurf geändert (Preis, Positionen oder Storno).",
+      "text": "Die Buchung wurde seit dem Entwurf geändert (Preis, Positionen, Storno oder Hauptgast).",
       "reload": "Positionen neu übernehmen",
       "confirmTitle": "Positionen neu übernehmen?",
       "confirmText": "Die Positionen des Entwurfs werden durch die aktuellen Positionen der Buchung ersetzt (Vorauswahl wie beim Anlegen). Eigene Änderungen an den Positionen gehen verloren.",

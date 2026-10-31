@@ -268,6 +268,7 @@ export function DraftForm({ booking, others, preview, smallBusiness, textBlocks,
         others,
         preview,
         smallBusiness,
+        deductionRemoved: draft?.deductionRemoved,
       })
     : null
 
@@ -376,7 +377,7 @@ export function DraftForm({ booking, others, preview, smallBusiness, textBlocks,
         <form onSubmit={form.handleSubmit(save)} noValidate className={previewing ? 'hidden' : 'flex min-w-0 max-w-[760px] flex-col gap-10'}>
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-1 rounded-lg bg-ds-surface px-4 py-3">
-              <Link href={bookingHref(booking.id)} className="w-fit font-medium text-ds-accent-700 underline-offset-[3px] hover:underline">
+              <Link href={bookingHref(booking.id)} className="flex min-h-11 w-fit items-center font-medium text-ds-accent-700 underline-offset-[3px] hover:underline">
                 {t('header.booking', { number: booking.number ?? '' })}
               </Link>
               <span className="break-words text-sm text-ds-neutral-800">
@@ -552,8 +553,11 @@ export function DraftForm({ booking, others, preview, smallBusiness, textBlocks,
                   </RadioGroup>
                 )}
               />
+              {/* Eigener Schlüssel je Feld: sonst verwendet React dieselbe Feld-Instanz mit neuem Namen weiter, und der Wert
+                  des ausgeblendeten Felds geht verloren (QA BUG-2: Speichern ohne Meldung blockiert) */}
               {v.partialMode === 'percent' ? (
                 <FormField
+                  key="partialPercent"
                   control={form.control}
                   name="partialPercent"
                   render={({ field }) => (
@@ -572,6 +576,7 @@ export function DraftForm({ booking, others, preview, smallBusiness, textBlocks,
                 />
               ) : (
                 <FormField
+                  key="partialAmount"
                   control={form.control}
                   name="partialAmount"
                   render={({ field }) => (

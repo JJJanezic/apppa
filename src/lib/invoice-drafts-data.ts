@@ -173,7 +173,7 @@ export const getDraftBooking = cache(async (bookingId: string): Promise<DraftBoo
 
 // Fingerabdruck der aktuellen Buchung (nur mit Positionen, also für Inhaber)
 export const currentFingerprint = (b: DraftBooking): string | null =>
-  b.lines ? bookingFingerprint({ cancelled: b.cancelledAt !== null, lines: b.lines }) : null
+  b.lines ? bookingFingerprint({ cancelled: b.cancelledAt !== null, guestId: b.guest?.id ?? null, lines: b.lines }) : null
 
 // ---- Rechnungen der Buchung ----------------------------------------------------------------------
 

@@ -39,7 +39,7 @@ export type InvoicePreviewModel = {
   partialLabel: string | null
   lines: DraftLine[]
   deductions: PreviewDeduction[]
-  // Abgezogene Rechnungen, die es nicht mehr gibt (Hinweis)
+  // Abgezogene Rechnungen, die es nicht mehr gibt (Hinweis): beim Laden fehlend oder beim Löschen entfernt
   missingDeductions: number
   totals: DraftTotals
   smallBusiness: boolean
@@ -66,6 +66,8 @@ export type PreviewInput = {
   others: BookingInvoiceSummary[]
   preview: DraftPreviewData
   smallBusiness: boolean
+  // Gespeicherter Entwurf: eine abgezogene Rechnung wurde gelöscht bzw. ist keine Teilrechnung mehr (deduction_removed)
+  deductionRemoved?: boolean
 }
 
 export function buildPreviewModel(p: PreviewInput): InvoicePreviewModel {
@@ -90,7 +92,7 @@ export function buildPreviewModel(p: PreviewInput): InvoicePreviewModel {
       totalCents: d.totalCents,
       vatShares: p.smallBusiness ? [] : vatBreakdown(d.lines),
     })),
-    missingDeductions: p.kind === 'final' ? p.deductionIds.length - deducted.length : 0,
+    missingDeductions: p.kind === 'final' ? p.deductionIds.length - deducted.length + (p.deductionRemoved ? 1 : 0) : 0,
     totals,
     smallBusiness: p.smallBusiness,
     smallBusinessNote: p.preview.smallBusinessNote,

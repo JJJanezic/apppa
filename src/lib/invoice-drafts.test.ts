@@ -380,11 +380,13 @@ describe('requiredChecks', () => {
 })
 
 describe('bookingFingerprint', () => {
-  it('gleich bei gleichen Daten, anders bei Preis- oder Stornoänderung', () => {
-    const a = bookingFingerprint({ cancelled: false, lines })
-    expect(bookingFingerprint({ cancelled: false, lines: lines.map((l) => ({ ...l })) })).toBe(a)
-    expect(bookingFingerprint({ cancelled: false, lines: [{ ...lines[0], amountCents: 1 }, lines[1]] })).not.toBe(a)
-    expect(bookingFingerprint({ cancelled: true, lines })).not.toBe(a)
+  it('gleich bei gleichen Daten, anders bei Preis-, Storno- oder Hauptgast-Änderung', () => {
+    const a = bookingFingerprint({ cancelled: false, guestId: 'g1', lines })
+    expect(bookingFingerprint({ cancelled: false, guestId: 'g1', lines: lines.map((l) => ({ ...l })) })).toBe(a)
+    expect(bookingFingerprint({ cancelled: false, guestId: 'g1', lines: [{ ...lines[0], amountCents: 1 }, lines[1]] })).not.toBe(a)
+    expect(bookingFingerprint({ cancelled: true, guestId: 'g1', lines })).not.toBe(a)
+    expect(bookingFingerprint({ cancelled: false, guestId: 'g2', lines })).not.toBe(a)
+    expect(bookingFingerprint({ cancelled: false, guestId: null, lines })).not.toBe(a)
     expect(a).toMatch(/^[0-9a-f]{8}$/)
   })
 })

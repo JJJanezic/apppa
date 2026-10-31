@@ -424,7 +424,7 @@ test.describe('Rechnung erstellen', () => {
 
   })
 
-  test('BUG-1: Zurück-Taste des Browsers verlässt „Rechnung erstellen“ ohne Rückfrage, Eingaben gehen verloren', async ({ page, users }) => {
+  test('BUG-1: Zurück-Taste des Browsers fragt bei ungespeicherten Änderungen nach; Weiter bearbeiten bzw. Verwerfen', async ({ page, users }) => {
     desktopOnly()
     const { owner, tenantId } = await setup(users)
     const apt = await addApartment(tenantId)
@@ -438,6 +438,14 @@ test.describe('Rechnung erstellen', () => {
     await page.goBack()
     await expect(page.getByRole('alertdialog', { name: 'Seite verlassen?' })).toBeVisible({ timeout: 3000 })
     await expect(page).toHaveURL(/\/rechnungen\/neu/)
+    // Weiter bearbeiten: Eingaben bleiben, „Zurück“ fragt erneut
+    await page.getByRole('button', { name: 'Weiter bearbeiten' }).click()
+    await expect(page.getByLabel('Adresszeile 1')).toHaveValue('Geändert 1')
+    await page.goBack()
+    await expect(page.getByRole('alertdialog', { name: 'Seite verlassen?' })).toBeVisible({ timeout: 3000 })
+    // Verwerfen: zurück zur Buchung
+    await page.getByRole('button', { name: 'Verwerfen und verlassen' }).click()
+    await expect(page).toHaveURL(new RegExp(`/buchungen/${booking.id}$`))
   })
 })
 
@@ -833,7 +841,7 @@ test.describe('Detail, Listen, Mitarbeiter, Buchungsänderung', () => {
     await service().from('booking_amounts').update({ nights_cents: 95000, billed_nights_cents: 95000 } as never).eq('id', booking.id)
     await page.reload()
     await ready(page)
-    await expect(page.getByText('Die Buchung wurde seit dem Entwurf geändert (Preis, Positionen oder Storno).')).toBeVisible()
+    await expect(page.getByText('Die Buchung wurde seit dem Entwurf geändert (Preis, Positionen, Storno oder Hauptgast).')).toBeVisible()
     await page.getByRole('link', { name: 'Positionen neu übernehmen' }).click()
     await ready(page)
     await page.getByRole('button', { name: 'Positionen neu übernehmen' }).click()
@@ -842,6 +850,40 @@ test.describe('Detail, Listen, Mitarbeiter, Buchungsänderung', () => {
     await saveDraft(page)
     expect((await draftRow(id))!.total_cents).toBe(95000)
     await expect(page.getByText('Die Buchung wurde seit dem Entwurf geändert')).toHaveCount(0)
+  })
+
+  test('BUG-3: Hauptgast der Buchung gewechselt → Hinweis „Buchung wurde seit dem Entwurf geändert“; Empfängerkopie bleibt', async ({ page, users }) => {
+    desktopOnly()
+    const { owner, tenantId } = await setup(users)
+    const apt = await addApartment(tenantId)
+    const guest = await addGuest(tenantId)
+    const other = await addGuest(tenantId, { last: 'Berger', first: 'Anna' })
+    const booking = await addBooking(tenantId, apt, { guestId: guest })
+    await signInAs(page, owner)
+    await openCreate(page, booking.id)
+    const id = await saveDraft(page)
+    await expect(page.getByText('Die Buchung wurde seit dem Entwurf geändert')).toHaveCount(0)
+    await service().from('bookings').update({ guest_id: other } as never).eq('id', booking.id)
+    await page.reload()
+    await ready(page)
+    await expect(page.getByText('Die Buchung wurde seit dem Entwurf geändert (Preis, Positionen, Storno oder Hauptgast).')).toBeVisible()
+    expect((await draftRow(id))!.recipient_name).toBe('Maria Huber')
+  })
+
+  test('BUG-5: Vorschau-Seite zeigt „Abgezogene Rechnung existiert nicht mehr“ nach dem Löschen der Teilrechnung', async ({ page, users }) => {
+    desktopOnly()
+    const { owner, tenantId } = await setup(users)
+    const apt = await addApartment(tenantId)
+    const guest = await addGuest(tenantId)
+    const booking = await addBooking(tenantId, apt, { guestId: guest })
+    const part = await addDraft(owner, tenantId, booking.id, partial(20000, [{ label: 'A', amount_cents: 20000, vat_rate: '10.00' }]))
+    const final = await addDraft(owner, tenantId, booking.id, { kind: 'final', deduction_ids: [part] })
+    const client = await signedIn(owner)
+    await client.rpc('delete_invoice_draft', { p_invoice_id: part })
+    await signInAs(page, owner)
+    await page.goto(`/rechnungen/${final}/vorschau`)
+    await ready(page)
+    await expect(page.getByRole('article', { name: 'Rechnungsvorschau' }).getByText('Abgezogene Rechnung existiert nicht mehr.')).toBeVisible()
   })
 
   test('AC: Gleichzeitige Bearbeitung – der zweite erhält „inzwischen geändert“, Änderung nicht gespeichert; „Aktuelle Fassung laden“ zeigt die neue Fassung', async ({ page, browser, users }) => {
@@ -938,12 +980,13 @@ test.describe('Layout', () => {
           [...document.querySelectorAll<HTMLElement>('main button, main a, main input:not([type="hidden"]), main [role="combobox"], main [role="radio"], main [role="checkbox"], main [role="switch"]')]
             .filter((el) => {
               const r = el.getBoundingClientRect()
-              if (r.width === 0 || r.height === 0) return false
+              // unsichtbare Hilfsfelder (Radix: aria-hidden, nicht anklickbar) sind keine Bedienelemente
+              if (r.width === 0 || r.height === 0 || el.getAttribute('aria-hidden') === 'true') return false
               // Radio/Checkbox/Schalter: die Beschriftung (Label) ist die Trefferfläche
               const target = el.closest('label') ?? el.closest('[class*="size-11"]') ?? el
               const t = target.getBoundingClientRect()
-              // Textlinks zählen nicht als Felder/Knöpfe (Kriterium); Buchungslink im Kopf siehe BUG-4
-              return t.height < 44 && !(el.tagName === 'A' && !el.className.includes('min-h'))
+              // Links im Fließtext ausgenommen; Buchungslink im Kopf ≥ 44 px (BUG-4)
+              return t.height < 44 && !(el.tagName === 'A' && el.closest('p, li, dd, span'))
             })
             .map((el) => `${el.tagName} ${el.getAttribute('aria-label') ?? el.textContent?.trim().slice(0, 30)}`)
         )
