@@ -1,6 +1,6 @@
 # PROJ-38: Stammdaten: Umbenennung und Logo
 
-## Status: In Review
+## Status: Approved
 **Created:** 2026-10-31
 **Last Updated:** 2026-10-31
 
@@ -382,7 +382,7 @@ Der Tabellenkommentar wird in der neuen Migration mitgeändert. Die alte Migrati
 - [x] „Speichern“ → „Kundendaten gespeichert.“, Logo nach dem Neuladen sichtbar
 - [x] Längste Seite über 1.000 px → 1.000 px, Datei ist ein PNG
 - [x] Kleines Logo (200 × 125) beim Hochladen: Hinweis, Speichern trotzdem möglich
-- [ ] BUG-2: Nach dem Neuladen fehlt der Hinweis beim gespeicherten kleinen Logo
+- [x] Nach dem Neuladen steht der Hinweis auch beim gespeicherten kleinen Logo (BUG-2 behoben, Runde 2)
 - [x] Logo ab 300 px: kein Hinweis
 - [x] Klick auf die Vorschau öffnet das Logo groß
 
@@ -445,11 +445,11 @@ Der Tabellenkommentar wird in der neuen Migration mitgeändert. Die alte Migrati
 - [x] `npm test`: 50 Dateien, 576 Tests grün, darunter 9 neue Logo-Integrationstests (3 davon Red Team)
 - [x] E2E PROJ-38 (12 Tests) in Chrome; Kernabläufe in Firefox (3) und Safari (4)
 - [x] E2E PROJ-28 (19), PROJ-36 (3), PROJ-37 (Schalter), PROJ-29 (Ausweisbilder: JPEG/HEIC, PNG/PDF, Warten auf Upload), PROJ-5 (Löschen, Deaktivieren, gelöschter Kunde, axe)
-- [ ] BUG-1: E2E PROJ-4 „Team- und Kundenseite … Bedienelemente ≥ 44 px“ schlägt fehl
+- [x] E2E PROJ-4 „Team- und Kundenseite … Bedienelemente ≥ 44 px“ wieder grün, inklusive axe (BUG-1 behoben, Runde 2)
 
 ### Bugs Found
 
-#### BUG-1: Schalter „Rechnungen nacherfassen“ nur 24 px hoch (PROJ-4-Layouttest rot)
+#### BUG-1: Schalter „Rechnungen nacherfassen“ nur 24 px hoch (PROJ-4-Layouttest rot) — BEHOBEN (`03d0512`)
 - **Severity:** High. Die Regel stuft einen roten Test der bestehenden Suite als High ein. Für die Nutzer ist es ein kleines Bedienproblem auf Touch-Geräten.
 - **Herkunft:** PROJ-37 (`b5b95e2`), nicht PROJ-38. Der Fehler fiel erst jetzt auf, weil die Prüfung nach PROJ-37 nicht mehr lief.
 - **Steps to Reproduce:**
@@ -459,7 +459,7 @@ Der Tabellenkommentar wird in der neuen Migration mitgeändert. Die alte Migrati
   4. Actual: 44 × 24 px (shadcn-Switch `h-6 w-11`). Die axe-Prüfung desselben Tests kommt nicht mehr zum Zug.
 - **Priority:** Fix before deployment (kleine Änderung: größere Klickfläche um den Schalter, das sichtbare Bild bleibt gleich)
 
-#### BUG-2: Hinweis „Logo ist klein“ fehlt nach dem Neuladen
+#### BUG-2: Hinweis „Logo ist klein“ fehlt nach dem Neuladen — BEHOBEN (`03d0512`)
 - **Severity:** Low
 - **Steps to Reproduce:**
   1. Logo mit 200 × 125 px hochladen: Hinweis erscheint, richtig
@@ -469,13 +469,33 @@ Der Tabellenkommentar wird in der neuen Migration mitgeändert. Die alte Migrati
 - **Ursache:** Das vom Server ausgelieferte Bild lädt fertig, bevor React das `onLoad` anhängt. Das Ereignis geht dadurch verloren. Abhilfe: beim Einhängen `complete`/`naturalWidth` des Bildes prüfen.
 - **Priority:** Fix before deployment (klein) oder im nächsten Paket
 
-### Summary
-- **Acceptance Criteria:** 37 von 39 geprüften Punkten bestanden. Nicht bestanden: 1 (BUG-2). Nicht geprüft: 1 (Galerie am echten Handy, manuell).
+### Summary (Runde 1)
+- **Acceptance Criteria:** 37 von 39 geprüften Punkten bestanden. Nicht bestanden: 1 (BUG-2). Nicht geprüft: 1 (Galerie am echten Handy).
 - **Bugs Found:** 2 total (0 critical, 1 high, 0 medium, 1 low); der High-Bug stammt aus PROJ-37
-- **Security:** Pass
-- **Production Ready:** NO, solange BUG-1 offen ist (rote Regressionssuite)
-- **Recommendation:** BUG-1 (und am besten BUG-2) beheben, dann `/qa` erneut für die betroffenen Tests
+- **Production Ready:** NO
 
+### QA Runde 2 (2026-10-31, nach `03d0512`)
+**Fixes**
+- **BUG-1:**
+  - `src/components/ui/switch.tsx`: Die Bedienfläche des Schalters misst jetzt 44 × 44 px. Die sichtbare Spur bleibt 44 × 24 px, Fokusring und Farben sind unverändert.
+  - Negative Außenabstände halten den Platzbedarf im Layout bei 24 px.
+  - Die Änderung gilt app-weit: Stammdaten und „Archivierte anzeigen“ in der Wohnungsübersicht.
+  - Per Screenshot geprüft: aus, ein, Tastatur-Fokus.
+- **BUG-2:** `tenant-logo-field.tsx` misst das Bild auch beim Einhängen (`complete`/`naturalWidth`), nicht nur bei `onLoad`. Gesetzt wird nur bei geänderten Werten.
+
+**Nachtests**
+- [x] E2E PROJ-4 Layouttest (Stammdaten und Team, ≥ 44 px, axe) grün
+- [x] E2E PROJ-38 komplett (12 Tests) in Chrome; Test für BUG-2 mit Prüfung nach dem Neuladen dreimal hintereinander grün
+- [x] Firefox und Safari: PNG mit Transparenz, kleines Logo inklusive Neuladen, Handy 375 px
+- [x] Regression Schalter: PROJ-6 (Archivieren, „Archivierte anzeigen“, axe), PROJ-37 (Schalter „Rechnungen nacherfassen“), PROJ-28 komplett (19)
+- [x] `npm test`: 576 Tests grün; Lint sauber
+
+### Summary
+- **Acceptance Criteria:** 38 von 39 geprüften Punkten bestanden. Nicht geprüft: 1 (Galerie am echten Handy, manuell am iPhone).
+- **Bugs Found:** 2 total (0 critical, 1 high, 0 medium, 1 low), beide behoben
+- **Security:** Pass
+- **Production Ready:** YES
+- **Recommendation:** Deploy; danach am iPhone die Galerie-Auswahl und ein HEIC-Foto prüfen
 
 ## Deployment
 _To be added by /deploy_

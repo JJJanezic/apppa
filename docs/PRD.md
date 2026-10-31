@@ -38,7 +38,7 @@ Die App wird als Mehrmandanten-SaaS betrieben: Jeder Kunde (Vermieter) hat ein e
 | P0 (Pilot) | Kleinunternehmer-Status (keine Umsatzsteuer, mit Stichtagen) | Deployed (PROJ-36) |
 | P0 (Pilot) | Umsatzsteuersatz je Position | Deployed (PROJ-35) |
 | P0 (Pilot) | Rechnungen nacherfassen (Altrechnungen mit PDF, Positionen, Buchung/Gast optional; Rechnungen in der Buchungsübersicht) | Deployed (PROJ-37) |
-| P0 (Pilot) | Stammdaten: Umbenennung und Logo-Upload | In Review (PROJ-38) |
+| P0 (Pilot) | Stammdaten: Umbenennung und Logo-Upload | Approved (PROJ-38) |
 | P0 (Pilot) | Gästeblatt (Meldewesen) | Roadmap (PROJ-26) |
 | P0 (Pilot) | Kalender-Abo-Link für Outlook/M365 und Google Calendar | Roadmap |
 | P0 (MVP-Abschluss) | Statistische Auswertungen (Auslastung, Umsatz, Gästeherkunft, Kanäle) | Roadmap |
