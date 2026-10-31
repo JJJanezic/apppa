@@ -37,7 +37,7 @@ Die App wird als Mehrmandanten-SaaS betrieben: Jeder Kunde (Vermieter) hat ein e
 | P0 (Pilot) | Preispositionen ordnen | Deployed (PROJ-34) |
 | P0 (Pilot) | Kleinunternehmer-Status (keine Umsatzsteuer, mit Stichtagen) | Deployed (PROJ-36) |
 | P0 (Pilot) | Umsatzsteuersatz je Position | Deployed (PROJ-35) |
-| P0 (Pilot) | Rechnungen nacherfassen (Altrechnungen mit PDF, Positionen, Buchung/Gast optional; Rechnungen in der Buchungsübersicht) | Deployed (PROJ-37) |
+| P0 (Pilot) | Rechnungen nacherfassen (Altrechnungen mit PDF, Positionen, Buchung/Gast optional; Rechnungen in der Buchungsübersicht; Kleinunternehmer-Schalter je Rechnung) | Deployed (PROJ-37), Änderung Planned |
 | P0 (Pilot) | Stammdaten: Umbenennung und Logo-Upload | Deployed (PROJ-38) |
 | P0 (Pilot) | Einstellungen → Rechnungen (Nummernkreis, Textbausteine, Fußzeile, Kleinunternehmer-Hinweis) | Deployed (PROJ-39) |
 | P0 (Pilot) | Rechnungsdaten sammeln: Entwurf ohne Nummer aus der Buchung (Teilung, Empfänger, Pflichtangaben, Vorschau) | Planned (PROJ-40) |

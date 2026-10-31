@@ -1,10 +1,10 @@
 # PROJ-37: Rechnungen nacherfassen
 
-## Status: Deployed
+## Status: Planned
 **Created:** 2026-10-30
-**Last Updated:** 2026-10-30
+**Last Updated:** 2026-10-31
 
-> Grundumfang und Erweiterung „Rechnungen in der Buchungsübersicht“ am 2026-10-30 in Production ausgeliefert (siehe Abschnitt Deployment).
+> Grundumfang und Erweiterung „Rechnungen in der Buchungsübersicht“ am 2026-10-30 in Production ausgeliefert (siehe Abschnitt Deployment). Am 2026-10-31 per /refine geändert: Schalter „Ohne Umsatzsteuer (Kleinunternehmer)“ je Rechnung statt automatischer Ermittlung (Abschnitt „Kleinunternehmer-Kennzeichen“); noch nicht gebaut.
 
 ## Dependencies
 - Requires: PROJ-4 (Kundenkonten & Rollen) — Rollen Inhaber/Mitarbeiter, Mandantentrennung
@@ -30,8 +30,16 @@ Teil A kommt zuerst: Kunden bringen Rechnungen aus ihrem bisherigen System mit. 
 | Empfänger | ja | Freitext; vorbelegt mit der Firma des Gastes, sonst „Nachname Vorname“; jederzeit überschreibbar |
 | Positionen | mind. eine | Bezeichnung, Betrag brutto (auch negativ), USt-Satz; mit Buchung aus der Buchung übernommen, anpassbar |
 | PDF | nein | eine Datei, nur PDF, bis 10 MB |
+| Ohne Umsatzsteuer (Kleinunternehmer) | ja (Schalter) | ein/aus; vorbelegt nach dem Status am Rechnungsdatum (PROJ-36), nur als Vorschlag; gespeichert wird die Einstellung des Inhabers |
 
-**Positionen:** Wird eine Buchung gewählt, übernimmt die App deren Positionen (Übernachtung, Zusatzkosten, ggf. Stornogebühr) mit Bezeichnung, Betrag und USt-Satz in der Reihenfolge aus PROJ-34. Der Inhaber kann Positionen abwählen, Bezeichnung/Betrag/Satz ändern und eigene Positionen hinzufügen, bis die Rechnung dem PDF entspricht. Die Positionen sind eine **Kopie** zum Zeitpunkt der Erfassung; spätere Änderungen an der Buchung wirken nicht auf die Rechnung. Ohne Buchung beginnt die Positionsliste leer. Gesamtbetrag und enthaltene USt je Satz rechnet die App (wie PROJ-35). Gilt am Rechnungsdatum der Kleinunternehmer-Status (PROJ-36), wird keine USt ausgewiesen.
+**Positionen:** Wird eine Buchung gewählt, übernimmt die App deren Positionen (Übernachtung, Zusatzkosten, ggf. Stornogebühr) mit Bezeichnung, Betrag und USt-Satz in der Reihenfolge aus PROJ-34. Der Inhaber kann Positionen abwählen, Bezeichnung/Betrag/Satz ändern und eigene Positionen hinzufügen, bis die Rechnung dem PDF entspricht. Die Positionen sind eine **Kopie** zum Zeitpunkt der Erfassung; spätere Änderungen an der Buchung wirken nicht auf die Rechnung. Ohne Buchung beginnt die Positionsliste leer. Gesamtbetrag und enthaltene USt je Satz rechnet die App (wie PROJ-35). Ist der Schalter „Ohne Umsatzsteuer (Kleinunternehmer)“ ein, wird keine USt ausgewiesen.
+
+**Kleinunternehmer-Kennzeichen (geändert 2026-10-31):** Nacherfasste Rechnungen sind bereits außerhalb der App ausgestellt; erfasst wird, was auf dem vorhandenen PDF steht. Die App leitet den Status deshalb nicht mehr selbst ab, sondern bietet einen Schalter „Ohne Umsatzsteuer (Kleinunternehmer)“:
+- Beim **Anlegen** ist er nach dem Status am Rechnungsdatum (PROJ-36) vorbelegt. Ändert sich das Rechnungsdatum, folgt der Vorschlag, solange der Inhaber den Schalter nicht selbst umgelegt hat.
+- Beim **Bearbeiten** steht der gespeicherte Wert; ein geändertes Datum ändert ihn nicht.
+- Schalter ein: Satzfelder ausgeblendet, im Detail „Keine Umsatzsteuer (Kleinunternehmer)“. Schalter aus: Satzfelder sichtbar, USt je Satz im Detail.
+- Bereits erfasste Rechnungen behalten ihr Kennzeichen; nichts wird umgerechnet.
+- Eine spätere Änderung des Kleinunternehmer-Verlaufs (PROJ-36) wirkt nicht auf nacherfasste Rechnungen.
 
 **Menüpunkt „Rechnungen“** zwischen „Gäste“ und „Einstellungen“ (am Handy unter „Mehr“), für Inhaber und Mitarbeiter:
 - Liste mit Nummer, Datum, Empfänger, Buchung (Link oder „–“), Betrag, Status („nacherfasst“, ggf. Zusatz „ohne PDF“)
@@ -132,7 +140,13 @@ Teil A kommt zuerst: Kunden bringen Rechnungen aus ihrem bisherigen System mit. 
 - [ ] Angenommen keine Buchung, wenn das Formular öffnet, dann ist die Positionsliste leer und der Inhaber trägt Positionen selbst ein
 - [ ] Angenommen negative Positionen, wenn der Gesamtbetrag unter 0 fällt, dann wird gespeichert und der Betrag rot mit „-€“ angezeigt
 - [ ] Angenommen Positionen mit 10 % und 20 %, wenn die Rechnung angezeigt wird, dann sind Gesamtbetrag brutto und die enthaltene USt je Satz ausgewiesen
-- [ ] Angenommen am Rechnungsdatum gilt laut PROJ-36 „Kleinunternehmer“, wenn die Rechnung erfasst oder angezeigt wird, dann wird keine USt ausgewiesen
+- [ ] Angenommen am Rechnungsdatum gilt laut PROJ-36 „Kleinunternehmer“, wenn der Inhaber eine Rechnung anlegt, dann ist „Ohne Umsatzsteuer (Kleinunternehmer)“ eingeschaltet und die Satzfelder sind ausgeblendet; ohne Kleinunternehmer-Status ist der Schalter aus
+- [ ] Angenommen der Schalter ist vorbelegt, wenn der Inhaber ihn umlegt und speichert, dann gilt seine Einstellung, unabhängig vom Status am Rechnungsdatum
+- [ ] Angenommen der Inhaber hat den Schalter nicht selbst umgelegt, wenn er beim Anlegen das Rechnungsdatum in eine Zeit mit anderem Status ändert, dann folgt der Schalter dem neuen Vorschlag; hat er ihn umgelegt, bleibt er
+- [ ] Angenommen eine gespeicherte Rechnung, wenn der Inhaber beim Bearbeiten das Rechnungsdatum ändert, dann bleibt der Schalter unverändert
+- [ ] Angenommen der Schalter ist ein, wenn die Rechnung angezeigt wird, dann steht „Keine Umsatzsteuer (Kleinunternehmer)“ statt USt je Satz
+- [ ] Angenommen eine nacherfasste Rechnung, wenn danach der Kleinunternehmer-Verlauf in den Stammdaten geändert wird, dann bleibt ihr Kennzeichen unverändert
+- [ ] Angenommen jemand sendet das Kennzeichen direkt an den Server, wenn es ankommt, dann speichert der Server genau diesen Wert (keine Ableitung aus dem Rechnungsdatum)
 - [ ] Angenommen eine Rechnung ist gespeichert, wenn danach die verknüpfte Buchung geändert wird, dann bleiben die Positionen der Rechnung unverändert
 
 ### PDF
@@ -218,6 +232,7 @@ Teil A kommt zuerst: Kunden bringen Rechnungen aus ihrem bisherigen System mit. 
 ### Product Decisions
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Schalter „Ohne Umsatzsteuer (Kleinunternehmer)“ je nacherfasster Rechnung, vorbelegt nach Status am Rechnungsdatum nur als Vorschlag; keine automatische Ableitung mehr (refine 2026-10-31) | Nacherfasste Rechnungen sind bereits ausgestellt und existieren; erfasst wird, was auf dem PDF steht, auch wenn es vom eingetragenen Verlauf abweicht. Vorschlag erspart im Normalfall die Eingabe; „0 %“ wäre nicht dasselbe wie „steuerfrei als Kleinunternehmer“ | 2026-10-31 |
 | Rechnungsmodul in drei Teile (A Nacherfassen, B Erstellen/Ausstellen, C PDF/Übersicht); Storno eigenes Teilprojekt | Kleinere, getrennt auslieferbare Schritte; Nacherfassen zuerst, damit Nummernfolge und Verrechnetes stimmen | 2026-10-30 |
 | Menüpunkt „Rechnungen“ schon in Teil A als einfache Liste | Einziger Einstieg, der auch Rechnungen ohne Buchung abdeckt; Teil C baut die Liste nur aus | 2026-10-30 |
 | Buchung und Gast optional, Empfänger Pflicht | Sehr alte Rechnungen haben oft keine Buchung/keinen Gast in der App; Pflicht würde das Nacherfassen bremsen | 2026-10-30 |
@@ -251,6 +266,7 @@ Teil A kommt zuerst: Kunden bringen Rechnungen aus ihrem bisherigen System mit. 
 | Gleiches Datenmodell wie später für ausgestellte Rechnungen (Feld „Herkunft“) | PROJ-40 bis PROJ-42 bauen ohne Umbau darauf auf; Liste, Summen und Nummernprüfung gelten für beide | 2026-10-30 |
 | Gesamtbetrag und Kleinunternehmer-Kennzeichen von der Datenbank gebildet und gespeichert | Liste und Summen brauchen keine Neuberechnung; Werte lassen sich nicht vom Browser verfälschen; Mitarbeiter brauchen den Status-Verlauf nicht | 2026-10-30 |
 | Kleinunternehmer-Kennzeichen nach Rechnungsdatum, festgehalten an der Rechnung | Wie im Spec-Interview festgelegt; ändert sich der Verlauf später, bleibt die erfasste Rechnung stabil | 2026-10-30 |
+| **Geändert 2026-10-31:** Kennzeichen wird nicht mehr von der Datenbank aus dem Rechnungsdatum gebildet, sondern als Schalterwert vom Formular gesendet und gespeichert; Gesamtbetrag bildet die Datenbank weiterhin | Siehe Product Decision vom 2026-10-31 | 2026-10-31 |
 | Eindeutigkeit über einen Vergleichsschlüssel (Kleinschreibung, ohne Rand-Leerzeichen) je Kunde in der Datenbank | Doppelte Nummern werden auch bei gleichzeitigen Eingaben sicher abgelehnt | 2026-10-30 |
 | Neuer privater Speicherbereich „Rechnungen“, Upload direkt vom Browser | Trennung von Ausweisbildern (andere Regeln, Größe, Typ); Vercel-Grenze von 4,5 MB je Server-Anfrage | 2026-10-30 |
 | Bestehende tägliche Bereinigung erweitern statt zweitem Zeitplan | Ein Zeitplan, ein Schlüssel, gleiche Logik („älter als 24 Stunden und unverwendet“) | 2026-10-30 |
