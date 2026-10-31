@@ -359,6 +359,16 @@ describe('requiredChecks', () => {
     expect(failing(requiredChecks({ ...base, totalCents: 1_200_000, recipient }))).toEqual(['recipientVatId'])
   })
 
+  it('Grenzen genau: € 399,99 ohne, € 400,00 mit Anschrift; € 9.999,99 ohne, € 10.000,00 mit UID des Empfängers (QA)', () => {
+    const noVatId = { ...recipientFromGuest(guest, 'guest'), vatId: '' }
+    expect(failing(requiredChecks({ ...base, totalCents: 39_999 }))).toEqual([])
+    expect(failing(requiredChecks({ ...base, totalCents: 40_000 }))).toContain('recipientName')
+    expect(failing(requiredChecks({ ...base, totalCents: 999_999, recipient: noVatId }))).toEqual([])
+    expect(failing(requiredChecks({ ...base, totalCents: 1_000_000, recipient: noVatId }))).toEqual(['recipientVatId'])
+    // negativer Betrag (Schlussrechnung) wie ein kleiner Betrag
+    expect(failing(requiredChecks({ ...base, kind: 'final', totalCents: -50_000 }))).toEqual([])
+  })
+
   it('keine Position bzw. Teilbetrag 0', () => {
     expect(failing(requiredChecks({ ...base, lineCount: 0 }))).toEqual(['lines'])
     expect(failing(requiredChecks({ ...base, kind: 'partial', partialCents: 0 }))).toEqual(['partial'])

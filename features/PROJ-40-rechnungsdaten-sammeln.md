@@ -1,6 +1,6 @@
 # PROJ-40: Rechnungsdaten sammeln (Entwurf)
 
-## Status: In Progress
+## Status: In Review
 **Created:** 2026-10-31
 **Last Updated:** 2026-10-31
 
@@ -516,7 +516,165 @@ Keine neuen Pakete.
 **Tests:** `supabase/tests/invoice-drafts.integration.test.ts` (21 Tests: Rechte inkl. Betreiber, Speichern/Ändern/Protokoll, Trennung Entwurf ↔ nacherfasst, Kleinunternehmer nach Buchung, Summenregel, Sperre/Storno, Prüfregeln P0922, Bausteinverweise, Abzüge P0921 und Neuberechnung, stabile Zusatzkosten-Kennungen, Lesen wie die App inkl. Buchungsfilter); `invoices.integration.test.ts` um den Kleinunternehmer-Schalter ergänzt. Unit 516/516, Integration (Rechnungen, Einstellungen, Buchungen, RLS, Gäste, Betreiber, Entwürfe) grün, Build grün.
 
 ## QA Test Results
-_To be added by /qa_
+
+**Tested:** 2026-10-31
+**App URL:** http://localhost:3000 (gebauter Server; Safari gegen `npm run dev`), Supabase „apppa-dev“
+**Tester:** QA Engineer (AI)
+
+**Automatisierte Tests**
+- E2E `tests/PROJ-40-rechnungsdaten-sammeln.spec.ts`: 29 Tests, davon 26 grün und 3 rot (die drei Bug-Tests BUG-1 und BUG-2). Abläufe im Projekt desktop, Layout auf desktop, tablet und mobile.
+- Firefox: Kernabläufe grün, rot nur der bekannte BUG-1.
+- Safari (WebKit): Vorbelegung und Schlussrechnung grün. Im Vorschau-Test übernimmt WebKit-Automation das per `fill` gesetzte native Datumsfeld nicht. Dasselbe Muster nutzt die ganze App (Buchung, Sperre, Nacherfassen), daher sehr wahrscheinlich eine Grenze der Testautomatisierung und kein PROJ-40-Fehler. Bitte einmal im echten Safari prüfen.
+- Integration `supabase/tests/invoice-drafts.integration.test.ts`: 21/21 grün.
+- Unit `src/lib/invoice-drafts.test.ts`: 37/37 grün, neu sind die genauen Grenzwerte € 399,99 / € 400,00 / € 9.999,99 / € 10.000,00.
+- `npm test` gesamt: 712/713 grün. Rot ist nur der bekannte RLS-Test „Person ohne Mitgliedschaft“: Das Dev-Protokoll hat wieder viele Testreste, und die Abfrage reißt die 8-Sekunden-Grenze. Kein Bezug zu PROJ-40; die Bereinigung braucht die Zustimmung des Nutzers.
+- Regression E2E (desktop) grün: PROJ-37 komplett (ein Ausreißer, einzeln wiederholt grün), PROJ-34, PROJ-32, PROJ-8 (Anlegen, Optionen/Storno, Bearbeiten), PROJ-9 (Detailpanel, Anlegen per Klick), PROJ-39 (Nummernkreis).
+
+### Acceptance Criteria Status
+
+#### Knopf „Rechnung“ (10)
+- [x] Inhaber: aktiver Knopf rechts außen neben „Stornieren“; Mitarbeiter und Sperre: kein Knopf (E2E)
+- [x] € 500 mit Entwurf € 500 → inaktiv mit Begründung; nacherfasst € 200 + Entwurf € 100 → aktiv; Entwurf löschen → wieder aktiv (E2E)
+- [x] Option mit Hinweis; storniert ohne Gebühr inaktiv mit Begründung; storniert mit Gebühr € 120 → nur die Gebühr, danach inaktiv (E2E)
+- [x] Mitarbeiter am Formular vorbei → abgelehnt (Integration P0901; Server-Aktion `requireOwner`)
+
+#### Seite „Rechnung erstellen“ und Speichern (7)
+- [x] Vorbelegung (Art, Empfänger, Rechnungsdatum heute, „Keine Gastnamen“, Positionen, drei Textblöcke) (E2E)
+- [x] Speichern → Detailseite „Rechnung (Entwurf)“, „Wird beim Ausstellen vergeben“ (E2E)
+- [ ] BUG-1: Rückfrage beim Verlassen kommt bei Links und „Abbrechen“, aber nicht bei der Zurück-Taste des Browsers
+- [x] Fehler beim Speichern: Meldung, Eingaben bleiben (per Code-Durchsicht: `setError`, das Formular bleibt stehen)
+- [x] Zwei Inhaber: „Der Entwurf wurde inzwischen geändert“, Änderung nicht gespeichert; „Aktuelle Fassung laden“ zeigt die neue Fassung (E2E)
+- [x] Protokoll mit Person beim Anlegen, Ändern und Löschen (E2E + Integration)
+- [x] 375 px: kein seitliches Scrollen, Felder und Knöpfe mindestens 44 px, keine WCAG-2.1-AA-Verstöße (E2E auf mobile, tablet, desktop)
+
+#### Positionen (6)
+- [x] Übernachtung, Reinigung, Rabatt in der Reihenfolge der Buchung angewählt (E2E)
+- [x] Zweiter Entwurf: Übernachtung abgewählt mit „in Entwurf vom 20.10.2026“; bewusst angewählt wird übernommen (E2E)
+- [x] Eigene Beträge und Positionen gespeichert, Buchung und Gast unverändert (E2E)
+- [x] Alle abgewählt: speicherbar, Pflichtangaben „Keine Position“ (E2E)
+- [x] Teilrechnung verbraucht keine Positionen (E2E + Unit)
+
+#### Teilrechnung (5)
+- [x] 20 % von € 1.000 → € 200 (€ 180 zu 10 %, € 20 zu 20 %) mit USt je Satz (E2E)
+- [x] Betrag € 250,00 → „entspricht 25 %“ wird angezeigt (E2E). Speichern über „Betrag“ siehe BUG-2.
+- [ ] BUG-2: Teilbetrag 0 → Fehlermeldung nur ohne vorherigen Wechsel Prozent/Betrag. Nach einem Wechsel keine Meldung, und auch gültige Beträge lassen sich nicht speichern.
+- [x] Über dem Gesamtpreis: Hinweis, Speichern möglich (E2E)
+- [x] Kleinunternehmer: keine USt, Hinweis nach Block 5 (E2E)
+
+#### Schlussrechnung (5)
+- [x] Alle Positionen voll, Teilrechnung vorausgewählt, Betrag € 800,00 (E2E)
+- [x] Abzugszeile „abzüglich Teilrechnung (Entwurf) vom 03.10.2026“ mit Betrag und USt je Satz (E2E)
+- [x] Nacherfasste Rechnung abgewählt und anwählbar; Rechnung (Art Rechnung) nicht bei den Abzügen, ihre Positionen abgewählt (E2E)
+- [x] Abzüge > Leistungen → negativ in Rot mit Hinweis (E2E)
+
+#### Empfänger (5)
+- [x] Firma vorausgewählt mit Firmenname, Rechnungsanschrift, UID; ohne Firma „Gast“ mit Titeln, „Firma“ nicht wählbar (E2E)
+- [x] Überschriebene Anschrift gespeichert, Gast unverändert (E2E); spätere Gast-Änderung wirkt nicht (Kopie in der Datenbank, Integration)
+- [x] Wechsel Firma → Gast nach Änderungen mit Rückfrage (E2E)
+
+#### Rechnungsdatum und Gastnamen (4)
+- [x] Vergangenheit mit Hinweis, Speichern möglich (E2E); gespeichertes Datum bleibt (Datenbank, Integration)
+- [x] Firma → „Keine Gastnamen“; „Hauptgast mit Mitreisenden“ in der Vorschau in Reihenfolge mit Titeln (E2E)
+
+#### Textblöcke und Platzhalter (7)
+- [x] Standard vorausgewählt; geänderter Text bleibt beim Baustein unverändert; Baustein in den Einstellungen geändert → Entwurf behält den alten Text; Ersetzen nur nach Rückfrage (E2E)
+- [x] „Unbekannter Platzhalter: {Gastname}“ verhindert das Speichern (E2E)
+- [x] {Anrede} bei Firma „Sehr geehrte Damen und Herren“ bzw. Anrede des Hauptgasts; {Rechnungsnummer} → „Entwurf“ (E2E)
+
+#### Zahlungsregeln (5)
+- [x] Spec-Beispiel: € 90,00 fällig 04.10.2026, Rest € 360,00 fällig 13.10.2026 (E2E + Unit)
+- [x] 30 % je Rechnung, Baustein bleibt bei 20 % (E2E)
+- [x] Ohne Zahlungsbaustein am Rechnungsdatum fällig; Fälligkeit vor dem Rechnungsdatum → sofort mit Hinweis (E2E); Anzahlung nie nach dem Rest (Unit)
+
+#### Kleinunternehmer und USt (3)
+- [x] Nach der Abreise, unabhängig vom Rechnungsdatum (E2E + Integration); neuer Verlauf wirkt beim Öffnen (Status wird je Aufruf ermittelt)
+- [x] Nacherfasste Rechnungen unverändert (PROJ-37-Regression grün)
+
+#### Pflichtangaben (6)
+- [x] € 300 ohne Anschrift kein Fehler; € 500 ohne PLZ Fehler mit „Zum Feld“ (Fokus); UID des Ausstellers fehlt mit „Zu den Stammdaten“; € 12.000 ohne Empfänger-UID; speichern trotz Fehlern; vollständig alle ✓ (E2E + Unit)
+
+#### Vorschau (4)
+- [x] Reihenfolge Kopfzeile → Block 1 → 2b → 2c „Entwurf“ → 2a → 3 → 4 → 5 → 6 → 7 → Fußzeile, Kennzeichen „Entwurf“, Platzhalter ersetzt (E2E)
+- [x] Alle Datumsangaben ohne Wochentag (E2E)
+- [x] „Zurück zum Entwurf“ ohne Datenverlust (E2E)
+- [x] Mitarbeiter: Vorschau ohne Bearbeitungsknöpfe (E2E)
+
+#### Detail, Listen und Buchungsänderung (7)
+- [x] Rechnungsliste: Nummer „–“, Rechnungsdatum, Empfänger, Betrag, „Entwurf“ + Art (E2E)
+- [x] Buchungsdetail: „Verrechnet: € 200,00“, „In Entwürfen: € 100,00“ (E2E)
+- [x] Filter „ohne Rechnung“ zeigt Buchung mit nur einem Entwurf, Spalte „Entwurf“ als Link (E2E + Integration)
+- [x] Löschen: Abbrechen behält, Bestätigen entfernt (E2E)
+- [x] Preis geändert → Hinweis + „Positionen neu übernehmen“; Bestätigen übernimmt die aktuellen Positionen (E2E)
+- [x] Storno ohne Gebühr: Entwurf bleibt, Hinweis (Fingerabdruck enthält den Stornostatus; Unit + Integration)
+
+### Edge Cases Status
+- [x] Teilrechnung bei nur einem USt-Satz, Rundungsrest beim größten Anteil (Unit)
+- [x] Abgezogener Teilrechnungs-Entwurf gelöscht → Abzug entfällt, Betrag neu, Hinweis auf Detailseite und im Formular (Integration); Teilrechnung wird zur Rechnung → Abzug entfällt (Integration)
+- [x] Mehrere Teilrechnungen alle vorausgewählt (Unit)
+- [x] Gleichzeitiges Anlegen zweier Entwürfe: beide gespeichert (Server sperrt bewusst nicht)
+- [x] Lange Firmennamen am Handy umgebrochen (Layout-Test mit 110 Zeichen)
+- [x] Platzhalter {Anzahlung} ohne Anzahlung verhindert das Speichern (Integration P0922, Unit)
+- [ ] Spec-Widerspruch (kein Code-Fehler): Der Edge Case „Hauptgast gewechselt → Änderungshinweis erscheint“ widerspricht dem Edge Case „Änderungshinweis nur bei Preis/Positionen/Storno“. Gebaut ist die zweite Regel: Der Fingerabdruck enthält den Hauptgast nicht, ein Gastwechsel löst also keinen Hinweis aus. Bitte entscheiden; siehe BUG-3.
+- [ ] Gelöschte abgezogene Rechnung: Der Hinweis erscheint auf Detailseite und im Formular, aber nicht auf der eigenen Vorschau-Seite `/rechnungen/[id]/vorschau` (BUG-5)
+
+### Security Audit Results
+- [x] Ohne Anmeldung kein Zugriff (Seiten hinter der Anmeldung, Funktionen nur für `authenticated`)
+- [x] Mitarbeiter: kein Anlegen, Ändern oder Löschen (Server-Aktion + Datenbank P0901); `/rechnungen/neu` und `/bearbeiten` → „nicht gefunden“ (E2E)
+- [x] Fremder Kunde: Detail, Vorschau, Bearbeiten und „Rechnung erstellen“ → „nicht gefunden“ (E2E); Datenbank lehnt fremde Buchungen, Zusatzkosten, Abzüge und Bausteine ab (Integration)
+- [x] Betreiber sieht keine Entwürfe samt Positionen und Abzügen; `invoice_preview_data` lehnt ihn ab (Integration)
+- [x] Manipulierte Eingaben: Gesamtbetrag, Teilbetrag-Aufteilung und Fingerabdruck bildet der Server; die Datenbank prüft Positionen, Summe der Teilrechnung, Texte und Abzüge (Integration, 22 Fälle P0922/P0921)
+- [x] XSS: HTML im Empfängernamen und in der Adresse wird als Text angezeigt, kein Skript läuft (E2E); Texte nur als geprüfte JSON-Struktur, kein HTML
+- [x] Direktes Schreiben in `invoices` oder `invoice_deductions` gesperrt (Integration)
+- [x] Keine Geheimnisse im Browser; `invoice_preview_data` liefert Mitarbeitern nur Ausstellerdaten, Fußzeile und Kleinunternehmer-Verlauf (gewollt)
+- [ ] Hinweis (kein Fehler): Speichern und Löschen von Entwürfen haben keine eigene Mengenbegrenzung, wie alle Formular-Aktionen der App. Zugang nur für angemeldete Inhaber.
+
+### Bugs Found
+
+#### BUG-1: Zurück-Taste des Browsers verlässt „Rechnung erstellen“ ohne Rückfrage
+- **Severity:** Medium
+- **Steps to Reproduce:**
+  1. Buchung öffnen → „Rechnung“
+  2. Ein Feld ändern (z. B. Adresszeile 1)
+  3. Zurück-Taste des Browsers (oder Wischgeste am Handy)
+  4. Expected: Rückfrage „Seite verlassen?“ (Kriterium „wenn der Inhaber die Seite verlassen will“)
+  5. Actual: Die Buchung öffnet sich ohne Rückfrage, die Eingaben sind verloren. Links, „Abbrechen“ und Neu laden fragen korrekt nach.
+- **Ursache (vermutlich):** `useUnsavedGuard` fängt Klicks auf Links und `beforeunload` ab, aber nicht die Verlaufs-Navigation (`popstate`) des App-Routers.
+- **Test:** `BUG-1: Zurück-Taste …` (rot, desktop und Firefox)
+- **Priority:** Fix before deployment (Datenverlust beim Erstellen)
+
+#### BUG-2: Teilrechnung lässt sich nach Wechsel Prozent ↔ Betrag nicht speichern, keine Meldung
+- **Severity:** High
+- **Steps to Reproduce:**
+  1. „Rechnung erstellen“ → Art „Teilrechnung“
+  2. „Eingabe als: Betrag“ wählen, € 250,00 eingeben (Anzeige „entspricht 25 %“ stimmt)
+  3. „Entwurf speichern“
+  4. Expected: Entwurf wird gespeichert (bzw. bei 0: „Bitte gib einen Teilbetrag größer als 0 ein.“)
+  5. Actual: Nichts passiert. Keine Anfrage an den Server, keine Fehlermeldung, kein Feld markiert. Gilt nach jedem Wechsel zwischen Prozent und Betrag, auch zurück zu Prozent. Ohne Wechsel (nur Prozent) funktioniert es.
+- **Ursache (vermutlich):** Prozent- und Betragsfeld stehen in `draft-form.tsx` als zwei `FormField` an derselben Stelle im Baum (Bedingung `partialMode === 'percent' ? … : …`). React verwendet die Instanz weiter; beim Namenswechsel verliert das ausgeblendete Feld seinen Wert (`undefined`). Die Prüfung `z.string()` scheitert dann an diesem unsichtbaren Feld, bevor die eigentliche Regel läuft. Abhilfe z. B. eigener `key` je Feld oder beide Werte beim Wechsel als Text erhalten.
+- **Test:** zwei `BUG-2: …`-Tests (rot)
+- **Priority:** Fix before deployment (Teilrechnung über Eurobetrag ist ein Kernablauf)
+
+#### BUG-3: Spec-Widerspruch beim Wechsel des Hauptgasts (Änderungshinweis)
+- **Severity:** Low (Entscheidung, kein Code-Fehler)
+- **Details:** Edge Cases: „Hauptgast der Buchung wird gewechselt: … Änderungshinweis erscheint“ gegenüber „Änderungshinweis nur bei Preis/Positionen/Storno“. Gebaut ist die zweite Regel; Gastnamen und {Gast}/{Anrede} folgen ohnehin der Buchung, nur die Empfängerkopie bleibt alt.
+- **Priority:** Spec per `/refine` klären (Fingerabdruck um Hauptgast erweitern oder Edge Case streichen)
+
+#### BUG-4: Buchungslink im Kopf von „Rechnung erstellen“ kleiner als 44 px (Handy)
+- **Severity:** Low
+- **Details:** Der Textlink „Buchung 2026-…“ im grauen Kopfkasten ist niedriger als 44 px. Das Kriterium nennt nur Felder, Editoren und Knöpfe; als Touch-Ziel trotzdem knapp. Der Link „Zurück zur Buchung“ darüber erfüllt 44 px.
+- **Priority:** Nice to have
+
+#### BUG-5: Eigene Vorschau-Seite zeigt den Hinweis „Abgezogene Rechnung existiert nicht mehr“ nicht
+- **Severity:** Low
+- **Details:** Nach dem Löschen einer abgezogenen Teilrechnung zeigen Detailseite und Formular den Hinweis (`deduction_removed`). `/rechnungen/[id]/vorschau` rechnet zwar richtig, zeigt ihn aber nicht. Die Abzüge sind dort schon entfernt, deshalb ist `missingDeductions` 0.
+- **Priority:** Nice to have
+
+### Summary
+- **Acceptance Criteria:** 72/74 bestanden (2 mit Bugs: Rückfrage bei Zurück-Taste, Teilbetrag nach Wechsel Prozent/Betrag)
+- **Bugs Found:** 5 total (0 critical, 1 high, 1 medium, 3 low)
+- **Security:** Pass
+- **Production Ready:** NO
+- **Recommendation:** BUG-2 (High) und BUG-1 (Medium) per `/frontend` beheben, BUG-3 per `/refine` entscheiden, BUG-4/5 nach Wahl; danach `/qa` Runde 2
 
 ## Deployment
 _To be added by /deploy_
