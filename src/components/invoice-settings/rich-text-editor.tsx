@@ -8,7 +8,8 @@ import type { Node as PmNode } from '@tiptap/pm/model'
 import { EditorContent, useEditor, useEditorState } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import { useTranslations } from 'next-intl'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
 
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
@@ -146,6 +147,10 @@ export function RichTextEditor({ value, onChange, context, max, labelId, describ
   // Nach „Platzhalter einfügen“ zurück in die Schreibfläche statt auf den Menüknopf (BUG-1 aus QA). Ohne Auswahl
   // (Escape, Klick daneben) bleibt der Fokus wie üblich auf dem Knopf.
   const inserted = useRef(false)
+  // Gesteuertes Menü: Bei der Auswahl sofort schließen und den Fokus gleich in die Schreibfläche setzen, nicht erst nach
+  // dem Ausblenden. Sonst gehen schnell getippte Zeichen an den Menüeintrag (Leertaste wählt ihn erneut, andere
+  // Zeichen landen in der Schnellsuche; BUG-7 aus QA).
+  const [menuOpen, setMenuOpen] = useState(false)
 
   const active = useEditorState({
     editor,
@@ -181,7 +186,7 @@ export function RichTextEditor({ value, onChange, context, max, labelId, describ
             </Toggle>
           ))}
           {placeholders.length > 0 && (
-            <DropdownMenu>
+            <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
               <DropdownMenuTrigger asChild>
                 <Button type="button" variant="ghost" className="ml-auto min-h-11 gap-1.5" disabled={!editor}>
                   <BracketsCurly size={18} aria-hidden="true" />
@@ -202,9 +207,15 @@ export function RichTextEditor({ value, onChange, context, max, labelId, describ
                   <DropdownMenuItem
                     key={name}
                     className="min-h-11"
-                    onSelect={() => {
+                    onSelect={(event) => {
+                      event.preventDefault()
                       inserted.current = true
-                      editor?.chain().focus().insertContent({ type: 'text', text: `{${name}}` }).run()
+                      // erst schließen (Fokusfalle des Menüs endet), dann Fokus sofort in die Schreibfläche: focus() von
+                      // Tiptap wartet einen Frame, so lange hätte noch der Menüeintrag die Tasten
+                      flushSync(() => setMenuOpen(false))
+                      if (!editor) return
+                      editor.view.focus()
+                      editor.chain().focus().insertContent({ type: 'text', text: `{${name}}` }).run()
                     }}
                   >
                     {`{${name}}`}

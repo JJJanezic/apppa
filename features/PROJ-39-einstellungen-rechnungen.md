@@ -625,6 +625,18 @@ Alles andere ist vorhanden (shadcn/ui, react-hook-form, Zod, next-intl).
   - Firefox: 24 grün, 1 übersprungen (künstliches Einfügen), 1 rot. Rot ist der Grenzfall „mehr als 1.000 Rechnungen“, also BUG-3. Er ist dem Backend zugeordnet und noch offen. Auf desktop war er nur zufällig grün, weil alle Testrechnungen dasselbe Datum haben.
 - **Offen per `/backend`:** BUG-3 und BUG-6 (erledigt, siehe Implementation Notes (Backend) → Korrekturen nach QA)
 
+### Korrektur BUG-7 (Frontend, 2026-10-31)
+- **Ursache:** Der Fokus kam erst nach dem Ausblenden des Menüs in die Schreibfläche. Zusätzlich wartet `focus()` von Tiptap einen Frame. In dieser Zeit hatte noch der Menüeintrag die Tasten.
+- **Korrektur in `rich-text-editor.tsx`:**
+  - Das Platzhalter-Menü ist jetzt gesteuert (`open`/`onOpenChange`).
+  - `onSelect` verhindert das Standard-Schließen und schließt das Menü sofort mit `flushSync`. Damit endet die Fokusfalle des Menüs.
+  - Danach setzt `editor.view.focus()` den Fokus synchron in die Schreibfläche, dann wird der Platzhalter eingefügt.
+  - `onCloseAutoFocus` verhindert weiterhin den Sprung zum Menüknopf (BUG-1).
+- **Tests (E2E PROJ-39, Editor-Prüfungen):**
+  - BUG-7 in Chrome gegen den Build 3 von 3 grün
+  - Chrome: Platzhalter, BUG-1, BUG-2, Fett/Listen/Einfügen 9 grün
+  - Firefox (Build) und Safari (`npm run dev`): Platzhalter, BUG-1, BUG-7 je 6 grün
+
 ## Implementation Notes (Backend)
 **Stand 2026-10-31.** Migration `20261031110516_invoice_settings.sql` ist in Dev („apppa-dev“) eingespielt (vom Nutzer freigegeben wegen neuer Zugriffsregeln), die Typen sind neu erzeugt. Die Advisors melden nur die bekannten Auth-Hinweise (`auth_otp_long_expiry`, `auth_leaked_password_protection`, Runbook).
 
@@ -935,6 +947,7 @@ Migration `20261031135815_invoice_settings_qa_fixes.sql`, in Dev eingespielt; Ty
 - **Test:** `BUG-7: Sofort nach „Platzhalter einfügen“ weitertippen – nichts geht verloren, kein doppelter Platzhalter` (rot in Chrome)
 - **Hinweis für die Korrektur:** Fokus schon beim Auswählen in die Schreibfläche setzen, nicht erst nach dem Ausblenden, z. B. über ein gesteuertes Menü (`open`), das in `onSelect` sofort schließt.
 - **Priority:** Nice to have. Der doppelte Platzhalter ist in der Vorschau sichtbar und schnell gelöscht; betroffen sind nur sehr schnelle Eingaben.
+- **Stand:** behoben per `/frontend` (2026-10-31), Test in Chrome, Firefox und Safari grün; siehe Implementation Notes (Frontend) → Korrektur BUG-7
 
 ### Summary (Runde 2)
 - **Bugs aus Runde 1:** alle 6 behoben und bestätigt
