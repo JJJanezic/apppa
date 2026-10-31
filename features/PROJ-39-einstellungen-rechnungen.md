@@ -1,6 +1,6 @@
 # PROJ-39: Einstellungen → Rechnungen
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-10-31
 **Last Updated:** 2026-10-31
 
@@ -958,4 +958,12 @@ Migration `20261031135815_invoice_settings_qa_fixes.sql`, in Dev eingespielt; Ty
 - **Recommendation:** Deploy möglich; BUG-7 vorher per `/frontend` beheben oder als bekannter Low-Bug mitnehmen
 
 ## Deployment
-_To be added by /deploy_
+- **Datum:** 2026-10-31, Version v1.17.0
+- **Commit:** `0ea941f` (Branches `staging` und `production`); Staging vom Nutzer geprüft und für Production freigegeben
+- **Staging:** https://staging.apppa.at
+- **Production:** https://app.apppa.at
+- **Migrationen:** `20261031110516_invoice_settings.sql`, `20261031135815_invoice_settings_qa_fixes.sql` (Staging und Produktion; Advisors nur bekannte Auth-Hinweise: Staging `auth_otp_long_expiry` + `auth_leaked_password_protection`, Produktion `auth_otp_long_expiry`)
+- **Neue Pakete:** `@tiptap/pm`, `@tiptap/react`, `@tiptap/starter-kit`, `@radix-ui/react-toggle`
+- **Neue Umgebungsvariablen / `config push`:** keine
+- **Mit ausgeliefert:** Buchhaltungs-Commit PROJ-38 (`4a54071`)
+- **Tag:** `v1.17.0-PROJ-39` auf `0ea941f`
