@@ -54,10 +54,11 @@
 | PROJ-37 | Rechnungen nacherfassen | Bestehende Rechnungen aus dem bisherigen System erfassen: PDF hochladen, Nummer/Datum/Empfänger/Betrag von Hand, Buchung optional; Menüpunkt „Rechnungen“ mit Liste; Rechnungen je Buchung im Buchungsdetail; Buchungsübersicht mit Spalte „Rechnungen“ und Filter ohne/mit Rechnung (über alle Monate) | P0 | PROJ-4, PROJ-7, PROJ-8, PROJ-28, PROJ-32, PROJ-34, PROJ-35, PROJ-36 | Deployed | [Spec](PROJ-37-rechnungen-nacherfassen.md) | 2026-10-30 |
 
 <!-- Add features above this line -->
+| PROJ-38 | Stammdaten: Umbenennung und Logo | Einstellungen-Reiter „Kunde“ → „Stammdaten“ (neue Adresse mit Umleitung, Reihenfolge Stammdaten/Team/Wohnungen); Logo-Upload für Inhaber und Betreiber (PNG mit Transparenz, privat je Kunde, Hinweis bei kleinem Logo); PROJ-37-Verweise auf neue Gliederung | P0 | PROJ-4, PROJ-5, PROJ-28 | Planned | [Spec](PROJ-38-stammdaten-logo.md) | 2026-10-31 |
 
 ## Build Order
-1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 29 → 30 → 31 → 32 → 33 → 34 → 36 → 35 → 37 → 10 → 11 → 12 → 13 → 14 → 15 → 16 → 26 → 17 (**Pilotstand**, ca. 3 Monate) → 18 → 19 (**MVP komplett**, ca. 4–5 Monate) → P2 nach Bedarf.
+1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 29 → 30 → 31 → 32 → 33 → 34 → 36 → 35 → 37 → 38 → 10 → 11 → 12 → 13 → 14 → 15 → 16 → 26 → 17 (**Pilotstand**, ca. 3 Monate) → 18 → 19 (**MVP komplett**, ca. 4–5 Monate) → P2 nach Bedarf.
 
 Den Channex-Block (PROJ-10 bis PROJ-12) früh angehen: Er ist das größte Risiko (Testzugang, Webhooks, Abläufe mit den Plattformen).
 
-## Next Available ID: PROJ-38
+## Next Available ID: PROJ-39
