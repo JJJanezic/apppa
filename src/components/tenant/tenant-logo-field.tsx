@@ -54,6 +54,16 @@ export function TenantLogoField({ tenantId, mode, value, onChange, saved, readOn
   const removed = !value && Boolean(saved.path)
   const small = size && size.src === src && isSmallLogo(size.width, size.height)
 
+  // Größe messen: beim Laden und beim Einhängen. Ein vom Server ausgeliefertes Bild kann schon fertig geladen sein,
+  // bevor React `onLoad` anhängt (QA PROJ-38 BUG-2). Nur bei geänderten Werten setzen, sonst Endlosschleife.
+  function measure(img: HTMLImageElement | null, current: string) {
+    if (!img || !img.complete || !img.naturalWidth) return
+    const next = { src: current, width: img.naturalWidth, height: img.naturalHeight }
+    setSize((prev) =>
+      prev && prev.src === next.src && prev.width === next.width && prev.height === next.height ? prev : next
+    )
+  }
+
   async function upload(file: File) {
     const previous = value
     setError(null)
@@ -121,9 +131,8 @@ export function TenantLogoField({ tenantId, mode, value, onChange, saved, readOn
                 src={src}
                 alt=""
                 className={cn(CHECKER, 'h-28 w-auto max-w-full rounded-md border object-contain p-2')}
-                onLoad={(e) =>
-                  setSize({ src, width: e.currentTarget.naturalWidth, height: e.currentTarget.naturalHeight })
-                }
+                ref={(img) => measure(img, src)}
+                onLoad={(e) => measure(e.currentTarget, src)}
               />
             </button>
           ) : (

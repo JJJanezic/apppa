@@ -188,8 +188,7 @@ test.describe('Logo (Inhaber)', () => {
     expect(await pngInfo((await savedLogo(tenantId))!)).toMatchObject({ png: true, width: 1000, height: 667 })
   })
 
-  // Nach dem Neuladen fehlt der Hinweis beim gespeicherten Logo (QA BUG-2); hier nur der Ablauf beim Hochladen
-  test('AC: kleines Logo (< 300 px) mit Hinweis, Speichern trotzdem möglich', async ({ page, users }) => {
+  test('AC: kleines Logo (< 300 px) mit Hinweis, Speichern trotzdem möglich; Hinweis auch nach dem Neuladen (BUG-2)', async ({ page, users }) => {
     desktopOnly()
     const { owner, tenantId } = await ownerWithTenant(users, 'Klein')
     await signInAs(page, owner)
@@ -201,6 +200,9 @@ test.describe('Logo (Inhaber)', () => {
     await save(page)
     await expect(page.getByText('Kundendaten gespeichert.')).toBeVisible()
     expect(await pngInfo((await savedLogo(tenantId))!)).toMatchObject({ width: 200, height: 125 })
+    await page.reload()
+    await ready(page)
+    await expect(hint).toBeVisible()
   })
 
   test('AC: SVG, PDF, zu große und beschädigte Dateien werden abgelehnt, das bisherige Logo bleibt', async ({ page, users }) => {
