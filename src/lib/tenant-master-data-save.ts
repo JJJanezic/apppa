@@ -3,10 +3,12 @@ import 'server-only'
 import type { ActionResult, CommonErrorCode } from '@/lib/auth/result'
 import type { createClient } from '@/lib/supabase/server'
 import type { TenantMasterDataErrorCode } from '@/lib/tenant-master-data'
+import { removeLogoFile } from '@/lib/tenant-logo-files'
 import type { TenantMasterDataValues } from '@/lib/validation/tenant'
 
 // Speichern der Kundenstammdaten (PROJ-28), gemeinsam für Inhaber- und Betreiber-Aktion.
 // Die Datenbank-Funktion prüft Rolle, Aktiv-Status und Stand selbst und schreibt das Betreiber-Protokoll.
+// Sie meldet ein ersetztes oder entferntes Logo (PROJ-38), das der Server danach löscht.
 
 // Fehlercodes der Datenbank-Funktion → Meldungen
 const DB_ERRORS: Record<string, TenantMasterDataErrorCode | CommonErrorCode> = {
@@ -17,6 +19,8 @@ const DB_ERRORS: Record<string, TenantMasterDataErrorCode | CommonErrorCode> = {
   P0017: 'staleTenant',
   // zwei Statuswechsel am selben Tag (PROJ-36)
   '23505': 'vatDateDuplicate',
+  // Logo fehlt im Speicher oder liegt nicht im Ordner des Kunden (PROJ-38)
+  P0018: 'logoMissing',
 }
 
 export async function saveTenantMasterData(
@@ -25,7 +29,7 @@ export async function saveTenantMasterData(
   updatedAt: string,
   v: TenantMasterDataValues
 ): Promise<ActionResult<undefined, TenantMasterDataErrorCode>> {
-  const { error } = await supabase.rpc('update_tenant_master_data', {
+  const { data, error } = await supabase.rpc('update_tenant_master_data', {
     p_tenant_id: tenantId,
     p_expected_updated_at: updatedAt,
     p_data: {
@@ -50,5 +54,8 @@ export async function saveTenantMasterData(
     if (!mapped) console.error('[stammdaten] nicht gespeichert', error.code, error.message)
     return { ok: false, error: mapped ?? 'unknown' }
   }
+  // Ersetztes bzw. entferntes Logo (PROJ-38) gleich löschen; Reste entfernt die tägliche Bereinigung
+  const unused = (data as { unused_logo?: string | null } | null)?.unused_logo
+  await removeLogoFile(unused)
   return { ok: true }
 }

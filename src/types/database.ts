@@ -1438,13 +1438,14 @@ export type Database = {
       }
       unused_guest_documents: { Args: { p_limit?: number }; Returns: string[] }
       unused_invoice_pdfs: { Args: { p_limit?: number }; Returns: string[] }
+      unused_tenant_logos: { Args: { p_limit?: number }; Returns: string[] }
       update_tenant_master_data: {
         Args: {
           p_data: Json
           p_expected_updated_at: string
           p_tenant_id: string
         }
-        Returns: undefined
+        Returns: Json
       }
     }
     Enums: {

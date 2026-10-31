@@ -480,7 +480,7 @@ test.describe('Edge Cases', () => {
     await page.waitForTimeout(1500)
     expect((await current(tenant)).city).toBeNull()
     // Erwartung laut Spec: verständliche Meldung, keine Weiterleitung zur Anmeldung
-    await expect(page).toHaveURL(/\/einstellungen\/kunde/)
+    await expect(page).toHaveURL(/\/einstellungen\/stammdaten/)
     await expect(page.getByText('Der Kunde ist deaktiviert. Die Stammdaten lassen sich nicht ändern.')).toBeVisible()
   })
 

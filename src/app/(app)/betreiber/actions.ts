@@ -13,6 +13,7 @@ import { cleanupUnusedAccount, deliverInvitation } from '@/lib/team-invite'
 import type { TenantMasterDataErrorCode } from '@/lib/tenant-master-data'
 import { saveTenantMasterData } from '@/lib/tenant-master-data-save'
 import { prepareLogoUploadFor } from '@/lib/tenant-logo-data'
+import { removeTenantLogos } from '@/lib/tenant-logo-files'
 import {
   createTenantSchema,
   ownerInviteSchema,
@@ -209,8 +210,12 @@ export async function deleteTenant(values: { tenantId: string; confirmName: stri
     p_confirm_name: values.confirmName,
   })
   if (error) return dbFail(error, 'Kunde nicht gelöscht')
-  // Ausweisbilder der Gäste (PROJ-29) und Rechnungs-PDFs (PROJ-37); Reste entfernt die tägliche Bereinigung
-  await Promise.all([removeTenantDocuments(values.tenantId), removeTenantInvoices(values.tenantId)])
+  // Ausweisbilder der Gäste (PROJ-29), Rechnungs-PDFs (PROJ-37) und Logo (PROJ-38); Reste entfernt die tägliche Bereinigung
+  await Promise.all([
+    removeTenantDocuments(values.tenantId),
+    removeTenantInvoices(values.tenantId),
+    removeTenantLogos(values.tenantId),
+  ])
 
   const admin = createAdminClient()
   let accountsLeft = 0

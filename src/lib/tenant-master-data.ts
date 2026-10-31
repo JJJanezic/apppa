@@ -2,7 +2,7 @@
 
 import { type VatStatusChange, type VatStatusChangeRow, vatStatusFromRows } from '@/lib/vat-status'
 
-export type TenantMasterDataErrorCode = 'staleTenant' | 'tenantDeactivated' | 'tenantGone' | 'vatDateDuplicate'
+export type TenantMasterDataErrorCode = 'staleTenant' | 'tenantDeactivated' | 'tenantGone' | 'vatDateDuplicate' | 'logoMissing'
 
 export const MASTER_DATA_LIMITS = {
   nameMax: 200,

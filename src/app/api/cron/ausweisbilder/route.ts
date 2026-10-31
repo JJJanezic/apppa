@@ -4,8 +4,9 @@ import { NextResponse } from 'next/server'
 
 import { removeUnusedDocuments } from '@/lib/guest-documents'
 import { removeUnusedInvoicePdfs } from '@/lib/invoice-files'
+import { removeUnusedLogos } from '@/lib/tenant-logo-files'
 
-// Tägliche Bereinigung der Ausweisbilder (PROJ-29) und Rechnungs-PDFs (PROJ-37), aufgerufen von Vercel Cron (vercel.json).
+// Tägliche Bereinigung der Ausweisbilder (PROJ-29), Rechnungs-PDFs (PROJ-37) und Logos (PROJ-38), aufgerufen von Vercel Cron (vercel.json).
 // Vercel sendet „Authorization: Bearer <CRON_SECRET>“; ohne gesetztes Geheimnis läuft nichts.
 export const dynamic = 'force-dynamic'
 
@@ -21,8 +22,11 @@ export async function GET(request: Request) {
   if (!authorized(request.headers.get('authorization'))) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   }
-  // Ein Zeitplan, ein Schlüssel; beide Bereiche laufen auch, wenn einer scheitert
-  const [documents, invoices] = await Promise.all([removeUnusedDocuments(), removeUnusedInvoicePdfs()])
-  const failed = documents.failed || invoices.failed
-  return NextResponse.json({ removed: documents.removed, invoicePdfsRemoved: invoices.removed, failed }, { status: failed ? 500 : 200 })
+  // Ein Zeitplan, ein Schlüssel; alle Bereiche laufen auch, wenn einer scheitert
+  const [documents, invoices, logos] = await Promise.all([removeUnusedDocuments(), removeUnusedInvoicePdfs(), removeUnusedLogos()])
+  const failed = documents.failed || invoices.failed || logos.failed
+  return NextResponse.json(
+    { removed: documents.removed, invoicePdfsRemoved: invoices.removed, logosRemoved: logos.removed, failed },
+    { status: failed ? 500 : 200 }
+  )
 }

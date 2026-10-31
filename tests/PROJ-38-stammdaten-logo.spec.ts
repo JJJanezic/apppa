@@ -3,7 +3,8 @@ import { expect, type Page, test as base } from '@playwright/test'
 import { createTenant, createUser, deleteUser, type E2EUser, hasSupabaseEnv, signInAs } from './support/supabase'
 
 // PROJ-38: Einstellungen-Reiter „Stammdaten“ (vorher „Kunde“), neue Reihenfolge und Umleitungen.
-// Logo-Abläufe ergänzt /qa, sobald Speicherbereich und Datenbank-Feld eingespielt sind. Abläufe nur im Projekt „desktop“.
+// Speicherfunktion und Zugriffsregeln des Logos: supabase/tests/tenant-logo.integration.test.ts.
+// Logo-Abläufe in der Oberfläche ergänzt /qa. Abläufe nur im Projekt „desktop“.
 
 type Fixtures = { users: (opts?: Parameters<typeof createUser>[0]) => Promise<E2EUser> }
 

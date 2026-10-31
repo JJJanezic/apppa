@@ -311,14 +311,49 @@ Der Tabellenkommentar wird in der neuen Migration mitgeändert. Die alte Migrati
 
 **Tests:** Unit-Tests `src/lib/tenant-logo.test.ts` (Dateiarten, Größe, Hinweis, Speicherort) und Logo-Regel in `src/lib/validation/tenant.test.ts`. Neue E2E-Datei `tests/PROJ-38-stammdaten-logo.spec.ts` mit Reiter-Reihenfolge und Umleitungen; die Logo-Abläufe ergänzt `/qa` nach dem Backend. Lint, Typprüfung, alle 566 Unit-Tests und der Produktions-Build laufen durch.
 
-**Offen für `/backend`:**
-- Migration: Spalte `tenants.logo_path` mit Prüfregel (Ordner des Kunden, Datei vorhanden, Format)
-- Speicherbereich `tenant-logos` (privat, nur PNG, 5 MB) mit den Zugriffsregeln aus Abschnitt I
-- `update_tenant_master_data`: Schlüssel `logo_path` (fehlt = unverändert), Protokollfeld `logo_path`, Rückgabe des alten Logos
-- In `saveTenantMasterData` das alte Logo nach dem Speichern löschen
-- Tägliche Bereinigung und „Kunde löschen“ um den Speicherbereich ergänzen
-- Tabellenkommentar `invoices` auf die neue Gliederung
-- Typen neu erzeugen
+**Offen für `/backend`:** erledigt, siehe unten.
+
+## Implementation Notes (Backend)
+**Stand 2026-10-31.** Migration `20261031063941_tenant_logo.sql` ist in Dev („apppa-dev“) eingespielt, die Typen sind neu erzeugt. Die Advisors melden nur die bekannten Auth-Hinweise (`auth_otp_long_expiry`, `auth_leaked_password_protection`, Runbook).
+
+**Datenbank**
+- `tenants.logo_path` mit Prüfregel `tenants_logo_path_check`: nur `<Kunde>/<uuid>.png` im Ordner **dieses** Kunden. Das gilt auch für den Server mit geheimem Schlüssel. Nutzer können die Tabelle weiterhin nur lesen.
+- `private.logo_tenant`: Kunde aus dem Speicherort, null bei jedem anderen Format.
+- `update_tenant_master_data` neu angelegt, weil sich der Rückgabetyp ändert (`void` → `jsonb`):
+  - Schlüssel `logo_path`: fehlt = unverändert, null = entfernen.
+  - Ein neuer Speicherort muss im Ordner des Kunden liegen und im Speicher vorhanden sein, sonst Fehler **P0018**.
+  - `logo_path` zählt für Protokoll und „Speichern ohne Änderung“.
+  - Rückgabe `{unused_logo}`: das ersetzte bzw. entfernte Logo.
+  - Sonst unverändert gegenüber PROJ-37.
+- `public.unused_tenant_logos` (nur `service_role`): Logos älter als 24 Stunden, die an keinem Kunden hängen.
+- Kommentar der Rechnungs-Tabelle auf „PROJ-41: ausgestellt“ umgestellt.
+
+**Speicherbereich `tenant-logos`** (privat, nur `image/png`, 5 MB)
+- Hochladen (`private.can_upload_logo`): Inhaber des aktiven Kunden oder Admin mit 2FA bei einem aktiven Kunden.
+- Lesen (`private.can_read_logo`): Inhaber oder Admin mit 2FA, und nur das **eingetragene** Logo. Nicht gespeicherte und ersetzte Dateien sind für niemanden lesbar, Mitarbeiter haben keinen Zugriff.
+- Kein Ändern oder Löschen durch Nutzer.
+
+**Server**
+- `src/lib/tenant-logo-files.ts`: `removeLogoFile`, `removeTenantLogos` (Kunde löschen), `removeUnusedLogos` (Bereinigung).
+- `saveTenantMasterData` löscht das gemeldete alte Logo gleich nach dem Speichern. P0018 wird zur Meldung „Das Logo wurde nicht gefunden. Bitte lade es erneut hoch.“
+- Betreiber „Kunde löschen“ entfernt zusätzlich den Logo-Ordner.
+- Täglicher Bereinigungsplan `/api/cron/ausweisbilder` bereinigt jetzt auch die Logos (Antwortfeld `logosRemoved`). Ein Fehler in einem Bereich hält die anderen nicht auf. Kein neuer Zeitplan, keine neue Umgebungsvariable.
+
+**Tests**
+- Integration `supabase/tests/tenant-logo.integration.test.ts` (6 Tests, grün):
+  - Eintragen, Ersetzen und Entfernen mit Rückmeldung des alten Logos, Lesbarkeit danach, Protokoll, fehlender Schlüssel.
+  - P0018 bei fehlender Datei, falschem Format oder fremdem Ordner; Prüfregel der Tabelle (23514).
+  - Speicherbereich: nur PNG bis 5 MB mit richtigem Speicherort.
+  - Mitarbeiter, fremder Inhaber und ohne Anmeldung: nichts; Bereinigung nur für den Server.
+  - Admin bei aktivem bzw. deaktiviertem Kunden, ohne 2FA nichts; Bereinigung lässt frische und eingetragene Dateien aus.
+- Cron-Unit-Test um die Logos ergänzt.
+- `npm test`: 50 Dateien, 573 Tests grün; die Integrationstests aus RLS und Rechnungen laufen mit dem neuen Rückgabetyp.
+- E2E gegen den gebauten Server (desktop):
+  - PROJ-38 (Reiter, Umleitungen) grün.
+  - PROJ-28 grün, nachdem eine übersehene URL-Erwartung `/einstellungen/kunde` umgestellt war.
+  - PROJ-36 (3 Tests), PROJ-37 (Schalter) und PROJ-4 (Kundenname, Mitarbeiter) grün.
+
+**Befund für `/qa` (bestand schon vor PROJ-38):** Die PROJ-4-Prüfung „Team- und Kundenseite … Bedienelemente ≥ 44 px“ schlägt auf der Stammdaten-Seite fehl. Sie misst ein Element mit 44 × 24 px. Das ist der Schalter „Rechnungen nacherfassen“ (shadcn-Switch `h-6 w-11`), der seit PROJ-37 (`b5b95e2`) im Formular steht. Mit PROJ-38 hat das nichts zu tun, es fiel nur erst jetzt auf. Die axe-Prüfung kam in diesem Test nicht mehr zum Zug.
 
 ## QA Test Results
 _To be added by /qa_
