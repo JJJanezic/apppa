@@ -1,6 +1,6 @@
 # PROJ-40: Rechnungsdaten sammeln (Entwurf)
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-10-31
 **Last Updated:** 2026-10-31
 
@@ -696,3 +696,14 @@ Tests Runde 2:
 - **Security:** Pass
 - **Production Ready:** YES
 - **Recommendation:** Deploy
+
+## Deployment
+- **Datum:** 2026-10-31, Version v1.18.0
+- **Commit:** `8c009b6` (Branches `staging` und `production`); Staging vom Nutzer geprüft und für Production freigegeben
+- **Staging:** https://staging.apppa.at
+- **Production:** https://app.apppa.at
+- **Migrationen:** `20261031175615_invoice_drafts.sql` (Staging und Produktion; Advisors nur bekannte Auth-Hinweise: Staging `auth_otp_long_expiry` + `auth_leaked_password_protection`, Produktion `auth_otp_long_expiry`)
+- **Neue Pakete / Umgebungsvariablen / `config push`:** keine
+- **Mit ausgeliefert:** PROJ-37-Änderung „Ohne Umsatzsteuer (Kleinunternehmer)“ je nacherfasster Rechnung; Buchhaltungs-Commit PROJ-39 (`dcc710a`)
+- **Vorabprüfung:** Lint und Build grün; Unit-/Integrationstests im Gesamtlauf 710/714 (3 Zeitüberschreitungen unter Last, 1 bekannter RLS-Testrest), die vier Dateien einzeln nacheinander 67/67 grün
+- **Tag:** `v1.18.0-PROJ-40` auf `8c009b6`

@@ -1,6 +1,6 @@
 # PROJ-37: Rechnungen nacherfassen
 
-## Status: In Progress
+## Status: Deployed
 **Created:** 2026-10-30
 **Last Updated:** 2026-10-31
 
@@ -753,3 +753,4 @@ Buchungsübersicht (/buchungen)
 - **Neue Pakete / Umgebungsvariablen:** keine (`CRON_SECRET` besteht seit PROJ-29)
 - **Mit ausgeliefert:** Buchhaltungs-Commit PROJ-35 (`f35e344`) mit Release 1
 - **Tag:** `v1.14.0-PROJ-37` auf `1e755af`
+- **Release 3 – Kleinunternehmer-Schalter je Rechnung (refine 2026-10-31):** mit PROJ-40 am 2026-10-31 ausgeliefert, Commit `8c009b6`, Tag `v1.18.0-PROJ-40`; Migration `20261031175615_invoice_drafts.sql` (siehe PROJ-40)
