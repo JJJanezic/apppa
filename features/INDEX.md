@@ -56,10 +56,11 @@
 | PROJ-39 | Einstellungen → Rechnungen | Neuer Einstellungen-Reiter „Rechnungen“: Nummernkreis aus Bausteinen mit Vorschau; mehrere Textbausteine je Block (Einleitung, Zahlungsmodalitäten mit Anzahlung/Fälligkeit, Abschlusstext) mit Standard, beschränktem Editor, Platzhaltern und Vorschau; Kleinunternehmer-Hinweis und Fußzeile; Schalter „Rechnungen nacherfassen“ hierher; Betreiber-Abschnitt | P0 | PROJ-4, PROJ-5, PROJ-28, PROJ-29, PROJ-36, PROJ-37, PROJ-38 | Deployed | [Spec](PROJ-39-einstellungen-rechnungen.md) | 2026-10-31 |
 
 <!-- Add features above this line -->
+| PROJ-40 | Rechnungsdaten sammeln (Entwurf) | Rechnungsentwurf ohne Nummer aus der Buchung (Knopf „Rechnung“): Arten Rechnung/Teilrechnung/Schlussrechnung, Teilung nach Positionen und Betrag mit Abzug, Empfänger Gast/Firma, Rechnungsdatum, Gastnamen, Bausteine und Zahlungsregeln je Rechnung, Kleinunternehmer nach Buchung, Pflichtangaben-Prüfung, Vorschau | P0 | PROJ-4, PROJ-7, PROJ-8, PROJ-28, PROJ-35, PROJ-36, PROJ-37, PROJ-39 | Planned | [Spec](PROJ-40-rechnungsdaten-sammeln.md) | 2026-10-31 |
 
 ## Build Order
-1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 29 → 30 → 31 → 32 → 33 → 34 → 36 → 35 → 37 → 38 → 39 → 10 → 11 → 12 → 13 → 14 → 15 → 16 → 26 → 17 (**Pilotstand**, ca. 3 Monate) → 18 → 19 (**MVP komplett**, ca. 4–5 Monate) → P2 nach Bedarf.
+1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 29 → 30 → 31 → 32 → 33 → 34 → 36 → 35 → 37 → 38 → 39 → 40 → 10 → 11 → 12 → 13 → 14 → 15 → 16 → 26 → 17 (**Pilotstand**, ca. 3 Monate) → 18 → 19 (**MVP komplett**, ca. 4–5 Monate) → P2 nach Bedarf.
 
 Den Channex-Block (PROJ-10 bis PROJ-12) früh angehen: Er ist das größte Risiko (Testzugang, Webhooks, Abläufe mit den Plattformen).
 
-## Next Available ID: PROJ-40
+## Next Available ID: PROJ-41

@@ -273,10 +273,10 @@ Dazu: Kleinunternehmer-Hinweis mit Gesetzestext, Fußzeile leer, Nummernkreis JJ
 
 ## Open Questions
 - [ ] Wortlaut des Kleinunternehmer-Hinweises mit Steuerberater abstimmen (Stand der Kleinunternehmerregelung ab 2025)
-- [ ] Bestimmt sich der Kleinunternehmer-Status einer Rechnung nach dem Rechnungsdatum oder nach der Buchung (PROJ-36: Abreise bzw. Stornodatum)? Klärung in PROJ-40
-- [ ] Wie entsteht das Fälligkeitsdatum, wenn im Entwurf kein Zahlungsbaustein gewählt ist, und was gilt, wenn „vor Anreise“ vor dem Rechnungsdatum liegt? Klärung in PROJ-40
-- [ ] Erscheinen auch die Datumsangaben in Block 2a/2b ohne Wochentag? Klärung in PROJ-40/41
-- [ ] Wie lautet {Anrede} bei Firmen als Empfänger (z. B. „Sehr geehrte Damen und Herren“)? Klärung in PROJ-40 mit der Empfängerwahl
+- [x] Bestimmt sich der Kleinunternehmer-Status einer Rechnung nach dem Rechnungsdatum oder nach der Buchung (PROJ-36: Abreise bzw. Stornodatum)? → Nach der Buchung (PROJ-40, 2026-10-31)
+- [x] Wie entsteht das Fälligkeitsdatum, wenn im Entwurf kein Zahlungsbaustein gewählt ist, und was gilt, wenn „vor Anreise“ vor dem Rechnungsdatum liegt? → Fällig am Rechnungsdatum; frühere Fristen werden auf das Rechnungsdatum gesetzt, mit Hinweis (PROJ-40, 2026-10-31)
+- [x] Erscheinen auch die Datumsangaben in Block 2a/2b ohne Wochentag? → Ja, alle Datumsangaben auf der Rechnung ohne Wochentag (PROJ-40, 2026-10-31)
+- [x] Wie lautet {Anrede} bei Firmen als Empfänger (z. B. „Sehr geehrte Damen und Herren“)? → Im Entwurf wählbar, vorausgewählt „Sehr geehrte Damen und Herren“, alternativ Anrede des Hauptgasts (PROJ-40, 2026-10-31)
 
 ## Decision Log
 

@@ -106,7 +106,7 @@ Viele Privatvermieter sind umsatzsteuerliche Kleinunternehmer und verrechnen kei
 
 ## Open Questions
 - [ ] Genauer Wortlaut der Statusbezeichnungen und ggf. ein kurzer Erklärtext zur Kleinunternehmerregelung (fachliche Prüfung durch den Nutzer)
-- [ ] Soll das Rechnungsmodul den Status je Rechnung festhalten? Klärung im Spec des Rechnungsmoduls
+- [x] Soll das Rechnungsmodul den Status je Rechnung festhalten? → Ja, beim Ausstellen (PROJ-41); im Entwurf (PROJ-40) jeweils neu nach der Buchung ermittelt (2026-10-31)
 - [ ] Braucht das Rechnungsmodul die Regel zusätzlich in der Datenbank? Klärung bei dessen Architektur
 
 ## Decision Log
