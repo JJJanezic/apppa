@@ -1,6 +1,6 @@
 # PROJ-38: Stammdaten: Umbenennung und Logo
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-10-31
 **Last Updated:** 2026-10-31
 
@@ -152,13 +152,141 @@ Erstes Paket der neuen Gliederung des Rechnungsmoduls (PROJ-38 bis PROJ-42). Es 
 ### Technical Decisions
 | Decision | Rationale | Date |
 |----------|-----------|------|
-| _Wird mit /architecture ergänzt_ | | |
+| Eigener privater Speicherbereich „Kunden-Logos“ statt Mitnutzung der Ausweisbilder | Andere Rechte (Inhaber/Betreiber statt aller Mitglieder), anderes Format (PNG statt JPEG); klare Trennung bei Bereinigung und Löschen | 2026-10-31 |
+| Logo als Speicherort direkt an der Kunden-Tabelle | Genau ein Logo je Kunde; Konfliktschutz und Änderungsprotokoll greifen ohne Zusatzaufwand | 2026-10-31 |
+| Speichern über die bestehende Stammdaten-Funktion mit optionalem Schlüssel „Logo“ | Ein Weg für Inhaber und Betreiber mit denselben Prüfungen; fehlender Schlüssel lässt das Logo unverändert (wie der Schalter aus PROJ-37) | 2026-10-31 |
+| Umwandlung im Browser zu PNG mit Transparenz, 1.000 Pixel | Gleicher Weg wie die Ausweisbilder; umgeht die Vercel-Grenze von 4,5 MB; der Server kann HEIC nicht lesen | 2026-10-31 |
+| Vorschau vor dem Speichern aus dem Browser, nicht vom Speicher | Nicht eingetragene Dateien müssen dann für niemanden lesbar sein; einfachere Leseregel als bei den Ausweisbildern | 2026-10-31 |
+| Mitarbeiter ohne Lesezugriff auf das Logo | Entspricht der Spec (kein Zugang zu Stammdaten); die PDF-Erzeugung in PROJ-41 liest mit dem geheimen Schlüssel auf dem Server | 2026-10-31 |
+| Umleitung `/einstellungen/kunde` in der Next.js-Konfiguration | Greift vor jeder Seite, behält Zusätze in der Adresse, kein eigener Seitenordner für die alte Adresse | 2026-10-31 |
+| Bestehenden Bereinigungs-Zeitplan erweitern statt neuen anlegen | Ein Zeitplan und ein Schlüssel; Einstiegstarif von Vercel begrenzt die Zahl der Zeitpläne | 2026-10-31 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### Ausgangslage (bereits vorhanden)
+- **Stammdaten-Formular** (`tenant-master-data-form`) für Inhaber und Betreiber, gespeichert über **eine** geschützte Datenbank-Funktion. Sie prüft Rechte und ob der Kunde aktiv ist, schützt vor gleichzeitigen Änderungen und schreibt das Betreiber-Protokoll mit der Liste der geänderten Felder (PROJ-28, erweitert in PROJ-36/37).
+- **Zwei private Speicherbereiche** nach demselben Muster: Ausweisbilder (PROJ-29) und Rechnungs-PDFs (PROJ-37). Es gibt je einen Ordner pro Kunde und zufällige Dateinamen. Der Browser lädt direkt hoch, das Speichern trägt die Datei erst ein, und die Datenbank meldet nicht mehr verwendete Dateien zum Löschen zurück.
+- **Bildumwandlung im Browser** (`document-image`): drehen, verkleinern, HEIC über das bereits installierte Paket `heic-to`, das nur bei Bedarf geladen wird.
+- **Tägliche Bereinigung** (Vercel Cron `/api/cron/ausweisbilder`) für beide Speicherbereiche. **Kunde löschen** (Betreiber) entfernt die Ordner beider Bereiche.
+
+### A) Seiten und Bausteine
+
+```
+Einstellungen (nur Inhaber)
++-- Reiter: Stammdaten · Team · Wohnungen      (neue Reihenfolge)
++-- /einstellungen               → leitet auf /einstellungen/stammdaten
++-- /einstellungen/kunde         → leitet dauerhaft auf /einstellungen/stammdaten (auch mit Zusätzen)
++-- /einstellungen/stammdaten    (bisherige Seite „Kunde“, neuer Name und Titel)
+    +-- Stammdaten-Formular
+        +-- NEU ganz oben: Feld „Logo“
+        |   +-- leer: Knopf „Logo hochladen“
+        |   +-- während Umwandeln/Hochladen: Fortschrittsanzeige (Speichern gesperrt)
+        |   +-- gefüllt: Vorschau auf getönter Fläche (Transparenz sichtbar) + „Ersetzen“ + „Entfernen“
+        |   +-- Hinweis „Das Logo ist klein …“ bei < 300 Pixel an der längeren Seite
+        |   +-- Klick auf Vorschau → große Ansicht (vorhandener shadcn-Dialog)
+        +-- übrige Felder aus PROJ-28/36/37 unverändert
+        +-- Speichern
+
+Betreiber → Kunden-Detailseite → Abschnitt „Stammdaten“
++-- dasselbe Formular inkl. Logo; bei deaktiviertem Kunden nur Vorschau, ohne Knöpfe
+
+Betreiber-Protokoll
++-- „Stammdaten geändert: Logo“ (neue Feldbezeichnung)
+```
+
+- **Logo-Feld als eigener Baustein** neben dem Bildplatz der Ausweisbilder. Es übernimmt deren Ablauf (Hochladen, Ersetzen, Entfernen, Fortschritt, Fehlermeldungen), zeigt aber nur ein Bild und wandelt in PNG um.
+- **Vorschau vor dem Speichern** zeigt das umgewandelte Bild direkt aus dem Browser. Ein Abruf vom Speicher ist dafür nicht nötig. Ein gespeichertes Logo wird über einen kurzlebigen Abruf-Link (10 Minuten) angezeigt, den der Server beim Laden der Seite erzeugt.
+- **Umbenennung:** Der Seitenordner wird von `kunde` zu `stammdaten` umbenannt, Reiter-Text und Seitentitel kommen aus den deutschen Texten. Die Umleitung der alten Adresse steht zentral in der Next.js-Konfiguration. So greift sie vor jeder Seite, und Zusätze in der Adresse bleiben erhalten.
+
+### B) Datenmodell (in Worten)
+
+**Kunde** (bestehende Tabelle) bekommt **ein** neues, optionales Feld:
+- **Logo:** der Speicherort der Datei, keine Bilddaten in der Tabelle. Bestehende Kunden: leer.
+
+**Regeln in der Datenbank:**
+- Ein Logo darf nur eingetragen werden, wenn die Datei im Ordner **desselben** Kunden liegt, wirklich existiert und das Format `<Kunde>/<zufällig>.png` hat.
+
+**Neuer privater Speicherbereich „Kunden-Logos“** in Supabase Storage (EU, eu-west-1):
+- ein Ordner je Kunde, zufälliger Dateiname
+- nur PNG, höchstens 5 MB je Datei (ein umgewandeltes Logo mit 1.000 Pixeln hat typischerweise unter 1 MB, bei fotoähnlichen Logos bis etwa 3 MB)
+- kein öffentlicher Zugriff
+
+### C) Rechte
+
+| Aktion | Inhaber | Mitarbeiter | Betreiber-Admin (2FA) |
+|---|---|---|---|
+| Logo ansehen | ✓ eigener Kunde | – | ✓ alle Kunden |
+| Logo hochladen (Datei in den Kunden-Ordner) | ✓ eigener, aktiver Kunde | – | ✓ aktive Kunden |
+| Logo am Kunden eintragen, ersetzen, entfernen (über „Speichern“) | ✓ | – | ✓ aktive Kunden |
+| Datei löschen | – | – | – (nur der Server mit geheimem Schlüssel) |
+
+- **Ansehen:** Eine Datei ist nur abrufbar, wenn sie das eingetragene Logo des Kunden ist. Ersetzte oder entfernte Logos sind damit sofort nicht mehr abrufbar. Mitarbeiter haben keinen Lesezugriff.
+- **Hochladen:** Wer hochlädt, braucht die Rechte des Inhabers bzw. Betreibers für einen **aktiven** Kunden. Wirksam wird eine Datei aber erst über „Speichern“, also über die bestehende Stammdaten-Funktion.
+- Die spätere Rechnungs-PDF-Erzeugung (PROJ-41) liest das Logo auf dem Server mit dem geheimen Schlüssel. Dafür braucht es keine zusätzlichen Leserechte.
+
+### D) Logo hochladen: Ablauf
+1. Der Nutzer wählt ein Bild (am Handy: Galerie oder Dateien).
+2. **Der Browser prüft und wandelt um:**
+   - Prüfung: Dateiart PNG, JPEG, WebP, HEIC/HEIF oder GIF, höchstens 10 MB. Andere Dateien wie SVG oder PDF lehnt er mit Meldung ab.
+   - Umwandlung: richtig drehen, längste Seite höchstens 1.000 Pixel (nie vergrößern), Ausgabe als **PNG mit Transparenz**. Der weiße Hintergrund, den die Ausweisbilder bekommen, entfällt hier. Versteckte Bilddaten wie Kamera oder GPS fallen dabei weg.
+   - HEIC: Safari kann es selbst, die anderen Browser laden `heic-to` erst in diesem Moment nach.
+   - Danach meldet er Breite und Höhe. Ist die längere Seite unter 300 Pixel, zeigt das Formular den Hinweis an.
+3. Das PNG geht **direkt vom Browser an den privaten Speicher**, nicht über den App-Server (Vercel-Grenze von 4,5 MB je Anfrage).
+4. Das Formular merkt sich den Speicherort. Erst **„Speichern“** trägt das Logo am Kunden ein, im selben Vorgang wie die übrigen Stammdaten und mit demselben Konfliktschutz.
+
+### E) Speichern und Aufräumen
+- **Stammdaten-Funktion** (bestehend) bekommt den optionalen Schlüssel „Logo“:
+  - Fehlt der Schlüssel, bleibt das Logo unverändert (wie beim Schalter aus PROJ-37).
+  - „Leer“ entfernt das Logo, ein Speicherort ersetzt es.
+  - „Logo“ zählt wie jedes andere Feld für das Betreiber-Protokoll und für „Speichern ohne Änderung“.
+  - Nach dem Speichern gibt die Funktion das **alte Logo** zurück, falls es ersetzt oder entfernt wurde. Der Server löscht diese Datei sofort.
+- **Konflikt oder Fehler beim Speichern:** Die hochgeladene Datei bleibt zunächst liegen, ist aber an keinem Kunden eingetragen und daher für niemanden abrufbar. Die tägliche Bereinigung entfernt sie.
+- **Tägliche Bereinigung** (bestehender Zeitplan) bekommt den dritten Speicherbereich: Dateien, die älter als 24 Stunden und nicht eingetragen sind, werden gelöscht.
+- **Kunde löschen (Betreiber):** entfernt zusätzlich den Logo-Ordner des Kunden.
+
+### F) Änderungsprotokoll
+- **Betreiber-Protokoll:** Die neue Feldbezeichnung „Logo“ erscheint in „Stammdaten geändert: …“.
+- **Allgemeines Änderungsprotokoll der Kunden-Tabelle:** übernimmt das neue Feld automatisch. Dort steht nur der Speicherort, nicht das Bild.
+
+### G) Aufräumen der Verweise aus PROJ-37
+Die Verweise in der PROJ-37-Spec, in `src/lib/invoices.ts` und im Kommentar der Rechnungs-Tabelle werden angepasst:
+- „PROJ-38 Erstellen/Ausstellen“ → PROJ-40/41
+- „PROJ-39 PDF/Übersicht“ → PROJ-41/42
+
+Der Tabellenkommentar wird in der neuen Migration mitgeändert. Die alte Migration bleibt unverändert, weil sie schon in allen Umgebungen eingespielt ist.
+
+### H) Tests
+- **Unit-Tests:** Umwandlung in PNG (Transparenz bleibt, längste Seite 1.000 Pixel, kein Vergrößern, Größenhinweis unter 300 Pixel, Ablehnung von SVG, PDF und Dateien über 10 MB), Prüfung des Speicherorts, Reiter-Reihenfolge.
+- **Integrationstests gegen „apppa-dev“:**
+  - Inhaber und Betreiber können ein Logo eintragen, ersetzen und entfernen, und die Funktion meldet das alte Logo zurück.
+  - Mitarbeiter können weder hochladen noch lesen noch eintragen.
+  - Kunde B kann das Logo von Kunde A weder lesen noch bei sich eintragen, ohne Anmeldung gibt es keinen Abruf.
+  - Ein ersetztes Logo ist sofort nicht mehr abrufbar.
+  - Bei deaktivierten Kunden sind Hochladen und Eintragen gesperrt, Lesen durch den Betreiber geht.
+  - Konfliktschutz und Protokolleintrag „Logo“ greifen, die Bereinigung löscht nur nicht eingetragene Dateien.
+- **E2E:**
+  - Reiter-Reihenfolge, `/einstellungen` und `/einstellungen/kunde` landen auf Stammdaten.
+  - Logo hochladen (PNG mit Transparenz, JPEG, HEIC-Beispielbild), groß öffnen, ersetzen und entfernen.
+  - Hinweis bei kleinem Logo, Fehlermeldung bei SVG bzw. PDF, Neuladen ohne Speichern behält das alte Logo.
+  - Betreiber lädt ein Logo hoch, deaktivierter Kunde nur lesbar, Mitarbeiter bekommt „Seite nicht gefunden“, Handy-Ansicht, axe.
+  - Bestehende E2E-Tests mit `/einstellungen/kunde` werden auf die neue Adresse umgestellt.
+- **Manuell:** Safari auf Mac und iPhone (HEIC, Galerie-Auswahl). Playwright testet nur Chrome.
+
+### I) Was sich an Sicherheit und Datenbank ändert (Freigabe nötig)
+- **Kunden-Tabelle:** neues Feld „Logo“ mit der Prüfregel aus B.
+- **Neuer privater Speicherbereich „Kunden-Logos“** mit Zugriffsregeln:
+  - Hochladen durch Inhaber bzw. Betreiber-Admin nur in den Ordner eines aktiven Kunden, nur PNG, höchstens 5 MB.
+  - Lesen nur für das eingetragene Logo, durch Inhaber des Kunden bzw. Betreiber-Admin.
+  - Kein Löschen oder Überschreiben durch Nutzer.
+- **Geänderte geschützte Funktion:** Stammdaten speichern (neuer Schlüssel „Logo“; gibt jetzt das alte Logo zurück statt nichts).
+- **Geänderte Server-Abläufe:** tägliche Bereinigung und Kunde löschen, je um den neuen Speicherbereich ergänzt.
+- **Keine neuen Umgebungsvariablen, kein neuer Zeitplan.** Bestehende Regeln für Kunden bleiben unverändert.
+
+### J) Abhängigkeiten
+- Keine neuen Pakete. `heic-to` ist schon installiert. Drehen, Verkleinern und die PNG-Erzeugung macht der Browser selbst, die große Ansicht nutzt den vorhandenen shadcn-Dialog.
 
 ## QA Test Results
 _To be added by /qa_
