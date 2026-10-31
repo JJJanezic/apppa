@@ -91,13 +91,14 @@ export async function hasAnyInvoice(): Promise<boolean> {
   return (count ?? 0) > 0
 }
 
-// Schalter „Rechnungen nacherfassen“ in den Kundenstammdaten (Voreinstellung ein)
+// Schalter „Rechnungen nacherfassen“ in den Rechnungseinstellungen (PROJ-39, Voreinstellung ein). Nur Inhaber lesen
+// die Einstellungen; der Knopf erscheint ohnehin nur für sie.
 export const getInvoiceBackfillEnabled = cache(async (): Promise<boolean> => {
   const { tenantId } = await requireMember()
   const supabase = await createClient()
-  const { data, error } = await supabase.from('tenants').select('invoice_backfill_enabled').eq('id', tenantId).maybeSingle()
+  const { data, error } = await supabase.from('invoice_settings').select('backfill_enabled').eq('tenant_id', tenantId).maybeSingle()
   if (error) console.error('[rechnungen] Schalter nicht lesbar', error.message)
-  return data?.invoice_backfill_enabled ?? true
+  return data?.backfill_enabled ?? true
 })
 
 // Dateiname zum Herunterladen, z. B. „Rechnung-2025-0042.pdf“

@@ -44,7 +44,7 @@ const ready = (page: Page) =>
 test.describe('Einstellungen → Stammdaten', () => {
   test.skip(!hasSupabaseEnv, 'keine .env.local')
 
-  test('AC: Reiter in der Reihenfolge Stammdaten, Team, Wohnungen; /einstellungen öffnet Stammdaten', async ({ page, users }) => {
+  test('AC: Reiter in der Reihenfolge Stammdaten, Team, Wohnungen (seit PROJ-39 + Rechnungen); /einstellungen öffnet Stammdaten', async ({ page, users }) => {
     desktopOnly()
     const owner = await users()
     await createTenant('QA38 Reiter', [{ user: owner, role: 'owner' }])
@@ -53,7 +53,7 @@ test.describe('Einstellungen → Stammdaten', () => {
     await ready(page)
     await expect(page).toHaveURL(/\/einstellungen\/stammdaten$/)
     const tabs = page.getByRole('navigation', { name: 'Einstellungsbereiche' }).getByRole('link')
-    await expect(tabs).toHaveText(['Stammdaten', 'Team', 'Wohnungen'])
+    await expect(tabs).toHaveText(['Stammdaten', 'Team', 'Wohnungen', 'Rechnungen'])
     await expect(tabs.first()).toHaveAttribute('aria-current', 'page')
     await expect(page).toHaveTitle(/Stammdaten/)
     await expect(page.getByRole('link', { name: 'Kunde', exact: true })).toHaveCount(0)
@@ -79,7 +79,7 @@ const fixture = (name: string) => path.join(__dirname, 'fixtures', name)
 const BUCKET = 'tenant-logos'
 const logoInput = (page: Page) => page.locator('main input[type=file]')
 const preview = (page: Page) => page.getByRole('button', { name: 'Logo groß ansehen' })
-const save = (page: Page) => page.getByRole('button', { name: 'Speichern' }).click()
+const save = (page: Page) => page.getByRole('button', { name: 'Speichern', exact: true }).click()
 
 async function savedLogo(tenantId: string) {
   const { data } = await service().from('tenants').select('logo_path').eq('id', tenantId).single()
@@ -348,7 +348,7 @@ test.describe('Logo (Betreiber)', () => {
     await ready(page)
     await upload(page, 'ausweis.png')
     await expect(preview(page)).toBeVisible()
-    await page.getByRole('button', { name: 'Speichern' }).click()
+    await page.getByRole('button', { name: 'Speichern', exact: true }).click()
     await expect(page.getByText('Kundendaten gespeichert.')).toBeVisible()
     await expect(page.getByText('Stammdaten geändert: Staat, Logo')).toBeVisible()
 

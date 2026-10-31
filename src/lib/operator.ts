@@ -75,6 +75,11 @@ export type OperatorLogAction =
   | 'reactivated'
   | 'deleted'
   | 'master_data'
+  // PROJ-39: Rechnungseinstellungen und Textbausteine
+  | 'invoice_settings'
+  | 'text_block_created'
+  | 'text_block_updated'
+  | 'text_block_deleted'
 
 export type OperatorLogEntry = {
   id: string
@@ -84,6 +89,9 @@ export type OperatorLogEntry = {
   targetEmail: string | null
   // bei „Stammdaten geändert“: geänderte Felder (Schlüssel aus tenantData.fields)
   fields: string[]
+  // bei Textbausteinen (PROJ-39): Block (intro/payment/closing) und Name, nie der Text
+  targetBlock: string | null
+  targetLabel: string | null
 }
 
 export type TenantDetail = {

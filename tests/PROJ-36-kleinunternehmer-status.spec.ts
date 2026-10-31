@@ -236,14 +236,14 @@ test.describe('Formular', () => {
     await page.getByRole('button', { name: 'Wechsel hinzufügen' }).click()
     const list = page.getByRole('list', { name: 'Wechsel des Umsatzsteuer-Status' })
     await expect(list.getByRole('combobox', { name: 'Status' })).toContainText('Kleinunternehmer – keine Umsatzsteuer')
-    await page.getByRole('button', { name: 'Speichern' }).click()
+    await page.getByRole('button', { name: 'Speichern', exact: true }).click()
     await expect(page.getByText('Bitte gib das Datum ein, ab dem der Status gilt.')).toBeVisible()
     await list.getByLabel('ab', { exact: true }).fill('2026-01-01')
 
     // Zweiter Wechsel mit gleichem Datum → Meldung
     await page.getByRole('button', { name: 'Wechsel hinzufügen' }).click()
     await list.getByLabel('ab', { exact: true }).first().fill('2026-01-01')
-    await page.getByRole('button', { name: 'Speichern' }).click()
+    await page.getByRole('button', { name: 'Speichern', exact: true }).click()
     await expect(page.getByText('Für dieses Datum gibt es bereits einen Eintrag.')).toBeVisible()
 
     // Künftiges Datum → „geplant“; Status „mit Umsatzsteuer“
@@ -251,7 +251,7 @@ test.describe('Formular', () => {
     await expect(list.getByText('geplant')).toBeVisible()
     await list.getByRole('combobox', { name: 'Status' }).first().click()
     await page.getByRole('option', { name: 'mit Umsatzsteuer' }).click()
-    await page.getByRole('button', { name: 'Speichern' }).click()
+    await page.getByRole('button', { name: 'Speichern', exact: true }).click()
     await expect(page.getByText('Kundendaten gespeichert.')).toBeVisible()
     expect(await history(tenant)).toEqual([
       { valid_from: '2026-01-01', small_business: true },
@@ -268,7 +268,7 @@ test.describe('Formular', () => {
 
     // Entfernen und speichern
     await list.getByRole('button', { name: 'Wechsel ab Do, 01.01.2099 entfernen' }).click()
-    await page.getByRole('button', { name: 'Speichern' }).click()
+    await page.getByRole('button', { name: 'Speichern', exact: true }).click()
     await expect(page.getByText('Kundendaten gespeichert.')).toBeVisible()
     await page.reload()
     await ready(page)
@@ -287,7 +287,7 @@ test.describe('Formular', () => {
     await page.getByRole('button', { name: 'Wechsel hinzufügen' }).click()
     const list = page.getByRole('list', { name: 'Wechsel des Umsatzsteuer-Status' })
     await list.getByLabel('ab', { exact: true }).fill('2026-03-01')
-    await page.getByRole('button', { name: 'Speichern' }).click()
+    await page.getByRole('button', { name: 'Speichern', exact: true }).click()
     await expect(page.getByText('Kundendaten gespeichert.')).toBeVisible()
     // Staat war leer und ist im Formular mit Österreich vorbelegt → wird mitgespeichert
     await expect(page.getByRole('listitem').filter({ hasText: 'Stammdaten geändert: Staat, Umsatzsteuer-Status' })).toBeVisible()

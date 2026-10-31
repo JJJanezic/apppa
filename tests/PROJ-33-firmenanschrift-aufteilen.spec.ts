@@ -129,7 +129,7 @@ test.describe('Formular', () => {
     await billing(page).getByRole('combobox', { name: 'Staat' }).click()
     await page.getByRole('option', { name: 'Keine Angabe' }).click()
     await billing(page).getByLabel('Ort').fill('  Linz  ')
-    await panel(page).getByRole('button', { name: 'Speichern' }).click()
+    await panel(page).getByRole('button', { name: 'Speichern', exact: true }).click()
     await expect(panel(page)).toHaveCount(0)
     const { data } = await service().from('guests').select('company_city, company_country').eq('id', id).single()
     expect(data).toEqual({ company_city: 'Linz', company_country: null })

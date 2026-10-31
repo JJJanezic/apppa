@@ -39,7 +39,7 @@ export default async function InvoicesPage({ searchParams }: { searchParams: Sea
   }
   const owner = active.role === 'owner'
   const filters = parseInvoiceFilters(await searchParams)
-  const [page, anyInvoice, backfill] = await Promise.all([getInvoicePage(filters), hasAnyInvoice(), getInvoiceBackfillEnabled()])
+  const [page, anyInvoice, backfill] = await Promise.all([getInvoicePage(filters), hasAnyInvoice(), owner ? getInvoiceBackfillEnabled() : false])
   const action = owner && backfill ? <NewInvoiceButton today={todayIso()} /> : undefined
 
   if (!anyInvoice) {

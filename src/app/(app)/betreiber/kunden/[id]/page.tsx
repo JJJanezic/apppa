@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { getTranslations } from 'next-intl/server'
 
+import { InvoiceSettings } from '@/components/invoice-settings/invoice-settings'
 import { OperatorInvitations } from '@/components/operator/operator-invitations'
 import { OperatorLog } from '@/components/operator/operator-log'
 import { OperatorMembers } from '@/components/operator/operator-members'
@@ -13,6 +14,7 @@ import { PageHeader } from '@/components/page-header'
 import { TenantMasterDataForm } from '@/components/tenant/tenant-master-data-form'
 import { requireArea } from '@/lib/areas'
 import { formatDate } from '@/lib/format'
+import { loadInvoiceSettings } from '@/lib/invoice-settings-data'
 import { getTenantDetail } from '@/lib/operator-data'
 
 type Params = Promise<{ id: string }>
@@ -22,12 +24,12 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   return { title: tenant.name }
 }
 
-// Detailseite eines Kunden: Status, Stammdaten (PROJ-28), Mitglieder, Einladungen, Protokoll und Aktionen (PROJ-5)
+// Detailseite eines Kunden: Status, Stammdaten (PROJ-28), Rechnungen (PROJ-39), Mitglieder, Einladungen, Protokoll und Aktionen (PROJ-5)
 export default async function TenantDetailPage({ params }: { params: Params }) {
   await requireArea('operator')
   const { id } = await params
   const t = await getTranslations('operator')
-  const tenant = await getTenantDetail(id)
+  const [tenant, invoiceSettings] = await Promise.all([getTenantDetail(id), loadInvoiceSettings(id)])
   const deactivated = tenant.status === 'deactivated'
 
   return (
@@ -50,6 +52,11 @@ export default async function TenantDetailPage({ params }: { params: Params }) {
       <section className="flex flex-col gap-4">
         <h2 className="text-2xl">{t('masterDataTitle')}</h2>
         <TenantMasterDataForm key={tenant.masterData.updatedAt} data={tenant.masterData} mode="operator" readOnly={deactivated} />
+      </section>
+
+      <section className="flex flex-col gap-4">
+        <h2 className="text-2xl">{t('invoiceSettingsTitle')}</h2>
+        <InvoiceSettings tenantId={tenant.id} data={invoiceSettings} level={3} readOnly={deactivated} />
       </section>
 
       <section className="flex flex-col gap-4">

@@ -164,11 +164,11 @@ test.describe('Einstellungen → Stammdaten', () => {
     await page.getByLabel('Postleitzahl').fill('6020')
     await page.getByLabel('Ort').fill('Innsbruck')
     await page.getByLabel('UID').fill('ATU1234567')
-    await page.getByRole('button', { name: 'Speichern' }).click()
+    await page.getByRole('button', { name: 'Speichern', exact: true }).click()
     await expect(page.getByText('Bitte prüfe die UID.')).toBeVisible()
 
     await page.getByLabel('UID').fill('atu 1234 5678')
-    await page.getByRole('button', { name: 'Speichern' }).click()
+    await page.getByRole('button', { name: 'Speichern', exact: true }).click()
     await expect(page.getByText('Kundendaten gespeichert.')).toBeVisible()
     await page.reload()
     await ready(page)
@@ -230,7 +230,7 @@ test.describe('Inhaber: weitere Abläufe', () => {
 
     // Leerer Name: Meldung, nichts gespeichert
     await field(page, 'Kundenname').fill('   ')
-    await page.getByRole('button', { name: 'Speichern' }).click()
+    await page.getByRole('button', { name: 'Speichern', exact: true }).click()
     await expect(page.getByText('Bitte gib einen Kundennamen ein.')).toBeVisible()
     expect((await current(tenant)).name).toBe(name)
 
@@ -238,7 +238,7 @@ test.describe('Inhaber: weitere Abläufe', () => {
     await field(page, 'Kundenname').fill(name)
     await field(page, 'Adresszeile 2').fill('   ')
     await field(page, 'Namenszeile 2').fill('')
-    await page.getByRole('button', { name: 'Speichern' }).click()
+    await page.getByRole('button', { name: 'Speichern', exact: true }).click()
     await expect(page.getByText('Kundendaten gespeichert.')).toBeVisible()
     const after = await current(tenant)
     expect(after).toMatchObject({ address_line2: null, name_line2: null, city: 'Innsbruck', register_number: 'FN 123456a' })
@@ -258,7 +258,7 @@ test.describe('Inhaber: weitere Abläufe', () => {
     await page.goto('/einstellungen/stammdaten')
     await ready(page)
     await field(page, 'Kundenname').fill(`${name} neu`)
-    await page.getByRole('button', { name: 'Speichern' }).click()
+    await page.getByRole('button', { name: 'Speichern', exact: true }).click()
     await expect(page.getByText('Kundendaten gespeichert.')).toBeVisible()
     // Vorbelegtes Österreich wird mitgespeichert, sonst bleibt alles leer
     expect(await current(tenant)).toMatchObject({ name: `${name} neu`, country: 'AT', city: null, vat_id: null })
@@ -285,7 +285,7 @@ test.describe('Inhaber: weitere Abläufe', () => {
     await ready(page)
     await field(page, 'Ort').fill('Salzburg')
     await page.context().setOffline(true)
-    await page.getByRole('button', { name: 'Speichern' }).click()
+    await page.getByRole('button', { name: 'Speichern', exact: true }).click()
     await expect(page.getByText('Keine Verbindung. Bitte prüfe deine Internetverbindung und versuche es erneut.')).toBeVisible()
     await page.context().setOffline(false)
     await expect(field(page, 'Ort')).toHaveValue('Salzburg')
@@ -324,7 +324,7 @@ test.describe('Betreiber', () => {
     await expect(field(page, 'Kundenname')).toHaveValue(name)
     await field(page, 'Kundenname').fill(`${name} GmbH`)
     await field(page, 'Ort').fill('Innsbruck')
-    await page.getByRole('button', { name: 'Speichern' }).click()
+    await page.getByRole('button', { name: 'Speichern', exact: true }).click()
     await expect(page.getByText('Kundendaten gespeichert.')).toBeVisible()
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(`${name} GmbH`)
     const entry = page.getByRole('listitem').filter({ hasText: 'Stammdaten geändert: Kundenname, Ort' })
@@ -372,7 +372,7 @@ test.describe('Betreiber', () => {
     await expect(field(page, 'Ort')).toBeDisabled()
     await expect(field(page, 'Kundenname')).toBeDisabled()
     await expect(field(page, 'Staat')).toBeDisabled()
-    await expect(page.getByRole('button', { name: 'Speichern' })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Speichern', exact: true })).toHaveCount(0)
 
     // Inhaber des deaktivierten Kunden: Datenbank weist ab
     const client = await signedIn(owner)
@@ -439,7 +439,7 @@ test.describe('Betreiber', () => {
     expect(r.error).toBeNull()
 
     await field(page, 'Ort').fill('Linz')
-    await page.getByRole('button', { name: 'Speichern' }).click()
+    await page.getByRole('button', { name: 'Speichern', exact: true }).click()
     await expect(page.getByText('Die Kundendaten wurden inzwischen geändert.')).toBeVisible()
     await expect(field(page, 'Ort')).toHaveValue('Linz')
     expect((await current(tenant)).city).toBe('Graz')
@@ -462,7 +462,7 @@ test.describe('Edge Cases', () => {
     await ready(page)
     await service().from('tenants').update({ status: 'deactivated' }).eq('id', tenant)
     await field(page, 'Ort').fill('Wien')
-    await page.getByRole('button', { name: 'Speichern' }).click()
+    await page.getByRole('button', { name: 'Speichern', exact: true }).click()
     await expect(page.getByText('Der Kunde ist deaktiviert. Die Stammdaten lassen sich nicht ändern.')).toBeVisible()
     expect((await current(tenant)).city).toBeNull()
   })
@@ -476,7 +476,7 @@ test.describe('Edge Cases', () => {
     await ready(page)
     await service().from('tenants').update({ status: 'deactivated' }).eq('id', tenant)
     await field(page, 'Ort').fill('Wien')
-    await page.getByRole('button', { name: 'Speichern' }).click()
+    await page.getByRole('button', { name: 'Speichern', exact: true }).click()
     await page.waitForTimeout(1500)
     expect((await current(tenant)).city).toBeNull()
     // Erwartung laut Spec: verständliche Meldung, keine Weiterleitung zur Anmeldung
@@ -500,7 +500,7 @@ test.describe('Edge Cases', () => {
     await expect(field(page, 'Kundenname')).toHaveValue(`${name} A`)
     await service().from('tenants').update({ status: 'deactivated' }).eq('id', first)
     await field(page, 'Ort').fill('Wien')
-    await page.getByRole('button', { name: 'Speichern' }).click()
+    await page.getByRole('button', { name: 'Speichern', exact: true }).click()
     await expect(page.getByText('Der Kunde ist deaktiviert. Die Stammdaten lassen sich nicht ändern.')).toBeVisible()
     expect((await current(first)).city).toBeNull()
     expect(await current(second)).toMatchObject({ name: `${name} B`, city: null })

@@ -29,8 +29,6 @@ export type TenantMasterData = {
   registerNumber: string | null
   // Kleinunternehmer-Status (PROJ-36), neueste zuerst
   vatStatus: VatStatusChange[]
-  // Schalter „Rechnungen nacherfassen“ (PROJ-37), Voreinstellung ein
-  invoiceBackfill: boolean
   // Logo (PROJ-38): Speicherort <Kunde>/<zufällig>.png und kurzlebiger Abruf-Link (vom Server beim Laden erzeugt)
   logoPath: string | null
   logoUrl: string | null
@@ -38,10 +36,10 @@ export type TenantMasterData = {
   updatedAt: string
 }
 
-// Spalten der Tabelle tenants (inkl. Schalter „Rechnungen nacherfassen“, PROJ-37, und Logo, PROJ-38), dazu der Verlauf des
+// Spalten der Tabelle tenants (inkl. Logo, PROJ-38; der Schalter „Rechnungen nacherfassen“ liegt seit PROJ-39 in invoice_settings), dazu der Verlauf des
 // Kleinunternehmer-Status (PROJ-36)
 export const MASTER_DATA_COLUMNS =
-  'id, name, name_line2, address_line1, address_line2, postal_code, city, country, vat_id, tax_number, register_number, invoice_backfill_enabled, logo_path, updated_at, vat_status_changes(valid_from, small_business)'
+  'id, name, name_line2, address_line1, address_line2, postal_code, city, country, vat_id, tax_number, register_number, logo_path, updated_at, vat_status_changes(valid_from, small_business)'
 
 export type TenantMasterDataRow = {
   id: string
@@ -55,7 +53,6 @@ export type TenantMasterDataRow = {
   vat_id: string | null
   tax_number: string | null
   register_number: string | null
-  invoice_backfill_enabled: boolean
   logo_path: string | null
   updated_at: string
   vat_status_changes: VatStatusChangeRow[]
@@ -75,7 +72,6 @@ export const masterDataFromRow = (row: TenantMasterDataRow, logoUrl: string | nu
   taxNumber: row.tax_number,
   registerNumber: row.register_number,
   vatStatus: vatStatusFromRows(row.vat_status_changes),
-  invoiceBackfill: row.invoice_backfill_enabled,
   logoPath: row.logo_path,
   logoUrl: row.logo_path ? logoUrl : null,
   updatedAt: row.updated_at,

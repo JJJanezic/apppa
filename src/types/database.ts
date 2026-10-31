@@ -785,6 +785,114 @@ export type Database = {
           },
         ]
       }
+      invoice_settings: {
+        Row: {
+          backfill_enabled: boolean
+          backfill_updated_at: string
+          created_at: string
+          footer: Json | null
+          number_digits: number
+          number_prefix: string
+          number_separator: string
+          number_start: number
+          number_start_year: number | null
+          number_with_year: boolean
+          number_yearly_reset: boolean
+          numbering_updated_at: string
+          small_business_note: Json
+          tenant_id: string
+          texts_updated_at: string
+        }
+        Insert: {
+          backfill_enabled?: boolean
+          backfill_updated_at?: string
+          created_at?: string
+          footer?: Json | null
+          number_digits?: number
+          number_prefix?: string
+          number_separator?: string
+          number_start?: number
+          number_start_year?: number | null
+          number_with_year?: boolean
+          number_yearly_reset?: boolean
+          numbering_updated_at?: string
+          small_business_note?: Json
+          tenant_id: string
+          texts_updated_at?: string
+        }
+        Update: {
+          backfill_enabled?: boolean
+          backfill_updated_at?: string
+          created_at?: string
+          footer?: Json | null
+          number_digits?: number
+          number_prefix?: string
+          number_separator?: string
+          number_start?: number
+          number_start_year?: number | null
+          number_with_year?: boolean
+          number_yearly_reset?: boolean
+          numbering_updated_at?: string
+          small_business_note?: Json
+          tenant_id?: string
+          texts_updated_at?: string
+        }
+        Relationships: []
+      }
+      invoice_text_blocks: {
+        Row: {
+          block: string
+          body: Json
+          created_at: string
+          created_by: string | null
+          deposit_days: number | null
+          deposit_percent: number | null
+          due_basis: string | null
+          due_days: number | null
+          id: string
+          is_default: boolean
+          name: string
+          name_key: string
+          tenant_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          block: string
+          body: Json
+          created_at?: string
+          created_by?: string | null
+          deposit_days?: number | null
+          deposit_percent?: number | null
+          due_basis?: string | null
+          due_days?: number | null
+          id?: string
+          is_default?: boolean
+          name: string
+          name_key?: string
+          tenant_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          block?: string
+          body?: Json
+          created_at?: string
+          created_by?: string | null
+          deposit_days?: number | null
+          deposit_percent?: number | null
+          due_basis?: string | null
+          due_days?: number | null
+          id?: string
+          is_default?: boolean
+          name?: string
+          name_key?: string
+          tenant_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       invoices: {
         Row: {
           booking_id: string | null
@@ -999,7 +1107,9 @@ export type Database = {
           changed_fields: string[] | null
           created_at: string
           id: number
+          target_block: string | null
           target_email: string | null
+          target_label: string | null
           tenant_id: string
           tenant_name: string
         }
@@ -1010,7 +1120,9 @@ export type Database = {
           changed_fields?: string[] | null
           created_at?: string
           id?: never
+          target_block?: string | null
           target_email?: string | null
+          target_label?: string | null
           tenant_id: string
           tenant_name: string
         }
@@ -1021,7 +1133,9 @@ export type Database = {
           changed_fields?: string[] | null
           created_at?: string
           id?: never
+          target_block?: string | null
           target_email?: string | null
+          target_label?: string | null
           tenant_id?: string
           tenant_name?: string
         }
@@ -1338,6 +1452,10 @@ export type Database = {
       }
       delete_guest: { Args: { p_guest_id: string }; Returns: string }
       delete_invoice: { Args: { p_invoice_id: string }; Returns: string }
+      delete_invoice_text_block: {
+        Args: { p_block_id: string; p_tenant_id: string }
+        Returns: undefined
+      }
       guest_duplicate_candidates: {
         Args: {
           p_email: string
@@ -1397,6 +1515,19 @@ export type Database = {
           tenant_name: string
         }[]
       }
+      save_invoice_backfill: {
+        Args: { p_enabled: boolean; p_expected_updated_at: string; p_tenant_id: string }
+        Returns: undefined
+      }
+      save_invoice_fixed_texts: {
+        Args: { p_data: Json; p_expected_updated_at: string; p_tenant_id: string }
+        Returns: undefined
+      }
+      save_invoice_numbering: {
+        Args: { p_data: Json; p_expected_updated_at: string; p_tenant_id: string }
+        Returns: undefined
+      }
+      save_invoice_text_block: { Args: { p_input: Json }; Returns: string }
       save_block: {
         Args: { p_confirm?: boolean; p_input: Json }
         Returns: Json
@@ -1439,6 +1570,15 @@ export type Database = {
       unused_guest_documents: { Args: { p_limit?: number }; Returns: string[] }
       unused_invoice_pdfs: { Args: { p_limit?: number }; Returns: string[] }
       unused_tenant_logos: { Args: { p_limit?: number }; Returns: string[] }
+      set_invoice_text_block_default: {
+        Args: {
+          p_block: string
+          p_block_id: string | null
+          p_expected_default_id: string | null
+          p_tenant_id: string
+        }
+        Returns: undefined
+      }
       update_tenant_master_data: {
         Args: {
           p_data: Json

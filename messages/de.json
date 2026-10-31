@@ -196,11 +196,12 @@
   },
   "settings": {
     "title": "Einstellungen",
-    "lead": "Stammdaten, Team und Wohnungen verwalten.",
+    "lead": "Stammdaten, Team, Wohnungen und Rechnungen verwalten.",
     "tabsLabel": "Einstellungsbereiche",
     "team": "Team",
     "tenant": "Stammdaten",
-    "apartments": "Wohnungen"
+    "apartments": "Wohnungen",
+    "invoices": "Rechnungen"
   },
   "team": {
     "title": "Team",
@@ -504,7 +505,11 @@
       "reactivated": "Kunde reaktiviert",
       "deleted": "Kunde gelöscht",
       "by": "{date} · {actor}",
-      "master_data": "Stammdaten geändert: {fields}"
+      "master_data": "Stammdaten geändert: {fields}",
+      "invoice_settings": "Rechnungseinstellungen geändert: {fields}",
+      "text_block_created": "Textbaustein angelegt: {block} – {name}",
+      "text_block_updated": "Textbaustein geändert: {block} – {name} ({fields})",
+      "text_block_deleted": "Textbaustein gelöscht: {block} – {name}"
     },
     "done": {
       "created": "Kunde „{tenant}“ angelegt. Die Einladung an {email} ist unterwegs.",
@@ -540,7 +545,8 @@
       "notImplemented": "Diese Funktion wird gerade eingerichtet.",
       "unknown": "Etwas ist schiefgelaufen. Bitte versuche es erneut."
     },
-    "masterDataTitle": "Stammdaten"
+    "masterDataTitle": "Stammdaten",
+    "invoiceSettingsTitle": "Rechnungen"
   },
   "apartments": {
     "title": "Wohnungen",
@@ -1559,7 +1565,7 @@
       "notFound": "Diese Rechnung gibt es nicht mehr.",
       "staleInvoice": "Die Rechnung wurde inzwischen von jemand anderem geändert.",
       "numberTaken": "Diese Rechnungsnummer ist bereits vergeben.",
-      "backfillDisabled": "Das Nacherfassen von Rechnungen ist ausgeschaltet. Ein Inhaber kann es unter Einstellungen → Stammdaten wieder einschalten.",
+      "backfillDisabled": "Das Nacherfassen von Rechnungen ist ausgeschaltet. Ein Inhaber kann es unter Einstellungen → Rechnungen wieder einschalten.",
       "dateInFuture": "Das Rechnungsdatum darf nicht in der Zukunft liegen",
       "pdfMissing": "Das PDF ist nicht mehr verfügbar. Bitte lade es erneut hoch und speichere noch einmal.",
       "bookingInvalid": "Diese Buchung kann nicht gewählt werden.",
@@ -1567,6 +1573,183 @@
       "guestAnonymized": "Ein anonymisierter Gast kann nicht gewählt werden.",
       "tenantDeactivated": "Der Kunde ist deaktiviert. Rechnungen sind nur lesbar.",
       "documentImageMissing": "Ein Ausweisbild ist nicht mehr verfügbar. Bitte lade es erneut hoch und speichere noch einmal.",
+      "network": "Keine Verbindung. Bitte prüfe deine Internetverbindung und versuche es erneut.",
+      "sessionExpired": "Deine Sitzung ist abgelaufen. Bitte melde dich erneut an.",
+      "notImplemented": "Diese Funktion wird gerade eingerichtet.",
+      "unknown": "Etwas ist schiefgelaufen. Bitte versuche es erneut."
+    }
+  },
+  "invoiceSettings": {
+    "readOnlyHint": "Der Kunde ist deaktiviert. Die Rechnungseinstellungen sind nur lesbar.",
+    "loadFailed": "Die Rechnungseinstellungen konnten nicht geladen werden. Bitte lade die Seite neu.",
+    "stale": {
+      "text": "Die Einstellungen wurden inzwischen geändert. Deine Eingaben sind noch nicht gespeichert.",
+      "reload": "Aktuelle Fassung laden"
+    },
+    "numbering": {
+      "title": "Nummernkreis",
+      "lead": "Aufbau der Rechnungsnummer: Präfix, Jahreszahl, Trennzeichen und laufende Nummer, z. B. „2026-0012“ oder „R-00123“.",
+      "legend": "Nummernkreis",
+      "prefix": "Präfix",
+      "prefixHint": "Optional, bis {max} Zeichen: Buchstaben, Ziffern und - / _ .",
+      "withYear": "Mit Jahreszahl",
+      "withYearHint": "Vierstellige Jahreszahl des Rechnungsdatums, z. B. 2026.",
+      "separator": "Trennzeichen",
+      "separatorChar": "„{char}“",
+      "separatorNone": "Keines",
+      "separatorNeedsYear": "Nur mit Jahreszahl: steht zwischen Jahreszahl und laufender Nummer.",
+      "digits": "Stellen",
+      "digitsOption": "{digits} ({example})",
+      "digitsHint": "Mit führenden Nullen. Wird die Zahl größer, wächst die Nummer einfach weiter.",
+      "yearlyReset": "Jährlich neu beginnen",
+      "yearlyResetHint": "Jedes Jahr beginnt die laufende Nummer wieder bei 1.",
+      "yearlyNeedsYear": "Jährlich neu beginnen geht nur mit Jahreszahl.",
+      "startNumber": "Startnummer",
+      "startNumberHint": "Gilt, solange es im Nummernkreis noch keine passende Rechnung gibt. Bei „jährlich neu“ nur im Jahr, in dem du sie einträgst.",
+      "previewLabel": "Nächste Nummer",
+      "previewHint": "Für eine Rechnung mit dem heutigen Datum, nach allen Rechnungen im eingestellten Format.",
+      "startIgnored": "Es gibt bereits passende Rechnungen. Die Startnummer gilt nur, solange es keine gibt.",
+      "save": "Nummernkreis speichern",
+      "saved": "Nummernkreis gespeichert.",
+      "confirm": {
+        "title": "Nummernkreis ändern?",
+        "text": "Es wurden bereits Rechnungen mit diesem Nummernkreis ausgestellt. Eine Änderung kann die fortlaufende Nummerierung unterbrechen.",
+        "confirm": "Trotzdem speichern",
+        "cancel": "Abbrechen"
+      }
+    },
+    "blocks": {
+      "title": "Textbausteine",
+      "lead": "Texte für Einleitung, Zahlungsmodalitäten und Abschluss. Der Standard ist im Rechnungsentwurf vorausgewählt.",
+      "kinds": {
+        "intro": "Einleitung",
+        "payment": "Zahlungsmodalitäten",
+        "closing": "Abschlusstext"
+      },
+      "kindHints": {
+        "intro": "Block 4, vor den Leistungen",
+        "payment": "Block 6, nach den Leistungen, mit Anzahlung und Fälligkeit",
+        "closing": "Block 7, am Ende der Rechnung"
+      },
+      "add": "Baustein hinzufügen",
+      "full": "Höchstens {max} Bausteine je Block. Lösche einen, um einen neuen anzulegen.",
+      "noDefault": "Kein Standard – der Block beginnt im Entwurf leer.",
+      "empty": "Noch keine Bausteine.",
+      "default": "Standard",
+      "actionsFor": "Aktionen für {name}",
+      "edit": "Bearbeiten",
+      "makeDefault": "Als Standard setzen",
+      "clearDefault": "Standard aufheben",
+      "delete": "Löschen",
+      "defaultSet": "Standard gesetzt.",
+      "defaultCleared": "Standard aufgehoben.",
+      "deleted": "Baustein gelöscht.",
+      "created": "Baustein angelegt.",
+      "saved": "Baustein gespeichert.",
+      "deleteConfirm": {
+        "title": "„{name}“ löschen?",
+        "text": "Der Baustein wird gelöscht. Bestehende Rechnungen bleiben unverändert.",
+        "textDefault": "Der Baustein ist der Standard dieses Blocks. Danach hat der Block keinen Standard.",
+        "confirm": "Löschen"
+      },
+      "goneTitle": "Baustein nicht mehr vorhanden",
+      "goneText": "Dieser Baustein wurde inzwischen gelöscht.",
+      "newTitle": "Neuer Baustein",
+      "editTitle": "Baustein bearbeiten",
+      "paymentLead": "Die Zahlungsregeln setzen Anzahlung und Fälligkeit im Rechnungsentwurf; dort sind sie je Rechnung änderbar.",
+      "name": "Name",
+      "nameHint": "Nur für dich, erscheint nicht auf der Rechnung.",
+      "deposit": "Anzahlung",
+      "depositHint": "Ein Teil des Betrags ist früher fällig, auf derselben Rechnung.",
+      "depositPercent": "Anzahlung in Prozent",
+      "depositDays": "Anzahlung fällig nach",
+      "depositDaysHint": "Tage nach Rechnungsdatum",
+      "dueDays": "Fälligkeit",
+      "dueDaysRest": "Fälligkeit des Rests",
+      "dueBasis": "Bezug der Fälligkeit",
+      "dueBases": {
+        "after_invoice": "Tage nach Rechnungsdatum",
+        "before_arrival": "Tage vor Anreise"
+      },
+      "days": "Tage",
+      "body": "Text",
+      "bodyHint": "Platzhalter fügst du über „Platzhalter einfügen“ ein oder tippst sie in geschweiften Klammern. Im Entwurf werden sie mit den Daten der Buchung gefüllt.",
+      "bodyHintPayment": "Platzhalter fügst du über „Platzhalter einfügen“ ein. Fälligkeitsdatum und Betrag kommen aus den Zahlungsregeln.",
+      "bodyHintDeposit": "Platzhalter fügst du über „Platzhalter einfügen“ ein. Anzahlung, Fristen und Restbetrag kommen aus den Zahlungsregeln.",
+      "save": "Baustein speichern",
+      "cancel": "Abbrechen",
+      "close": "Schließen"
+    },
+    "fixedTexts": {
+      "title": "Feste Texte",
+      "lead": "Erscheinen unverändert auf der Rechnung und sind im Entwurf nicht änderbar.",
+      "smallBusinessNote": "Kleinunternehmer-Hinweis",
+      "smallBusinessNoteHint": "Erscheint nach den Leistungen nur, wenn für die Rechnung der Kleinunternehmer-Status gilt. Pflicht, bis 500 Zeichen.",
+      "footer": "Fußzeile",
+      "footerHint": "Zum Beispiel Bankverbindung und Kontakt. Erscheint auf jeder Rechnung. Optional, bis 2.000 Zeichen.",
+      "save": "Feste Texte speichern",
+      "saved": "Feste Texte gespeichert."
+    },
+    "backfill": {
+      "title": "Nacherfassen",
+      "label": "Rechnungen nacherfassen",
+      "hint": "Zeigt in „Rechnungen“ den Knopf „Rechnung nacherfassen“, um Rechnungen aus dem bisherigen System zu übernehmen. Ausgeschaltet bleiben erfasste Rechnungen sichtbar und bearbeitbar.",
+      "save": "Schalter speichern",
+      "saved": "Einstellung gespeichert."
+    },
+    "editor": {
+      "toolbar": "Formatierung",
+      "bold": "Fett",
+      "italic": "Kursiv",
+      "bulletList": "Aufzählung",
+      "orderedList": "Nummerierte Liste",
+      "insertPlaceholder": "Platzhalter einfügen",
+      "count": "{length} / {max} Zeichen",
+      "preview": "Vorschau mit Beispieldaten",
+      "previewEmpty": "Noch kein Text."
+    },
+    "logFields": {
+      "numbering": "Nummernkreis",
+      "smallBusinessNote": "Kleinunternehmer-Hinweis",
+      "footer": "Fußzeile",
+      "backfill": "Rechnungen nacherfassen",
+      "name": "Name",
+      "body": "Text",
+      "paymentRules": "Zahlungsregeln",
+      "isDefault": "Standard"
+    },
+    "validation": {
+      "prefixTooLong": "Das Präfix darf höchstens {max} Zeichen haben.",
+      "prefixInvalid": "Im Präfix sind nur Buchstaben, Ziffern und - / _ . erlaubt, keine Leerzeichen.",
+      "digitsRange": "Bitte wähle {min} bis {max} Stellen.",
+      "startInvalid": "Bitte gib als Startnummer eine ganze Zahl ab 1 ein.",
+      "yearlyNeedsYear": "Jährlich neu beginnen geht nur mit Jahreszahl.",
+      "textInvalid": "Dieser Text enthält nicht erlaubte Formatierungen.",
+      "textTooLong": "Der Text ist zu lang: {length} von höchstens {max} Zeichen.",
+      "smallBusinessNoteRequired": "Der Kleinunternehmer-Hinweis darf nicht leer sein.",
+      "nameRequired": "Bitte gib einen Namen ein.",
+      "nameTooLong": "Der Name darf höchstens {max} Zeichen haben.",
+      "nameTaken": "Dieser Name ist in diesem Block bereits vergeben.",
+      "bodyRequired": "Bitte gib einen Text ein.",
+      "percentRequired": "Bitte gib die Anzahlung in Prozent ein.",
+      "percentRange": "Bitte gib {min} bis {max} Prozent mit höchstens 2 Nachkommastellen ein.",
+      "daysRequired": "Bitte gib die Anzahl der Tage ein.",
+      "daysRange": "Bitte gib eine ganze Zahl von 0 bis {max} Tagen ein.",
+      "placeholder": {
+        "unknown": "Unbekannter Platzhalter: {token}",
+        "notHere": "Der Platzhalter {token} ist in diesem Block nicht erlaubt.",
+        "depositOnly": "Dieser Platzhalter ist nur bei Bausteinen mit Anzahlung möglich: {token}"
+      },
+      "unknown": "Bitte prüfe diese Angabe."
+    },
+    "errors": {
+      "staleSettings": "Die Einstellungen wurden inzwischen geändert.",
+      "blockGone": "Dieser Baustein existiert nicht mehr. Er wurde inzwischen gelöscht.",
+      "blockLimit": "In diesem Block gibt es bereits die Höchstzahl an Bausteinen.",
+      "nameTaken": "Dieser Name ist in diesem Block bereits vergeben.",
+      "contentInvalid": "Der Inhalt konnte nicht gespeichert werden. Bitte prüfe Text, Grenzen und Platzhalter.",
+      "tenantDeactivated": "Der Kunde ist deaktiviert. Die Rechnungseinstellungen lassen sich nicht ändern.",
+      "tenantGone": "Diesen Kunden gibt es nicht mehr.",
       "network": "Keine Verbindung. Bitte prüfe deine Internetverbindung und versuche es erneut.",
       "sessionExpired": "Deine Sitzung ist abgelaufen. Bitte melde dich erneut an.",
       "notImplemented": "Diese Funktion wird gerade eingerichtet.",

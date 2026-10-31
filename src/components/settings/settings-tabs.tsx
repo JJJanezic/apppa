@@ -10,6 +10,7 @@ const TABS = [
   { href: '/einstellungen/stammdaten', key: 'tenant' },
   { href: '/einstellungen/team', key: 'team' },
   { href: '/einstellungen/wohnungen', key: 'apartments' },
+  { href: '/einstellungen/rechnungen', key: 'invoices' },
 ] as const
 
 // Reiter der Einstellungen als Links (eigene Adressen, Zurück-Taste funktioniert)

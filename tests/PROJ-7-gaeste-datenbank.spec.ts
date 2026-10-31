@@ -204,7 +204,7 @@ test.describe('Anlegen und Bearbeiten', () => {
     await ready(page)
     await page.getByRole('button', { name: 'Bearbeiten' }).click()
     await panel(page).getByLabel('Telefon').fill('+43 664 1234567')
-    await panel(page).getByRole('button', { name: 'Speichern' }).click()
+    await panel(page).getByRole('button', { name: 'Speichern', exact: true }).click()
     await expect(page.getByText('Änderungen gespeichert')).toBeVisible()
     await expect(page.getByRole('link', { name: '+43 664 1234567' })).toBeVisible()
 
@@ -212,7 +212,7 @@ test.describe('Anlegen und Bearbeiten', () => {
     await panel(page).getByLabel('Notiz').fill('meine Eingabe')
     // Inzwischen ändert jemand anderer den Gast
     await service().from('guests').update({ note: 'fremde Änderung' } as never).eq('id', id)
-    await panel(page).getByRole('button', { name: 'Speichern' }).click()
+    await panel(page).getByRole('button', { name: 'Speichern', exact: true }).click()
     await expect(panel(page).getByText(/inzwischen von jemand anderem geändert/)).toBeVisible()
     await expect(panel(page).getByLabel('Notiz')).toHaveValue('meine Eingabe')
     await panel(page).getByRole('button', { name: 'Aktuelle Fassung laden' }).click()

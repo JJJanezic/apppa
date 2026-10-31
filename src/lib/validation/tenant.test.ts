@@ -19,7 +19,6 @@ const EMPTY = {
   taxNumber: '',
   registerNumber: '',
   vatStatus: [] as { validFrom: string; status: string }[],
-  invoiceBackfill: true,
   logoPath: '',
 }
 
@@ -39,7 +38,6 @@ describe('tenantMasterDataSchema', () => {
       taxNumber: null,
       registerNumber: null,
       vatStatus: [],
-      invoiceBackfill: true,
       logoPath: null,
     })
   })

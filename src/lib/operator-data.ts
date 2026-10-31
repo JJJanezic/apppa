@@ -94,7 +94,7 @@ export const getTenantDetail = cache(async (id: string): Promise<TenantDetail> =
       .maybeSingle(),
     supabase
       .from('operator_log')
-      .select('id, created_at, action, actor_name, target_email, changed_fields')
+      .select('id, created_at, action, actor_name, target_email, changed_fields, target_block, target_label')
       .eq('tenant_id', id)
       .order('created_at', { ascending: false })
       .limit(200),
@@ -130,6 +130,8 @@ export const getTenantDetail = cache(async (id: string): Promise<TenantDetail> =
       action: entry.action as OperatorLogAction,
       actorName: entry.actor_name,
       targetEmail: entry.target_email,
+      targetBlock: entry.target_block,
+      targetLabel: entry.target_label,
       // Spaltennamen (vat_id) → Feldschlüssel der Oberfläche (vatId)
       fields: (entry.changed_fields ?? []).map((f) => f.replace(/_([a-z0-9])/g, (_, c: string) => c.toUpperCase())),
     })),

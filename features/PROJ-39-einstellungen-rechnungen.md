@@ -1,6 +1,6 @@
 # PROJ-39: Einstellungen → Rechnungen
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-10-31
 **Last Updated:** 2026-10-31
 
@@ -505,6 +505,110 @@ Alles andere ist vorhanden (shadcn/ui, react-hook-form, Zod, next-intl).
   - feste Texte, Schalter am neuen Ort
   - Betreiber-Abschnitt
   - Handy 375 px mit 44-px-Bedienelementen
+
+## Implementation Notes (Frontend)
+**Stand 2026-10-31.**
+
+**Regeln** (Browser und Server, mit Unit-Tests):
+- `src/lib/rich-text.ts`: formatierter Text als Teilmenge des Tiptap-Formats (Absätze, Aufzählung, nummerierte Liste, Text mit fett/kursiv, Zeilenumbruch).
+  - `normalizeDoc` bringt jedes Editor-Dokument auf diese Struktur: Attribute, Links, Farben und Bilder fallen weg, Überschriften werden Absätze, verschachtelte Listen werden flach.
+  - `isRichDoc` prüft streng ohne zusätzliche Angaben (Server-Prüfung am Editor vorbei).
+  - `docLength`/`isDocEmpty` rechnen auf den reinen Text. Umbrüche zählen nicht, nur Leerzeichen und Leerzeilen gelten als leer.
+- `src/lib/invoice-numbering.ts`: `formatInvoiceNumber`, `parseInvoiceNumber`, `nextInvoiceNumber` (eine Regel für die Vorschau hier und den Vorschlag in PROJ-41) und `sameNumbering`. Präfix ohne Rücksicht auf Groß-/Kleinschreibung. Bei „jährlich neu“ zählt die Jahreszahl in der Nummer. Die Startnummer gilt dann nur im Jahr `startYear`.
+- `src/lib/invoice-texts.ts`:
+  - Blöcke `intro`/`payment`/`closing`, Grenzen (`INVOICE_TEXT_LIMITS`), Liste der Platzhalter mit Zulässigkeit (`all`/`payment`/`deposit`), `placeholderIssues` (unknown/notHere/depositOnly; in festen Texten alles „unbekannt“)
+  - `salutation`, `guestTitledName`, `paymentFigures` (Anzahlung auf Cent gerundet), `placeholderValues`/`fillPlaceholders` (Datum ohne Wochentag) für PROJ-40/41
+  - fester Beispiel-Datensatz der Vorschau
+- `src/lib/validation/invoice-settings.ts`: `numberingSchema`, `fixedTextsSchema` (leere Fußzeile → null), `textBlockSchema` (bei „Anzahlung: nein“ werden Prozent und Frist verworfen) und `previewPaymentRules`.
+
+**Oberfläche** `src/components/invoice-settings/`:
+- `invoice-settings` (gemeinsam für Inhaber und Betreiber; `level` 2 bzw. 3 für die Überschriften, `readOnly` bei deaktiviertem Kunden, Hinweis bei nicht lesbaren Daten)
+- `numbering-section`: Präfix, Jahreszahl (Schalter), Trennzeichen, Stellen, „jährlich neu“, Startnummer. Die Vorschau „Nächste Nummer“ rechnet bei jeder Eingabe neu und zeigt einen Hinweis, wenn passende Nummern die Startnummer überholen. Nach dem ersten Ausstellen wird erst nach Bestätigung gespeichert.
+- `text-blocks-section`: drei Gruppen mit Liste (Standard oben, Kennzeichen „Standard“, Kurztext), Menü Bearbeiten/Als Standard setzen/Standard aufheben/Löschen (mit Bestätigung), „Baustein hinzufügen“ ab 20 gesperrt, Hinweis ohne Standard
+- `text-block-panel`: Seitenpanel mit Name (doppelte Namen schon im Browser geprüft), Zahlungsregeln bei Zahlungsmodalitäten, Text, Vorschau
+- `fixed-texts-section`: Kleinunternehmer-Hinweis und Fußzeile, ohne Platzhalter
+- `backfill-section`: Schalter „Rechnungen nacherfassen“
+- `rich-text-editor` (Tiptap, per `next/dynamic` nur hier geladen):
+  - Werkzeugleiste mit shadcn-`Toggle` (neu installiert) und „Platzhalter einfügen“
+  - Platzhalter-Markierung über ein ProseMirror-Plugin: erlaubte farbig, unbekannte bzw. unzulässige rot gewellt. Beim Umschalten der Anzahlung wechselt die Markierung sofort.
+  - Zeichenzähler
+- `rich-text-field`: Bezeichnung, Hinweis, Meldung, Vorschau
+- `rich-text-view`: Ausgabe mit gefüllten Platzhaltern
+- `section-shell`: Abschnitt und Konflikthinweis „Aktuelle Fassung laden“
+- **Speichern-Knöpfe mit eigenem Namen** („Nummernkreis speichern“, „Feste Texte speichern“, „Schalter speichern“, „Baustein speichern“), weil auf der Betreiber-Seite mehrere Formulare untereinander stehen. Bestehende E2E-Tests suchen „Speichern“ deshalb jetzt mit `exact: true`.
+
+**Seiten:**
+- `/einstellungen/rechnungen` (Titel „Rechnungen“), vierter Reiter
+- Betreiber-Detailseite: neuer Abschnitt „Rechnungen“ nach den Stammdaten
+- Stammdaten-Formular ohne Schalter: Schema, Laden (`MASTER_DATA_COLUMNS`) und Speichern senden `invoice_backfill_enabled` nicht mehr
+- Rechnungsliste: liest den Schalter aus `invoice_settings.backfill_enabled`, nur für Inhaber (Mitarbeiter lesen keine Einstellungen)
+- Meldung `invoices.errors.backfillDisabled` verweist auf *Einstellungen → Rechnungen*
+
+**Server-Aktionen** `src/app/(app)/einstellungen/rechnungen/actions.ts`:
+- Aktionen: `saveInvoiceNumbering`, `saveInvoiceFixedTexts`, `saveInvoiceBackfill`, `saveInvoiceTextBlock`, `setInvoiceTextBlockDefault`, `deleteInvoiceTextBlock`
+- Gemeinsam für Inhaber (nur der gewählte Kunde) und Betreiber. 2FA und Aktiv-Status prüft die Datenbank.
+- Lesen über `src/lib/invoice-settings-data.ts` (`loadInvoiceSettings`, `getOwnInvoiceSettings`) und Umwandlung in `src/lib/invoice-settings.ts`.
+
+**Betreiber-Protokoll:** neue Aktionen `invoice_settings`, `text_block_created/updated/deleted` mit `target_block`/`target_label`. Feldnamen aus `invoiceSettings.logFields`.
+
+**Texte:** Namespace `invoiceSettings`, `settings.invoices`, `operator.invoiceSettingsTitle`, `operator.log.*`.
+
+**Pakete:** `@tiptap/react`, `@tiptap/pm`, `@tiptap/starter-kit` (3.32), `@radix-ui/react-toggle` (über shadcn `toggle`).
+
+**Typen:** `src/types/database.ts` von Hand ergänzt (`invoice_settings`, `invoice_text_blocks`, `operator_log.target_block/target_label`, sechs Funktionen). `/backend` erzeugt die Typen neu.
+
+**Tests:**
+- Unit:
+  - `rich-text.test.ts`
+  - `invoice-numbering.test.ts` (alle Nummernbeispiele der Kriterien)
+  - `invoice-texts.test.ts`
+  - `validation/invoice-settings.test.ts`
+  - `validation/tenant.test.ts` angepasst
+  - `npm test`: 54 Dateien, 623 Tests grün
+- Lint, Typprüfung und Produktions-Build laufen durch.
+- E2E: neue Datei `tests/PROJ-39-einstellungen-rechnungen.spec.ts`; PROJ-37 (Schalter an neuer Stelle, Prüfung in `invoice_settings`) und PROJ-38 (vier Reiter) angepasst. Gegen den gebauten Server (desktop):
+  - Reiter, Adresse, Titel und „Seite nicht gefunden“ für Mitarbeiter: grün
+  - Abschnitte und Schalter: rot. Die Tabelle `invoice_settings` fehlt noch, die Seite zeigt den Hinweis „konnten nicht geladen werden“. Das wird mit `/backend` grün.
+
+**Offen für `/backend`** (Schnittstelle, die das Frontend erwartet):
+- **Tabelle `invoice_settings`** (eine Zeile je Kunde, `tenant_id` Primärschlüssel):
+  - Nummernkreis: `number_prefix` (leer oder bis 10 Zeichen `[A-Za-z0-9-/_.]`), `number_with_year`, `number_separator` (`-`, `/`, `.`, leer), `number_digits` (3–6), `number_yearly_reset` (nur mit Jahreszahl), `number_start` (≥ 1), `number_start_year` (beim Speichern einer geänderten Startnummer: aktuelles Jahr in Wiener Zeit), `numbering_updated_at`
+  - Feste Texte: `small_business_note` (jsonb, Pflicht, ≤ 500 Zeichen), `footer` (jsonb oder null, ≤ 2.000), `texts_updated_at`
+  - Schalter: `backfill_enabled`, `backfill_updated_at`
+  - Lesen nur Inhaber des Kunden und Admin mit 2FA (Mitarbeiter: keine Zeile), kein direktes Schreiben
+- **Tabelle `invoice_text_blocks`**:
+  - Spalten: `id`, `tenant_id`, `block` (`intro`/`payment`/`closing`), `name` (1–60), `name_key` (Kleinschreibung, eindeutig je Kunde + Block), `body` (jsonb, ≤ 2.000), `is_default` (höchstens einer je Kunde + Block), `deposit_percent` numeric(5,2) 1–100 und `deposit_days` 0–365 (gemeinsam oder beide null), `due_days` 0–365 und `due_basis` (`after_invoice`/`before_arrival`). Zahlungsfelder nur und Pflicht bei `payment`. Dazu Standardfelder.
+  - Höchstens 20 je Block; Rechte wie oben
+- **Struktur von `body`/`small_business_note`/`footer`** wie `isRichDoc`:
+  - doc → paragraph | bulletList | orderedList; listItem → paragraph+; Inline: text (nicht leer, marks nur bold/italic, je höchstens einmal) | hardBreak; keine weiteren Schlüssel
+  - Länge = Zeichen aller Text-Knoten
+  - Platzhalter `\{[^{}\n]{1,40}\}` nur aus der Liste in `invoice-texts.ts`, je Block; feste Texte keine
+- **Funktionen** (prüfen Inhaber des Kunden oder Admin mit 2FA, Kunde aktiv, Inhalt; schreiben `operator_log`):
+  - `save_invoice_numbering(p_tenant_id, p_expected_updated_at, p_data {prefix, with_year, separator, digits, yearly_reset, start})`
+  - `save_invoice_fixed_texts(p_tenant_id, p_expected_updated_at, p_data {small_business_note, footer})`
+  - `save_invoice_backfill(p_tenant_id, p_expected_updated_at, p_enabled)`
+  - `save_invoice_text_block(p_input {tenant_id, id|null, updated_at|null, block, name, body, deposit_percent, deposit_days, due_days, due_basis}) → uuid`
+  - `set_invoice_text_block_default(p_tenant_id, p_block, p_block_id|null, p_expected_default_id|null)`: Konflikt, wenn der Standard des Blocks nicht mehr `p_expected_default_id` ist
+  - `delete_invoice_text_block(p_tenant_id, p_block_id)`
+- **Fehlercodes:**
+  - P0910 Stand veraltet
+  - P0911 Baustein nicht vorhanden
+  - P0912 Höchstzahl
+  - P0913 Name vergeben
+  - P0914 Inhalt ungültig
+  - P0016 deaktiviert
+  - P0011 Kunde fehlt
+  - 42501 keine Rechte
+- **`operator_log`:**
+  - neue Spalten `target_block`, `target_label`
+  - Aktionen `invoice_settings` (`changed_fields`: `numbering`, `small_business_note`, `footer`, `backfill`) und `text_block_created/updated/deleted` (Block + Name; bei `updated` `changed_fields`: `name`, `body`, `payment_rules`, `is_default`)
+  - nie der Text selbst; Inhaber- und Betreiber-Änderungen
+- **Vorbelegung:** für bestehende Kunden (Schalterwert aus `tenants.invoice_backfill_enabled` übernehmen) und bei jedem neuen Kunden, Texte wie in der Spec (`DEFAULT_SMALL_BUSINESS_NOTE`; Bausteine als Absätze; Zahlungsregeln 14 Tage nach Rechnungsdatum bzw. 20 % / 3 Tage / 1 Tag vor Anreise)
+- **Umzug des Schalters:**
+  - `tenants.invoice_backfill_enabled` entfernen
+  - `update_tenant_master_data` ohne diesen Schlüssel
+  - `save_invoice` (P0905) liest `invoice_settings.backfill_enabled`
+- Nach der Migration die Typen neu erzeugen
 
 ## QA Test Results
 _To be added by /qa_

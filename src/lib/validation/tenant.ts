@@ -67,8 +67,6 @@ export const tenantMasterDataSchema = (t: T) =>
         })
       })
       .transform((rows) => rows.map((r) => ({ validFrom: r.validFrom, smallBusiness: r.status }))),
-    // Schalter „Rechnungen nacherfassen“ (PROJ-37)
-    invoiceBackfill: z.boolean(),
     // Logo (PROJ-38): leer oder <Kunde>/<zufällig>.png; den Ordner des Kunden prüft die Datenbank
     logoPath: z
       .string()
