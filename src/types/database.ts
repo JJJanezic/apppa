@@ -790,7 +790,9 @@ export type Database = {
           backfill_enabled: boolean
           backfill_updated_at: string
           created_at: string
+          created_by: string | null
           footer: Json | null
+          id: string
           number_digits: number
           number_prefix: string
           number_separator: string
@@ -802,12 +804,16 @@ export type Database = {
           small_business_note: Json
           tenant_id: string
           texts_updated_at: string
+          updated_at: string
+          updated_by: string | null
         }
         Insert: {
           backfill_enabled?: boolean
           backfill_updated_at?: string
           created_at?: string
+          created_by?: string | null
           footer?: Json | null
+          id?: string
           number_digits?: number
           number_prefix?: string
           number_separator?: string
@@ -816,15 +822,19 @@ export type Database = {
           number_with_year?: boolean
           number_yearly_reset?: boolean
           numbering_updated_at?: string
-          small_business_note?: Json
+          small_business_note: Json
           tenant_id: string
           texts_updated_at?: string
+          updated_at?: string
+          updated_by?: string | null
         }
         Update: {
           backfill_enabled?: boolean
           backfill_updated_at?: string
           created_at?: string
+          created_by?: string | null
           footer?: Json | null
+          id?: string
           number_digits?: number
           number_prefix?: string
           number_separator?: string
@@ -836,8 +846,18 @@ export type Database = {
           small_business_note?: Json
           tenant_id?: string
           texts_updated_at?: string
+          updated_at?: string
+          updated_by?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "invoice_settings_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       invoice_text_blocks: {
         Row: {
@@ -852,7 +872,7 @@ export type Database = {
           id: string
           is_default: boolean
           name: string
-          name_key: string
+          name_key: string | null
           tenant_id: string
           updated_at: string
           updated_by: string | null
@@ -869,7 +889,7 @@ export type Database = {
           id?: string
           is_default?: boolean
           name: string
-          name_key?: string
+          name_key?: string | null
           tenant_id: string
           updated_at?: string
           updated_by?: string | null
@@ -886,12 +906,20 @@ export type Database = {
           id?: string
           is_default?: boolean
           name?: string
-          name_key?: string
+          name_key?: string | null
           tenant_id?: string
           updated_at?: string
           updated_by?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "invoice_text_blocks_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       invoices: {
         Row: {
@@ -1240,7 +1268,6 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
-          invoice_backfill_enabled: boolean
           logo_path: string | null
           name: string
           name_line2: string | null
@@ -1260,7 +1287,6 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
-          invoice_backfill_enabled?: boolean
           logo_path?: string | null
           name: string
           name_line2?: string | null
@@ -1280,7 +1306,6 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
-          invoice_backfill_enabled?: boolean
           logo_path?: string | null
           name?: string
           name_line2?: string | null
@@ -1515,19 +1540,6 @@ export type Database = {
           tenant_name: string
         }[]
       }
-      save_invoice_backfill: {
-        Args: { p_enabled: boolean; p_expected_updated_at: string; p_tenant_id: string }
-        Returns: undefined
-      }
-      save_invoice_fixed_texts: {
-        Args: { p_data: Json; p_expected_updated_at: string; p_tenant_id: string }
-        Returns: undefined
-      }
-      save_invoice_numbering: {
-        Args: { p_data: Json; p_expected_updated_at: string; p_tenant_id: string }
-        Returns: undefined
-      }
-      save_invoice_text_block: { Args: { p_input: Json }; Returns: string }
       save_block: {
         Args: { p_confirm?: boolean; p_input: Json }
         Returns: Json
@@ -1552,6 +1564,31 @@ export type Database = {
         Returns: undefined
       }
       save_invoice: { Args: { p_input: Json }; Returns: Json }
+      save_invoice_backfill: {
+        Args: {
+          p_enabled: boolean
+          p_expected_updated_at: string
+          p_tenant_id: string
+        }
+        Returns: undefined
+      }
+      save_invoice_fixed_texts: {
+        Args: {
+          p_data: Json
+          p_expected_updated_at: string
+          p_tenant_id: string
+        }
+        Returns: undefined
+      }
+      save_invoice_numbering: {
+        Args: {
+          p_data: Json
+          p_expected_updated_at: string
+          p_tenant_id: string
+        }
+        Returns: undefined
+      }
+      save_invoice_text_block: { Args: { p_input: Json }; Returns: string }
       search_invoice_bookings: {
         Args: { p_limit?: number; p_query: string; p_tenant_id: string }
         Returns: {
@@ -1567,18 +1604,18 @@ export type Database = {
           property_name: string
         }[]
       }
-      unused_guest_documents: { Args: { p_limit?: number }; Returns: string[] }
-      unused_invoice_pdfs: { Args: { p_limit?: number }; Returns: string[] }
-      unused_tenant_logos: { Args: { p_limit?: number }; Returns: string[] }
       set_invoice_text_block_default: {
         Args: {
           p_block: string
-          p_block_id: string | null
-          p_expected_default_id: string | null
+          p_block_id: string
+          p_expected_default_id: string
           p_tenant_id: string
         }
         Returns: undefined
       }
+      unused_guest_documents: { Args: { p_limit?: number }; Returns: string[] }
+      unused_invoice_pdfs: { Args: { p_limit?: number }; Returns: string[] }
+      unused_tenant_logos: { Args: { p_limit?: number }; Returns: string[] }
       update_tenant_master_data: {
         Args: {
           p_data: Json

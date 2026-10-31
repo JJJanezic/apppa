@@ -207,14 +207,14 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-37 Rechnungen nacherfassen', () => {
 
     it('Schalter aus: Anlegen abgelehnt, Ändern und Löschen erlaubt', async () => {
       const id = savedId(await save(ownerB, { tenant_id: tenantB }))
-      await service.from('tenants').update({ invoice_backfill_enabled: false }).eq('id', tenantB)
+      await service.from('invoice_settings').update({ backfill_enabled: false }).eq('tenant_id', tenantB)
       try {
         expect((await save(ownerB, { tenant_id: tenantB })).error?.code).toBe('P0905')
         const inv = await invoice(id)
         expect((await save(ownerB, { tenant_id: tenantB, id, updated_at: inv.updated_at, number: inv.number, recipient: 'Neu' })).error).toBeNull()
         expect((await ownerB.rpc('delete_invoice', { p_invoice_id: id })).error).toBeNull()
       } finally {
-        await service.from('tenants').update({ invoice_backfill_enabled: true }).eq('id', tenantB)
+        await service.from('invoice_settings').update({ backfill_enabled: true }).eq('tenant_id', tenantB)
       }
     })
 
@@ -402,29 +402,16 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-37 Rechnungen nacherfassen', () => {
       expect((await invoice(id)).guest_id).toBe(keep)
     })
 
-    it('Inhaber schaltet das Nacherfassen über die Stammdaten um; Mitarbeiter nicht', async () => {
-      const { data: t } = await service.from('tenants').select('name, updated_at, invoice_backfill_enabled').eq('id', tenantA).single()
-      expect(t?.invoice_backfill_enabled).toBe(true)
-      const update = (client: Client, updatedAt: string, value: unknown) =>
-        client.rpc('update_tenant_master_data', {
-          p_tenant_id: tenantA,
-          p_expected_updated_at: updatedAt,
-          p_data: { name: t!.name, invoice_backfill_enabled: value } as Json,
-        })
-      expect((await update(staffA, t!.updated_at, false)).error?.code).toBe('42501')
-      expect((await update(ownerA, t!.updated_at, 'nein')).error?.code).toBe('22023')
-      expect((await update(ownerA, t!.updated_at, false)).error).toBeNull()
-      const { data: after } = await service.from('tenants').select('updated_at, invoice_backfill_enabled').eq('id', tenantA).single()
-      expect(after?.invoice_backfill_enabled).toBe(false)
-      const { data: log } = await service
-        .from('operator_log')
-        .select('changed_fields')
-        .eq('tenant_id', tenantA)
-        .eq('action', 'master_data')
-        .order('created_at', { ascending: false })
-        .limit(1)
-      expect(log?.[0]?.changed_fields).toContain('invoice_backfill_enabled')
-      expect((await update(ownerA, after!.updated_at, true)).error).toBeNull()
+    it('Stammdaten-Funktion ignoriert den alten Schlüssel invoice_backfill_enabled (PROJ-39)', async () => {
+      const { data: t } = await service.from('tenants').select('name, updated_at').eq('id', tenantA).single()
+      const { error } = await ownerA.rpc('update_tenant_master_data', {
+        p_tenant_id: tenantA,
+        p_expected_updated_at: t!.updated_at,
+        p_data: { name: t!.name, invoice_backfill_enabled: false } as Json,
+      })
+      expect(error).toBeNull()
+      const { data: s } = await service.from('invoice_settings').select('backfill_enabled').eq('tenant_id', tenantA).single()
+      expect(s?.backfill_enabled).toBe(true)
     })
   })
 })

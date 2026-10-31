@@ -180,8 +180,9 @@ export async function setInvoiceTextBlockDefault(values: {
   const { error } = await supabase.rpc('set_invoice_text_block_default', {
     p_tenant_id: g.tenantId,
     p_block: values.kind,
-    p_block_id: values.blockId,
-    p_expected_default_id: values.expectedDefaultId,
+    // null = Standard aufheben bzw. bisher kein Standard (die erzeugten Typen kennen kein null)
+    p_block_id: values.blockId as string,
+    p_expected_default_id: values.expectedDefaultId as string,
   })
   if (error) return dbFail(error, 'Standard nicht gesetzt')
   refresh(g.tenantId, g.operator)

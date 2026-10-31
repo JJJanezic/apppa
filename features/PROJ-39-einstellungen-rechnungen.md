@@ -570,7 +570,7 @@ Alles andere ist vorhanden (shadcn/ui, react-hook-form, Zod, next-intl).
   - Reiter, Adresse, Titel und „Seite nicht gefunden“ für Mitarbeiter: grün
   - Abschnitte und Schalter: rot. Die Tabelle `invoice_settings` fehlt noch, die Seite zeigt den Hinweis „konnten nicht geladen werden“. Das wird mit `/backend` grün.
 
-**Offen für `/backend`** (Schnittstelle, die das Frontend erwartet):
+**Offen für `/backend`** (Schnittstelle, die das Frontend erwartet; erledigt, siehe Implementation Notes (Backend)):
 - **Tabelle `invoice_settings`** (eine Zeile je Kunde, `tenant_id` Primärschlüssel):
   - Nummernkreis: `number_prefix` (leer oder bis 10 Zeichen `[A-Za-z0-9-/_.]`), `number_with_year`, `number_separator` (`-`, `/`, `.`, leer), `number_digits` (3–6), `number_yearly_reset` (nur mit Jahreszahl), `number_start` (≥ 1), `number_start_year` (beim Speichern einer geänderten Startnummer: aktuelles Jahr in Wiener Zeit), `numbering_updated_at`
   - Feste Texte: `small_business_note` (jsonb, Pflicht, ≤ 500 Zeichen), `footer` (jsonb oder null, ≤ 2.000), `texts_updated_at`
@@ -609,6 +609,68 @@ Alles andere ist vorhanden (shadcn/ui, react-hook-form, Zod, next-intl).
   - `update_tenant_master_data` ohne diesen Schlüssel
   - `save_invoice` (P0905) liest `invoice_settings.backfill_enabled`
 - Nach der Migration die Typen neu erzeugen
+
+## Implementation Notes (Backend)
+**Stand 2026-10-31.** Migration `20261031110516_invoice_settings.sql` ist in Dev („apppa-dev“) eingespielt (vom Nutzer freigegeben wegen neuer Zugriffsregeln), die Typen sind neu erzeugt. Die Advisors melden nur die bekannten Auth-Hinweise (`auth_otp_long_expiry`, `auth_leaked_password_protection`, Runbook).
+
+**Datenbank**
+- **`invoice_settings`** (eine Zeile je Kunde, eindeutig über `tenant_id`, mit `id` für das Änderungsprotokoll):
+  - Nummernkreis mit Prüfregeln: Präfix-Muster, Trennzeichen, 3–6 Stellen, Startnummer ≥ 1, „jährlich neu“ nur mit Jahreszahl. Dazu `number_start_year`.
+  - `small_business_note` (Pflicht, ≤ 500) und `footer` (null oder ≤ 2.000), beide ohne Platzhalter
+  - `backfill_enabled`
+  - Stempel je Abschnitt: `numbering_updated_at`, `texts_updated_at`, `backfill_updated_at`
+- **`invoice_text_blocks`**:
+  - `name_key` eindeutig je Kunde und Block; höchstens ein Standard je Block (Teil-Index)
+  - Zahlungsfelder nur bei `payment`, Fälligkeit dort Pflicht; Anzahlung (Prozent und Frist) nur gemeinsam
+  - Text-Prüfung mit den für Block und Anzahlung erlaubten Platzhaltern. Diese Regeln greifen auch beim Schreiben mit dem geheimen Schlüssel.
+- **Zugriff (RLS):** Lesen nur Inhaber des Kunden und Admin mit 2FA (Mitarbeiter, fremde Inhaber und anonyme Anfragen sehen nichts). Kein direktes Schreiben. Änderungsprotokoll über `private.enable_tenant_table`. Beim Löschen des Kunden fallen beide Tabellen mit.
+- **Prüfung des formatierten Texts** (`private.rich_*`, gleiche Regeln wie `src/lib/rich-text.ts`):
+  - Struktur streng (nur doc/paragraph/Listen/text/hardBreak, Marken bold/italic, keine weiteren Schlüssel)
+  - Länge ohne Umbrüche, leer bei nur Leerraum
+  - Platzhalter aus `private.invoice_placeholders(block, mit Anzahlung)`, gleiche Liste wie `invoice-texts.ts`
+  - Falsche Typen ergeben „ungültig“ statt eines Abbruchs.
+- **Funktionen** (Hülle in `public`, Logik in `private`; jede prüft „Inhaber oder Admin mit 2FA“ (sonst 42501) und sperrt die Kundenzeile über `private.lock_tenant` (P0011/P0016)):
+  - `save_invoice_numbering`: Konflikt P0910; das Jahr der Startnummer wird bei geänderter Startnummer gesetzt (Wiener Zeit); ohne Änderung kein Eintrag
+  - `save_invoice_fixed_texts`: leere Fußzeile wird null
+  - `save_invoice_backfill`
+  - `save_invoice_text_block`:
+    - Neu: Höchstzahl 20 je Block (P0912)
+    - Ändern: Stand des Bausteins (P0910), gelöscht (P0911), Block bleibt fest
+    - Name vergeben → P0913, auch bei gleichzeitigem Anlegen
+    - Bei anderen Blöcken werden Zahlungsfelder ignoriert
+  - `set_invoice_text_block_default`: P0910, wenn der Standard des Blocks nicht mehr der erwartete ist; P0911 bei fremdem oder falschem Baustein
+  - `delete_invoice_text_block`: P0911, wenn er nicht (mehr) existiert
+  - Ungültiger Inhalt → P0914
+- **Betreiber-Protokoll:** Spalten `target_block`, `target_label`. Aktionen `invoice_settings` (`numbering`, `small_business_note`, `footer`, `backfill`) und `text_block_created/updated/deleted` (`name`, `body`, `payment_rules`, `is_default`). Eingetragen werden Änderungen von Inhaber und Admin, nie der Text.
+- **Vorbelegung:** `private.seed_invoice_settings` für alle bestehenden Kunden (Schalterwert aus `tenants` übernommen) und per Trigger `seed_invoice_settings` bei jedem neuen Kunden, egal über welchen Weg er entsteht.
+- **Umzug des Schalters:** `save_invoice` liest `invoice_settings.backfill_enabled` (P0905 wie bisher). `update_tenant_master_data` ohne den Schalter; ein mitgeschickter alter Schlüssel wird ignoriert. `tenants.invoice_backfill_enabled` ist entfernt.
+
+**Server:** Die Aktionen aus dem Frontend sind unverändert. Einzige Ausnahme: Bei `set_invoice_text_block_default` werden die null-Werte für die erzeugten Typen umgewandelt.
+
+**Korrektur am Frontend:** Die Reiterleiste der Einstellungen war mit vier Reitern am Handy (375 px) 56 px zu breit, die Seite scrollte seitlich (PROJ-38-Handytest rot). Jetzt lässt sich die Leiste in sich wischen, die Linie liegt an der Liste, und der aktive Reiter wird ins Bild geholt.
+
+**Tests**
+- Integration `supabase/tests/invoice-settings.integration.test.ts` (13 Tests, grün):
+  - Vorbelegung als eigene Kopie
+  - Lesen je Rolle; kein direktes Schreiben
+  - 42501 für Mitarbeiter, fremden Inhaber und Admin ohne 2FA
+  - Nummernkreis (Speichern, Jahr der Startnummer, Konflikt, 10 ungültige Eingaben, Protokoll)
+  - Feste Texte (Pflicht, Grenzen, Platzhalter, HTML/Attribute/Links/Bilder am Formular vorbei abgelehnt, leere Fußzeile, Konflikt, Protokoll ohne Text)
+  - Schalter samt P0905 beim Nacherfassen
+  - Bausteine (Name je Block eindeutig, Grenzen, Platzhalter, Konflikt, Block fest, gelöscht)
+  - Zahlungsregeln (12 ungültige Eingaben, Tabellenregel 23514)
+  - Standard (Wechsel, Konflikt, Aufheben, falscher Block, Löschen des Standards, Teil-Index 23505)
+  - Höchstzahl 20; Admin bei deaktiviertem Kunden P0016, Inhaber 42501; Kunde löschen
+- `invoices.integration.test.ts` auf `invoice_settings` umgestellt, dazu neu: „Stammdaten-Funktion ignoriert den alten Schlüssel“
+- `npm test`: 55 Dateien, 636 Tests grün. Lint, Typprüfung und Produktions-Build laufen durch.
+- E2E gegen den gebauten Server (desktop):
+  - PROJ-39: 3 Tests grün, auch Abschnitte und Schalter
+  - PROJ-37: Schalter-Tests grün (6)
+  - PROJ-28: grün (19)
+  - PROJ-38: grün (nach der Reiter-Korrektur)
+  - PROJ-4: Mitarbeiter und 44-px-Layout grün
+
+**Für `/qa`:** Abläufe in der Oberfläche als E2E ergänzen: Nummernkreis-Vorschau mit nacherfassten Nummern, Baustein anlegen/Standard/Löschen, Einfügen aus Word bzw. Webseite, Konfliktanzeige, Betreiber-Abschnitt (aktiv/deaktiviert), Handy 375 px im Rechnungs-Reiter, Firefox/Safari.
 
 ## QA Test Results
 _To be added by /qa_
