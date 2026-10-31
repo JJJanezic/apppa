@@ -81,8 +81,8 @@ export const getBookableApartments = cache(async (): Promise<BookableApartment[]
 
 const ROW_COLUMNS =
   'id, kind, number, apartment_id, arrival, departure, adults, child_ages, block_reason, option_until, cancelled_at, price_review, guest_sheet_number, source, guest:guests(id, last_name, first_name, title_prefix, title_suffix), apartment:apartments!inner(name, property:properties!inner(name)), amounts:booking_amounts(billed_nights_cents), charges:booking_charges(amount_cents), ' +
-  // PROJ-37: verknüpfte Rechnungen (Lesen für alle Mitglieder, RLS)
-  'invoices(id, number, invoice_date)'
+  // PROJ-37: verknüpfte Rechnungen (Lesen für alle Mitglieder, RLS); PROJ-40: Entwürfe ohne Nummer
+  'invoices(id, number, invoice_date, origin)'
 
 type ListDbRow = {
   id: string
@@ -105,7 +105,7 @@ type ListDbRow = {
   // abgerechneter Übernachtungspreis (PROJ-30)
   amounts: { billed_nights_cents: number }[]
   charges: { amount_cents: number }[]
-  invoices?: { id: string; number: string; invoice_date: string }[]
+  invoices?: { id: string; number: string | null; invoice_date: string; origin: string }[]
 }
 
 // Aktive Einträge (für das Kennzeichen „überschneidet sich“) der betroffenen Wohnungen im Zeitraum
@@ -171,8 +171,8 @@ function toRow(r: ListDbRow, owner: boolean, today: string, occupancy: Occupancy
     overlapping: state === 'active' && findConflicts({ id: r.id, apartmentId: r.apartment_id, arrival: r.arrival, departure: r.departure }, occupancy, today).length > 0,
     priceReview: r.price_review,
     invoices: [...(r.invoices ?? [])]
-      .sort((a, b) => a.invoice_date.localeCompare(b.invoice_date) || a.number.localeCompare(b.number, 'de', { numeric: true }))
-      .map((i) => ({ id: i.id, number: i.number })),
+      .sort((a, b) => a.invoice_date.localeCompare(b.invoice_date) || (a.number ?? '').localeCompare(b.number ?? '', 'de', { numeric: true }))
+      .map((i) => ({ id: i.id, number: i.number, draft: i.origin === 'draft' })),
   }
 }
 
@@ -197,8 +197,10 @@ export async function getBookingList(filters: BookingFilters): Promise<BookingLi
   const searching = query.length >= 2
 
   const invoiceFilter = filters.invoice !== null
-  // „mit Rechnung“: nur Buchungen mit mindestens einer Rechnung (innerer Verbund), es kommen trotzdem alle ihre Rechnungen mit
-  const columns = filters.invoice === 'with' ? ROW_COLUMNS.replace('invoices(', 'invoices!inner(') : ROW_COLUMNS
+  // Filter über eine eigene Verknüpfung „billed“ (nur nacherfasste und ausgestellte Rechnungen, PROJ-40: Entwürfe zählen
+  // nicht als Rechnung). „mit Rechnung“: innerer Verbund; die Spalte zeigt trotzdem alle Rechnungen samt Entwürfen.
+  const columns =
+    filters.invoice === 'with' ? `${ROW_COLUMNS}, billed:invoices!inner(id)` : filters.invoice === 'without' ? `${ROW_COLUMNS}, billed:invoices(id)` : ROW_COLUMNS
 
   // Suche: Gäste über den vereinheitlichten Suchtext (PROJ-7), dazu Buchungs- und Gästeblattnummer (PROJ-30)
   let searchFilter: string | null = null
@@ -218,8 +220,9 @@ export async function getBookingList(filters: BookingFilters): Promise<BookingLi
   const filtered = (head = false) => {
     let r = supabase.from('bookings').select(columns, { count: invoiceFilter ? 'exact' : undefined, head }).eq('tenant_id', tenantId)
     // Rechnungsfilter (PROJ-37): Sperren bekommen nie eine Rechnung; „ohne Rechnung“ = keine verknüpfte Rechnung
-    if (invoiceFilter) r = r.neq('kind', 'block')
-    if (filters.invoice === 'without') r = r.is('invoices' as 'id', null)
+    // außer Entwürfen
+    if (invoiceFilter) r = r.neq('kind', 'block').neq('billed.origin' as 'id', 'draft')
+    if (filters.invoice === 'without') r = r.is('billed' as 'id', null)
     if (filters.apartment) r = r.eq('apartment_id', filters.apartment)
     if (filters.kind) r = r.eq('kind', filters.kind)
     // Quelle nur bei Buchungen und Optionen (Sperren haben „none“)

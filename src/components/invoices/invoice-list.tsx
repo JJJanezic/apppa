@@ -40,7 +40,7 @@ export function InvoiceList({ page }: { page: InvoicePage }) {
               <TableCell className="max-w-[200px]">
                 {/* Nur die Nummer ist der Link: Safari kann Klickflächen über die ganze Zeile (after:inset-0) nicht an <tr> verankern */}
                 <Link href={invoiceHref(r.id)} className="break-words font-medium text-ds-accent-700 underline underline-offset-[3px] hover:decoration-2">
-                  {r.number}
+                  {r.number ?? t('list.noNumber')}
                 </Link>
               </TableCell>
               <TableCell className="whitespace-nowrap tabular-nums">{formatDate(r.invoiceDate)}</TableCell>
@@ -50,7 +50,7 @@ export function InvoiceList({ page }: { page: InvoicePage }) {
                 <Amount cents={r.totalCents} />
               </TableCell>
               <TableCell>
-                <InvoiceStatus origin={r.origin} hasPdf={r.hasPdf} />
+                <InvoiceStatus origin={r.origin} kind={r.kind} hasPdf={r.hasPdf} />
               </TableCell>
             </TableRow>
           ))}
@@ -63,7 +63,7 @@ export function InvoiceList({ page }: { page: InvoicePage }) {
           <li key={r.id}>
             <Link href={invoiceHref(r.id)} className="flex flex-col gap-1.5 rounded-lg bg-ds-surface p-4 hover:bg-ds-neutral-200">
               <span className="flex items-start justify-between gap-3">
-                <span className="min-w-0 break-words text-lg font-semibold">{r.number}</span>
+                <span className="min-w-0 break-words text-lg font-semibold">{r.number ?? t('list.noNumber')}</span>
                 <Amount cents={r.totalCents} className="shrink-0" />
               </span>
               <span className="break-words text-sm">{r.recipient}</span>
@@ -71,7 +71,7 @@ export function InvoiceList({ page }: { page: InvoicePage }) {
                 {formatDate(r.invoiceDate)}
                 {r.booking && <> · {t('list.bookingShort', { number: r.booking.number ?? '–' })}</>}
               </span>
-              <InvoiceStatus origin={r.origin} hasPdf={r.hasPdf} />
+              <InvoiceStatus origin={r.origin} kind={r.kind} hasPdf={r.hasPdf} />
             </Link>
           </li>
         ))}

@@ -195,8 +195,8 @@ export type BookingRow = {
   totalCents: number | null
   overlapping: boolean
   priceReview: boolean
-  // Verknüpfte Rechnungen nach Rechnungsdatum (PROJ-37), für alle Mitglieder
-  invoices: { id: string; number: string }[]
+  // Verknüpfte Rechnungen nach Rechnungsdatum (PROJ-37), für alle Mitglieder; Entwürfe ohne Nummer (PROJ-40)
+  invoices: { id: string; number: string | null; draft: boolean }[]
 }
 
 // Filter „Rechnung“ der Buchungsliste (PROJ-37): ohne bzw. mit verknüpfter Rechnung, über alle Monate

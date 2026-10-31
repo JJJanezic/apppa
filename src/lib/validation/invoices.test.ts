@@ -15,6 +15,7 @@ const VALID: InvoiceInput = {
   guestMode: 'existing',
   guestId: '',
   recipient: ' Huber Maria ',
+  smallBusiness: false,
   lines: [{ label: 'Übernachtung', amount: '450,00', vat: '10,00' }],
   pdfPath: '',
 }
@@ -33,6 +34,7 @@ describe('invoiceSchema', () => {
       guestMode: 'existing',
       guestId: null,
       recipient: 'Huber Maria',
+      smallBusiness: false,
       lines: [{ label: 'Übernachtung', amountCents: 45000, vatBp: 1000 }],
       pdfPath: null,
     })
@@ -76,5 +78,12 @@ describe('invoiceSchema', () => {
   it('wartet auf einen laufenden PDF-Upload', () => {
     expect(errors({ ...VALID, pdfPath: PDF_UPLOADING }).pdfPath).toBe('pdfUploading')
     expect(schema.parse({ ...VALID, pdfPath: 'abc/def.pdf' }).pdfPath).toBe('abc/def.pdf')
+  })
+})
+
+describe('Kleinunternehmer-Schalter (geändert 2026-10-31)', () => {
+  it('übernimmt die Einstellung des Inhabers', () => {
+    expect(schema.parse({ ...VALID, smallBusiness: true }).smallBusiness).toBe(true)
+    expect(schema.parse(VALID).smallBusiness).toBe(false)
   })
 })

@@ -1,6 +1,7 @@
 'use client'
 
-import { CheckCircle, NotePencil, PencilSimple, Prohibit, UsersThree } from '@phosphor-icons/react'
+import { CheckCircle, NotePencil, PencilSimple, Prohibit, Receipt, UsersThree } from '@phosphor-icons/react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { useState } from 'react'
@@ -21,6 +22,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { useVatStatus } from '@/components/vat/vat-status-context'
 import { VatRateInput } from '@/components/vat/vat-rate-input'
 import { amountInput, type BookableApartment, type Booking, bookingState, LIMITS } from '@/lib/bookings'
+import { type InvoiceButtonState, invoiceNewHref } from '@/lib/invoice-drafts'
 import { parseVatRate, VAT_DEFAULTS, vatRateInput } from '@/lib/vat'
 import { vatStatusForBooking } from '@/lib/vat-status'
 
@@ -31,13 +33,16 @@ interface BookingActionsProps {
   today: string
   // Im Kalender-Panel (PROJ-9): nach Stornieren bzw. Löschen der Sperre dorthin, statt die Seite zu erneuern
   closeHref?: string
+  // Knopf „Rechnung“ (PROJ-40): nur für Inhaber und nicht bei Sperren, sonst null
+  invoiceButton?: InvoiceButtonState | null
 }
 
 type Dialog = 'edit' | 'note' | 'confirm' | 'confirmOverride' | 'cancel' | 'companions' | null
 
 // Aktionen im Buchungs-Detail (PROJ-8). Aktive Einträge: Bearbeiten, Option bestätigen, Stornieren (Inhaber).
 // Stornierte und verfallene: nur Notiz (Inhaber zusätzlich Stornogebühr); verfallene Optionen lassen sich bestätigen.
-export function BookingActions({ booking, apartments, owner, today, closeHref }: BookingActionsProps) {
+export function BookingActions({ booking, apartments, owner, today, closeHref, invoiceButton = null }: BookingActionsProps) {
+  const ti = useTranslations('invoiceDrafts.button')
   const t = useTranslations('bookings')
   const te = useTranslations('bookings.errors')
   const router = useRouter()
@@ -92,6 +97,29 @@ export function BookingActions({ booking, apartments, owner, today, closeHref }:
             <Prohibit size={18} aria-hidden="true" />
             {t('detail.cancel')}
           </Button>
+        )}
+        {/* Rechnungsentwurf aus der Buchung (PROJ-40), rechts außen; inaktiv mit sichtbarer Begründung */}
+        {invoiceButton && (
+          <div className="flex flex-col gap-1 sm:ml-auto sm:items-end">
+            {invoiceButton.enabled ? (
+              <Button asChild variant="outline" className="min-h-11">
+                <Link href={invoiceNewHref(booking.id)}>
+                  <Receipt size={18} aria-hidden="true" />
+                  {ti('label')}
+                </Link>
+              </Button>
+            ) : (
+              <Button variant="outline" className="min-h-11" disabled aria-describedby="rechnung-gesperrt">
+                <Receipt size={18} aria-hidden="true" />
+                {ti('label')}
+              </Button>
+            )}
+            {!invoiceButton.enabled && (
+              <p id="rechnung-gesperrt" className="max-w-xs text-[13px] text-ds-neutral-800 sm:text-right">
+                {ti(`disabled.${invoiceButton.reason}`)}
+              </p>
+            )}
+          </div>
         )}
       </div>
 

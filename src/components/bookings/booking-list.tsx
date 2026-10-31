@@ -62,14 +62,15 @@ export function BookingList({ rows, showAmounts }: BookingListProps) {
               <TableCell className="text-right tabular-nums">{formatNumber(nightsBetween(r.arrival, r.departure))}</TableCell>
               <TableCell className="text-right tabular-nums">{r.kind === 'block' ? '–' : formatNumber(r.persons)}</TableCell>
               <TableCell>{badges(r)}</TableCell>
-              {/* Rechnungen der Buchung (PROJ-37): Nummern als Links, untereinander nach Rechnungsdatum; sonst leer */}
+              {/* Rechnungen der Buchung (PROJ-37): Nummern als Links, untereinander nach Rechnungsdatum; Entwürfe als
+                  „Entwurf“ (PROJ-40); sonst leer */}
               <TableCell className="max-w-[160px]">
                 {r.invoices.length > 0 && (
                   <ul className="flex flex-col gap-1">
                     {r.invoices.map((i) => (
                       <li key={i.id}>
                         <Link href={invoiceHref(i.id)} className="break-words text-ds-accent-700 underline underline-offset-[3px] hover:decoration-2">
-                          {i.number}
+                          {i.number ?? t('invoiceDraft')}
                         </Link>
                       </li>
                     ))}
@@ -106,7 +107,7 @@ export function BookingList({ rows, showAmounts }: BookingListProps) {
               </span>
               {/* Handy: die Karte ist der Link zur Buchung, Rechnungsnummern daher als Text (kein Link im Link) */}
               {r.invoices.length > 0 && (
-                <span className="break-words text-[13px] text-ds-neutral-800">{t('invoicesLine', { numbers: r.invoices.map((i) => i.number).join(', ') })}</span>
+                <span className="break-words text-[13px] text-ds-neutral-800">{t('invoicesLine', { numbers: r.invoices.map((i) => i.number ?? t('invoiceDraft')).join(', ') })}</span>
               )}
               {badges(r)}
             </Link>

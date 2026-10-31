@@ -45,6 +45,8 @@ export const invoiceSchema = (t: T, { today = todayIso() }: { today?: string } =
       guestMode: z.enum(['existing', 'new']),
       guestId: optionalId,
       recipient: z.string().trim().min(1, t('recipientRequired')).max(L.recipientMax, t('tooLong')),
+      // Schalter „Ohne Umsatzsteuer (Kleinunternehmer)“ (PROJ-37, geändert 2026-10-31): gespeichert wird die Einstellung
+      smallBusiness: z.boolean(),
       lines: z.array(invoiceLineSchema(t)).min(1, t('linesRequired')).max(L.linesMax, t('linesTooMany')),
       pdfPath: z
         .string()

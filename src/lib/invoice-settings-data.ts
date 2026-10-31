@@ -24,7 +24,8 @@ export async function loadInvoiceSettings(tenantId: string): Promise<InvoiceSett
     supabase.from('invoice_text_blocks').select(TEXT_BLOCK_COLUMNS).eq('tenant_id', tenantId).limit(100),
     // alle Nummern als ein Wert: Zeilenabfragen kappt PostgREST bei 1.000 (BUG-3 aus QA)
     supabase.rpc('invoice_numbers', { p_tenant_id: tenantId }),
-    supabase.from('invoices').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId).neq('origin', 'backfilled'),
+    // nur in der App ausgestellte Rechnungen; Entwürfe (PROJ-40) lösen die Warnung nicht aus
+    supabase.from('invoices').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('origin', 'issued'),
   ])
   for (const [label, r] of [
     ['Einstellungen', settings],

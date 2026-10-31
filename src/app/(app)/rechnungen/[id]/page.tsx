@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { getTranslations } from 'next-intl/server'
 
 import { Amount } from '@/components/amount'
+import { DraftDetail } from '@/components/invoice-drafts/draft-detail'
 import { InvoiceActions } from '@/components/invoices/invoice-buttons'
 import { InvoiceStatus } from '@/components/invoices/invoice-status'
 import { PageHeader } from '@/components/page-header'
@@ -13,22 +14,27 @@ import { bookingHref, todayIso } from '@/lib/bookings'
 import { formatDate, formatPeriod } from '@/lib/format'
 import { guestDisplayName, guestHref } from '@/lib/guests'
 import { invoiceVatShares, linesTotal } from '@/lib/invoices'
-import { getInvoice } from '@/lib/invoices-data'
+import { getInvoiceDraftView } from '@/lib/invoice-drafts-data'
+import { getInvoice, getInvoiceOrigin } from '@/lib/invoices-data'
 import { getTenantContext } from '@/lib/tenant'
 import { formatVatRate } from '@/lib/vat'
 
 type Params = Promise<{ id: string }>
 
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
-  const [t, invoice] = await Promise.all([getTranslations('invoices'), getInvoice((await params).id)])
+  const { id } = await params
+  if ((await getInvoiceOrigin(id)) === 'draft') return { title: (await getTranslations('invoiceDrafts'))('detail.metaTitle') }
+  const [t, invoice] = await Promise.all([getTranslations('invoices'), getInvoice(id)])
   return { title: t('detail.metaTitle', { number: invoice.number }) }
 }
 
 // Rechnungsdetail (PROJ-37) für alle Mitglieder; Bearbeiten und Löschen nur für Inhaber.
 // Positionen sind eine Kopie: spätere Änderungen an der Buchung wirken nicht auf die Rechnung.
+// Entwürfe (PROJ-40) haben eine eigene Darstellung.
 export default async function InvoiceDetailPage({ params }: { params: Params }) {
   await requireArea('invoices')
   const { id } = await params
+  if ((await getInvoiceOrigin(id)) === 'draft') return <DraftDetailPage id={id} />
   const t = await getTranslations('invoices')
   const tb = await getTranslations('bookings')
   const [invoice, { active }] = await Promise.all([getInvoice(id), getTenantContext()])
@@ -149,6 +155,21 @@ export default async function InvoiceDetailPage({ params }: { params: Params }) 
           {booking && <p className="text-[13px] text-ds-neutral-800">{t('detail.copyNote')}</p>}
         </section>
       </div>
+    </>
+  )
+}
+
+async function DraftDetailPage({ id }: { id: string }) {
+  const t = await getTranslations('invoiceDrafts')
+  const [view, { active }] = await Promise.all([getInvoiceDraftView(id), getTenantContext()])
+  return (
+    <>
+      <Link href="/rechnungen" className="-mb-6 flex min-h-11 w-fit items-center gap-1.5 text-ds-accent-700 underline-offset-[3px] hover:underline">
+        <CaretLeft size={16} weight="bold" aria-hidden="true" />
+        {t('detail.back')}
+      </Link>
+      <PageHeader eyebrow={t('detail.eyebrow')} title={t(`detail.title.${view.draft.kind}`)} />
+      <DraftDetail view={view} owner={active?.role === 'owner'} />
     </>
   )
 }

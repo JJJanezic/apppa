@@ -1,6 +1,6 @@
 # PROJ-40: Rechnungsdaten sammeln (Entwurf)
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-10-31
 **Last Updated:** 2026-10-31
 
@@ -440,6 +440,57 @@ Keine neuen Pakete.
 ### Für /qa
 - Unit-Tests der Rechen-Bibliothek (Rundung, Rückfallregel, Grenzen der Pflichtangaben, Vorauswahl)
 - E2E: Rechnung erstellen aus Buchung, Teilung nach Positionen, Teil- und Schlussrechnung, Empfänger Firma/Gast, Vorschau ohne Datenverlust, Knopf-Sperre, Mitarbeiter-Ansicht, Handy 375 px
+
+## Implementation Notes (Frontend)
+**Stand 2026-10-31.** Oberfläche, Regeln, Server-Aktionen und Lesefunktionen sind gebaut; die Datenbank (Migration, Funktionen) fehlt noch (`/backend`, Schnittstelle unten). Bis dahin schlagen Laden und Speichern der Entwürfe fehl.
+
+**Regeln** (Browser und Server, mit Unit-Tests):
+- `src/lib/invoice-drafts.ts` (36 Tests): Arten, Empfänger-/Gastnamen-/Anrede-Auswahl, Herkunft der Positionen (`nights`, `cancellation_fee`, `charge:<Kennung>` ↔ Spalten `source_kind`/`source_charge_id`), `bookingDraftLines`, `invoiceSums` (Verrechnet = nicht Entwurf), `invoiceButtonState` (Begründungen `cancelledNoFee`/`nothingToBill`/`overBilled`/`fullyBilled`), `preselectLines` (nur Art Rechnung/Schlussrechnung zählen; ausgestellte vor Entwürfen im Hinweis), `amountFromPercent`/`percentFromAmount`, `splitByVat` (Rundungsrest beim größten Anteil), `partialLabel`, `deductionCandidates`, `draftTotals` (Schlussrechnung: USt je Satz = USt der Positionen minus die auf den abgezogenen Rechnungen ausgewiesene USt), `paymentSchedule` mit Rückfallregel, `recipientFromGuest`, `guestNames`, `draftSalutation`, `draftPlaceholderValues` ({Rechnungsnummer} = „Entwurf“, Fristen nach Rückfallregel), `requiredChecks` (Grenzen € 400 / € 10.000), `bookingFingerprint` (FNV-1a über Positionen, Beträge, Sätze, Bezeichnungen, Stornostatus).
+- `src/lib/validation/invoice-drafts.ts` (12 Tests): `draftSchema` – nur angewählte Positionen werden geprüft und gespeichert; Teilbetrag > 0 (Prozent 0,01–100 oder Betrag); Zahlungsregeln wie PROJ-39 („Anzahlung: nein“ verwirft Prozent/Frist); Texte mit Länge und Platzhaltern je Block ({Anzahlung} ohne Anzahlung verhindert das Speichern); Abzüge nur bei Schlussrechnung. `liveDraftPayment` für die laufende Anzeige.
+- `src/lib/invoice-preview.ts`: `buildPreviewModel` – eine Darstellung für Formular (ungespeichert), Detailseite und Vorschau-Seite.
+
+**Oberfläche** `src/components/invoice-drafts/`:
+- `draft-form` (Seite „Rechnung erstellen“/„Entwurf bearbeiten“): Kopf mit Buchung, Hinweise (Option, storniert, „Buchung wurde seit dem Entwurf geändert“ + „Positionen neu übernehmen“ mit Rückfrage), Art (Wechsel von Teilrechnung mit Teilbetrag nach Rückfrage), Empfänger Gast/Firma (Firma nur mit Firmenname; Wechsel nach eigenen Änderungen mit Rückfrage), Anrede bei Firma, Rechnungsdatum (Hinweis bei Vergangenheit), Gastnamen, Positionen bzw. Teilbetrag (Prozent ↔ Betrag, Aufteilung je Satz) bzw. Abzüge, Summen mit USt je Satz bzw. Kleinunternehmer, Hinweise „0 oder negativ“ und „über dem Gesamtpreis“, drei Textblöcke, Zahlungsregeln mit berechneten Fristen und Rückfall-Hinweisen, Pflichtangaben, Knöpfe „Entwurf speichern“, „Vorschau“, „Abbrechen“. Vorschau blendet das Formular nur aus (keine Eingabe geht verloren). Beim Bearbeiten stehen die übrigen Buchungspositionen abgewählt unter den gespeicherten.
+- `draft-lines`: Positionen mit Auswahlkästchen, Hinweis „bereits in Rechnung …“ / „in Entwurf vom …“, sortierbar (Baustein aus PROJ-34), Bezeichnungsauswahl und Satz (PROJ-35).
+- `draft-text-block`: Bausteinauswahl („Kein Text“, Standard gekennzeichnet), Editor aus PROJ-39 (bei Ersetzen neu aufgebaut), Rückfrage beim Ersetzen eines geänderten Texts; Zahlungsmodalitäten setzen die Zahlungsregeln.
+- `invoice-preview`: Seitenform in der Reihenfolge aus PROJ-39, Kennzeichen „Entwurf“, Datumsangaben ohne Wochentag, Abzüge mit USt je Satz.
+- `required-checks`: ✓/Fehler, „Zum Feld“ (Formular: Sprung und Fokus; Detailseite: Link `…/bearbeiten#feld`), „Zu den Stammdaten“ (nur Inhaber).
+- `draft-detail` und `draft-actions`: Detailseite (Inhaber: Bearbeiten, Vorschau, Löschen mit Bestätigung; Mitarbeiter: Vorschau). Der Knopf „Positionen neu übernehmen“ auf der Detailseite führt ins Formular, dort mit Rückfrage.
+- `use-unsaved-guard`: Rückfrage beim Verlassen (Browser-Rückfrage bei Neuladen/Schließen, eigener Dialog bei Links innerhalb der App und „Abbrechen“).
+
+**Seiten:**
+- `/rechnungen/neu?buchung=…` (nur Inhaber; ohne Rest zu verrechnen statt Formular die Begründung), `/rechnungen/[id]/bearbeiten` (nur Inhaber), `/rechnungen/[id]/vorschau` (alle Mitglieder), `/rechnungen/[id]` verzweigt bei Entwürfen auf die Entwurf-Detailseite.
+- Buchungsdetail: Knopf „Rechnung“ rechts außen (nur Inhaber, nicht bei Sperren), inaktiv mit sichtbarer Begründung; gilt auch im Kalender-Panel. Abschnitt „Rechnungen“: Entwürfe als „Entwurf“ mit Art, darunter „In Entwürfen: € …“.
+- Rechnungsliste: Nummer „–“, Status „Entwurf“ + Art. Buchungsübersicht: Spalte zeigt „Entwurf“ als Link; Filter ohne/mit Rechnung über eine eigene Verknüpfung `billed` ohne Entwürfe.
+- Einstellungen → Rechnungen: Prüfung „hat ausgestellte Rechnungen“ fragt jetzt `origin = 'issued'`.
+
+**PROJ-37-Änderung (Kleinunternehmer-Schalter):** Formular „Rechnung nacherfassen“ mit Schalter „Ohne Umsatzsteuer (Kleinunternehmer)“; beim Anlegen nach dem Status am Rechnungsdatum vorgeschlagen und mitgeführt, bis der Inhaber ihn umlegt; beim Bearbeiten der gespeicherte Wert. Schalter ein blendet die Satzfelder aus. Die Aktion sendet `small_business` an `save_invoice`.
+
+**Server-Aktionen** (`src/app/(app)/rechnungen/actions.ts`): `saveInvoiceDraft` (liest die Buchung selbst, prüft mit `draftSchema`, rechnet die Teilrechnungs-Zeilen mit `splitByVat` und den Fingerabdruck, leitet zur Detailseite weiter) und `deleteInvoiceDraft` (leitet zur Buchung weiter). Lesefunktionen in `src/lib/invoice-drafts-data.ts`.
+
+**Abweichungen/Entscheidungen beim Bauen:**
+- „Buchung geändert“ stellt nur der Inhaber fest (Mitarbeiter lesen keine Buchungspreise); Mitarbeiter sehen den Hinweis nicht.
+- Der Hinweis „in Entwurf vom …“ nennt das Rechnungsdatum des anderen Entwurfs.
+- Nach dem Löschen eines Entwurfs geht es zur Buchung (dort ist der Knopf „Rechnung“ wieder aktiv).
+
+**Offen für `/backend`** (Schnittstelle, die das Frontend erwartet):
+- **Tabelle `invoices`** (erweitert):
+  - `origin` zusätzlich `'draft'` (PROJ-41: `'issued'`); `number` und `number_key` bei Entwürfen `null` (Eindeutigkeit und Nummernvorschlag nur über vorhandene Nummern); `booking_id` bei Entwürfen Pflicht.
+  - neue Spalten: `kind` (`invoice`/`partial`/`final`, nur Entwurf/ausgestellt), `recipient_kind` (`guest`/`company`), `recipient_name`, `recipient_line1`, `recipient_line2`, `recipient_postal_code`, `recipient_city`, `recipient_country`, `recipient_vat_id` (Texte oder null), `company_salutation` (`generic`/`guest`), `guest_names` (`none`/`main`/`all`), `partial_mode` (`percent`/`amount`), `partial_percent` numeric(5,2), `partial_amount_cents`, `intro_block_id`/`payment_block_id`/`closing_block_id` (uuid, nur Anzeige; beim Löschen des Bausteins null), `intro_text`/`payment_text`/`closing_text` (jsonb wie `isRichDoc` oder null), `deposit_percent` numeric(5,2), `deposit_days`, `due_days`, `due_basis`, `booking_fingerprint` (Text), `deduction_removed` boolean (default false; `delete_invoice_draft` setzt es bei Schlussrechnungen, die den gelöschten Entwurf abzogen; Speichern setzt es zurück).
+  - `recipient` (Anzeigename für Liste/Suche) = `recipient_name` (leer → „–“ o. Ä., Spalte bleibt nicht leer).
+- **Tabelle `invoice_lines`**: neu `source_kind` (`nights`/`cancellation_fee`/`charge` oder null) und `source_charge_id` (uuid, nur bei `charge`; beim Löschen der Zusatzkosten-Position null).
+- **Tabelle `invoice_deductions`** (`invoice_id`, `deducted_invoice_id`, `tenant_id`, `created_at`), Fremdschlüssel `invoice_deductions_invoice_fkey` (invoice_id, tenant_id) und `invoice_deductions_deducted_fkey` (deducted_invoice_id, tenant_id) auf `invoices`; Lesen für Mitglieder, kein direktes Schreiben.
+- **`save_invoice_draft(p_input jsonb) → uuid`**: `p_input` = `{ id|null, updated_at|null, tenant_id, booking_id, kind, invoice_date, recipient_kind, recipient {name, line1, line2, postal_code, city, country, vat_id}, company_salutation, guest_names, partial {mode, percent ("20.00"|null), amount_cents}|null, lines [{label, amount_cents, vat_rate ("10.00"), source_kind, source_charge_id}], deduction_ids [uuid], texts {intro|payment|closing: {block_id|null, body|null}}, payment {deposit_percent|null, deposit_days|null, due_days, due_basis}, booking_fingerprint }`.
+  - Prüft: Inhaber des Kunden (2FA/aktiv wie gehabt), Buchung des Kunden, keine Sperre, storniert nur mit Stornogebühr; beim **Anlegen** Summenregel (nacherfasst + ausgestellt + Entwürfe < Gesamtpreis bzw. Stornogebühr, sonst P0920); beim Ändern nur Entwürfe (P0923) und Konfliktschutz über `updated_at` (P0903); Positionen ≤ 50 (bei `partial` ≥ 1 Zeile, Summe = `amount_cents` > 0), `source_charge_id` gehört zur Buchung; Zahlungsregeln (Grenzen PROJ-39; ohne Anzahlung beide null); Texte (Struktur, ≤ 2.000 Zeichen, Platzhalter je Block wie `save_invoice_text_block`, {Anzahlung}/{Anzahlung fällig}/{Restbetrag} nur mit Anzahlung); Abzüge nur bei `final`, nur Teilrechnungen (Entwurf/ausgestellt) oder nacherfasste Rechnungen derselben Buchung, nicht sich selbst (P0921); sonst P0922.
+  - Bildet `total_cents` (Summe der Positionen minus Summe der abgezogenen Rechnungen), `recipient`, setzt `deduction_removed = false`, schreibt Positionen und Abzüge vollständig neu, Protokoll (Anlegen/Ändern mit Person und Zeit; nie Texte). Ändert sich ein Teilrechnungs-Entwurf, werden Schlussrechnungen, die ihn abziehen, im `total_cents` neu gebildet.
+- **`delete_invoice_draft(p_invoice_id uuid) → uuid`** (Buchung des Entwurfs): nur Inhaber, nur Entwürfe (P0923); entfernt Abzüge auf ihn, setzt bei diesen Schlussrechnungen `deduction_removed = true` und bildet `total_cents` neu; Protokoll.
+- **`invoice_preview_data(p_tenant_id uuid) → jsonb`** für Inhaber und Mitarbeiter: `{ issuer: {name, name_line2, address_line1, address_line2, postal_code, city, country, vat_id}, footer, small_business_note, vat_status: [{valid_from, small_business}] }`.
+- **`booking_invoices`**: je Rechnung zusätzlich `origin` (schon vorhanden) und `kind`; `number` bei Entwürfen null.
+- **`save_invoice`** (PROJ-37-Änderung): `p_input.small_business` (boolean) übernehmen statt aus dem Rechnungsdatum bilden.
+- **`save_booking`**: Zusatzkosten-Positionen behalten ihre Kennung (Abgleich statt Löschen/Neuanlegen); gelöschte Positionen lösen `invoice_lines.source_charge_id` (null).
+- **Lesen:** RLS für die neuen Spalten/Tabellen wie `invoices`; Betreiber ohne Zugriff auf Entwürfe. Buchungsübersicht nutzt `billed:invoices(id)` mit Filter `billed.origin=neq.draft`.
+- **Fehlercodes:** P0920 nichts zu verrechnen, P0921 Abzug ungültig, P0922 Inhalt ungültig, P0923 kein Entwurf; dazu die bestehenden (P0901/42501, P0902, P0903, P0908, P0016).
+- Nach der Migration die Typen neu erzeugen (`src/types/database.ts` ist von Hand vorbereitet).
 
 ## QA Test Results
 _To be added by /qa_

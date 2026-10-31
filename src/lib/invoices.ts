@@ -2,6 +2,7 @@
 // für Browser und Server, ohne Datenbankzugriff.
 
 import { addDays, isIsoDate, LIMITS as BOOKING_LIMITS, todayIso } from '@/lib/bookings'
+import type { InvoiceKind } from '@/lib/invoice-drafts'
 import { vatBreakdown, type VatShare } from '@/lib/vat'
 
 export type InvoiceErrorCode =
@@ -17,9 +18,21 @@ export type InvoiceErrorCode =
   | 'guestAnonymized'
   | 'tenantDeactivated'
   | 'documentImageMissing'
+  // Entwurf (PROJ-40)
+  | 'nothingToBill'
+  | 'deductionInvalid'
+  | 'contentInvalid'
+  | 'notDraft'
 
-// Herkunft: nacherfasst (PROJ-37); „ausgestellt“ kommt mit PROJ-41
-export type InvoiceOrigin = 'backfilled'
+// Herkunft: nacherfasst (PROJ-37), Entwurf ohne Nummer (PROJ-40), ausgestellt (PROJ-41)
+export type InvoiceOrigin = 'backfilled' | 'draft' | 'issued'
+
+// „Verrechnet“ zählt nacherfasste und ausgestellte Rechnungen, nicht Entwürfe
+export const isBilled = (origin: InvoiceOrigin) => origin !== 'draft'
+
+export const invoiceOriginFromDb = (value: string): InvoiceOrigin => (value === 'draft' || value === 'issued' ? value : 'backfilled')
+export const invoiceKindFromDb = (value: string | null): InvoiceKind | null =>
+  value === 'invoice' || value === 'partial' || value === 'final' ? value : null
 
 export const INVOICE_LIMITS = {
   numberMax: 30,
@@ -45,11 +58,14 @@ export type InvoiceLine = { label: string; amountCents: number; vatBp: number }
 // Zeile der Rechnungsliste
 export type InvoiceRow = {
   id: string
-  number: string
+  // Entwürfe haben keine Nummer (Anzeige „–“)
+  number: string | null
   invoiceDate: string
   recipient: string
   totalCents: number
   origin: InvoiceOrigin
+  // Art bei Entwürfen und ausgestellten Rechnungen
+  kind: InvoiceKind | null
   hasPdf: boolean
   booking: { id: string; number: string | null } | null
 }
@@ -99,10 +115,14 @@ export type Invoice = {
   updatedAt: string
 }
 
-// Abschnitt „Rechnungen“ im Buchungsdetail: Rechnungen, verrechnete Summe und Gesamtpreis (auch für Mitarbeiter)
+// Abschnitt „Rechnungen“ im Buchungsdetail: Rechnungen, verrechnete Summe, Summe der Entwürfe und Gesamtpreis
+// (auch für Mitarbeiter)
 export type BookingInvoices = {
-  invoices: Pick<InvoiceRow, 'id' | 'number' | 'invoiceDate' | 'recipient' | 'totalCents' | 'origin' | 'hasPdf'>[]
+  invoices: Pick<InvoiceRow, 'id' | 'number' | 'invoiceDate' | 'recipient' | 'totalCents' | 'origin' | 'kind' | 'hasPdf'>[]
+  // nacherfasst und ausgestellt
   billedCents: number
+  // Entwürfe (PROJ-40)
+  draftCents: number
   bookingTotalCents: number | null
 }
 

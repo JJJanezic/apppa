@@ -11,11 +11,14 @@ import {
   INVOICE_BUCKET,
   INVOICE_PAGE_SIZE,
   type InvoiceFilters,
+  invoiceKindFromDb,
+  invoiceOriginFromDb,
   type InvoiceOrigin,
   type InvoicePage,
   type InvoicePdfLinks,
   type InvoiceRow,
   invoiceSearchPattern,
+  isBilled,
 } from '@/lib/invoices'
 import type { Role } from '@/lib/navigation'
 import { createClient } from '@/lib/supabase/server'
@@ -34,15 +37,16 @@ async function requireMember(): Promise<{ tenantId: string; role: Role }> {
   return { tenantId: active.id, role: active.role }
 }
 
-const LIST_COLUMNS = 'id, number, invoice_date, recipient, total_cents, origin, pdf_path, booking:bookings(id, number)'
+const LIST_COLUMNS = 'id, number, invoice_date, recipient, total_cents, origin, kind, pdf_path, booking:bookings(id, number)'
 
 type ListDbRow = {
   id: string
-  number: string
+  number: string | null
   invoice_date: string
   recipient: string
   total_cents: number
   origin: string
+  kind: string | null
   pdf_path: string | null
   booking: { id: string; number: string | null } | null
 }
@@ -53,12 +57,14 @@ const toRow = (r: ListDbRow): InvoiceRow => ({
   invoiceDate: r.invoice_date,
   recipient: r.recipient,
   totalCents: r.total_cents,
-  origin: r.origin as InvoiceOrigin,
+  origin: invoiceOriginFromDb(r.origin),
+  kind: invoiceKindFromDb(r.kind),
   hasPdf: r.pdf_path !== null,
   booking: r.booking,
 })
 
-// Rechnungsliste: Datum absteigend, bei gleichem Datum Nummer absteigend; je 50; Suche nach Nummer oder Empfänger
+// Rechnungsliste: Datum absteigend, bei gleichem Datum Nummer absteigend (Entwürfe ohne Nummer zuerst); je 50; Suche
+// nach Nummer oder Empfänger
 export async function getInvoicePage(filters: InvoiceFilters): Promise<InvoicePage> {
   const { tenantId } = await requireMember()
   const supabase = await createClient()
@@ -132,7 +138,7 @@ const DETAIL_COLUMNS =
 
 type DetailDbRow = {
   id: string
-  number: string
+  number: string | null
   invoice_date: string
   origin: string
   recipient: string
@@ -163,7 +169,19 @@ type DetailDbRow = {
   } | null
 }
 
-// Einmal pro Anfrage (Seitentitel und Seite); fremde oder unbekannte Rechnungen → „Seite nicht gefunden“
+// Herkunft einer Rechnung (Detailseite: Entwurf oder nacherfasste Rechnung); fremde oder unbekannte → „Seite nicht gefunden“
+export const getInvoiceOrigin = cache(async (id: string): Promise<InvoiceOrigin> => {
+  const { tenantId } = await requireMember()
+  if (!/^[0-9a-f-]{36}$/i.test(id)) notFound()
+  const supabase = await createClient()
+  const { data, error } = await supabase.from('invoices').select('origin').eq('id', id).eq('tenant_id', tenantId).maybeSingle()
+  if (error) console.error('[rechnungen] Herkunft nicht lesbar', error.message)
+  if (!data) notFound()
+  return invoiceOriginFromDb(data.origin)
+})
+
+// Einmal pro Anfrage (Seitentitel und Seite); fremde oder unbekannte Rechnungen → „Seite nicht gefunden“.
+// Für nacherfasste (später ausgestellte) Rechnungen; Entwürfe liest getInvoiceDraftView (invoice-drafts-data.ts).
 export const getInvoice = cache(async (id: string): Promise<Invoice> => {
   const { tenantId } = await requireMember()
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound()
@@ -176,9 +194,9 @@ export const getInvoice = cache(async (id: string): Promise<Invoice> => {
   const b = r.booking
   return {
     id: r.id,
-    number: r.number,
+    number: r.number ?? '',
     invoiceDate: r.invoice_date,
-    origin: r.origin as InvoiceOrigin,
+    origin: invoiceOriginFromDb(r.origin),
     recipient: r.recipient,
     smallBusiness: r.small_business,
     totalCents: r.total_cents,
@@ -206,19 +224,29 @@ export const getInvoice = cache(async (id: string): Promise<Invoice> => {
       cancelled: b.cancelled_at !== null,
     },
     pdfPath: r.pdf_path,
-    pdf: r.pdf_path ? await pdfLinks(r.pdf_path, pdfFileName(t('pdf.fileName'), r.number)) : null,
+    pdf: r.pdf_path ? await pdfLinks(r.pdf_path, pdfFileName(t('pdf.fileName'), r.number ?? '')) : null,
     updatedAt: r.updated_at,
   }
 })
 
 type BookingInvoicesDb = {
   booking_total_cents: number | null
-  invoices: { id: string; number: string; invoice_date: string; recipient: string; total_cents: number; origin: string; has_pdf: boolean }[]
+  invoices: {
+    id: string
+    number: string | null
+    invoice_date: string
+    recipient: string
+    total_cents: number
+    origin: string
+    kind: string | null
+    has_pdf: boolean
+  }[]
 }
 
 // Abschnitt „Rechnungen“ im Buchungsdetail (Seite und Kalender-Panel). Eigene Datenbank-Funktion, damit auch
-// Mitarbeiter Gesamtpreis und verrechnete Summe sehen (Nutzerentscheidung in /architecture).
-export async function getBookingInvoices(bookingId: string): Promise<BookingInvoices> {
+// Mitarbeiter Gesamtpreis und verrechnete Summe sehen (Nutzerentscheidung in /architecture). Einmal je Anfrage
+// (Knopf „Rechnung“ und Abschnitt lesen dieselben Summen).
+export const getBookingInvoices = cache(async (bookingId: string): Promise<BookingInvoices> => {
   await requireMember()
   const supabase = await createClient()
   const { data, error } = await supabase.rpc('booking_invoices', { p_booking_id: bookingId })
@@ -230,12 +258,14 @@ export async function getBookingInvoices(bookingId: string): Promise<BookingInvo
     invoiceDate: i.invoice_date,
     recipient: i.recipient,
     totalCents: i.total_cents,
-    origin: i.origin as InvoiceOrigin,
+    origin: invoiceOriginFromDb(i.origin),
+    kind: invoiceKindFromDb(i.kind ?? null),
     hasPdf: i.has_pdf,
   }))
   return {
     invoices,
-    billedCents: invoices.reduce((sum, i) => sum + i.totalCents, 0),
+    billedCents: invoices.reduce((sum, i) => (isBilled(i.origin) ? sum + i.totalCents : sum), 0),
+    draftCents: invoices.reduce((sum, i) => (isBilled(i.origin) ? sum : sum + i.totalCents), 0),
     bookingTotalCents: result.booking_total_cents,
   }
-}
+})

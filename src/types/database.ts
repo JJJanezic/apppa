@@ -728,6 +728,42 @@ export type Database = {
           },
         ]
       }
+      invoice_deductions: {
+        Row: {
+          created_at: string
+          deducted_invoice_id: string
+          invoice_id: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          deducted_invoice_id: string
+          invoice_id: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          deducted_invoice_id?: string
+          invoice_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_deductions_deducted_fkey"
+            columns: ["deducted_invoice_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "invoice_deductions_invoice_fkey"
+            columns: ["invoice_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id", "tenant_id"]
+          },
+        ]
+      }
       invoice_lines: {
         Row: {
           amount_cents: number
@@ -737,6 +773,8 @@ export type Database = {
           invoice_id: string
           label: string
           position: number
+          source_charge_id: string | null
+          source_kind: string | null
           tenant_id: string
           updated_at: string
           updated_by: string | null
@@ -750,6 +788,8 @@ export type Database = {
           invoice_id: string
           label: string
           position: number
+          source_charge_id?: string | null
+          source_kind?: string | null
           tenant_id: string
           updated_at?: string
           updated_by?: string | null
@@ -763,6 +803,8 @@ export type Database = {
           invoice_id?: string
           label?: string
           position?: number
+          source_charge_id?: string | null
+          source_kind?: string | null
           tenant_id?: string
           updated_at?: string
           updated_by?: string | null
@@ -926,17 +968,43 @@ export type Database = {
       }
       invoices: {
         Row: {
+          booking_fingerprint: string | null
           booking_id: string | null
+          closing_block_id: string | null
+          closing_text: Json | null
+          company_salutation: string | null
           created_at: string
           created_by: string | null
+          deduction_removed: boolean
+          deposit_days: number | null
+          deposit_percent: number | null
+          due_basis: string | null
+          due_days: number | null
           guest_id: string | null
+          guest_names: string | null
           id: string
+          intro_block_id: string | null
+          intro_text: Json | null
           invoice_date: string
-          number: string
+          kind: string | null
+          number: string | null
           number_key: string | null
           origin: string
+          partial_amount_cents: number | null
+          partial_mode: string | null
+          partial_percent: number | null
+          payment_block_id: string | null
+          payment_text: Json | null
           pdf_path: string | null
           recipient: string
+          recipient_city: string | null
+          recipient_country: string | null
+          recipient_kind: string | null
+          recipient_line1: string | null
+          recipient_line2: string | null
+          recipient_name: string | null
+          recipient_postal_code: string | null
+          recipient_vat_id: string | null
           small_business: boolean
           tenant_id: string
           total_cents: number
@@ -944,17 +1012,43 @@ export type Database = {
           updated_by: string | null
         }
         Insert: {
+          booking_fingerprint?: string | null
           booking_id?: string | null
+          closing_block_id?: string | null
+          closing_text?: Json | null
+          company_salutation?: string | null
           created_at?: string
           created_by?: string | null
+          deduction_removed?: boolean
+          deposit_days?: number | null
+          deposit_percent?: number | null
+          due_basis?: string | null
+          due_days?: number | null
           guest_id?: string | null
+          guest_names?: string | null
           id?: string
+          intro_block_id?: string | null
+          intro_text?: Json | null
           invoice_date: string
-          number: string
+          kind?: string | null
+          number: string | null
           number_key?: string | null
           origin?: string
+          partial_amount_cents?: number | null
+          partial_mode?: string | null
+          partial_percent?: number | null
+          payment_block_id?: string | null
+          payment_text?: Json | null
           pdf_path?: string | null
           recipient: string
+          recipient_city?: string | null
+          recipient_country?: string | null
+          recipient_kind?: string | null
+          recipient_line1?: string | null
+          recipient_line2?: string | null
+          recipient_name?: string | null
+          recipient_postal_code?: string | null
+          recipient_vat_id?: string | null
           small_business?: boolean
           tenant_id: string
           total_cents?: number
@@ -962,17 +1056,43 @@ export type Database = {
           updated_by?: string | null
         }
         Update: {
+          booking_fingerprint?: string | null
           booking_id?: string | null
+          closing_block_id?: string | null
+          closing_text?: Json | null
+          company_salutation?: string | null
           created_at?: string
           created_by?: string | null
+          deduction_removed?: boolean
+          deposit_days?: number | null
+          deposit_percent?: number | null
+          due_basis?: string | null
+          due_days?: number | null
           guest_id?: string | null
+          guest_names?: string | null
           id?: string
+          intro_block_id?: string | null
+          intro_text?: Json | null
           invoice_date?: string
-          number?: string
+          kind?: string | null
+          number?: string | null
           number_key?: string | null
           origin?: string
+          partial_amount_cents?: number | null
+          partial_mode?: string | null
+          partial_percent?: number | null
+          payment_block_id?: string | null
+          payment_text?: Json | null
           pdf_path?: string | null
           recipient?: string
+          recipient_city?: string | null
+          recipient_country?: string | null
+          recipient_kind?: string | null
+          recipient_line1?: string | null
+          recipient_line2?: string | null
+          recipient_name?: string | null
+          recipient_postal_code?: string | null
+          recipient_vat_id?: string | null
           small_business?: boolean
           tenant_id?: string
           total_cents?: number
@@ -1480,6 +1600,7 @@ export type Database = {
       }
       delete_guest: { Args: { p_guest_id: string }; Returns: string }
       delete_invoice: { Args: { p_invoice_id: string }; Returns: string }
+      delete_invoice_draft: { Args: { p_invoice_id: string }; Returns: string }
       delete_invoice_text_block: {
         Args: { p_block_id: string; p_tenant_id: string }
         Returns: undefined
@@ -1530,6 +1651,7 @@ export type Database = {
         }[]
       }
       invoice_numbers: { Args: { p_tenant_id: string }; Returns: string[] }
+      invoice_preview_data: { Args: { p_tenant_id: string }; Returns: Json }
       merge_guests: {
         Args: { p_choice: Json; p_keep: string; p_remove: string }
         Returns: undefined
@@ -1568,6 +1690,7 @@ export type Database = {
         Returns: undefined
       }
       save_invoice: { Args: { p_input: Json }; Returns: Json }
+      save_invoice_draft: { Args: { p_input: Json }; Returns: string }
       save_invoice_backfill: {
         Args: {
           p_enabled: boolean

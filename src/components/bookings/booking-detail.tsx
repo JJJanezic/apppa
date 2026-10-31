@@ -10,6 +10,8 @@ import { billableNights, type BookableApartment, type Booking, bookingState, nig
 import { formatCents, formatDate, formatDatePlain, formatNumber, formatPeriod } from '@/lib/format'
 import { countryName, guestDisplayName, guestHref, guestSortName } from '@/lib/guests'
 import { cn } from '@/lib/utils'
+import { invoiceButtonState } from '@/lib/invoice-drafts'
+import { getBookingInvoices } from '@/lib/invoices-data'
 import { formatVatRate, vatBreakdown } from '@/lib/vat'
 import { vatStatusForBooking } from '@/lib/vat-status'
 import { getVatStatusHistory } from '@/lib/vat-status-data'
@@ -72,6 +74,20 @@ export async function BookingDetail({ booking, apartments, owner, today, layout,
       : []
   const rate = (bp: number) => (smallBusiness ? undefined : formatVatRate(bp))
   const billable = billableNights(booking)
+  // Knopf „Rechnung“ (PROJ-40, nur Inhaber, nicht bei Sperren): aktiv, solange Verrechnet + In Entwürfen unter dem
+  // Gesamtpreis bzw. bei Storno unter der Stornogebühr liegt
+  let invoiceButton = null
+  if (owner && amounts && !isBlock) {
+    const { billedCents, draftCents } = await getBookingInvoices(booking.id)
+    const cancelled = booking.cancelledAt !== null
+    invoiceButton = invoiceButtonState({
+      cancelled,
+      hasFee: amounts.cancellationFeeCents !== null,
+      billableCents: cancelled ? (amounts.cancellationFeeCents ?? 0) : totalCents({ nightsCents: amounts.billedNightsCents, charges: amounts.charges }),
+      billedCents,
+      draftCents,
+    })
+  }
   const sourceLabel = booking.source === 'custom' && booking.sourceCustom ? booking.sourceCustom : t(`source.${booking.source}`)
 
   return (
@@ -113,7 +129,7 @@ export async function BookingDetail({ booking, apartments, owner, today, layout,
             </AlertDescription>
           </Alert>
         )}
-        <BookingActions booking={booking} apartments={apartments} owner={owner} today={today} closeHref={closeHref} />
+        <BookingActions booking={booking} apartments={apartments} owner={owner} today={today} closeHref={closeHref} invoiceButton={invoiceButton} />
       </div>
 
       {/* Anordnung (PROJ-8, 2026-10-30): links Hauptgast, Mitreisende, Aufenthalt; rechts Preis und Rechnungen.

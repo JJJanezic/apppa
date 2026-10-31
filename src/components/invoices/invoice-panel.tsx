@@ -26,6 +26,7 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { Switch } from '@/components/ui/switch'
 import { LabelCombobox } from '@/components/vat/label-combobox'
 import { useVatStatus } from '@/components/vat/vat-status-context'
 import { VatRateInput } from '@/components/vat/vat-rate-input'
@@ -60,7 +61,7 @@ interface InvoicePanelProps {
 
 const toLineInput = (l: InvoiceLine): InvoiceLineInput => ({ label: l.label, amount: amountInput(l.amountCents), vat: vatRateInput(l.vatBp) })
 
-function initialValues(invoice: Invoice | null): InvoiceInput {
+function initialValues(invoice: Invoice | null, suggestedSmallBusiness: boolean): InvoiceInput {
   return {
     number: invoice?.number ?? '',
     invoiceDate: invoice?.invoiceDate ?? '',
@@ -68,6 +69,7 @@ function initialValues(invoice: Invoice | null): InvoiceInput {
     guestMode: 'existing',
     guestId: invoice?.guest?.id ?? '',
     recipient: invoice?.recipient ?? '',
+    smallBusiness: invoice ? invoice.smallBusiness : suggestedSmallBusiness,
     lines: (invoice?.lines ?? []).map(toLineInput),
     pdfPath: invoice?.pdfPath ?? '',
   }
@@ -93,6 +95,8 @@ export function InvoicePanel({ open, onOpenChange, invoice, today }: InvoicePane
   const [picked, setPicked] = useState<PickedGuest | null>(invoice?.guest ?? null)
   // Empfänger von Hand geändert (bzw. gespeichert): Gastwechsel überschreibt ihn nicht mehr
   const [recipientTouched, setRecipientTouched] = useState(Boolean(invoice))
+  // Kleinunternehmer-Schalter von Hand umgelegt (bzw. gespeichert): ein anderes Rechnungsdatum ändert ihn nicht mehr
+  const [smallBusinessTouched, setSmallBusinessTouched] = useState(Boolean(invoice))
   // Positionen der gewählten Buchung, solange die Rückfrage „ersetzen?“ offen ist
   const [replaceWith, setReplaceWith] = useState<InvoiceLine[] | null>(null)
   const [duplicates, setDuplicates] = useState<{ matches: DuplicateMatch[]; values: string } | null>(null)
@@ -102,21 +106,20 @@ export function InvoicePanel({ open, onOpenChange, invoice, today }: InvoicePane
 
   const form = useForm<InvoiceInput>({
     resolver: zodResolver(invoiceSchema(tv, { today }), undefined, { raw: true }),
-    defaultValues: initialValues(invoice),
+    defaultValues: initialValues(invoice, vatStatusOn(vatHistory, today).smallBusiness),
   })
   const guestForm = useForm<GuestInput>({
     resolver: zodResolver(guestSchema(tgv), undefined, { raw: true }),
     defaultValues: EMPTY_GUEST_INPUT,
   })
   const lines = useFieldArray({ control: form.control, name: 'lines' })
-  const [invoiceDate, guestMode, lineRows] = useWatch({ control: form.control, name: ['invoiceDate', 'guestMode', 'lines'] })
+  const [invoiceDate, guestMode, lineRows, smallBusiness] = useWatch({ control: form.control, name: ['invoiceDate', 'guestMode', 'lines', 'smallBusiness'] })
   const [newLastName, newFirstName, newCompanyName] = useWatch({ control: guestForm.control, name: ['lastName', 'firstName', 'companyName'] })
   const guestValues = JSON.stringify(useWatch({ control: guestForm.control }))
   const visibleDuplicates = duplicates && duplicates.values === guestValues ? duplicates.matches : null
 
-  // Kleinunternehmer am Rechnungsdatum (PROJ-36; solange keines eingetragen ist: heute) → keine USt-Angaben;
-  // die Sätze bleiben im Formular und werden gespeichert
-  const showVat = !vatStatusOn(vatHistory, isIsoDate(invoiceDate) ? invoiceDate : today).smallBusiness
+  // Schalter ein → keine USt-Angaben; die Sätze bleiben im Formular und werden gespeichert
+  const showVat = !smallBusiness
   const chargeChoices = CHARGE_CHOICES.map((c) => ({ key: c.key, label: tb(`chargeSuggestions.${c.key}`) }))
   const parsedLines = lineRows.map((l) => ({ amountCents: parseAmountCents(l.amount ?? '', { negative: true }), vatBp: parseVatRate(l.vat ?? '') }))
   const valid = parsedLines.every((l) => l.amountCents !== null && !Number.isNaN(l.amountCents))
@@ -131,6 +134,13 @@ export function InvoicePanel({ open, onOpenChange, invoice, today }: InvoicePane
   const suggestRecipient = (g: { lastName: string; firstName: string | null; companyName: string | null }) => {
     if (!recipientTouched) form.setValue('recipient', recipientFor(g), validate())
   }
+
+  // Vorschlag des Schalters nach dem Status am Rechnungsdatum (PROJ-36; solange keines eingetragen ist: heute), nur beim
+  // Anlegen und solange der Inhaber ihn nicht selbst umgelegt hat
+  useEffect(() => {
+    if (smallBusinessTouched) return
+    form.setValue('smallBusiness', vatStatusOn(vatHistory, isIsoDate(invoiceDate) ? invoiceDate : today).smallBusiness)
+  }, [smallBusinessTouched, invoiceDate, vatHistory, today, form])
 
   // Neuer Gast: Empfänger läuft mit Name bzw. Firma mit, solange er nicht von Hand geändert wurde
   useEffect(() => {
@@ -397,6 +407,29 @@ export function InvoicePanel({ open, onOpenChange, invoice, today }: InvoicePane
                 </FormControl>
                 <FormDescription>{t('form.recipientHint')}</FormDescription>
                 <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="smallBusiness"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-start gap-3 space-y-0 rounded-lg border px-3 py-3">
+                <FormControl>
+                  <Switch
+                    checked={field.value}
+                    onCheckedChange={(checked) => {
+                      setSmallBusinessTouched(true)
+                      field.onChange(checked)
+                    }}
+                    className="mt-0.5"
+                  />
+                </FormControl>
+                <div className="flex flex-col gap-1">
+                  <FormLabel className="font-normal">{t('form.smallBusiness')}</FormLabel>
+                  <FormDescription>{t('form.smallBusinessHint')}</FormDescription>
+                </div>
               </FormItem>
             )}
           />

@@ -6,7 +6,9 @@ import { redirect } from 'next/navigation'
 import { apartmentLabel } from '@/lib/apartments'
 import type { ActionResult, CommonErrorCode } from '@/lib/auth/result'
 import { getSessionUser, pendingMfaStep } from '@/lib/auth/session'
-import { todayIso } from '@/lib/bookings'
+import { bookingHref, todayIso } from '@/lib/bookings'
+import { billableCents, lineSourceToDb, partialLabel, splitByVat } from '@/lib/invoice-drafts'
+import { currentFingerprint, getDraftBooking } from '@/lib/invoice-drafts-data'
 import { guestDbColumns } from '@/lib/guests-data'
 import { removeInvoiceFiles } from '@/lib/invoice-files'
 import {
@@ -21,12 +23,14 @@ import {
 import { createClient } from '@/lib/supabase/server'
 import { getTenantContext, type TenantSummary } from '@/lib/tenant'
 import { type GuestInput, guestSchema } from '@/lib/validation/guests'
+import { type DraftInput, draftSchema } from '@/lib/validation/invoice-drafts'
 import { type InvoiceInput, invoiceSchema } from '@/lib/validation/invoices'
 import { VAT_DEFAULTS, vatRateFromDb, vatRateToDb } from '@/lib/vat'
 
-// Server-Aktionen der Rechnungen (PROJ-37). Nacherfassen, Ändern, Löschen und PDF-Upload: nur Inhaber.
-// Alle Änderungen laufen im Namen der Person über die geschützten Datenbank-Funktionen save_invoice und
-// delete_invoice; die Datenbank prüft Rolle, Schalter, Mandant, Nummer, Datum und Positionen selbst.
+// Server-Aktionen der Rechnungen (PROJ-37 nacherfassen, PROJ-40 Entwürfe). Anlegen, Ändern, Löschen und PDF-Upload:
+// nur Inhaber. Alle Änderungen laufen im Namen der Person über die geschützten Datenbank-Funktionen save_invoice,
+// delete_invoice, save_invoice_draft und delete_invoice_draft; die Datenbank prüft Rolle, Schalter, Mandant, Nummer,
+// Datum, Positionen, Summenregel und Texte selbst.
 
 type Result<T = undefined> = ActionResult<T, InvoiceErrorCode>
 type Failure = { ok: false; error: InvoiceErrorCode | CommonErrorCode }
@@ -75,6 +79,15 @@ function dbFail(error: DbError, context: string): Failure {
     // neuer Gast: Ausweisbild fehlt im Speicher oder gehört schon einem anderen Gast (PROJ-29)
     case 'P0705':
       return fail('documentImageMissing')
+    // Entwurf (PROJ-40): nichts mehr zu verrechnen (Sperre, Storno ohne Gebühr, Summenregel beim Anlegen)
+    case 'P0920':
+      return fail('nothingToBill')
+    case 'P0921':
+      return fail('deductionInvalid')
+    case 'P0922':
+      return fail('contentInvalid')
+    case 'P0923':
+      return fail('notDraft')
   }
   console.error(`[rechnungen] ${context}`, error.code, error.message)
   return fail('unknown')
@@ -130,6 +143,7 @@ export async function saveInvoice(input: SaveInvoice): Promise<SaveInvoiceResult
       guest_id: v.guestId,
       new_guest: newGuest,
       recipient: v.recipient,
+      small_business: v.smallBusiness,
       // Reihenfolge = Position; Sätze als exakte Dezimalzahl („10.00“), Gesamtbetrag bildet die Datenbank
       lines: v.lines.map((l) => ({ label: l.label, amount_cents: l.amountCents, vat_rate: vatRateToDb(l.vatBp) })),
       pdf_path: v.pdfPath,
@@ -251,4 +265,98 @@ export async function loadInvoiceBooking(input: { id: string }): Promise<Result<
         : null,
     },
   }
+}
+
+// ---- Rechnungsentwurf (PROJ-40) ------------------------------------------------------------------
+
+type SaveDraft = {
+  id?: string
+  updatedAt?: string
+  bookingId: string
+  values: DraftInput
+}
+
+// Entwurf anlegen oder ändern. Buchung, Teilbetrag-Aufteilung und Fingerabdruck liest bzw. rechnet der Server selbst
+// aus der aktuellen Buchung; der Browser liefert nur die Eingaben. Danach zur Detailseite des Entwurfs.
+export async function saveInvoiceDraft(input: SaveDraft): Promise<Result<{ id: string }>> {
+  const guard = await requireOwner()
+  if (!guard.ok) return guard
+  if (input.id !== undefined && (!isId(input.id) || typeof input.updatedAt !== 'string')) return fail('notFound')
+  if (!isId(input?.bookingId)) return fail('bookingInvalid')
+  const booking = await getDraftBooking(input.bookingId)
+  if (!booking || booking.kind === 'block' || !booking.lines) return fail('bookingInvalid')
+  const parsed = draftSchema(key, { partialBaseCents: billableCents(booking.lines) }).safeParse(input.values)
+  if (!parsed.success) return fail('unknown')
+  const v = parsed.data
+  // Teilrechnung: eine Zeile je USt-Satz der Buchungspositionen, anteilig und auf Cent genau
+  const lines =
+    v.kind === 'partial' && v.partial
+      ? splitByVat(v.partial.amountCents, booking.lines).map((l) => ({ ...l, label: partialLabel(booking), source: null }))
+      : v.lines
+
+  const supabase = await createClient()
+  const { data, error } = await supabase.rpc('save_invoice_draft', {
+    p_input: {
+      id: input.id ?? null,
+      updated_at: input.updatedAt ?? null,
+      tenant_id: guard.tenant.id,
+      booking_id: booking.id,
+      kind: v.kind,
+      invoice_date: v.invoiceDate,
+      recipient_kind: v.recipientKind,
+      recipient: {
+        name: v.recipient.name,
+        line1: v.recipient.line1,
+        line2: v.recipient.line2,
+        postal_code: v.recipient.postalCode,
+        city: v.recipient.city,
+        country: v.recipient.country,
+        vat_id: v.recipient.vatId,
+      },
+      company_salutation: v.companySalutation,
+      guest_names: v.guestNames,
+      partial: v.partial && {
+        mode: v.partial.mode,
+        percent: v.partial.percentBp === null ? null : vatRateToDb(v.partial.percentBp),
+        amount_cents: v.partial.amountCents,
+      },
+      // Reihenfolge = Position; Sätze als exakte Dezimalzahl („10.00“), Gesamtbetrag bildet die Datenbank
+      lines: lines.map((l) => ({ label: l.label, amount_cents: l.amountCents, vat_rate: vatRateToDb(l.vatBp), ...lineSourceToDb(l.source) })),
+      deduction_ids: v.deductionIds,
+      texts: {
+        intro: { block_id: v.texts.intro.blockId, body: v.texts.intro.body },
+        payment: { block_id: v.texts.payment.blockId, body: v.texts.payment.body },
+        closing: { block_id: v.texts.closing.blockId, body: v.texts.closing.body },
+      },
+      payment: {
+        deposit_percent: v.payment.depositPercent,
+        deposit_days: v.payment.depositDays,
+        due_days: v.payment.dueDays,
+        due_basis: v.payment.dueBasis,
+      },
+      booking_fingerprint: currentFingerprint(booking),
+    },
+  })
+  if (error) return dbFail(error, 'Entwurf speichern')
+  const id = data as unknown as string
+  revalidate({ id, bookingIds: [booking.id] })
+  // Bearbeiten-/Vorschau-Seite und Schlussrechnungen, die diesen Entwurf abziehen (Betrag neu gebildet)
+  revalidatePath(LIST, 'layout')
+  // Weiterleitung in der Aktion statt router.push im Browser (Next 16, siehe saveBooking)
+  redirect(invoiceHref(id))
+}
+
+// Entwurf löschen (nur Entwürfe); Schlussrechnungen, die ihn abziehen, verlieren den Abzug. Danach zur Buchung.
+export async function deleteInvoiceDraft(input: { id: string }): Promise<Result> {
+  const guard = await requireOwner()
+  if (!guard.ok) return guard
+  if (!isId(input?.id)) return fail('notFound')
+  const supabase = await createClient()
+  const { data, error } = await supabase.rpc('delete_invoice_draft', { p_invoice_id: input.id })
+  if (error) return dbFail(error, 'Entwurf löschen')
+  // Die Funktion meldet die Buchung des gelöschten Entwurfs zurück
+  const bookingId = typeof data === 'string' && isId(data) ? data : null
+  revalidate({ bookingIds: [bookingId] })
+  revalidatePath(LIST, 'layout')
+  redirect(bookingId ? bookingHref(bookingId) : LIST)
 }

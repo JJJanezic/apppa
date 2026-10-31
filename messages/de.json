@@ -1351,7 +1351,8 @@
       "previous": "Zurück",
       "next": "Weiter",
       "pageOf": "Seite {page} von {pageCount}"
-    }
+    },
+    "invoiceDraft": "Entwurf"
   },
   "calendar": {
     "title": "Belegung",
@@ -1408,7 +1409,9 @@
     "emptyTextStaff": "Sobald ein Inhaber Rechnungen erfasst, stehen sie hier.",
     "withoutPdf": "ohne PDF",
     "origin": {
-      "backfilled": "nacherfasst"
+      "backfilled": "nacherfasst",
+      "draft": "Entwurf",
+      "issued": "ausgestellt"
     },
     "col": {
       "number": "Nummer",
@@ -1432,7 +1435,8 @@
       "pagination": "Seiten der Rechnungsliste",
       "previous": "Zurück",
       "next": "Weiter",
-      "pageOf": "Seite {page} von {pageCount}"
+      "pageOf": "Seite {page} von {pageCount}",
+      "noNumber": "–"
     },
     "form": {
       "createTitle": "Rechnung nacherfassen",
@@ -1479,7 +1483,9 @@
       "replaceTitle": "Positionen ersetzen?",
       "replaceText": "Es sind schon Positionen eingetragen. Sollen sie durch {count, plural, =0 {die Positionen der Buchung (keine)} =1 {die Position der Buchung} other {die # Positionen der Buchung}} ersetzt werden?",
       "replaceConfirm": "Ersetzen",
-      "replaceKeep": "Behalten"
+      "replaceKeep": "Behalten",
+      "smallBusiness": "Ohne Umsatzsteuer (Kleinunternehmer)",
+      "smallBusinessHint": "So wie auf der vorhandenen Rechnung. Vorgeschlagen nach dem Kleinunternehmer-Status am Rechnungsdatum."
     },
     "pdf": {
       "choose": "PDF wählen",
@@ -1530,7 +1536,9 @@
       "title": "Rechnungen",
       "billed": "Verrechnet",
       "bookingTotal": "Gesamtpreis",
-      "overBilled": "Verrechnet mehr als Gesamtpreis"
+      "overBilled": "Verrechnet mehr als Gesamtpreis",
+      "draft": "Entwurf",
+      "inDrafts": "In Entwürfen"
     },
     "done": {
       "created": "Rechnung gespeichert.",
@@ -1573,10 +1581,19 @@
       "guestAnonymized": "Ein anonymisierter Gast kann nicht gewählt werden.",
       "tenantDeactivated": "Der Kunde ist deaktiviert. Rechnungen sind nur lesbar.",
       "documentImageMissing": "Ein Ausweisbild ist nicht mehr verfügbar. Bitte lade es erneut hoch und speichere noch einmal.",
+      "nothingToBill": "Für diese Buchung ist nichts mehr zu verrechnen: Sie ist bereits vollständig verrechnet oder in Entwürfen, storniert ohne Stornogebühr oder eine Sperre.",
+      "deductionInvalid": "Eine abgezogene Rechnung kann nicht gewählt werden. Bitte prüfe die Abzüge.",
+      "contentInvalid": "Der Entwurf enthält ungültige Angaben. Bitte prüfe Positionen, Texte und Zahlungsregeln.",
+      "notDraft": "Diese Rechnung ist kein Entwurf mehr.",
       "network": "Keine Verbindung. Bitte prüfe deine Internetverbindung und versuche es erneut.",
       "sessionExpired": "Deine Sitzung ist abgelaufen. Bitte melde dich erneut an.",
       "notImplemented": "Diese Funktion wird gerade eingerichtet.",
       "unknown": "Etwas ist schiefgelaufen. Bitte versuche es erneut."
+    },
+    "kind": {
+      "invoice": "Rechnung",
+      "partial": "Teilrechnung",
+      "final": "Schlussrechnung"
     }
   },
   "invoiceSettings": {
@@ -1754,6 +1771,336 @@
       "sessionExpired": "Deine Sitzung ist abgelaufen. Bitte melde dich erneut an.",
       "notImplemented": "Diese Funktion wird gerade eingerichtet.",
       "unknown": "Etwas ist schiefgelaufen. Bitte versuche es erneut."
+    }
+  },
+  "invoiceDrafts": {
+    "button": {
+      "label": "Rechnung",
+      "disabled": {
+        "cancelledNoFee": "Storniert ohne Stornogebühr: nichts zu verrechnen.",
+        "nothingToBill": "Gesamtpreis ist 0 oder negativ: nichts zu verrechnen.",
+        "overBilled": "Verrechnet mehr als Gesamtpreis.",
+        "fullyBilled": "Bereits vollständig verrechnet oder in Entwürfen."
+      }
+    },
+    "form": {
+      "createTitle": "Rechnung erstellen",
+      "editTitle": "Entwurf bearbeiten",
+      "eyebrow": "Rechnungsentwurf",
+      "lead": "Stell die Rechnung aus der Buchung zusammen. Gespeichert wird ein Entwurf ohne Nummer; die Nummer kommt erst beim Ausstellen.",
+      "backToBooking": "Zurück zur Buchung",
+      "backToDraft": "Zurück zum Entwurf",
+      "blockedTitle": "Keine neue Rechnung möglich",
+      "save": "Entwurf speichern",
+      "preview": "Vorschau",
+      "cancel": "Abbrechen",
+      "keep": "Behalten"
+    },
+    "header": {
+      "booking": "Buchung {number}",
+      "deletedGuest": "Gelöschter Gast",
+      "option": "Buchung ist noch eine Option.",
+      "cancelled": "Die Buchung ist storniert. Verrechnet wird nur die Stornogebühr."
+    },
+    "changed": {
+      "text": "Die Buchung wurde seit dem Entwurf geändert (Preis, Positionen oder Storno).",
+      "reload": "Positionen neu übernehmen",
+      "confirmTitle": "Positionen neu übernehmen?",
+      "confirmText": "Die Positionen des Entwurfs werden durch die aktuellen Positionen der Buchung ersetzt (Vorauswahl wie beim Anlegen). Eigene Änderungen an den Positionen gehen verloren.",
+      "confirm": "Neu übernehmen"
+    },
+    "stale": {
+      "text": "Der Entwurf wurde inzwischen geändert. Deine Eingaben sind noch nicht gespeichert.",
+      "reload": "Aktuelle Fassung laden"
+    },
+    "kind": {
+      "title": "Art",
+      "invoice": "Rechnung",
+      "partial": "Teilrechnung",
+      "final": "Schlussrechnung",
+      "invoiceHint": "Positionen aus der Buchung",
+      "partialHint": "Anzahlung über Prozent oder Betrag",
+      "finalHint": "Alle Positionen minus Teilrechnungen",
+      "confirmTitle": "Art wechseln?",
+      "confirmText": "Der eingegebene Teilbetrag entfällt. Die Positionen der Buchung werden mit Vorauswahl übernommen.",
+      "confirm": "Wechseln"
+    },
+    "recipient": {
+      "title": "Empfänger",
+      "guest": "Gast",
+      "company": "Firma",
+      "noCompany": "Der Hauptgast hat keine Firma eingetragen.",
+      "name": "Name",
+      "line1": "Adresszeile 1",
+      "line2": "Adresszeile 2 (optional)",
+      "postalCode": "PLZ",
+      "city": "Ort",
+      "country": "Staat",
+      "vatId": "UID (optional)",
+      "copyHint": "Die Angaben sind eine Kopie für diese Rechnung. Du kannst sie ändern, ohne dass sich der Gast ändert.",
+      "salutation": "Anrede im Text ({Anrede})",
+      "salutation_generic": "Sehr geehrte Damen und Herren",
+      "salutation_guest": "Anrede des Hauptgasts",
+      "confirmTitle": "Empfänger neu belegen?",
+      "confirmText": "Du hast die Angaben zum Empfänger geändert. Beim Wechsel werden sie mit den Daten aus dem Gast neu belegt.",
+      "confirm": "Neu belegen"
+    },
+    "date": {
+      "label": "Rechnungsdatum",
+      "past": "Das Rechnungsdatum liegt in der Vergangenheit. Du kannst trotzdem speichern."
+    },
+    "guestNames": {
+      "label": "Gastnamen auf der Rechnung",
+      "none": "Keine Gastnamen",
+      "main": "Hauptgast",
+      "all": "Hauptgast mit Mitreisenden"
+    },
+    "partial": {
+      "title": "Teilbetrag",
+      "line": "Zeile auf der Rechnung: {label}",
+      "mode": "Eingabe als",
+      "percent": "Prozent",
+      "amount": "Betrag",
+      "percentLabel": "Prozent vom Gesamtpreis (€ {total})",
+      "amountLabel": "Betrag in Euro",
+      "equalsAmount": "entspricht € {amount}",
+      "equalsPercent": "entspricht {percent} % des Gesamtpreises",
+      "split": "Aufteilung nach Umsatzsteuersatz",
+      "share": "Anteil {rate}"
+    },
+    "lines": {
+      "title": "Positionen",
+      "hint": "Angewählte Positionen kommen auf die Rechnung. Positionen, die schon in einer anderen Rechnung stehen, sind abgewählt und können trotzdem angewählt werden.",
+      "empty": "Keine Positionen. Füge eine Position hinzu.",
+      "select": "„{label}“ auf die Rechnung",
+      "label": "Bezeichnung der Position {n}",
+      "labelPlaceholder": "Bezeichnung",
+      "amount": "Betrag der Position {n}",
+      "amountPlaceholder": "Betrag",
+      "vat": "Umsatzsteuersatz der Position {n}",
+      "remove": "Position {n} entfernen",
+      "add": "Position hinzufügen",
+      "inDraft": "in Entwurf vom {date}",
+      "inInvoice": "bereits in Rechnung {number}"
+    },
+    "deductions": {
+      "title": "Abzüge",
+      "none": "Keine Teilrechnungen oder nacherfassten Rechnungen zu dieser Buchung.",
+      "backfilled": "Rechnung {number} (nacherfasst)",
+      "partial": "Teilrechnung {number}",
+      "partialDraft": "Teilrechnung (Entwurf)",
+      "removed": "Abgezogene Rechnung existiert nicht mehr. Der Rechnungsbetrag wurde neu berechnet."
+    },
+    "totals": {
+      "title": "Summen",
+      "lines": "Summe der Leistungen",
+      "deductions": "Abzüge",
+      "total": "Rechnungsbetrag",
+      "noVat": "Keine Umsatzsteuer (Kleinunternehmer)",
+      "vatIncluded": "Darin enthaltene Umsatzsteuer",
+      "vatShare": "darin USt {rate}",
+      "notPositive": "Die Abzüge sind höher als die Leistungen: Der Rechnungsbetrag ist 0 oder negativ.",
+      "overBilled": "Mit Verrechnet und Entwürfen liegt dieser Betrag über dem Gesamtpreis der Buchung. Du kannst trotzdem speichern."
+    },
+    "texts": {
+      "block": "Baustein",
+      "none": "Kein Text",
+      "defaultName": "{name} (Standard)",
+      "noBlocks": "Noch keine Bausteine. Bausteine legst du unter Einstellungen → Rechnungen an.",
+      "text": "Text für diese Rechnung",
+      "hint": "Änderungen gelten nur für diese Rechnung. Platzhalter werden in der Vorschau ersetzt.",
+      "replaceTitle": "Text ersetzen?",
+      "replaceText": "Du hast den Text für diese Rechnung geändert. Der andere Baustein ersetzt ihn.",
+      "replaceConfirm": "Ersetzen",
+      "replaceKeep": "Behalten",
+      "salutationGuest": "{Anrede} richtet sich nach dem Hauptgast (Geschlecht und Titel).",
+      "intro": {
+        "title": "Einleitung"
+      },
+      "payment": {
+        "title": "Zahlungsmodalitäten"
+      },
+      "closing": {
+        "title": "Abschlusstext"
+      }
+    },
+    "payment": {
+      "deposit": "Anzahlung",
+      "depositPercent": "Anzahlung in Prozent",
+      "depositDays": "Anzahlung fällig nach Tagen (ab Rechnungsdatum)",
+      "dueDays": "Fällig in Tagen",
+      "dueBasis": "Bezug",
+      "basis": {
+        "after_invoice": "nach Rechnungsdatum",
+        "before_arrival": "vor Anreise"
+      },
+      "depositResult": "Anzahlung € {amount} fällig am {date}, Rest € {rest}",
+      "dueResult": "Fällig am {date}",
+      "dueClamped": "Fälligkeit liegt vor dem Rechnungsdatum, sofort fällig gesetzt.",
+      "depositClamped": "Die Anzahlung wäre nach dem Rest fällig, sie ist auf die Fälligkeit des Rests gesetzt.",
+      "hint": "Vom Baustein übernommen und nur für diese Rechnung änderbar (0 bis {max} Tage)."
+    },
+    "required": {
+      "title": "Pflichtangaben",
+      "openCount": "{count, plural, =1 {1 Angabe fehlt. Speichern geht trotzdem; ausstellen lässt sich die Rechnung erst vollständig.} other {# Angaben fehlen. Speichern geht trotzdem; ausstellen lässt sich die Rechnung erst vollständig.}}",
+      "allOk": "Alle Pflichtangaben sind vorhanden. Die Rechnungsnummer wird erst beim Ausstellen vergeben.",
+      "ok": "vorhanden",
+      "missing": "fehlt",
+      "toField": "Zum Feld",
+      "toSettings": "Zu den Stammdaten",
+      "issuer": {
+        "ok": "Aussteller: Name und Anschrift",
+        "error": "Name und Anschrift des Ausstellers fehlen in den Stammdaten"
+      },
+      "issuerVatId": {
+        "ok": "UID des Ausstellers",
+        "error": "UID des Ausstellers fehlt (ab € 400 brutto)"
+      },
+      "invoiceDate": {
+        "ok": "Rechnungsdatum",
+        "error": "Rechnungsdatum fehlt"
+      },
+      "period": {
+        "ok": "Zeitraum des Aufenthalts",
+        "error": "Zeitraum des Aufenthalts fehlt"
+      },
+      "lines": {
+        "ok": "Positionen",
+        "error": "Keine Position"
+      },
+      "partial": {
+        "ok": "Teilbetrag",
+        "error": "Kein Teilbetrag"
+      },
+      "amounts": {
+        "ok": "Beträge und Umsatzsteuer (berechnet)",
+        "error": "Beträge fehlen"
+      },
+      "recipient": {
+        "ok": "Empfänger: Name und Anschrift",
+        "error": "Name oder Anschrift des Empfängers fehlt"
+      },
+      "recipientName": {
+        "ok": "Name des Empfängers",
+        "error": "Name des Empfängers fehlt (ab € 400 brutto)"
+      },
+      "recipientLine1": {
+        "ok": "Adresse des Empfängers",
+        "error": "Adresse des Empfängers fehlt (ab € 400 brutto)"
+      },
+      "recipientPostalCode": {
+        "ok": "PLZ des Empfängers",
+        "error": "PLZ des Empfängers fehlt (ab € 400 brutto)"
+      },
+      "recipientCity": {
+        "ok": "Ort des Empfängers",
+        "error": "Ort des Empfängers fehlt (ab € 400 brutto)"
+      },
+      "recipientCountry": {
+        "ok": "Staat des Empfängers",
+        "error": "Staat des Empfängers fehlt (ab € 400 brutto)"
+      },
+      "recipientVatId": {
+        "ok": "UID des Empfängers",
+        "error": "UID des Empfängers fehlt (ab € 10.000 brutto)"
+      }
+    },
+    "preview": {
+      "metaTitle": "Vorschau",
+      "eyebrow": "Rechnungsentwurf",
+      "title": {
+        "invoice": "Rechnung",
+        "partial": "Teilrechnung",
+        "final": "Schlussrechnung"
+      },
+      "label": "Rechnungsvorschau",
+      "draftMark": "Entwurf",
+      "vatId": "UID: {id}",
+      "issuerMissing": "Aussteller fehlt (Stammdaten)",
+      "recipient": "Empfänger",
+      "recipientMissing": "Empfänger fehlt",
+      "number": "Rechnungsnummer: {number}",
+      "period": "Rechnung für {apartment} vom {arrival} bis {departure}",
+      "guests": "Gäste: {names}",
+      "services": "Leistungen",
+      "partialShare": "Anteil {rate}",
+      "partialAmount": "Teilbetrag",
+      "noLines": "Keine Positionen",
+      "subtotal": "Summe der Leistungen",
+      "total": "Rechnungsbetrag",
+      "deduction": {
+        "invoice": "abzüglich Rechnung {number} vom {date}",
+        "invoiceDraft": "abzüglich Rechnung (Entwurf) vom {date}",
+        "partial": "abzüglich Teilrechnung {number} vom {date}",
+        "partialDraft": "abzüglich Teilrechnung (Entwurf) vom {date}"
+      },
+      "deductionVat": "darin USt {rate}",
+      "deductionMissing": "Abgezogene Rechnung existiert nicht mehr.",
+      "vatIncluded": "Darin enthaltene Umsatzsteuer",
+      "pageTitle": "Vorschau"
+    },
+    "detail": {
+      "metaTitle": "Rechnungsentwurf",
+      "back": "Alle Rechnungen",
+      "eyebrow": "Rechnungsentwurf",
+      "title": {
+        "invoice": "Rechnung (Entwurf)",
+        "partial": "Teilrechnung (Entwurf)",
+        "final": "Schlussrechnung (Entwurf)"
+      },
+      "edit": "Bearbeiten",
+      "preview": "Vorschau",
+      "delete": "Löschen",
+      "deleteTitle": "Entwurf löschen?",
+      "deleteText": "Der Entwurf wird endgültig gelöscht. Schlussrechnungen, die ihn abziehen, verlieren den Abzug.",
+      "deleteConfirm": "Endgültig löschen",
+      "deleteCancel": "Abbrechen",
+      "deleted": "Entwurf gelöscht.",
+      "data": "Angaben",
+      "kind": "Art",
+      "number": "Nummer",
+      "noNumber": "Wird beim Ausstellen vergeben",
+      "recipient": "Empfänger",
+      "vatId": "UID: {id}",
+      "booking": "Buchung",
+      "due": "Fällig",
+      "depositDue": "Anzahlung fällig am {date}:",
+      "noLines": "Keine Positionen",
+      "copyNote": "Die Positionen sind eine Kopie aus der Buchung. Zeitraum, Wohnung und Gastnamen kommen immer aktuell aus der Buchung."
+    },
+    "done": {
+      "created": "Entwurf gespeichert.",
+      "saved": "Änderungen gespeichert."
+    },
+    "leave": {
+      "title": "Seite verlassen?",
+      "text": "Deine Änderungen am Entwurf sind noch nicht gespeichert und gehen verloren.",
+      "confirm": "Verwerfen und verlassen",
+      "stay": "Weiter bearbeiten"
+    },
+    "validation": {
+      "tooLong": "Dieser Text ist zu lang.",
+      "dateRequired": "Bitte gib das Rechnungsdatum ein.",
+      "dateInvalid": "Bitte ein gültiges Datum eingeben.",
+      "linesTooMany": "Höchstens 50 Positionen.",
+      "lineInvalid": "Diese Position kann nicht übernommen werden.",
+      "lineLabelRequired": "Bitte eine Bezeichnung eingeben.",
+      "amountRequired": "Bitte einen Betrag eingeben.",
+      "amountInvalid": "Bitte einen Betrag wie 125 oder 125,50 eingeben.",
+      "vatRequired": "Bitte einen Umsatzsteuersatz eingeben.",
+      "vatInvalid": "Bitte einen Satz zwischen 0 und 100 mit höchstens zwei Nachkommastellen eingeben, z. B. 10 oder 5,5.",
+      "partialRequired": "Bitte gib einen Teilbetrag größer als 0 ein.",
+      "partialPercentInvalid": "Bitte gib 0,01 bis 100 Prozent mit höchstens 2 Nachkommastellen ein.",
+      "daysRequired": "Bitte gib die Anzahl der Tage ein.",
+      "daysRange": "Bitte gib eine ganze Zahl von 0 bis {max} Tagen ein.",
+      "percentRequired": "Bitte gib die Anzahlung in Prozent ein.",
+      "percentRange": "Bitte gib {min} bis {max} Prozent mit höchstens 2 Nachkommastellen ein.",
+      "textTooLong": "Der Text ist zu lang: {length} von höchstens {max} Zeichen.",
+      "placeholder": {
+        "unknown": "Unbekannter Platzhalter: {token}",
+        "notHere": "Der Platzhalter {token} ist in diesem Block nicht erlaubt.",
+        "depositOnly": "Dieser Platzhalter ist nur mit Anzahlung möglich: {token}"
+      }
     }
   }
 }
