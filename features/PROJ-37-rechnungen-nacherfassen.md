@@ -211,7 +211,7 @@ Teil A kommt zuerst: Kunden bringen Rechnungen aus ihrem bisherigen System mit. 
 - Browser: Chrome, Firefox, Safari; responsiv für Desktop und Handy
 
 ## Open Questions
-- [x] Kleinunternehmer-Status einer Rechnung: Rechnungsdatum (so festgelegt und an der Rechnung festgehalten) oder bei verknüpfter Buchung deren Regel aus PROJ-36 (Abreise bzw. Stornodatum)? → In PROJ-40 entschieden (2026-10-31): mit Buchung nach der Buchungsregel, ohne Buchung nach dem Rechnungsdatum; Umstellung der nacherfassten Rechnungen mit Buchung gehört zum Umfang von PROJ-40
+- [x] Kleinunternehmer-Status einer Rechnung: Rechnungsdatum (so festgelegt und an der Rechnung festgehalten) oder bei verknüpfter Buchung deren Regel aus PROJ-36 (Abreise bzw. Stornodatum)? → Keine eigene Regelung nötig (Nutzer, 2026-10-31): Nacherfasste Rechnungen sind bereits ausgestellt, erfasst werden nur ihre Daten. Die Regel „nach der Buchung“ aus PROJ-40 gilt nur für Rechnungen, die in der App entstehen
 
 ## Decision Log
 

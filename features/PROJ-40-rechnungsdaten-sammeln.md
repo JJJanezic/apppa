@@ -81,7 +81,7 @@ Wahl je Rechnung: **„keine Gastnamen“** (immer vorausgewählt), „Hauptgast
 ### Leistungen, USt und Kleinunternehmer (Block 5)
 - Summe und enthaltene USt je Satz wie PROJ-35.
 - **Kleinunternehmer-Status nach der Buchung** (PROJ-36: Abreise, bei stornierten Buchungen Stornodatum), für alle Rechnungen einer Buchung gleich. Im Entwurf bei jedem Öffnen neu ermittelt, festgehalten erst beim Ausstellen (PROJ-41). Bei Kleinunternehmer: keine USt-Ausweisung, Kleinunternehmer-Hinweis aus PROJ-39 nach Block 5 (nicht änderbar).
-- **Anpassung PROJ-37:** Nacherfasste Rechnungen **mit** Buchung richten sich ebenfalls nach der Buchungsregel; ohne Buchung weiterhin nach dem Rechnungsdatum.
+- **Nacherfasste Rechnungen (PROJ-37) bleiben unberührt:** Sie wurden bereits außerhalb der App ausgestellt; erfasst werden nur ihre Daten und das vorhandene PDF. Die Regel gilt nur für Rechnungen, die in der App entstehen.
 
 ### Pflichtangaben-Prüfung
 Im Entwurf und in der Vorschau sichtbare Liste „Pflichtangaben“ mit ✓ bzw. Fehlertext und Link zum Feld. Speichern ist bei Fehlern möglich, Ausstellen (PROJ-41) nicht. Die Rechnungsnummer fehlt im Entwurf immer und gilt nicht als Fehler.
@@ -218,7 +218,7 @@ Im Entwurf und in der Vorschau sichtbare Liste „Pflichtangaben“ mit ✓ bzw.
 ### Kleinunternehmer und USt
 - [ ] Angenommen die Abreise der Buchung fällt in eine Kleinunternehmer-Zeit, wenn der Entwurf angezeigt wird, dann wird keine USt ausgewiesen und der Kleinunternehmer-Hinweis steht nach Block 5, unabhängig vom Rechnungsdatum
 - [ ] Angenommen nach dem Speichern wird der Kleinunternehmer-Verlauf geändert, wenn der Entwurf wieder geöffnet wird, dann gilt der neue Status
-- [ ] Angenommen eine nacherfasste Rechnung mit Buchung, wenn sie angezeigt wird, dann gilt der Kleinunternehmer-Status nach der Buchung; ohne Buchung nach dem Rechnungsdatum
+- [ ] Angenommen eine nacherfasste Rechnung, wenn PROJ-40 eingespielt ist, dann bleibt ihre Anzeige unverändert (Verhalten wie PROJ-37)
 
 ### Pflichtangaben
 - [ ] Angenommen ein Rechnungsbetrag von € 300 und ein Empfänger ohne Anschrift, wenn die Pflichtangaben geprüft werden, dann gibt es keinen Fehler zur Anschrift
@@ -293,7 +293,7 @@ Im Entwurf und in der Vorschau sichtbare Liste „Pflichtangaben“ mit ✓ bzw.
 | Abzüge: Teilrechnungen vorausgewählt, nacherfasste anwählbar, Art Rechnung nicht | Normalfall ohne Zutun richtig; Anzahlungen aus dem Altsystem abziehbar | 2026-10-31 |
 | Empfänger Gast oder Firma des Hauptgasts, Firma vorausgewählt wenn vorhanden; Kopie, alle Felder überschreibbar | Wie Vorbelegung in PROJ-37; Sonderfälle (Reisebüro) ohne eigene Wahl | 2026-10-31 |
 | {Anrede} bei Firma wählbar: „Sehr geehrte Damen und Herren“ (vorausgewählt) oder Anrede des Hauptgasts | Nutzerentscheidung | 2026-10-31 |
-| Kleinunternehmer-Status nach der Buchung (PROJ-36), im Entwurf jeweils neu ermittelt; nacherfasste Rechnungen mit Buchung ebenso | Leistungszeitpunkt maßgeblich; Buchungsdetail und Rechnung zeigen dasselbe; schließt offene Frage aus PROJ-36/37/39 | 2026-10-31 |
+| Kleinunternehmer-Status nach der Buchung (PROJ-36), im Entwurf jeweils neu ermittelt; nur für in der App erstellte Rechnungen | Leistungszeitpunkt maßgeblich; Buchungsdetail und Rechnung zeigen dasselbe; nacherfasste Rechnungen sind bereits ausgestellt und werden nur erfasst (Nutzer, 2026-10-31); schließt offene Frage aus PROJ-36/39 | 2026-10-31 |
 | Rechnungsdatum im Entwurf frei wählbar, vorbelegt mit heute, gespeichert | Nutzerentscheidung; Prüfung gegen die Nummernfolge in PROJ-41 | 2026-10-31 |
 | Fälligkeit ohne Baustein = Rechnungsdatum; Fristen vor dem Rechnungsdatum auf dieses gesetzt, mit Hinweis | Ohne Vereinbarung sofort fällig; keine Frist in der Vergangenheit; schließt offene Frage aus PROJ-39 | 2026-10-31 |
 | Pflichtangaben nach § 11 UStG mit Grenzen € 400 / € 10.000; Fehler verhindern nur das Ausstellen | Gesetzliche Kleinbetragsrechnung; Kleinunternehmer ohne UID nicht blockiert; Entwürfe vorbereitbar | 2026-10-31 |
