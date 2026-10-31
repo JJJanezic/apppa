@@ -492,6 +492,29 @@ Keine neuen Pakete.
 - **Fehlercodes:** P0920 nichts zu verrechnen, P0921 Abzug ungültig, P0922 Inhalt ungültig, P0923 kein Entwurf; dazu die bestehenden (P0901/42501, P0902, P0903, P0908, P0016).
 - Nach der Migration die Typen neu erzeugen (`src/types/database.ts` ist von Hand vorbereitet).
 
+## Implementation Notes (Backend)
+**Stand 2026-10-31.** Migration `supabase/migrations/20261031175615_invoice_drafts.sql`, in Dev eingespielt; Typen neu erzeugt (entsprechen der Handvorbereitung); Advisors ohne Befund zur Datenbank (nur die bekannten Auth-Einstellungen in Dev).
+
+**Datenbank:**
+- `invoices`: Nummer nullbar, Prüfung „Entwurf ⇔ keine Nummer“; Herkunft `backfilled`/`draft`/`issued`; neue Spalten wie in der Schnittstelle oben, mit Prüfregeln je Spalte (Längen, Werte, Texte über `rich_text_valid` je Block, {Anzahlung} nur mit Anzahlung, Teilbetrag nur bei Teilrechnung). Verweise auf Bausteine mit `on delete set null`. Keine Pflicht für `booking_id` als Tabellenregel (würde das Löschen eines Kunden über die Kaskade stören); erzwungen in `save_invoice_draft`.
+- `invoice_lines`: `source_kind`, `source_charge_id` (Fremdschlüssel auf `booking_charges`, `on delete set null`). Bezeichnung in der Tabelle bis 300 Zeichen, weil die Teilrechnungs-Zeile „Anzahlung für Aufenthalt in {Objekt · Wohnung} vom … bis …“ länger als 100 werden kann; eigene Bezeichnungen begrenzen `save_invoice` und `save_invoice_draft` weiter auf 100.
+- `invoice_deductions` (Primärschlüssel Schlussrechnung + abgezogene Rechnung), Kaskade auf beiden Seiten, nur Lesen per RLS. Kein eigenes Protokoll; Änderungen stehen über die Schlussrechnung im Protokoll.
+- **RLS-Änderung:** Der Betreiber liest bei `invoices`, `invoice_lines` und `invoice_deductions` keine Entwürfe mehr (Spec „Wer darf was“); Mitglieder unverändert. `booking_invoices` liefert dem Betreiber ebenfalls keine Entwürfe.
+
+**Funktionen:**
+- `save_invoice_draft`: Prüfungen und Fehlercodes wie in der Schnittstelle. Summenregel nur beim Anlegen, ohne Sperre der Buchung (gleichzeitige Entwürfe werden beide gespeichert, Edge Case). Ändern: nur Entwürfe, Konfliktschutz, Buchung bleibt. Abzüge werden entdoppelt. `guest_id` = aktueller Hauptgast. `small_business` = Momentaufnahme nach der Buchung (Abreise bzw. Stornodatum in Wien). Bausteinverweise nur für eigene Bausteine desselben Blocks, sonst still `null` (z. B. inzwischen gelöscht). Wird eine Teilrechnung zur Rechnung/Schlussrechnung, verlieren Schlussrechnungen den Abzug (`deduction_removed`); bleibt sie Teilrechnung, wird deren Betrag neu gebildet.
+- `delete_invoice_draft`: nur Inhaber, nur Entwürfe; Abzüge auf ihn entfallen mit `deduction_removed = true` und neuem Betrag; gibt die Buchung zurück.
+- `invoice_preview_data`: für Mitglieder (Inhaber und Mitarbeiter), sonst 42501; Betreiber nicht.
+- Hilfen: `booking_billable_cents` (gleiche Regel wie bisher in `booking_invoices`), `invoice_total_cents`, `refresh_deducting_totals`, `detach_deductions`, `json_uuid`.
+- `save_invoice` (PROJ-37-Änderung): übernimmt `small_business` (boolean); fehlt der Wert, wie bisher nach dem Rechnungsdatum. Ändert nur nacherfasste Rechnungen (sonst P0902). Ändert sich eine nacherfasste Rechnung, wird der Betrag abziehender Schlussrechnungs-Entwürfe neu gebildet; wechselt ihre Buchung, entfällt der Abzug.
+- `delete_invoice`: nur nacherfasste Rechnungen (Entwürfe über `delete_invoice_draft`); Abzüge entfallen wie oben.
+- `invoice_numbers`: ohne leere Nummern.
+- `save_booking`: Zusatzkosten werden abgeglichen statt neu angelegt (bekannte Kennung dieser Buchung → ändern, nur bei Abweichung; ohne bzw. fremde/doppelte Kennung → neu; fehlende → löschen, Rechnungspositionen verlieren die Verbindung).
+
+**Frontend-Anpassung:** Das Buchungsformular führt die Kennung der Zusatzkosten mit (`Charge.id`, Formularfeld `chargeId`, Aktion sendet `charges[].id`); ohne das hätte `save_booking` die Kennungen nicht behalten können.
+
+**Tests:** `supabase/tests/invoice-drafts.integration.test.ts` (21 Tests: Rechte inkl. Betreiber, Speichern/Ändern/Protokoll, Trennung Entwurf ↔ nacherfasst, Kleinunternehmer nach Buchung, Summenregel, Sperre/Storno, Prüfregeln P0922, Bausteinverweise, Abzüge P0921 und Neuberechnung, stabile Zusatzkosten-Kennungen, Lesen wie die App inkl. Buchungsfilter); `invoices.integration.test.ts` um den Kleinunternehmer-Schalter ergänzt. Unit 516/516, Integration (Rechnungen, Einstellungen, Buchungen, RLS, Gäste, Betreiber, Entwürfe) grün, Build grün.
+
 ## QA Test Results
 _To be added by /qa_
 

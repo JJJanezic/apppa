@@ -112,6 +112,8 @@ export const bookingSchema = (t: T, { owner, today = todayIso() }: { owner: bool
       charges: z
         .array(
           z.object({
+            // Kennung der gespeicherten Position (PROJ-40); neue Positionen ohne
+            chargeId: z.string().optional(),
             label: z.string().trim().min(1, t('chargeLabelRequired')).max(LIMITS.chargeLabelMax, t('tooLong')),
             amount: amount(t, { negative: true }).refine((v) => parseAmountCents(v, { negative: true }) !== null, t('amountRequired')),
             vat: vatRate(t),
@@ -171,6 +173,7 @@ export const bookingSchema = (t: T, { owner, today = todayIso() }: { owner: bool
             extensionPricing: v.extensionPricing,
             nightsVatBp: parseVatRate(v.nightsVat) ?? VAT_DEFAULTS.nights,
             charges: v.charges.map((c) => ({
+              id: c.chargeId && /^[0-9a-f-]{36}$/i.test(c.chargeId) ? c.chargeId : undefined,
               label: c.label.trim(),
               amountCents: parseAmountCents(c.amount, { negative: true }) ?? 0,
               vatBp: parseVatRate(c.vat) ?? VAT_DEFAULTS.charge,

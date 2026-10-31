@@ -239,7 +239,8 @@ export async function saveBooking(input: SaveBooking): Promise<Result<{ id: stri
         nights_extension_pricing: v.amounts.extensionPricing,
         // Sätze als exakte Dezimalzahl („10.00“), PROJ-35
         nights_vat_rate: vatRateToDb(v.amounts.nightsVatBp),
-        charges: v.amounts.charges.map((c) => ({ label: c.label, amount_cents: c.amountCents, vat_rate: vatRateToDb(c.vatBp) })),
+        // Kennung bekannter Positionen: die Datenbank ändert sie statt sie neu anzulegen (PROJ-40)
+        charges: v.amounts.charges.map((c) => ({ id: c.id ?? null, label: c.label, amount_cents: c.amountCents, vat_rate: vatRateToDb(c.vatBp) })),
       },
     },
     p_confirm: owner && input.confirmOverride === true,

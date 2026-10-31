@@ -110,7 +110,8 @@ function initialValues(
       nightsPrice: amountInput(booking.amounts?.nightsCents ?? null),
       extensionPricing: booking.amounts?.extensionPricing ?? 'total',
       nightsVat: vatRateInput(booking.amounts?.nightsVatBp ?? VAT_DEFAULTS.nights),
-      charges: (booking.amounts?.charges ?? []).map((c) => ({ label: c.label, amount: amountInput(c.amountCents), vat: vatRateInput(c.vatBp) })),
+      // Kennung mitführen: Rechnungspositionen bleiben mit der Zusatzkosten-Position verbunden (PROJ-40)
+      charges: (booking.amounts?.charges ?? []).map((c) => ({ chargeId: c.id, label: c.label, amount: amountInput(c.amountCents), vat: vatRateInput(c.vatBp) })),
       note: booking.note ?? '',
     }
   }

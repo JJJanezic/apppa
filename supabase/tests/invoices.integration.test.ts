@@ -174,6 +174,15 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-37 Rechnungen nacherfassen', () => {
       expect((await invoice(after)).small_business).toBe(true)
     })
 
+    it('übernimmt den Schalter „Ohne Umsatzsteuer (Kleinunternehmer)“ (PROJ-37-Änderung)', async () => {
+      const on = savedId(await save(ownerA, { invoice_date: '2023-12-31', small_business: true }))
+      expect((await invoice(on)).small_business).toBe(true)
+      const inv = await invoice(on)
+      expect((await save(ownerA, { id: on, updated_at: inv.updated_at, number: inv.number, small_business: false })).error).toBeNull()
+      expect((await invoice(on)).small_business).toBe(false)
+      expect((await save(ownerA, { small_business: 'ja' })).error?.code).toBe('22023')
+    })
+
     it('legt einen neuen Gast im selben Vorgang an', async () => {
       const id = savedId(await save(ownerA, { new_guest: { last_name: `Neu ${runId}`, first_name: 'Nina', country: 'DE' } }))
       const { data } = await service.from('invoices').select('guest:guests(last_name, tenant_id)').eq('id', id).single()

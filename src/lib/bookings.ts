@@ -68,7 +68,8 @@ export const LIMITS = {
 } as const
 
 // vatBp: Umsatzsteuersatz in Hundertstel-Prozent (PROJ-35, src/lib/vat.ts)
-export type Charge = { label: string; amountCents: number; vatBp: number }
+// id: Kennung der gespeicherten Zusatzkosten-Position (bleibt beim Speichern erhalten, PROJ-40); neue Positionen ohne
+export type Charge = { id?: string; label: string; amountCents: number; vatBp: number }
 
 // Beträge sehen nur Inhaber (eigene Tabellen, Tech Design C)
 // Preisregel bei Verlängerung (PROJ-30, geändert 2026-10-30): eingetragener Preis gilt für den gesamten Aufenthalt

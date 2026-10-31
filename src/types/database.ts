@@ -762,6 +762,13 @@ export type Database = {
             referencedRelation: "invoices"
             referencedColumns: ["id", "tenant_id"]
           },
+          {
+            foreignKeyName: "invoice_deductions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
         ]
       }
       invoice_lines: {
@@ -817,6 +824,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "invoices"
             referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "invoice_lines_source_charge_id_fkey"
+            columns: ["source_charge_id"]
+            isOneToOne: false
+            referencedRelation: "booking_charges"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "invoice_lines_tenant_id_fkey"
@@ -1031,7 +1045,7 @@ export type Database = {
           intro_text?: Json | null
           invoice_date: string
           kind?: string | null
-          number: string | null
+          number?: string | null
           number_key?: string | null
           origin?: string
           partial_amount_cents?: number | null
@@ -1108,11 +1122,32 @@ export type Database = {
             referencedColumns: ["id", "tenant_id"]
           },
           {
+            foreignKeyName: "invoices_closing_block_id_fkey"
+            columns: ["closing_block_id"]
+            isOneToOne: false
+            referencedRelation: "invoice_text_blocks"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "invoices_guest_fkey"
             columns: ["guest_id", "tenant_id"]
             isOneToOne: false
             referencedRelation: "guests"
             referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "invoices_intro_block_id_fkey"
+            columns: ["intro_block_id"]
+            isOneToOne: false
+            referencedRelation: "invoice_text_blocks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_payment_block_id_fkey"
+            columns: ["payment_block_id"]
+            isOneToOne: false
+            referencedRelation: "invoice_text_blocks"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "invoices_tenant_id_fkey"
@@ -1690,7 +1725,6 @@ export type Database = {
         Returns: undefined
       }
       save_invoice: { Args: { p_input: Json }; Returns: Json }
-      save_invoice_draft: { Args: { p_input: Json }; Returns: string }
       save_invoice_backfill: {
         Args: {
           p_enabled: boolean
@@ -1699,6 +1733,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      save_invoice_draft: { Args: { p_input: Json }; Returns: string }
       save_invoice_fixed_texts: {
         Args: {
           p_data: Json
