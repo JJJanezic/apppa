@@ -7,8 +7,8 @@ import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 
 const TABS = [
+  { href: '/einstellungen/stammdaten', key: 'tenant' },
   { href: '/einstellungen/team', key: 'team' },
-  { href: '/einstellungen/kunde', key: 'tenant' },
   { href: '/einstellungen/wohnungen', key: 'apartments' },
 ] as const
 

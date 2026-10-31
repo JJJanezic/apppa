@@ -1127,6 +1127,7 @@ export type Database = {
           created_by: string | null
           id: string
           invoice_backfill_enabled: boolean
+          logo_path: string | null
           name: string
           name_line2: string | null
           postal_code: string | null
@@ -1146,6 +1147,7 @@ export type Database = {
           created_by?: string | null
           id?: string
           invoice_backfill_enabled?: boolean
+          logo_path?: string | null
           name: string
           name_line2?: string | null
           postal_code?: string | null
@@ -1165,6 +1167,7 @@ export type Database = {
           created_by?: string | null
           id?: string
           invoice_backfill_enabled?: boolean
+          logo_path?: string | null
           name?: string
           name_line2?: string | null
           postal_code?: string | null

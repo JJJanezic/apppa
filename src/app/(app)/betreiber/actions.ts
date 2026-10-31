@@ -12,6 +12,7 @@ import { createClient } from '@/lib/supabase/server'
 import { cleanupUnusedAccount, deliverInvitation } from '@/lib/team-invite'
 import type { TenantMasterDataErrorCode } from '@/lib/tenant-master-data'
 import { saveTenantMasterData } from '@/lib/tenant-master-data-save'
+import { prepareLogoUploadFor } from '@/lib/tenant-logo-data'
 import {
   createTenantSchema,
   ownerInviteSchema,
@@ -245,4 +246,21 @@ export async function adminUpdateTenantMasterData(
   refresh(values.tenantId)
   revalidatePath('/', 'layout')
   return { ok: true }
+}
+
+// Logo eines Kunden hochladen vorbereiten (PROJ-38); eingetragen wird es erst beim Speichern der Stammdaten.
+// Nur bei aktiven Kunden; die Zugriffsregeln des Speichers prüfen Admin + 2FA und den Status zusätzlich.
+export async function adminPrepareLogoUpload(values: {
+  tenantId: string
+}): Promise<ActionResult<{ path: string; token: string }, TenantMasterDataErrorCode>> {
+  if (!isId(values?.tenantId)) return { ok: false, error: 'unknown' }
+  const guard = await requireAdmin()
+  if (!guard.ok) return { ok: false, error: guard.error === 'sessionExpired' ? 'sessionExpired' : 'unknown' }
+
+  const supabase = await createClient()
+  const { data: tenant } = await supabase.from('tenants').select('status').eq('id', values.tenantId).maybeSingle()
+  if (!tenant) return { ok: false, error: 'tenantGone' }
+  if (tenant.status !== 'active') return { ok: false, error: 'tenantDeactivated' }
+  const prepared = await prepareLogoUploadFor(values.tenantId)
+  return prepared ? { ok: true, data: prepared } : { ok: false, error: 'unknown' }
 }

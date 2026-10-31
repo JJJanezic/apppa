@@ -41,6 +41,8 @@ export async function saveTenantMasterData(
       register_number: v.registerNumber,
       vat_status: v.vatStatus.map((c) => ({ valid_from: c.validFrom, small_business: c.smallBusiness })),
       invoice_backfill_enabled: v.invoiceBackfill,
+      // PROJ-38: null entfernt das Logo
+      logo_path: v.logoPath,
     },
   })
   if (error) {

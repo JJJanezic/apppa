@@ -12,10 +12,10 @@
 - Requires: PROJ-8 (Manuelle Buchungen) — Buchungen, Positionen, Buchungsdetail
 - Requires: PROJ-28 (Kundenstammdaten) — Ort des Schalters „Rechnungen nacherfassen“
 - Requires: PROJ-32, PROJ-34, PROJ-35, PROJ-36 — negative Beträge, Reihenfolge der Positionen, USt-Satz je Position, Kleinunternehmer-Status
-- Wird genutzt von: PROJ-38 (Rechnung erstellen und ausstellen) — Rechnungsliste, Rechnungen je Buchung, Nummernvorschlag; PROJ-39 (PDF und Übersicht) — Filter, Erstellen aus der Übersicht
+- Wird genutzt von: PROJ-39 (Einstellungen → Rechnungen) — Nummernkreis; PROJ-40 (Rechnungsdaten sammeln) und PROJ-41 (Ausstellen mit PDF) — Rechnungsliste, Rechnungen je Buchung, Nummernvorschlag; PROJ-42 (Übersicht ausbauen) — Filter, Erstellen aus der Übersicht
 
 ## Überblick
-Das Rechnungsmodul wird in drei Teilen gebaut: **A** Rechnungen nacherfassen (dieses Feature), **B** Rechnung erstellen und ausstellen (PROJ-38), **C** PDF erzeugen und Übersicht ausbauen (PROJ-39). Ein Storno-Prozess folgt als eigenes Teilprojekt.
+Das Rechnungsmodul wird in Teilen gebaut: Rechnungen nacherfassen (dieses Feature), dann PROJ-38 Stammdaten mit Logo, PROJ-39 Einstellungen → Rechnungen (Mustertexte, Nummernkreis), PROJ-40 Rechnungsdaten sammeln, PROJ-41 Ausstellen mit PDF und PROJ-42 Übersicht ausbauen. Ein Storno-Prozess folgt als eigenes Teilprojekt. (Gliederung am 2026-10-31 geändert; ursprünglich B = PROJ-38, C = PROJ-39.)
 
 Teil A kommt zuerst: Kunden bringen Rechnungen aus ihrem bisherigen System mit. Sind diese erfasst, ist die Nummernfolge vollständig, bevor die App selbst Rechnungen ausstellt, und die Summe des bereits Verrechneten je Buchung stimmt.
 
@@ -75,8 +75,8 @@ Teil A kommt zuerst: Kunden bringen Rechnungen aus ihrem bisherigen System mit. 
 - Als **Inhaber** möchte ich alle Buchungen ohne Rechnung auf einen Blick finden, damit ich nichts zu verrechnen vergesse.
 
 ## Out of Scope
-- Rechnungen in der App erstellen und ausstellen, Nummernformat, Startnummer und Nummernvorschlag, Knopf „Rechnung“ im Buchungsdetail (PROJ-38)
-- Rechnungs-PDF erzeugen; Jahres- und Betragsfilter; „Rechnung erstellen“ aus der Übersicht (PROJ-39)
+- Rechnungen in der App erstellen und ausstellen, Nummernformat, Startnummer und Nummernvorschlag, Knopf „Rechnung“ im Buchungsdetail (PROJ-39 bis PROJ-41)
+- Rechnungs-PDF erzeugen (PROJ-41); Jahres- und Betragsfilter; „Rechnung erstellen“ aus der Übersicht (PROJ-42)
 - Stornorechnung/Gutschrift als Prozess (eigenes Teilprojekt) — alte Gutschriften werden einfach mit negativen Beträgen nacherfasst
 - Auslesen der Daten aus dem PDF (Texterkennung)
 - Mehrere Dateien je Rechnung; andere Dateiformate als PDF (Fotos, Word)
@@ -195,7 +195,7 @@ Teil A kommt zuerst: Kunden bringen Rechnungen aus ihrem bisherigen System mit. 
 - **Buchung in der App hat sich seit der Altrechnung geändert**: die Rechnung behält ihre Kopie; der Hinweis im Buchungsdetail zeigt Abweichungen
 - **Empfänger-Text vorbelegt, dann Gast entfernt**: Empfänger bleibt stehen; der Inhaber passt ihn bei Bedarf an
 - **Gast in der Buchung gewechselt, nachdem die Rechnung erfasst wurde**: die Rechnung behält ihren Gast
-- **Rechnungsnummer mit anderem Format** (z. B. „2024/17“): wird gespeichert; der spätere Nummernvorschlag (PROJ-38) wertet nur `JJJJ-NNNN` aus
+- **Rechnungsnummer mit anderem Format** (z. B. „2024/17“): wird gespeichert; der spätere Nummernvorschlag (PROJ-41) wertet nur `JJJJ-NNNN` aus
 - **Upload bricht ab (Netzwerk)**: verständliche Meldung, die übrigen Eingaben bleiben im Formular erhalten
 - **Beschädigtes oder passwortgeschütztes PDF**: wird abgelegt, sofern es eine PDF-Datei ist; die App prüft den Inhalt nicht
 - **Kunde deaktiviert** (PROJ-5): Rechnungen bleiben erhalten und lesbar; Erfassen und Bearbeiten wie bei den übrigen Daten gesperrt
@@ -211,7 +211,7 @@ Teil A kommt zuerst: Kunden bringen Rechnungen aus ihrem bisherigen System mit. 
 - Browser: Chrome, Firefox, Safari; responsiv für Desktop und Handy
 
 ## Open Questions
-- [ ] Kleinunternehmer-Status einer Rechnung: Rechnungsdatum (so festgelegt und an der Rechnung festgehalten) oder bei verknüpfter Buchung deren Regel aus PROJ-36 (Abreise bzw. Stornodatum)? Wird spätestens in PROJ-38 einheitlich entschieden
+- [ ] Kleinunternehmer-Status einer Rechnung: Rechnungsdatum (so festgelegt und an der Rechnung festgehalten) oder bei verknüpfter Buchung deren Regel aus PROJ-36 (Abreise bzw. Stornodatum)? Wird spätestens in PROJ-40 einheitlich entschieden
 
 ## Decision Log
 
@@ -225,12 +225,12 @@ Teil A kommt zuerst: Kunden bringen Rechnungen aus ihrem bisherigen System mit. 
 | Positionen aus der Buchung als Kopie, anpassbar | Altrechnungen decken sich nicht immer mit der Buchung (Teilrechnung, spätere Preisänderung); Kopie bleibt stabil | 2026-10-30 |
 | Gesamtbetrag und USt je Satz werden aus Positionen berechnet | Einheitlich mit PROJ-35; spätere Auswertungen bekommen saubere Netto-/Steuerwerte | 2026-10-30 |
 | Schalter „Rechnungen nacherfassen“ in den Kundenstammdaten, Voreinstellung ein, wirkt nur auf den Knopf | Nach der Übernahme der Altrechnungen wird der Knopf nicht mehr gebraucht; Korrekturen bleiben möglich | 2026-10-30 |
-| Nacherfasste Rechnungen bearbeitbar und löschbar (mit Bestätigung und Protokoll) | Sie sind Kopien, das Original liegt im Altsystem; Fehlerfassungen müssen entfernbar sein. Gilt nicht für in der App ausgestellte Rechnungen (PROJ-38) | 2026-10-30 |
+| Nacherfasste Rechnungen bearbeitbar und löschbar (mit Bestätigung und Protokoll) | Sie sind Kopien, das Original liegt im Altsystem; Fehlerfassungen müssen entfernbar sein. Gilt nicht für in der App ausgestellte Rechnungen (PROJ-41) | 2026-10-30 |
 | PDF optional, nur PDF bis 10 MB, eine Datei | Originale liegen teils nur auf Papier; Kennzeichnung „ohne PDF“ und Nachreichen möglich | 2026-10-30 |
 | Rechnungsnummer freier Text bis 30 Zeichen, je Kunde eindeutig | Altsysteme nummerieren unterschiedlich; Doppelungen wären Erfassungsfehler | 2026-10-30 |
 | Datum höchstens heute; älter als 7 Jahre nur Hinweis | Altrechnungen liegen nie in der Zukunft; ältere zu erfassen ist erlaubt | 2026-10-30 |
 | Mitarbeiter sehen Rechnungen und PDFs, dürfen nichts ändern | Sie müssen wissen, was verrechnet bzw. zu kassieren ist | 2026-10-30 |
-| Liste mit Suchfeld, ohne Filter | Schnelle Doppelprüfung beim Erfassen; Jahres-/Betragsfilter folgen in PROJ-39 | 2026-10-30 |
+| Liste mit Suchfeld, ohne Filter | Schnelle Doppelprüfung beim Erfassen; Jahres-/Betragsfilter folgen in PROJ-42 | 2026-10-30 |
 | Abschnitt „Rechnungen“ im Buchungsdetail nur, wenn Rechnungen vorhanden; Überschreitung nur Hinweis | Schlanke Seite; Altdaten weichen legitim ab | 2026-10-30 |
 | Wählbar: alle Buchungen und Optionen inkl. stornierter, keine Sperren | Alte Stornorechnungen gehören zu stornierten Buchungen; Sperren haben weder Gast noch Preis | 2026-10-30 |
 | Rechnungen überstehen Anonymisieren; Gast mit Rechnungen nur anonymisierbar; Zusammenführen zieht Rechnungen mit | Aufbewahrungspflicht 7 Jahre (BAO) geht vor; gleiche Regel wie Buchungen in PROJ-7 | 2026-10-30 |
@@ -248,7 +248,7 @@ Teil A kommt zuerst: Kunden bringen Rechnungen aus ihrem bisherigen System mit. 
 | Decision | Rationale | Date |
 |----------|-----------|------|
 | Eigene Tabellen „Rechnung“ und „Rechnungsposition“ statt Felder an der Buchung | Mehrere Rechnungen je Buchung, Rechnungen ohne Buchung; Positionen sind eine unabhängige Kopie | 2026-10-30 |
-| Gleiches Datenmodell wie später für ausgestellte Rechnungen (Feld „Herkunft“) | PROJ-38/39 bauen ohne Umbau darauf auf; Liste, Summen und Nummernprüfung gelten für beide | 2026-10-30 |
+| Gleiches Datenmodell wie später für ausgestellte Rechnungen (Feld „Herkunft“) | PROJ-40 bis PROJ-42 bauen ohne Umbau darauf auf; Liste, Summen und Nummernprüfung gelten für beide | 2026-10-30 |
 | Gesamtbetrag und Kleinunternehmer-Kennzeichen von der Datenbank gebildet und gespeichert | Liste und Summen brauchen keine Neuberechnung; Werte lassen sich nicht vom Browser verfälschen; Mitarbeiter brauchen den Status-Verlauf nicht | 2026-10-30 |
 | Kleinunternehmer-Kennzeichen nach Rechnungsdatum, festgehalten an der Rechnung | Wie im Spec-Interview festgelegt; ändert sich der Verlauf später, bleibt die erfasste Rechnung stabil | 2026-10-30 |
 | Eindeutigkeit über einen Vergleichsschlüssel (Kleinschreibung, ohne Rand-Leerzeichen) je Kunde in der Datenbank | Doppelte Nummern werden auch bei gleichzeitigen Eingaben sicher abgelehnt | 2026-10-30 |
@@ -258,7 +258,7 @@ Teil A kommt zuerst: Kunden bringen Rechnungen aus ihrem bisherigen System mit. 
 | Eigene Lesefunktion „Rechnungen einer Buchung“ mit Gesamtpreis für alle Mitglieder | Nutzerentscheidung: Mitarbeiter sehen im Rechnungsabschnitt auch den Gesamtpreis; Buchungspreise bleiben sonst für sie verborgen | 2026-10-30 |
 | Buchungssuche als Datenbank-Funktion, höchstens 20 Treffer | Suche über Gast, Wohnung und Zeitraum über alle Jahre; schnelle Antwort auch bei vielen Buchungen | 2026-10-30 |
 | Formular als seitliches Panel, Liste und Detail als eigene Seiten | Gleiches Bedienmuster wie Buchungen und Gäste; Detail per Adresse verlinkbar (Buchungsdetail, Liste) | 2026-10-30 |
-| Suchbegriff und Seite in der Adresszeile | Zurück-Knopf und Rückkehr aus dem Detail behalten den Stand; Vorbereitung für die Filter in PROJ-39 | 2026-10-30 |
+| Suchbegriff und Seite in der Adresszeile | Zurück-Knopf und Rückkehr aus dem Detail behalten den Stand; Vorbereitung für die Filter in PROJ-42 | 2026-10-30 |
 | Buchungsübersicht: Rechnungen in derselben Abfrage wie die Buchungen mitlesen, keine neue Datenbank-Funktion, keine Migration | Bestehende Lese- und Mandantenregeln gelten; vorhandener Index reicht; kein zusätzlicher Code in der Datenbank | 2026-10-30 |
 | Rechnungsfilter als eigener Modus der Liste (alle Monate, je 50, Gesamtzahl), Monatsauswahl wird wie bei der Suche ersetzt | Bekanntes Bedienmuster; die Monatsliste mit bis zu 1.000 Zeilen wäre über alle Jahre zu groß | 2026-10-30 |
 | Filterwerte `rechnung=ohne/mit` und `seite` in der Adresszeile, Monat bleibt erhalten | Zurück-Knopf und Neuladen behalten den Stand; „Alle“ führt in den vorherigen Monat zurück | 2026-10-30 |
@@ -321,7 +321,7 @@ Einstellungen → Kunde (Inhaber) und Betreiber-Kundendetail
 **Rechnung** (neue Tabelle, je Kunde):
 - Rechnungsnummer (Text, höchstens 30 Zeichen) und ein daraus abgeleiteter **Vergleichsschlüssel** (ohne Rand-Leerzeichen, Kleinschreibung), der je Kunde eindeutig sein muss
 - Rechnungsdatum (nicht nach heute, Zeitzone Wien)
-- Herkunft: „nacherfasst“ (PROJ-38 ergänzt „ausgestellt“)
+- Herkunft: „nacherfasst“ (PROJ-41 ergänzt „ausgestellt“)
 - Buchung (optional; nur Buchungen und Optionen desselben Kunden, keine Sperren)
 - Gast (optional; nur Gäste desselben Kunden)
 - Empfänger (Text, Pflicht, höchstens 200 Zeichen)

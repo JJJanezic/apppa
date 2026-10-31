@@ -20,6 +20,7 @@ const EMPTY = {
   registerNumber: '',
   vatStatus: [] as { validFrom: string; status: string }[],
   invoiceBackfill: true,
+  logoPath: '',
 }
 
 const firstError = (r: { success: boolean; error?: { issues: { message: string }[] } }) => r.error?.issues[0]?.message
@@ -39,6 +40,7 @@ describe('tenantMasterDataSchema', () => {
       registerNumber: null,
       vatStatus: [],
       invoiceBackfill: true,
+      logoPath: null,
     })
   })
 
@@ -129,5 +131,12 @@ describe('tenantMasterDataSchema', () => {
       { validFrom: '2026-05-01', status: 'small' },
     ]
     expect(schema.safeParse({ ...EMPTY, vatStatus: rows }).success).toBe(true)
+  })
+
+  it('Logo: leer = kein Logo, Speicherort bleibt, Upload in Arbeit sperrt das Speichern', () => {
+    const path = '11111111-2222-4333-8444-555555555555/aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee.png'
+    expect(schema.parse({ ...EMPTY, logoPath: path }).logoPath).toBe(path)
+    expect(firstError(schema.safeParse({ ...EMPTY, logoPath: 'uploading' }))).toBe(v.logoUploading)
+    expect(schema.safeParse({ ...EMPTY, logoPath: 'fremd/logo.svg' }).success).toBe(false)
   })
 })

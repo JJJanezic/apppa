@@ -19,6 +19,7 @@ import {
 import { createClient } from '@/lib/supabase/server'
 import { invitationStatus } from '@/lib/team'
 import { MASTER_DATA_COLUMNS, masterDataFromRow } from '@/lib/tenant-master-data'
+import { logoLink } from '@/lib/tenant-logo-data'
 
 // Lesefunktionen für den Betreiber-Bereich (PROJ-5). Der Admin darf laut PROJ-1 alles lesen (RLS, nur mit 2FA).
 // Die Kundenliste kommt aus einer nur für den Admin freigegebenen Datenbankfunktion (Suche, Seiten,
@@ -112,6 +113,7 @@ export const getTenantDetail = cache(async (id: string): Promise<TenantDetail> =
     .map((i) => ({ id: i.id, email: i.email, role: i.role, sentAt: i.sent_at, status: invitationStatus(i.expires_at) }))
     .sort((a, b) => b.sentAt.localeCompare(a.sentAt))
   const status = displayStatus(data.status, members.length)
+  const logoUrl = await logoLink(data.logo_path)
 
   return {
     id: data.id,
@@ -119,7 +121,7 @@ export const getTenantDetail = cache(async (id: string): Promise<TenantDetail> =
     status,
     inviteState: status === 'invited' ? inviteState(invitations) : null,
     createdAt: data.created_at,
-    masterData: masterDataFromRow(data),
+    masterData: masterDataFromRow(data, logoUrl),
     members,
     invitations,
     log: (log.data ?? []).map((entry) => ({

@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { isIsoDate } from '@/lib/bookings'
 import { isCountry } from '@/lib/guests'
 import { isVatId, MASTER_DATA_LIMITS as L, normalizeVatId } from '@/lib/tenant-master-data'
+import { isLogoPath, LOGO_UPLOADING } from '@/lib/tenant-logo'
 
 // Prüfregeln für Kundenstammdaten (PROJ-28). Browser und Server-Aktionen nutzen dieselben Schemas.
 // Meldungen kommen über `t` aus messages/de.json („tenantData.validation“).
@@ -68,6 +69,12 @@ export const tenantMasterDataSchema = (t: T) =>
       .transform((rows) => rows.map((r) => ({ validFrom: r.validFrom, smallBusiness: r.status }))),
     // Schalter „Rechnungen nacherfassen“ (PROJ-37)
     invoiceBackfill: z.boolean(),
+    // Logo (PROJ-38): leer oder <Kunde>/<zufällig>.png; den Ordner des Kunden prüft die Datenbank
+    logoPath: z
+      .string()
+      .refine((v) => v !== LOGO_UPLOADING, t('logoUploading'))
+      .refine((v) => v === '' || v === LOGO_UPLOADING || isLogoPath(v), t('unknown'))
+      .transform((v) => v || null),
   })
 
 export type TenantMasterDataInput = z.input<ReturnType<typeof tenantMasterDataSchema>>

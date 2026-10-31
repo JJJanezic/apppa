@@ -12,6 +12,7 @@ import { adminUpdateTenantMasterData } from '@/app/(app)/betreiber/actions'
 import { updateTenantMasterData } from '@/app/(app)/einstellungen/actions'
 import { callAction, FormError } from '@/components/auth/form-error'
 import { CountryPicker } from '@/components/guests/country-picker'
+import { TenantLogoField } from '@/components/tenant/tenant-logo-field'
 import { VatStatusFields } from '@/components/tenant/vat-status-fields'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -34,11 +35,12 @@ const toInput = (d: TenantMasterData): TenantMasterDataInput => ({
   registerNumber: d.registerNumber ?? '',
   vatStatus: d.vatStatus.map((c) => ({ validFrom: c.validFrom, status: c.smallBusiness ? 'small' : 'regular' })),
   invoiceBackfill: d.invoiceBackfill,
+  logoPath: d.logoPath ?? '',
 })
 
 interface TenantMasterDataFormProps {
   data: TenantMasterData
-  // owner: Einstellungen → Kunde (eigener Kunde); operator: Kunden-Detailseite des Betreibers
+  // owner: Einstellungen → Stammdaten (eigener Kunde); operator: Kunden-Detailseite des Betreibers
   mode: 'owner' | 'operator'
   readOnly?: boolean
 }
@@ -74,7 +76,7 @@ export function TenantMasterDataForm({ data, mode, readOnly = false }: TenantMas
   }
 
   const text = (
-    name: Exclude<keyof TenantMasterDataInput, 'country' | 'vatStatus' | 'invoiceBackfill'>,
+    name: Exclude<keyof TenantMasterDataInput, 'country' | 'vatStatus' | 'invoiceBackfill' | 'logoPath'>,
     max: number,
     opts: { hint?: string; autoComplete?: string } = {}
   ) => (
@@ -113,6 +115,25 @@ export function TenantMasterDataForm({ data, mode, readOnly = false }: TenantMas
 
         {/* Deaktivierter Kunde: alle Felder samt Länderauswahl gesperrt */}
         <fieldset disabled={readOnly} className="flex min-w-0 flex-col gap-6">
+          {/* Logo (PROJ-38): wird erst mit „Speichern“ übernommen */}
+          <FormField
+            control={form.control}
+            name="logoPath"
+            render={({ field }) => (
+              <FormItem>
+                <TenantLogoField
+                  tenantId={data.id}
+                  mode={mode}
+                  value={field.value}
+                  onChange={field.onChange}
+                  saved={{ path: data.logoPath, url: data.logoUrl }}
+                  readOnly={readOnly}
+                />
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
           <div className="flex flex-col gap-4">
             {text('name', L.nameMax, { hint: t('fields.nameHint'), autoComplete: 'organization' })}
             {text('nameLine2', L.lineMax, { hint: t('fields.nameLine2Hint') })}

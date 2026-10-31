@@ -760,7 +760,7 @@ test.describe('Schalter, Rollen, Gäste', () => {
     const { owner, tenantId } = await setup(users)
     const id = await addInvoice(owner, tenantId, { number: 'S-1' })
     await signInAs(page, owner)
-    await page.goto('/einstellungen/kunde')
+    await page.goto('/einstellungen/stammdaten')
     await ready(page)
     const toggle = page.getByRole('switch', { name: 'Rechnungen nacherfassen' })
     await expect(toggle).toBeChecked()
@@ -778,7 +778,7 @@ test.describe('Schalter, Rollen, Gäste', () => {
     await save(page, 'Änderungen speichern')
     await expect(page.getByText('Änderungen gespeichert.')).toBeVisible()
 
-    await page.goto('/einstellungen/kunde')
+    await page.goto('/einstellungen/stammdaten')
     await ready(page)
     await expect(toggle).not.toBeChecked()
     await toggle.click()

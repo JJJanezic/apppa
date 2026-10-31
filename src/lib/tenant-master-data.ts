@@ -31,14 +31,17 @@ export type TenantMasterData = {
   vatStatus: VatStatusChange[]
   // Schalter „Rechnungen nacherfassen“ (PROJ-37), Voreinstellung ein
   invoiceBackfill: boolean
+  // Logo (PROJ-38): Speicherort <Kunde>/<zufällig>.png und kurzlebiger Abruf-Link (vom Server beim Laden erzeugt)
+  logoPath: string | null
+  logoUrl: string | null
   // Stand beim Laden; Schutz vor Überschreiben bei gleichzeitiger Bearbeitung
   updatedAt: string
 }
 
-// Spalten der Tabelle tenants (inkl. Schalter „Rechnungen nacherfassen“, PROJ-37), dazu der Verlauf des
+// Spalten der Tabelle tenants (inkl. Schalter „Rechnungen nacherfassen“, PROJ-37, und Logo, PROJ-38), dazu der Verlauf des
 // Kleinunternehmer-Status (PROJ-36)
 export const MASTER_DATA_COLUMNS =
-  'id, name, name_line2, address_line1, address_line2, postal_code, city, country, vat_id, tax_number, register_number, invoice_backfill_enabled, updated_at, vat_status_changes(valid_from, small_business)'
+  'id, name, name_line2, address_line1, address_line2, postal_code, city, country, vat_id, tax_number, register_number, invoice_backfill_enabled, logo_path, updated_at, vat_status_changes(valid_from, small_business)'
 
 export type TenantMasterDataRow = {
   id: string
@@ -53,11 +56,13 @@ export type TenantMasterDataRow = {
   tax_number: string | null
   register_number: string | null
   invoice_backfill_enabled: boolean
+  logo_path: string | null
   updated_at: string
   vat_status_changes: VatStatusChangeRow[]
 }
 
-export const masterDataFromRow = (row: TenantMasterDataRow): TenantMasterData => ({
+// logoUrl: Abruf-Link des Logos, falls vorhanden (tenant-logo-data.ts)
+export const masterDataFromRow = (row: TenantMasterDataRow, logoUrl: string | null = null): TenantMasterData => ({
   id: row.id,
   name: row.name,
   nameLine2: row.name_line2,
@@ -71,6 +76,8 @@ export const masterDataFromRow = (row: TenantMasterDataRow): TenantMasterData =>
   registerNumber: row.register_number,
   vatStatus: vatStatusFromRows(row.vat_status_changes),
   invoiceBackfill: row.invoice_backfill_enabled,
+  logoPath: row.logo_path,
+  logoUrl: row.logo_path ? logoUrl : null,
   updatedAt: row.updated_at,
 })
 

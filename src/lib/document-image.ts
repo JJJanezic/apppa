@@ -35,7 +35,8 @@ export function fitWithin(width: number, height: number, max = MAX_EDGE): { widt
   return { width: Math.max(1, Math.round(width * scale)), height: Math.max(1, Math.round(height * scale)) }
 }
 
-async function decode(file: File): Promise<ImageBitmap> {
+// Auch für das Kunden-Logo (PROJ-38) genutzt
+export async function decodeImage(file: File): Promise<ImageBitmap> {
   // Moderne Browser drehen nach der Kamera-Angabe (EXIF) selbst; Safari kann auch HEIC selbst lesen
   try {
     return await createImageBitmap(file, { imageOrientation: 'from-image' })
@@ -59,7 +60,7 @@ function toBlob(canvas: HTMLCanvasElement, quality: number): Promise<Blob | null
 export async function convertDocumentImage(file: File): Promise<Blob> {
   if (!looksLikeImage(file.name, file.type)) throw new ImageConvertError('imageUnsupported')
   if (file.size > MAX_INPUT_BYTES) throw new ImageConvertError('imageTooLarge')
-  const bitmap = await decode(file)
+  const bitmap = await decodeImage(file)
   try {
     const size = fitWithin(bitmap.width, bitmap.height)
     const canvas = document.createElement('canvas')

@@ -9,11 +9,12 @@ import { MAX_INVITES_PER_HOUR, type TeamErrorCode } from '@/lib/team'
 import { cleanupUnusedAccount, deliverInvitation, invitationKindFor } from '@/lib/team-invite'
 import { belongsToDeactivatedTenant, getTenantContext, rememberTenant, type TenantSummary } from '@/lib/tenant'
 import { saveTenantMasterData } from '@/lib/tenant-master-data-save'
+import { prepareLogoUploadFor } from '@/lib/tenant-logo-data'
 import type { TenantMasterDataErrorCode } from '@/lib/tenant-master-data'
 import { inviteSchema, type InviteInput } from '@/lib/validation/team'
 import { tenantMasterDataSchema, type TenantMasterDataInput } from '@/lib/validation/tenant'
 
-// Server-Aktionen für „Einstellungen → Team / Kunde“ (PROJ-4), nur für Inhaber des gewählten Kunden.
+// Server-Aktionen für „Einstellungen → Team / Stammdaten“ (PROJ-4), nur für Inhaber des gewählten Kunden.
 // Änderungen an Mitgliedschaften laufen im Namen der Person: Die Datenbank-Regeln (RLS + Trigger) entscheiden
 // zusätzlich. Einladungsmails verschickt der Server (Supabase-Einladung bzw. Hinweis-Mail über Brevo).
 
@@ -258,4 +259,19 @@ export async function updateTenantMasterData(
 
   revalidatePath('/', 'layout')
   return { ok: true }
+}
+
+// Logo hochladen vorbereiten (PROJ-38): Speicherort im Ordner des gewählten Kunden. Eingetragen wird das Logo erst
+// beim Speichern der Stammdaten. tenantId wie beim Speichern: Formular und gewählter Kunde müssen übereinstimmen.
+export async function prepareLogoUpload(values: {
+  tenantId: string
+}): Promise<ActionResult<{ path: string; token: string }, TeamErrorCode | TenantMasterDataErrorCode>> {
+  if (typeof values?.tenantId !== 'string') return fail('unknown')
+  const guard = await requireOwner()
+  if (!guard.ok && !guard.result.ok && guard.result.error === 'sessionExpired') return guard.result
+  if (!guard.ok || guard.tenant.id !== values.tenantId) {
+    return { ok: false, error: (await belongsToDeactivatedTenant()) ? 'tenantDeactivated' : 'unknown' }
+  }
+  const prepared = await prepareLogoUploadFor(guard.tenant.id)
+  return prepared ? { ok: true, data: prepared } : fail('unknown')
 }

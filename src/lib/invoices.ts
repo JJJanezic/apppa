@@ -1,4 +1,4 @@
-// Rechnungen (PROJ-37 „Rechnungen nacherfassen“; PROJ-38/39 bauen darauf auf): Typen, Grenzen und reine Regeln
+// Rechnungen (PROJ-37 „Rechnungen nacherfassen“; PROJ-40 bis PROJ-42 bauen darauf auf): Typen, Grenzen und reine Regeln
 // für Browser und Server, ohne Datenbankzugriff.
 
 import { addDays, isIsoDate, LIMITS as BOOKING_LIMITS, todayIso } from '@/lib/bookings'
@@ -18,7 +18,7 @@ export type InvoiceErrorCode =
   | 'tenantDeactivated'
   | 'documentImageMissing'
 
-// Herkunft: nacherfasst (PROJ-37); „ausgestellt“ kommt mit PROJ-38
+// Herkunft: nacherfasst (PROJ-37); „ausgestellt“ kommt mit PROJ-41
 export type InvoiceOrigin = 'backfilled'
 
 export const INVOICE_LIMITS = {

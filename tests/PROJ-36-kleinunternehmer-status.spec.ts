@@ -225,7 +225,7 @@ test.describe('Formular', () => {
     const owner = await users()
     const tenant = await createTenant(unique('Formular'), [{ user: owner, role: 'owner' }])
     await signInAs(page, owner)
-    await page.goto('/einstellungen/kunde')
+    await page.goto('/einstellungen/stammdaten')
     await ready(page)
 
     await expect(page.getByRole('heading', { name: 'Umsatzsteuer' })).toBeVisible()
@@ -310,7 +310,7 @@ test.describe('Formular', () => {
     const client = await signedIn(owner)
     expect((await client.rpc('update_tenant_master_data', await payload(tenant, fifty))).error).toBeNull()
     await signInAs(page, owner)
-    await page.goto('/einstellungen/kunde')
+    await page.goto('/einstellungen/stammdaten')
     await ready(page)
 
     const add = page.getByRole('button', { name: 'Wechsel hinzufügen' })
@@ -327,7 +327,7 @@ test.describe('Formular', () => {
     const client = await signedIn(owner)
     expect((await client.rpc('update_tenant_master_data', await payload(tenant, TWO))).error).toBeNull()
     await signInAs(page, owner)
-    await page.goto('/einstellungen/kunde')
+    await page.goto('/einstellungen/stammdaten')
     await ready(page)
     await expect(page.getByRole('heading', { name: 'Umsatzsteuer' })).toBeVisible()
 

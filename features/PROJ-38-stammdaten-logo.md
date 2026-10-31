@@ -1,6 +1,6 @@
 # PROJ-38: Stammdaten: Umbenennung und Logo
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-10-31
 **Last Updated:** 2026-10-31
 
@@ -287,6 +287,38 @@ Der Tabellenkommentar wird in der neuen Migration mitgeändert. Die alte Migrati
 
 ### J) Abhängigkeiten
 - Keine neuen Pakete. `heic-to` ist schon installiert. Drehen, Verkleinern und die PNG-Erzeugung macht der Browser selbst, die große Ansicht nutzt den vorhandenen shadcn-Dialog.
+
+## Implementation Notes (Frontend)
+**Stand 2026-10-31.** Die Oberfläche ist fertig. **Ohne die Migration aus `/backend` schlagen *Einstellungen → Stammdaten* und die Betreiber-Detailseite beim Laden fehl**, weil sie die neue Spalte `logo_path` abfragen (wie bei PROJ-28/29).
+
+**Umbenennung**
+- Seitenordner `src/app/(app)/einstellungen/kunde` → `stammdaten`. Reiter (`settings-tabs.tsx`) in der Reihenfolge Stammdaten, Team, Wohnungen; `/einstellungen` leitet auf `/einstellungen/stammdaten`.
+- Umleitung `/einstellungen/kunde` → `/einstellungen/stammdaten` als dauerhafte Umleitung (308) in `next.config.ts`. Zusätze wie `?x=1` bleiben erhalten (am gebauten Server geprüft).
+- Texte: Reiter und Seitentitel „Stammdaten“ (`settings.tenant`), Einleitung der Einstellungen, Hinweis „Nacherfassen ausgeschaltet“ in den Rechnungen verweist auf *Einstellungen → Stammdaten*.
+- Bestehende E2E-Tests (PROJ-4, 28, 36, 37) auf die neue Adresse umgestellt. PROJ-4 prüft für Mitarbeiter zusätzlich `/einstellungen/stammdaten` und die alte Adresse.
+
+**Logo**
+- `src/lib/tenant-logo.ts`: Speicherbereich `tenant-logos`, Speicherort `<Kunde>/<uuid>.png`, Grenzen (Eingang 10 MB, Ergebnis 5 MB, längste Seite 1.000 px, Hinweis unter 300 px), erlaubte Dateien PNG/JPEG/WebP/GIF/HEIC (SVG, BMP, TIFF und PDF nicht), Platzhalter `uploading`.
+- `src/lib/logo-image.ts`: Umwandlung im Browser zu PNG ohne Hintergrundfüllung, sodass Transparenz erhalten bleibt. Dekodieren inkl. HEIC über `decodeImage` aus `document-image.ts` (dafür exportiert, Verhalten unverändert).
+- `src/components/tenant/tenant-logo-field.tsx`: Feld ganz oben im Stammdaten-Formular. Es umfasst Hochladen, Ersetzen, Entfernen, Fortschritt, Fehlermeldungen und eine Vorschau auf Karomuster. Ein Klick öffnet die große Ansicht (shadcn-Dialog). Dazu kommen die Hinweise „klein“ (gemessen am angezeigten Bild, auch beim gespeicherten Logo), „noch nicht gespeichert“ und „wird beim Speichern entfernt“. Bei deaktiviertem Kunden gibt es nur die Vorschau bzw. „Kein Logo hinterlegt“.
+- Upload-Vorbereitung: `prepareLogoUpload` (Inhaber, `einstellungen/actions.ts`, gleicher Kunden-Abgleich wie beim Speichern) und `adminPrepareLogoUpload` (Betreiber, `betreiber/actions.ts`, lehnt deaktivierte bzw. gelöschte Kunden mit Meldung ab). Beide laufen über `prepareLogoUploadFor` in `src/lib/tenant-logo-data.ts`.
+- Laden: `logoLink` erzeugt einen Abruf-Link (10 Minuten) für die Inhaber-Seite und die Betreiber-Detailseite. `TenantMasterData` hat neu `logoPath` und `logoUrl`.
+- Prüfregel `logoPath` im Stammdaten-Schema: leer oder `<uuid>/<uuid>.png`, „uploading“ sperrt das Speichern mit Meldung. Die Speicheraktion schickt `logo_path` an `update_tenant_master_data`, `null` entfernt das Logo.
+- Betreiber-Protokoll: Feldbezeichnung „Logo“ (`tenantData.fields.logoPath`).
+- `src/types/database.ts` von Hand um `tenants.logo_path` ergänzt; `/backend` erzeugt die Typen neu.
+
+**Aufräumen PROJ-37:** Verweise in `features/PROJ-37-rechnungen-nacherfassen.md` und `src/lib/invoices.ts` auf die neue Gliederung (PROJ-39 bis PROJ-42) umgestellt. Der Kommentar der Rechnungs-Tabelle folgt mit der Migration.
+
+**Tests:** Unit-Tests `src/lib/tenant-logo.test.ts` (Dateiarten, Größe, Hinweis, Speicherort) und Logo-Regel in `src/lib/validation/tenant.test.ts`. Neue E2E-Datei `tests/PROJ-38-stammdaten-logo.spec.ts` mit Reiter-Reihenfolge und Umleitungen; die Logo-Abläufe ergänzt `/qa` nach dem Backend. Lint, Typprüfung, alle 566 Unit-Tests und der Produktions-Build laufen durch.
+
+**Offen für `/backend`:**
+- Migration: Spalte `tenants.logo_path` mit Prüfregel (Ordner des Kunden, Datei vorhanden, Format)
+- Speicherbereich `tenant-logos` (privat, nur PNG, 5 MB) mit den Zugriffsregeln aus Abschnitt I
+- `update_tenant_master_data`: Schlüssel `logo_path` (fehlt = unverändert), Protokollfeld `logo_path`, Rückgabe des alten Logos
+- In `saveTenantMasterData` das alte Logo nach dem Speichern löschen
+- Tägliche Bereinigung und „Kunde löschen“ um den Speicherbereich ergänzen
+- Tabellenkommentar `invoices` auf die neue Gliederung
+- Typen neu erzeugen
 
 ## QA Test Results
 _To be added by /qa_

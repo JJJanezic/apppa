@@ -4,7 +4,7 @@ import { PageHeader } from '@/components/page-header'
 import { SettingsTabs } from '@/components/settings/settings-tabs'
 import { requireArea } from '@/lib/areas'
 
-// Einstellungen (nur Inhaber, PROJ-4): Reiter „Team“ und „Kunde“. Mitarbeiter bekommen „Seite nicht gefunden“.
+// Einstellungen (nur Inhaber, PROJ-4): Reiter „Stammdaten“ (PROJ-38), „Team“ und „Wohnungen“. Mitarbeiter bekommen „Seite nicht gefunden“.
 export default async function SettingsLayout({ children }: { children: React.ReactNode }) {
   await requireArea('settings')
   const t = await getTranslations('settings')

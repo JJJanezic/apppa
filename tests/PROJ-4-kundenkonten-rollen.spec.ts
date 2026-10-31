@@ -77,7 +77,7 @@ test.describe('Team-Seite', () => {
     await signInAs(page, staff)
     await page.goto('/')
     await expect(page.getByRole('link', { name: 'Einstellungen' })).toHaveCount(0)
-    for (const path of ['/einstellungen/team', '/einstellungen/kunde', '/einstellungen']) {
+    for (const path of ['/einstellungen/team', '/einstellungen/stammdaten', '/einstellungen/kunde', '/einstellungen']) {
       const res = await page.goto(path)
       expect(res?.status()).toBe(404) // BUG-2: früher 200
       await expect(page.getByRole('heading', { name: 'Seite nicht gefunden' })).toBeVisible()
@@ -374,7 +374,7 @@ test.describe('Kunde und Kundenwechsel', () => {
     const owner = await users()
     await createTenant('QA Alter Name', [{ user: owner, role: 'owner' }])
     await signInAs(page, owner)
-    await page.goto('/einstellungen/kunde')
+    await page.goto('/einstellungen/stammdaten')
     await ready(page)
     const field = page.getByLabel('Kundenname')
     await field.fill('   ')
@@ -501,7 +501,7 @@ test.describe('Design und Barrierefreiheit', () => {
     const tenant = await createTenant('QA Layout', [{ user: owner, role: 'owner' }, { user: staff, role: 'staff' }])
     await createInvitation({ tenantId: tenant, email: 'eine-sehr-lange-adresse-fuer-den-test@example.com', invitedBy: owner.id })
     await signInAs(page, owner)
-    for (const path of ['/einstellungen/team', '/einstellungen/kunde']) {
+    for (const path of ['/einstellungen/stammdaten', '/einstellungen/team']) {
       await page.goto(path)
       await ready(page)
       expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0)

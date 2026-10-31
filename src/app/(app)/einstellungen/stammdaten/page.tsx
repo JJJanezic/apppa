@@ -5,11 +5,11 @@ import { TenantMasterDataForm } from '@/components/tenant/tenant-master-data-for
 import { getOwnTenantMasterData } from '@/lib/team-data'
 
 export async function generateMetadata(): Promise<Metadata> {
-  const t = await getTranslations('tenant')
-  return { title: t('title') }
+  const t = await getTranslations('settings')
+  return { title: t('tenant') }
 }
 
-// Kundenkonto: Stammdaten des Kunden (PROJ-28), nur für Inhaber
+// Einstellungen → Stammdaten (PROJ-28, bis PROJ-38 „Kunde“), nur für Inhaber
 export default async function TenantSettingsPage() {
   const data = await getOwnTenantMasterData()
   return <TenantMasterDataForm key={data.updatedAt} data={data} mode="owner" />

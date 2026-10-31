@@ -15,6 +15,10 @@ export const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // PROJ-38: Reiter „Kunde“ heißt jetzt „Stammdaten“; alte Lesezeichen (auch mit Zusätzen in der Adresse) leiten weiter
+  async redirects() {
+    return [{ source: "/einstellungen/kunde", destination: "/einstellungen/stammdaten", permanent: true }];
+  },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

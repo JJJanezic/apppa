@@ -196,10 +196,10 @@
   },
   "settings": {
     "title": "Einstellungen",
-    "lead": "Team, Kundenkonto und Wohnungen verwalten.",
+    "lead": "Stammdaten, Team und Wohnungen verwalten.",
     "tabsLabel": "Einstellungsbereiche",
     "team": "Team",
-    "tenant": "Kunde",
+    "tenant": "Stammdaten",
     "apartments": "Wohnungen"
   },
   "team": {
@@ -318,7 +318,30 @@
       "registerNumberHint": "Zum Beispiel Firmenbuchnummer FN 123456a.",
       "vatStatus": "Umsatzsteuer-Status",
       "invoiceBackfill": "Rechnungen nacherfassen",
-      "invoiceBackfillHint": "Zeigt in „Rechnungen“ den Knopf „Rechnung nacherfassen“, um Rechnungen aus dem bisherigen System zu übernehmen. Ausgeschaltet bleiben erfasste Rechnungen sichtbar und bearbeitbar."
+      "invoiceBackfillHint": "Zeigt in „Rechnungen“ den Knopf „Rechnung nacherfassen“, um Rechnungen aus dem bisherigen System zu übernehmen. Ausgeschaltet bleiben erfasste Rechnungen sichtbar und bearbeitbar.",
+      "logoPath": "Logo"
+    },
+    "logo": {
+      "title": "Logo",
+      "hint": "Erscheint später auf deinen Rechnungen. PNG, JPEG, WebP, GIF oder iPhone-Foto (HEIC), bis 10 MB. Das Logo wird auf höchstens 1.000 Pixel verkleinert und als PNG gespeichert, ein durchsichtiger Hintergrund bleibt erhalten.",
+      "add": "Logo hochladen",
+      "replace": "Ersetzen",
+      "remove": "Logo entfernen",
+      "uploading": "Logo wird vorbereitet und hochgeladen …",
+      "present": "Logo vorhanden",
+      "open": "Logo groß ansehen",
+      "small": "Das Logo ist klein und kann im Druck unscharf wirken.",
+      "unsaved": "Noch nicht gespeichert. Übernommen wird das Logo erst mit „Speichern“.",
+      "removed": "Das Logo wird beim Speichern entfernt.",
+      "none": "Kein Logo hinterlegt.",
+      "viewerHint": "So erscheint das Logo, durchsichtige Flächen auf getöntem Hintergrund.",
+      "close": "Schließen",
+      "errors": {
+        "imageTooLarge": "Die Datei ist zu groß. Erlaubt sind Bilder bis 10 MB.",
+        "imageUnsupported": "Diese Datei kann nicht als Logo verwendet werden. Erlaubt sind PNG, JPEG, WebP, HEIC oder GIF.",
+        "imageFailed": "Das Logo konnte nicht verarbeitet werden. Bitte versuche es mit einer anderen Datei.",
+        "uploadFailed": "Das Logo konnte nicht hochgeladen werden. Bitte prüfe deine Internetverbindung und versuche es erneut."
+      }
     },
     "vat": {
       "title": "Umsatzsteuer",
@@ -360,7 +383,8 @@
       "vatDateRange": "Bitte gib ein Datum zwischen 2000 und 2100 ein.",
       "vatStatusTooMany": "Höchstens 50 Wechsel sind möglich.",
       "vatDateDuplicate": "Für dieses Datum gibt es bereits einen Eintrag.",
-      "unknown": "Bitte prüfe diese Angabe."
+      "unknown": "Bitte prüfe diese Angabe.",
+      "logoUploading": "Bitte warte, bis das Logo hochgeladen ist."
     },
     "errors": {
       "staleTenant": "Die Kundendaten wurden inzwischen geändert.",
@@ -1534,7 +1558,7 @@
       "notFound": "Diese Rechnung gibt es nicht mehr.",
       "staleInvoice": "Die Rechnung wurde inzwischen von jemand anderem geändert.",
       "numberTaken": "Diese Rechnungsnummer ist bereits vergeben.",
-      "backfillDisabled": "Das Nacherfassen von Rechnungen ist ausgeschaltet. Ein Inhaber kann es unter Einstellungen → Kunde wieder einschalten.",
+      "backfillDisabled": "Das Nacherfassen von Rechnungen ist ausgeschaltet. Ein Inhaber kann es unter Einstellungen → Stammdaten wieder einschalten.",
       "dateInFuture": "Das Rechnungsdatum darf nicht in der Zukunft liegen",
       "pdfMissing": "Das PDF ist nicht mehr verfügbar. Bitte lade es erneut hoch und speichere noch einmal.",
       "bookingInvalid": "Diese Buchung kann nicht gewählt werden.",

@@ -146,7 +146,7 @@ test.describe('Speicherfunktion (Datenbank)', () => {
   })
 })
 
-test.describe('Einstellungen → Kunde', () => {
+test.describe('Einstellungen → Stammdaten', () => {
   test.skip(!hasSupabaseEnv, 'keine .env.local')
 
   test('AC: Inhaber füllt Stammdaten aus, UID wird bereinigt, Staat ist mit Österreich vorbelegt', async ({ page, users }) => {
@@ -155,7 +155,7 @@ test.describe('Einstellungen → Kunde', () => {
     const name = unique('Formular')
     await createTenant(name, [{ user: owner, role: 'owner' }])
     await signInAs(page, owner)
-    await page.goto('/einstellungen/kunde')
+    await page.goto('/einstellungen/stammdaten')
     await ready(page)
 
     await expect(page.getByLabel('Kundenname')).toHaveValue(name)
@@ -210,7 +210,7 @@ test.describe('Inhaber: weitere Abläufe', () => {
       register_number: 'FN 123456a',
     })
     await signInAs(page, owner)
-    await page.goto('/einstellungen/kunde')
+    await page.goto('/einstellungen/stammdaten')
     await ready(page)
 
     for (const [label, value] of [
@@ -255,7 +255,7 @@ test.describe('Inhaber: weitere Abläufe', () => {
     const tenant = await createTenant(name, [{ user: owner, role: 'owner' }])
     expect(await current(tenant)).toMatchObject({ city: null, country: null, vat_id: null, name_line2: null })
     await signInAs(page, owner)
-    await page.goto('/einstellungen/kunde')
+    await page.goto('/einstellungen/stammdaten')
     await ready(page)
     await field(page, 'Kundenname').fill(`${name} neu`)
     await page.getByRole('button', { name: 'Speichern' }).click()
@@ -271,7 +271,7 @@ test.describe('Inhaber: weitere Abläufe', () => {
     const staff = await users()
     await createTenant(unique('Mitarbeiter'), [{ user: owner, role: 'owner' }, { user: staff, role: 'staff' }])
     await signInAs(page, staff)
-    await page.goto('/einstellungen/kunde')
+    await page.goto('/einstellungen/stammdaten')
     await expect(page.getByRole('heading', { name: 'Seite nicht gefunden' })).toBeVisible()
     await expect(page.getByLabel('UID')).toHaveCount(0)
   })
@@ -281,7 +281,7 @@ test.describe('Inhaber: weitere Abläufe', () => {
     const owner = await users()
     const tenant = await createTenant(unique('Offline'), [{ user: owner, role: 'owner' }])
     await signInAs(page, owner)
-    await page.goto('/einstellungen/kunde')
+    await page.goto('/einstellungen/stammdaten')
     await ready(page)
     await field(page, 'Ort').fill('Salzburg')
     await page.context().setOffline(true)
@@ -296,7 +296,7 @@ test.describe('Inhaber: weitere Abläufe', () => {
     const owner = await users()
     await createTenant(unique('Layout'), [{ user: owner, role: 'owner' }])
     await signInAs(page, owner)
-    await page.goto('/einstellungen/kunde')
+    await page.goto('/einstellungen/stammdaten')
     await ready(page)
     const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze()
     expect(results.violations).toEqual([])
@@ -472,7 +472,7 @@ test.describe('Edge Cases', () => {
     const owner = await users()
     const tenant = await createTenant(unique('DeaktivInhaber'), [{ user: owner, role: 'owner' }])
     await signInAs(page, owner)
-    await page.goto('/einstellungen/kunde')
+    await page.goto('/einstellungen/stammdaten')
     await ready(page)
     await service().from('tenants').update({ status: 'deactivated' }).eq('id', tenant)
     await field(page, 'Ort').fill('Wien')
@@ -495,7 +495,7 @@ test.describe('Edge Cases', () => {
     const first = await createTenant(`${name} A`, [{ user: owner, role: 'owner' }])
     const second = await createTenant(`${name} B`, [{ user: owner, role: 'owner' }])
     await signInAs(page, owner)
-    await page.goto('/einstellungen/kunde')
+    await page.goto('/einstellungen/stammdaten')
     await ready(page)
     await expect(field(page, 'Kundenname')).toHaveValue(`${name} A`)
     await service().from('tenants').update({ status: 'deactivated' }).eq('id', first)
@@ -524,7 +524,7 @@ test.describe('Edge Cases', () => {
     await signInAs(page, owner)
     let dialog = false
     page.on('dialog', () => (dialog = true))
-    await page.goto('/einstellungen/kunde')
+    await page.goto('/einstellungen/stammdaten')
     await ready(page)
     await expect(field(page, 'Ort')).toHaveValue('<img src=x onerror=alert(1)>')
     expect(dialog).toBe(false)
