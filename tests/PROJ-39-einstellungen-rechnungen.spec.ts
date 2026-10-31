@@ -1,6 +1,18 @@
+import { randomUUID } from 'node:crypto'
+
+import AxeBuilder from '@axe-core/playwright'
 import { expect, type Page, test as base } from '@playwright/test'
 
-import { createTenant, createUser, deleteUser, type E2EUser, hasSupabaseEnv, signInAs } from './support/supabase'
+import {
+  createTenant,
+  createUser,
+  deleteUser,
+  type E2EUser,
+  hasSupabaseEnv,
+  service,
+  signInAs,
+  signInAsAdmin,
+} from './support/supabase'
 
 // PROJ-39: Einstellungen → Rechnungen. Grundumfang aus dem Frontend (Reiter, Zugang, Schalter verschoben).
 // Speicherfunktionen, Rechte und Vorbelegung: Integrationstests aus /backend; Abläufe in der Oberfläche ergänzt /qa.
@@ -73,5 +85,720 @@ test.describe('Reiter und Zugang', () => {
     await page.goto('/einstellungen/rechnungen')
     await ready(page)
     await expect(page.getByRole('switch', { name: 'Rechnungen nacherfassen' })).toBeChecked()
+  })
+})
+
+// ---- Abläufe in der Oberfläche (/qa) ------------------------------------------------------------------------------
+
+const panel = (page: Page) => page.getByRole('dialog')
+const year = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Vienna' }).slice(0, 4)
+const nextNumber = (page: Page) => page.getByTestId('next-invoice-number')
+const blockList = (page: Page, kind: 'intro' | 'payment' | 'closing') => page.getByTestId(`text-blocks-${kind}`)
+
+async function ownerWithTenant(users: Fixtures['users'], name: string) {
+  const owner = await users({ displayName: 'Olga Owner' })
+  const tenantId = await createTenant(`QA39 ${name} ${randomUUID().slice(0, 8)}`, [{ user: owner, role: 'owner' }])
+  return { owner, tenantId }
+}
+
+async function openSettings(page: Page) {
+  await page.goto('/einstellungen/rechnungen')
+  await ready(page)
+  // bei 375 px kurz doppelt aufgebaut (BUG-2): warten, bis nur noch ein Formular steht
+  await expect(page.locator('input[name=prefix]')).toHaveCount(1)
+}
+
+async function settingsRow(tenantId: string) {
+  return (await service().from('invoice_settings').select('*').eq('tenant_id', tenantId).single()).data!
+}
+
+async function blockRows(tenantId: string) {
+  return (await service().from('invoice_text_blocks').select('*').eq('tenant_id', tenantId)).data ?? []
+}
+
+async function addNumbers(tenantId: string, numbers: string[]) {
+  const rows = numbers.map((number) => ({ tenant_id: tenantId, number, invoice_date: '2026-01-15', recipient: 'Alt KG', total_cents: 100 }))
+  for (let i = 0; i < rows.length; i += 500) {
+    const { error } = await service().from('invoices').insert(rows.slice(i, i + 500) as never)
+    if (error) throw error
+  }
+}
+
+// Schreibfläche des Editors (Tiptap) unter der Bezeichnung
+const editor = (scope: Page | ReturnType<Page['getByRole']>, label: string) => scope.getByRole('textbox', { name: label, exact: true })
+
+async function typeInto(page: Page, box: ReturnType<Page['getByRole']>, text: string, { clear = false } = {}) {
+  await box.click()
+  if (clear) {
+    await page.keyboard.press('ControlOrMeta+a')
+    await page.keyboard.press('Backspace')
+  }
+  await page.keyboard.type(text)
+}
+
+async function openNewBlock(page: Page, kind: 'intro' | 'payment' | 'closing') {
+  await blockList(page, kind).getByRole('button', { name: 'Baustein hinzufügen' }).click()
+  await expect(panel(page).getByRole('heading', { name: 'Neuer Baustein' })).toBeVisible()
+  await expect(editor(panel(page), 'Text')).toBeVisible()
+}
+
+async function blockMenu(page: Page, name: string, item: string) {
+  await page.getByRole('button', { name: `Aktionen für ${name}` }).click()
+  await page.getByRole('menuitem', { name: item }).click()
+}
+
+test.describe('Nummernkreis', () => {
+  test.skip(!hasSupabaseEnv, 'keine .env.local')
+
+  test('AC: Voreinstellung, Vorschau vor dem Speichern, Speichern mit und ohne Präfix', async ({ page, users }) => {
+    desktopOnly()
+    const { owner, tenantId } = await ownerWithTenant(users, 'Nummer')
+    await signInAs(page, owner)
+    await openSettings(page)
+    await expect(page.getByLabel('Präfix')).toHaveValue('')
+    await expect(page.getByRole('switch', { name: 'Mit Jahreszahl' })).toBeChecked()
+    await expect(page.getByRole('combobox', { name: 'Trennzeichen' })).toHaveText('„-“')
+    await expect(page.getByRole('combobox', { name: 'Stellen' })).toContainText('4')
+    await expect(page.getByRole('switch', { name: 'Jährlich neu beginnen' })).toBeChecked()
+    await expect(page.getByLabel('Startnummer')).toHaveValue('1')
+    await expect(nextNumber(page)).toHaveText(`${year()}-0001`)
+
+    // Vorschau rechnet sofort, noch vor dem Speichern
+    await page.getByLabel('Präfix').fill('R-')
+    await page.getByRole('combobox', { name: 'Trennzeichen' }).click()
+    await page.getByRole('option', { name: '„/“' }).click()
+    await expect(nextNumber(page)).toHaveText(`R-${year()}/0001`)
+    expect((await settingsRow(tenantId)).number_prefix).toBe('')
+
+    await page.getByRole('button', { name: 'Nummernkreis speichern' }).click()
+    await expect(page.getByText('Nummernkreis gespeichert.')).toBeVisible()
+    await expect.poll(async () => (await settingsRow(tenantId)).number_prefix).toBe('R-')
+    expect((await settingsRow(tenantId)).number_separator).toBe('/')
+
+    // Präfix wieder leer: Nummer beginnt mit der Jahreszahl
+    await page.reload()
+    await ready(page)
+    await expect(page.getByLabel('Präfix')).toHaveValue('R-')
+    await page.getByLabel('Präfix').fill('')
+    await page.getByRole('button', { name: 'Nummernkreis speichern' }).click()
+    await expect.poll(async () => (await settingsRow(tenantId)).number_prefix).toBe('')
+    await expect(nextNumber(page)).toHaveText(`${year()}/0001`)
+  })
+
+  test('AC: ungültiges Präfix, Startnummer 0/negativ/Komma und „jährlich neu“ ohne Jahreszahl', async ({ page, users }) => {
+    desktopOnly()
+    const { owner, tenantId } = await ownerWithTenant(users, 'Nummer falsch')
+    await signInAs(page, owner)
+    await openSettings(page)
+    const before = await settingsRow(tenantId)
+    const save = page.getByRole('button', { name: 'Nummernkreis speichern' })
+
+    for (const prefix of ['R #', 'ABCDEFGHIJK']) {
+      await page.getByLabel('Präfix').fill(prefix)
+      await save.click()
+      await expect(page.getByText(prefix.length > 10 ? 'Das Präfix darf höchstens 10 Zeichen haben.' : /Im Präfix sind nur Buchstaben/)).toBeVisible()
+    }
+    await page.getByLabel('Präfix').fill('')
+    for (const start of ['0', '-3', '1,5']) {
+      await page.getByLabel('Startnummer').fill(start)
+      await save.click()
+      await expect(page.getByText('Bitte gib als Startnummer eine ganze Zahl ab 1 ein.')).toBeVisible()
+    }
+    expect((await settingsRow(tenantId)).numbering_updated_at).toBe(before.numbering_updated_at)
+
+    // ohne Jahreszahl: „jährlich neu“ gesperrt mit Hinweis
+    await page.getByLabel('Startnummer').fill('1')
+    await page.getByRole('switch', { name: 'Mit Jahreszahl' }).click()
+    const yearly = page.getByRole('switch', { name: 'Jährlich neu beginnen' })
+    await expect(yearly).toBeDisabled()
+    await expect(yearly).not.toBeChecked()
+    await expect(page.getByText('Jährlich neu beginnen geht nur mit Jahreszahl.')).toBeVisible()
+    await expect(nextNumber(page)).toHaveText('0001')
+  })
+
+  test('AC: Vorschau setzt nacherfasste Nummern fort (2026-0043, ALT-17, Vorjahr, R-00124, 999 → 1000)', async ({ page, users }) => {
+    desktopOnly()
+    const { owner, tenantId } = await ownerWithTenant(users, 'Folge')
+    const y = year()
+    await addNumbers(tenantId, ['ALT-17', `${Number(y) - 1}-0118`])
+    await signInAs(page, owner)
+    await openSettings(page)
+    // nur Altnummer und Vorjahr: neues Jahr beginnt bei der Startnummer
+    await expect(nextNumber(page)).toHaveText(`${y}-0001`)
+
+    await addNumbers(tenantId, [`${y}-0041`, `${y}-0042`])
+    await page.reload()
+    await ready(page)
+    await expect(nextNumber(page)).toHaveText(`${y}-0043`)
+    // unabhängig von der Startnummer, mit Hinweis
+    await page.getByLabel('Startnummer').fill('5')
+    await expect(nextNumber(page)).toHaveText(`${y}-0043`)
+    await expect(page.getByText('Es gibt bereits passende Rechnungen. Die Startnummer gilt nur, solange es keine gibt.')).toBeVisible()
+
+    // ohne Jahreszahl, Präfix R-, 5 Stellen
+    await addNumbers(tenantId, ['R-00123', `${y}-999`])
+    await page.reload()
+    await ready(page)
+    await page.getByLabel('Präfix').fill('R-')
+    await page.getByRole('switch', { name: 'Mit Jahreszahl' }).click()
+    await page.getByRole('combobox', { name: 'Stellen' }).click()
+    await page.getByRole('option', { name: /^5/ }).click()
+    await expect(nextNumber(page)).toHaveText('R-00124')
+
+    // 3 Stellen: 999 → 1000 (Stellen wachsen weiter); 2026-0041/42 sind ebenfalls „2026-“ + Ziffern → höchste ist 999
+    await page.getByLabel('Präfix').fill('')
+    await page.getByRole('switch', { name: 'Mit Jahreszahl' }).click()
+    await page.getByRole('combobox', { name: 'Stellen' }).click()
+    await page.getByRole('option', { name: /^3/ }).click()
+    await expect(nextNumber(page)).toHaveText(`${y}-1000`)
+  })
+
+  test('Grenzfall: Vorschau bei mehr als 1.000 Rechnungen des Kunden', async ({ page, users }) => {
+    desktopOnly()
+    test.setTimeout(90_000)
+    const { owner, tenantId } = await ownerWithTenant(users, 'Viele')
+    const y = year()
+    await addNumbers(tenantId, Array.from({ length: 1100 }, (_, i) => `${y}-${String(i + 1).padStart(4, '0')}`))
+    await signInAs(page, owner)
+    await openSettings(page)
+    await expect(nextNumber(page)).toHaveText(`${y}-1101`)
+  })
+
+  test('AC: Konflikt – zwischenzeitlich geänderter Nummernkreis wird nicht überschrieben', async ({ page, users }) => {
+    desktopOnly()
+    const { owner, tenantId } = await ownerWithTenant(users, 'Konflikt')
+    await signInAs(page, owner)
+    await openSettings(page)
+    // jemand anderes speichert inzwischen
+    await service().from('invoice_settings').update({ number_prefix: 'X-', numbering_updated_at: new Date().toISOString() }).eq('tenant_id', tenantId)
+    await page.getByLabel('Präfix').fill('R-')
+    await page.getByRole('button', { name: 'Nummernkreis speichern' }).click()
+    await expect(page.getByText('Die Einstellungen wurden inzwischen geändert. Deine Eingaben sind noch nicht gespeichert.')).toBeVisible()
+    expect((await settingsRow(tenantId)).number_prefix).toBe('X-')
+    await page.getByRole('button', { name: 'Aktuelle Fassung laden' }).click()
+    await expect(page.getByLabel('Präfix')).toHaveValue('X-')
+  })
+})
+
+test.describe('Textbausteine', () => {
+  test.skip(!hasSupabaseEnv, 'keine .env.local')
+
+  test('AC: Vorbelegung mit Standard oben, Anlegen, Pflichtfelder, doppelter Name je Block', async ({ page, users }) => {
+    desktopOnly()
+    const { owner, tenantId } = await ownerWithTenant(users, 'Bausteine')
+    await signInAs(page, owner)
+    await openSettings(page)
+    await expect(blockList(page, 'intro').getByRole('listitem')).toHaveCount(1)
+    await expect(blockList(page, 'payment').getByRole('listitem')).toHaveCount(2)
+    await expect(blockList(page, 'closing').getByRole('listitem')).toHaveCount(1)
+    const payment = blockList(page, 'payment').getByRole('listitem')
+    await expect(payment.first()).toContainText('Überweisung 14 Tage')
+    await expect(payment.first()).toContainText('Standard')
+    await expect(payment.last()).toContainText('Anzahlung 20 %, Rest vor Anreise')
+    await expect(payment.last()).not.toContainText('Standard')
+
+    // Pflichtfelder
+    await openNewBlock(page, 'closing')
+    await panel(page).getByRole('button', { name: 'Baustein speichern' }).click()
+    await expect(panel(page).getByText('Bitte gib einen Namen ein.')).toBeVisible()
+    await expect(panel(page).getByText('Bitte gib einen Text ein.')).toBeVisible()
+
+    // doppelter Name (Groß-/Kleinschreibung egal) im selben Block
+    await panel(page).getByLabel('Name').fill('nächster besuch')
+    await typeInto(page, editor(panel(page), 'Text'), 'Auf Wiedersehen!')
+    await panel(page).getByRole('button', { name: 'Baustein speichern' }).click()
+    await expect(panel(page).getByText('Dieser Name ist in diesem Block bereits vergeben.')).toBeVisible()
+    expect((await blockRows(tenantId)).length).toBe(4)
+
+    // zu lang
+    await panel(page).getByLabel('Name').fill('N'.repeat(61))
+    await panel(page).getByRole('button', { name: 'Baustein speichern' }).click()
+    await expect(panel(page).getByText('Der Name darf höchstens 60 Zeichen haben.')).toBeVisible()
+
+    await panel(page).getByLabel('Name').fill('Auf Wiedersehen')
+    await panel(page).getByRole('button', { name: 'Baustein speichern' }).click()
+    await expect(page.getByText('Baustein angelegt.')).toBeVisible()
+    await expect(blockList(page, 'closing').getByRole('listitem')).toHaveCount(2)
+    // Standard zuerst, dann nach Name
+    await expect(blockList(page, 'closing').getByRole('listitem').first()).toContainText('Nächster Besuch')
+    await expect(blockList(page, 'closing').getByRole('listitem').last()).toContainText('Auf Wiedersehen')
+
+    // gleicher Name in einem anderen Block erlaubt
+    await openNewBlock(page, 'intro')
+    await panel(page).getByLabel('Name').fill('Nächster Besuch')
+    await typeInto(page, editor(panel(page), 'Text'), 'Willkommen zurück, {Gast}!')
+    await panel(page).getByRole('button', { name: 'Baustein speichern' }).click()
+    await expect(blockList(page, 'intro').getByRole('listitem')).toHaveCount(2)
+    expect((await blockRows(tenantId)).length).toBe(6)
+  })
+
+  test('AC: Text über 2.000 Zeichen wird mit Grenze abgelehnt', async ({ page, users }) => {
+    desktopOnly()
+    const { owner, tenantId } = await ownerWithTenant(users, 'Lang')
+    await signInAs(page, owner)
+    await openSettings(page)
+    await openNewBlock(page, 'intro')
+    await panel(page).getByLabel('Name').fill('Lang')
+    await editor(panel(page), 'Text').click()
+    await page.keyboard.insertText('x'.repeat(2001))
+    await expect(panel(page).getByText('2.001 / 2.000 Zeichen')).toBeVisible()
+    await panel(page).getByRole('button', { name: 'Baustein speichern' }).click()
+    await expect(panel(page).getByText('Der Text ist zu lang: 2.001 von höchstens 2.000 Zeichen.')).toBeVisible()
+    expect((await blockRows(tenantId)).length).toBe(4)
+  })
+
+  test('AC: Standard wechseln, aufheben, Standard löschen; anderer Kunde unberührt', async ({ page, users }) => {
+    desktopOnly()
+    const { owner, tenantId } = await ownerWithTenant(users, 'Standard')
+    const other = await ownerWithTenant(users, 'Anderer')
+    await signInAs(page, owner)
+    await openSettings(page)
+
+    await blockMenu(page, 'Anzahlung 20 %, Rest vor Anreise', 'Als Standard setzen')
+    await expect(page.getByText('Standard gesetzt.')).toBeVisible()
+    const payment = blockList(page, 'payment')
+    await expect(payment.getByRole('listitem').first()).toContainText('Anzahlung 20 %, Rest vor Anreise')
+    await expect(payment.getByText('Standard', { exact: true })).toHaveCount(1)
+
+    await blockMenu(page, 'Anzahlung 20 %, Rest vor Anreise', 'Standard aufheben')
+    await expect(page.getByText('Standard aufgehoben.')).toBeVisible()
+    await expect(payment.getByText('Kein Standard – der Block beginnt im Entwurf leer.')).toBeVisible()
+    await expect(payment.getByText('Standard', { exact: true })).toHaveCount(0)
+
+    // Standard löschen → Block ohne Standard
+    await blockMenu(page, 'Dank für den Aufenthalt', 'Löschen')
+    await expect(page.getByRole('alertdialog')).toContainText('Der Baustein ist der Standard dieses Blocks.')
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Löschen' }).click()
+    await expect(page.getByText('Baustein gelöscht.')).toBeVisible()
+    await expect(blockList(page, 'intro').getByText('Noch keine Bausteine.')).toBeVisible()
+    await expect(blockList(page, 'intro').getByText('Kein Standard – der Block beginnt im Entwurf leer.')).toBeVisible()
+
+    const rows = await blockRows(tenantId)
+    expect(rows.filter((r) => r.is_default).map((r) => r.block).sort()).toEqual(['closing'])
+    // eigener Kunde geändert, anderer nicht
+    const others = await blockRows(other.tenantId)
+    expect(others).toHaveLength(4)
+    expect(others.filter((r) => r.is_default)).toHaveLength(3)
+  })
+
+  test('AC: Konflikt bei Standard und gelöschter Baustein beim Bearbeiten', async ({ page, users }) => {
+    desktopOnly()
+    const { owner, tenantId } = await ownerWithTenant(users, 'Konflikt Baustein')
+    await signInAs(page, owner)
+    await openSettings(page)
+    const rows = await blockRows(tenantId)
+    const deposit = rows.find((r) => r.name.startsWith('Anzahlung'))!
+    const transfer = rows.find((r) => r.name.startsWith('Überweisung'))!
+
+    // jemand anders hebt den Standard inzwischen auf
+    await service().from('invoice_text_blocks').update({ is_default: false }).eq('id', transfer.id)
+    await blockMenu(page, 'Anzahlung 20 %, Rest vor Anreise', 'Als Standard setzen')
+    await expect(page.getByText('Die Einstellungen wurden inzwischen geändert. Deine Eingaben sind noch nicht gespeichert.')).toBeVisible()
+    expect((await blockRows(tenantId)).find((r) => r.id === deposit.id)!.is_default).toBe(false)
+
+    // Baustein inzwischen gelöscht
+    await page.reload()
+    await ready(page)
+    await page.getByRole('button', { name: /^Nächster Besuch/ }).click()
+    await expect(panel(page).getByRole('heading', { name: 'Baustein bearbeiten' })).toBeVisible()
+    await service().from('invoice_text_blocks').delete().eq('tenant_id', tenantId).eq('block', 'closing')
+    await panel(page).getByLabel('Name').fill('Nächster Besuch neu')
+    await panel(page).getByRole('button', { name: 'Baustein speichern' }).click()
+    await expect(panel(page).getByText('Dieser Baustein existiert nicht mehr. Er wurde inzwischen gelöscht.')).toBeVisible()
+  })
+
+  test('AC: 20 Bausteine je Block sperren „Baustein hinzufügen“', async ({ page, users }) => {
+    desktopOnly()
+    const { owner, tenantId } = await ownerWithTenant(users, 'Voll')
+    const body = { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Danke' }] }] }
+    const { error } = await service()
+      .from('invoice_text_blocks')
+      .insert(Array.from({ length: 19 }, (_, i) => ({ tenant_id: tenantId, block: 'closing', name: `Gruß ${i + 1}`, body })) as never)
+    expect(error).toBeNull()
+    await signInAs(page, owner)
+    await openSettings(page)
+    await expect(blockList(page, 'closing').getByRole('button', { name: 'Baustein hinzufügen' })).toBeDisabled()
+    await expect(blockList(page, 'closing').getByText('Höchstens 20 Bausteine je Block. Lösche einen, um einen neuen anzulegen.')).toBeVisible()
+    await expect(blockList(page, 'intro').getByRole('button', { name: 'Baustein hinzufügen' })).toBeEnabled()
+  })
+})
+
+test.describe('Zahlungsregeln, Editor und Vorschau', () => {
+  test.skip(!hasSupabaseEnv, 'keine .env.local')
+
+  test('AC: Zahlungsregeln, Grenzen und Vorschau mit berechneten Werten', async ({ page, users }) => {
+    desktopOnly()
+    const { owner, tenantId } = await ownerWithTenant(users, 'Zahlung')
+    await signInAs(page, owner)
+    await openSettings(page)
+    await openNewBlock(page, 'payment')
+    const p = panel(page)
+    await expect(p.getByRole('switch', { name: 'Anzahlung' })).not.toBeChecked()
+    await expect(p.getByLabel('Fälligkeit', { exact: true })).toBeVisible()
+    await expect(p.getByRole('radio', { name: 'Tage nach Rechnungsdatum' })).toBeVisible()
+    await expect(p.getByRole('radio', { name: 'Tage vor Anreise' })).toBeVisible()
+
+    // ohne Anzahlung: Anzahlungs-Platzhalter nicht erlaubt
+    await p.getByLabel('Name').fill('Anzahlung 30')
+    await p.getByLabel('Fälligkeit', { exact: true }).fill('14')
+    await typeInto(page, editor(p, 'Text'), 'Bitte {Anzahlung} bis {Anzahlung fällig}, Rest {Restbetrag} bis {Fälligkeitsdatum}.')
+    await p.getByRole('button', { name: 'Baustein speichern' }).click()
+    await expect(p.getByText(/Dieser Platzhalter ist nur bei Bausteinen mit Anzahlung möglich: \{Anzahlung\}/)).toBeVisible()
+
+    // mit Anzahlung: Prozent und Frist Pflicht, Grenzen
+    await p.getByRole('switch', { name: 'Anzahlung' }).click()
+    await expect(p.getByText(/nur bei Bausteinen mit Anzahlung/)).toHaveCount(0)
+    await p.getByRole('button', { name: 'Baustein speichern' }).click()
+    await expect(p.getByText('Bitte gib die Anzahlung in Prozent ein.')).toBeVisible()
+    await expect(p.getByText('Bitte gib die Anzahl der Tage ein.')).toBeVisible()
+    for (const bad of ['0', '100,5', '12,345']) {
+      await p.getByLabel('Anzahlung in Prozent').fill(bad)
+      await p.getByRole('button', { name: 'Baustein speichern' }).click()
+      await expect(p.getByText('Bitte gib 1 bis 100 Prozent mit höchstens 2 Nachkommastellen ein.')).toBeVisible()
+    }
+    for (const bad of ['366', '-1', '2,5']) {
+      await p.getByLabel('Anzahlung fällig nach').fill(bad)
+      await p.getByRole('button', { name: 'Baustein speichern' }).click()
+      await expect(p.getByText('Bitte gib eine ganze Zahl von 0 bis 365 Tagen ein.')).toBeVisible()
+    }
+    expect((await blockRows(tenantId)).length).toBe(4)
+
+    // 20 % binnen 3 Tagen, Rest 1 Tag vor Anreise: Beispiel 01.10.2026, Anreise 14.10.2026, € 450,00
+    await p.getByLabel('Anzahlung in Prozent').fill('20')
+    await p.getByLabel('Anzahlung fällig nach').fill('3')
+    await p.getByLabel('Fälligkeit des Rests').fill('1')
+    await p.getByRole('radio', { name: 'Tage vor Anreise' }).click()
+    await expect(p.getByText(/Bitte €\s90,00 bis 04\.10\.2026, Rest €\s360,00 bis 13\.10\.2026\./)).toBeVisible()
+    await p.getByRole('button', { name: 'Baustein speichern' }).click()
+    await expect(page.getByText('Baustein angelegt.')).toBeVisible()
+    const saved = (await blockRows(tenantId)).find((r) => r.name === 'Anzahlung 30')!
+    expect([Number(saved.deposit_percent), saved.deposit_days, saved.due_days, saved.due_basis]).toEqual([20, 3, 1, 'before_arrival'])
+
+    // Anzahlung „nein“ nach dem Ausfüllen: Prozent und Frist werden nicht gespeichert
+    await page.getByRole('button', { name: /^Anzahlung 30/ }).click()
+    await expect(panel(page).getByLabel('Anzahlung in Prozent')).toHaveValue('20')
+    await panel(page).getByRole('switch', { name: 'Anzahlung' }).click()
+    await typeInto(page, editor(panel(page), 'Text'), 'Bitte überweisen Sie {Betrag} bis {Fälligkeitsdatum}.', { clear: true })
+    await panel(page).getByRole('button', { name: 'Baustein speichern' }).click()
+    await expect(page.getByText('Baustein gespeichert.')).toBeVisible()
+    await expect
+      .poll(async () => {
+        const r = (await blockRows(tenantId)).find((x) => x.name === 'Anzahlung 30')!
+        return [r.deposit_percent, r.deposit_days, r.due_days]
+      })
+      .toEqual([null, null, 1])
+  })
+
+  test('AC: Platzhalter-Auswahl je Block, getippte Platzhalter, unbekannte und unzulässige', async ({ page, users }) => {
+    desktopOnly()
+    const { owner, tenantId } = await ownerWithTenant(users, 'Platzhalter')
+    await signInAs(page, owner)
+    await openSettings(page)
+    const base = ['{Anrede}', '{Gast}', '{Wohnung}', '{Anreise}', '{Abreise}', '{Nächte}', '{Rechnungsnummer}', '{Rechnungsdatum}', '{Betrag}']
+
+    await openNewBlock(page, 'intro')
+    await panel(page).getByRole('button', { name: 'Platzhalter einfügen' }).click()
+    await expect(page.getByRole('menuitem')).toHaveText(base)
+    await page.getByRole('menuitem', { name: '{Anrede}' }).click()
+    // Fokus springt nach dem Einfügen zurück auf den Menüknopf (BUG-1, eigener Test): wieder ans Textende
+    await page.waitForTimeout(500)
+    await editor(panel(page), 'Text').click()
+    await page.keyboard.press('ControlOrMeta+End')
+    // getippt wie eingefügt; Vorschau mit Beispieldaten, Datum ohne Wochentag
+    await page.keyboard.type(', willkommen in {Wohnung} am {Anreise}.')
+    await expect(panel(page).getByText('Sehr geehrte Frau Mag. Muster, willkommen in Top 1 am 14.10.2026.')).toBeVisible()
+
+    // unbekannt und in diesem Block nicht erlaubt
+    await page.keyboard.type(' {Gastname} {Fälligkeitsdatum}')
+    await panel(page).getByLabel('Name').fill('Platzhalter')
+    await panel(page).getByRole('button', { name: 'Baustein speichern' }).click()
+    await expect(panel(page).getByText(/Unbekannter Platzhalter: \{Gastname\}/)).toBeVisible()
+    await expect(panel(page).getByText(/Der Platzhalter \{Fälligkeitsdatum\} ist in diesem Block nicht erlaubt\./)).toBeVisible()
+    expect((await blockRows(tenantId)).length).toBe(4)
+    await panel(page).getByRole('button', { name: 'Abbrechen' }).click()
+
+    // Block 6: mit Fälligkeitsdatum, Anzahlungs-Platzhalter nur mit Anzahlung
+    await openNewBlock(page, 'payment')
+    await panel(page).getByRole('button', { name: 'Platzhalter einfügen' }).click()
+    await expect(page.getByRole('menuitem')).toHaveText([...base, '{Fälligkeitsdatum}'])
+    await page.keyboard.press('Escape')
+    await panel(page).getByRole('switch', { name: 'Anzahlung' }).click()
+    await panel(page).getByRole('button', { name: 'Platzhalter einfügen' }).click()
+    await expect(page.getByRole('menuitem')).toHaveText([...base, '{Fälligkeitsdatum}', '{Anzahlung}', '{Anzahlung fällig}', '{Restbetrag}'])
+  })
+
+  test('BUG-1: Nach „Platzhalter einfügen“ bleibt der Fokus in der Schreibfläche', async ({ page, users }) => {
+    desktopOnly()
+    const { owner } = await ownerWithTenant(users, 'Fokus')
+    await signInAs(page, owner)
+    await openSettings(page)
+    await openNewBlock(page, 'intro')
+    await typeInto(page, editor(panel(page), 'Text'), 'Hallo ')
+    await panel(page).getByRole('button', { name: 'Platzhalter einfügen' }).click()
+    await page.getByRole('menuitem', { name: '{Gast}' }).click()
+    // Menü ist zu (samt Animation); Weitertippen landet im Text
+    await expect(page.getByRole('menu')).toHaveCount(0)
+    await page.waitForTimeout(500)
+    await expect(editor(panel(page), 'Text')).toBeFocused()
+    await page.keyboard.type(' und willkommen')
+    await expect(editor(panel(page), 'Text')).toHaveText('Hallo {Gast} und willkommen')
+  })
+
+  test('AC: Fett, Kursiv, Listen; Einfügen aus Word/Webseite behält nur erlaubte Formatierungen', async ({ page, users }) => {
+    desktopOnly()
+    // Firefox reicht den Inhalt eines selbst gebauten DataTransfer beim künstlichen Einfügen nicht weiter (Testgrenze, kein App-Fehler)
+    test.skip(test.info().project.name === 'firefox', 'künstliches Einfügen in Firefox nicht möglich')
+    const { owner, tenantId } = await ownerWithTenant(users, 'Einfügen')
+    await signInAs(page, owner)
+    await openSettings(page)
+    await openNewBlock(page, 'closing')
+    const p = panel(page)
+    const toolbar = p.getByRole('toolbar', { name: 'Formatierung' })
+    await expect(toolbar.getByRole('button', { name: 'Fett' })).toBeVisible()
+    await expect(toolbar.getByRole('button', { name: 'Kursiv' })).toBeVisible()
+    await expect(toolbar.getByRole('button', { name: 'Aufzählung' })).toBeVisible()
+    await expect(toolbar.getByRole('button', { name: 'Nummerierte Liste' })).toBeVisible()
+    await expect(toolbar.getByRole('button')).toHaveCount(5) // dazu „Platzhalter einfügen“
+
+    await p.getByLabel('Name').fill('Eingefügt')
+    await editor(p, 'Text').click()
+    await page.evaluate(() => {
+      const html =
+        '<h1 style="color:red;font-family:Comic Sans MS">Titel</h1>' +
+        '<p><b>Fett</b> und <i>kursiv</i> mit <a href="https://evil.example">Link</a> <span style="color:#f00;font-size:30px">rot</span>' +
+        '<img src="https://evil.example/x.png" onerror="alert(1)"></p>' +
+        '<table><tr><td>Zelle A</td><td>Zelle B</td></tr></table>' +
+        '<ul><li>Punkt 1</li><li>Punkt 2</li></ul><script>window.__pwned = 1</script>'
+      const dt = new DataTransfer()
+      dt.setData('text/html', html)
+      dt.setData('text/plain', 'Titel')
+      document.activeElement!.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }))
+    })
+    const box = editor(p, 'Text')
+    await expect(box).toContainText('Zelle A')
+    await expect(box.locator('a, img, table, h1, script, [style]')).toHaveCount(0)
+    await expect(box.locator('strong')).toHaveText('Fett')
+    await expect(box.locator('em')).toHaveText('kursiv')
+    await expect(box.locator('ul li')).toHaveCount(2)
+
+    await p.getByRole('button', { name: 'Baustein speichern' }).click()
+    await expect(page.getByText('Baustein angelegt.')).toBeVisible()
+    const saved = (await blockRows(tenantId)).find((r) => r.name === 'Eingefügt')!
+    const json = JSON.stringify(saved.body)
+    expect(json).not.toMatch(/"(href|link|style|textStyle|color|image|table|tableCell|heading|attrs)"|evil/)
+    expect(json).toContain('"bold"')
+    expect(json).toContain('"bulletList"')
+    expect(await page.evaluate(() => (window as unknown as { __pwned?: number }).__pwned)).toBeUndefined()
+  })
+})
+
+test.describe('Feste Texte und Schalter', () => {
+  test.skip(!hasSupabaseEnv, 'keine .env.local')
+
+  test('AC: Vorbelegung, Pflicht-Hinweis, Fußzeile bleibt nach Neuladen, keine Platzhalter', async ({ page, users }) => {
+    desktopOnly()
+    const { owner, tenantId } = await ownerWithTenant(users, 'Feste Texte')
+    await signInAs(page, owner)
+    await openSettings(page)
+    const note = editor(page, 'Kleinunternehmer-Hinweis')
+    const footer = editor(page, 'Fußzeile')
+    await expect(note).toHaveText('Umsatzsteuerfrei aufgrund der Kleinunternehmerregelung gemäß § 6 Abs. 1 Z 27 UStG')
+    await expect(footer).toHaveText('')
+    await expect(page.getByText(/Erscheint nach den Leistungen nur, wenn für die Rechnung der Kleinunternehmer-Status gilt/)).toBeVisible()
+    const fixed = page.locator('form').filter({ has: page.getByRole('button', { name: 'Feste Texte speichern' }) })
+    await expect(fixed.getByRole('button', { name: 'Platzhalter einfügen' })).toHaveCount(0)
+    const save = page.getByRole('button', { name: 'Feste Texte speichern' })
+
+    // leer → Pflicht
+    await typeInto(page, note, '', { clear: true })
+    await save.click()
+    await expect(page.getByText('Der Kleinunternehmer-Hinweis darf nicht leer sein.')).toBeVisible()
+    // zu lang
+    await note.click()
+    await page.keyboard.insertText('k'.repeat(501))
+    await save.click()
+    await expect(page.getByText('Der Text ist zu lang: 501 von höchstens 500 Zeichen.')).toBeVisible()
+    // getippter Platzhalter in fester Text = unbekannt
+    await typeInto(page, note, 'Steuerfrei als Kleinunternehmer.', { clear: true })
+    await typeInto(page, footer, 'IBAN AT61 1904 3002 3457 3201 · {Gast}')
+    await save.click()
+    await expect(page.getByText('Unbekannter Platzhalter: {Gast}')).toBeVisible()
+    expect((await settingsRow(tenantId)).footer).toBeNull()
+
+    await footer.click()
+    for (let i = 0; i < ' · {Gast}'.length; i++) await page.keyboard.press('Backspace')
+    await save.click()
+    await expect(page.getByText('Feste Texte gespeichert.')).toBeVisible()
+    await page.reload()
+    await ready(page)
+    await expect(editor(page, 'Kleinunternehmer-Hinweis')).toHaveText('Steuerfrei als Kleinunternehmer.')
+    await expect(editor(page, 'Fußzeile')).toHaveText('IBAN AT61 1904 3002 3457 3201')
+  })
+
+  test('AC: Fehler beim Speichern lässt Eingaben stehen, gespeichert bleibt der alte Stand', async ({ page, users }) => {
+    desktopOnly()
+    const { owner, tenantId } = await ownerWithTenant(users, 'Offline')
+    await signInAs(page, owner)
+    await openSettings(page)
+    await typeInto(page, editor(page, 'Fußzeile'), 'Bank Muster')
+    await page.route('**/einstellungen/rechnungen', (route) => (route.request().method() === 'POST' ? route.abort() : route.continue()))
+    await page.getByRole('button', { name: 'Feste Texte speichern' }).click()
+    await expect(page.getByText('Keine Verbindung. Bitte prüfe deine Internetverbindung und versuche es erneut.')).toBeVisible()
+    await expect(editor(page, 'Fußzeile')).toHaveText('Bank Muster')
+    expect((await settingsRow(tenantId)).footer).toBeNull()
+  })
+
+  test('AC: Schalter aus → Rechnungsliste ohne „Rechnung nacherfassen“; Hinweis verweist hierher', async ({ page, users }) => {
+    desktopOnly()
+    const { owner, tenantId } = await ownerWithTenant(users, 'Schalter aus')
+    await signInAs(page, owner)
+    await openSettings(page)
+    await page.getByRole('switch', { name: 'Rechnungen nacherfassen' }).click()
+    await page.getByRole('button', { name: 'Schalter speichern' }).click()
+    await expect(page.getByText('Einstellung gespeichert.')).toBeVisible()
+    await expect.poll(async () => (await settingsRow(tenantId)).backfill_enabled).toBe(false)
+    await page.goto('/rechnungen')
+    await ready(page)
+    await expect(page.getByRole('heading', { level: 1, name: 'Rechnungen' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Rechnung nacherfassen' })).toHaveCount(0)
+    await expect(page.getByRole('link', { name: 'Rechnung nacherfassen' })).toHaveCount(0)
+  })
+})
+
+test.describe('Betreiber', () => {
+  test.skip(!hasSupabaseEnv, 'keine .env.local')
+
+  test('AC: Abschnitt „Rechnungen“ bei aktivem Kunden bedienbar, Inhaber sieht die Änderung, Protokoll ohne Text', async ({ browser, page, users }) => {
+    desktopOnly()
+    const { owner, tenantId } = await ownerWithTenant(users, 'Betreiber')
+    const admin = await users({ admin: true, displayName: 'Bea Betreiber' })
+    await signInAsAdmin(page, admin)
+    await page.goto(`/betreiber/kunden/${tenantId}`)
+    await ready(page)
+    for (const name of ['Nummernkreis', 'Textbausteine', 'Feste Texte', 'Nacherfassen']) {
+      await expect(page.getByRole('heading', { level: 3, name })).toBeVisible()
+    }
+    await page.getByLabel('Präfix').fill('RE')
+    await page.getByRole('button', { name: 'Nummernkreis speichern' }).click()
+    await expect(page.getByText('Nummernkreis gespeichert.')).toBeVisible()
+    await openNewBlock(page, 'closing')
+    await panel(page).getByLabel('Name').fill('Geheimgruß')
+    await typeInto(page, editor(panel(page), 'Text'), 'Kontonummer 4711 geheim')
+    await panel(page).getByRole('button', { name: 'Baustein speichern' }).click()
+    await expect(page.getByText('Baustein angelegt.')).toBeVisible()
+    await page.reload()
+    await ready(page)
+    await expect(page.getByText('Rechnungseinstellungen geändert: Nummernkreis')).toBeVisible()
+    await expect(page.getByText('Textbaustein angelegt: Abschlusstext – Geheimgruß')).toBeVisible()
+    await expect(page.getByText(/Bea Betreiber/).first()).toBeVisible()
+    const { data: log } = await service().from('operator_log').select('*').eq('tenant_id', tenantId)
+    expect(JSON.stringify(log)).not.toContain('4711')
+
+    const ownerContext = await browser.newContext({ storageState: { cookies: [], origins: [] } })
+    const ownerPage = await ownerContext.newPage()
+    await signInAs(ownerPage, owner)
+    await openSettings(ownerPage)
+    await expect(ownerPage.getByLabel('Präfix')).toHaveValue('RE')
+    await expect(nextNumber(ownerPage)).toHaveText(`RE${year()}-0001`)
+    await ownerContext.close()
+  })
+
+  test('AC: deaktivierter Kunde – alles sichtbar, nichts änderbar', async ({ page, users }) => {
+    desktopOnly()
+    const { tenantId } = await ownerWithTenant(users, 'Deaktiviert')
+    const admin = await users({ admin: true })
+    await service().from('tenants').update({ status: 'deactivated' }).eq('id', tenantId)
+    await signInAsAdmin(page, admin)
+    await page.goto(`/betreiber/kunden/${tenantId}`)
+    await ready(page)
+    await expect(page.getByText('Der Kunde ist deaktiviert. Die Rechnungseinstellungen sind nur lesbar.')).toBeVisible()
+    await expect(nextNumber(page)).toHaveText(`${year()}-0001`)
+    await expect(page.getByLabel('Präfix')).toBeDisabled()
+    for (const name of ['Nummernkreis speichern', 'Feste Texte speichern', 'Schalter speichern', 'Baustein hinzufügen']) {
+      await expect(page.getByRole('button', { name })).toHaveCount(0)
+    }
+    await expect(page.getByRole('button', { name: /^Aktionen für/ })).toHaveCount(0)
+    await expect(editor(page, 'Fußzeile')).toHaveAttribute('contenteditable', 'false')
+    await expect(page.getByRole('switch', { name: 'Rechnungen nacherfassen' })).toBeDisabled()
+    // Baustein nur ansehen
+    await page.getByRole('button', { name: /^Dank für den Aufenthalt/ }).click()
+    await expect(panel(page).getByRole('heading', { name: 'Dank für den Aufenthalt' })).toBeVisible()
+    await expect(panel(page).getByRole('button', { name: 'Baustein speichern' })).toHaveCount(0)
+    await expect(editor(panel(page), 'Text')).toHaveAttribute('contenteditable', 'false')
+  })
+})
+
+test.describe('Handy', () => {
+  test.skip(!hasSupabaseEnv, 'keine .env.local')
+
+  test('AC: 375 px – Nummernkreis und Baustein-Panel ohne seitliches Scrollen, Bedienelemente ≥ 44 px', async ({ page, users }) => {
+    desktopOnly()
+    const { owner } = await ownerWithTenant(users, 'Handy')
+    await page.setViewportSize({ width: 375, height: 800 })
+    await signInAs(page, owner)
+    await openSettings(page)
+    const noHorizontalScroll = () => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
+    expect(await noHorizontalScroll()).toBe(true)
+    await page.getByLabel('Präfix').fill('R-')
+    await expect(nextNumber(page)).toHaveText(`R-${year()}-0001`)
+    expect(await noHorizontalScroll()).toBe(true)
+
+    const small = async (scope: ReturnType<Page['getByRole']> | Page) => {
+      // ohne versteckte Formularfelder (aria-hidden) und ohne den Schließen-Knopf des gemeinsamen Seitenpanels (BUG-5, PROJ-2)
+      const controls = scope.locator(
+        'button:visible:not([data-slot=sheet-close]):not(:has(> .sr-only:text-is("Schließen"))), input:visible:not([aria-hidden=true]), [role="switch"]:visible, [role="combobox"]:visible'
+      )
+      const out: string[] = []
+      for (const el of await controls.all()) {
+        const box = await el.boundingBox()
+        if (!box) continue
+        // Schalter: Trefferfläche über das Pseudoelement; Radios: die ganze Zeile mit Beschriftung (min-h-11)
+        const hit = await el.evaluate((n) => {
+          const r = (n.getAttribute('role') === 'radio' ? n.closest('.min-h-11') : n)?.getBoundingClientRect() ?? n.getBoundingClientRect()
+          const s = getComputedStyle(n, '::after')
+          const after = s.content !== 'none' ? { w: parseFloat(s.width) || 0, h: parseFloat(s.height) || 0 } : { w: 0, h: 0 }
+          return { w: Math.max(r.width, after.w), h: Math.max(r.height, after.h, n.closest('.min-h-11')?.getBoundingClientRect().height ?? 0) }
+        })
+        if (hit.h < 43.5 || hit.w < 43.5) out.push(`${await el.evaluate((n) => n.outerHTML.slice(0, 80))} ${hit.w}x${hit.h}`)
+      }
+      return out
+    }
+    expect(await small(page.locator('main form').first())).toEqual([])
+
+    await page.getByRole('button', { name: /^Anzahlung 20 %/ }).click()
+    await expect(panel(page).getByRole('heading', { name: 'Baustein bearbeiten' })).toBeVisible()
+    await expect(editor(panel(page), 'Text')).toBeVisible()
+    // Einblenden abwarten
+    await expect.poll(() => panel(page).evaluate((d) => d.getBoundingClientRect().right)).toBeLessThanOrEqual(375.5)
+    // nichts ragt sichtbar über den Rand (sr-only-Elemente ausgenommen), das Panel scrollt nicht seitlich
+    const overflow = await panel(page).evaluate((d) =>
+      [d, ...d.querySelectorAll('*')]
+        .filter((n) => {
+          const r = n.getBoundingClientRect()
+          return r.width > 1 && r.height > 1 && (r.right > window.innerWidth + 0.5 || (n as HTMLElement).scrollWidth > (n as HTMLElement).clientWidth + 1 && getComputedStyle(n).overflowX !== 'visible' && getComputedStyle(n).overflowX !== 'hidden')
+        })
+        .map((n) => `${n.tagName} ${(n.getAttribute('class') ?? '').slice(0, 60)} ${Math.round(n.getBoundingClientRect().right)} ${(n as HTMLElement).scrollWidth}/${(n as HTMLElement).clientWidth}`)
+    )
+    expect(overflow).toEqual([])
+    expect(await small(panel(page))).toEqual([])
+  })
+})
+
+test.describe('Barrierefreiheit', () => {
+  test.skip(!hasSupabaseEnv, 'keine .env.local')
+
+  test('Reiter und Baustein-Panel ohne axe-Verstöße (WCAG 2.1 AA)', async ({ page, users }) => {
+    desktopOnly()
+    const { owner } = await ownerWithTenant(users, 'Axe')
+    await signInAs(page, owner)
+    await openSettings(page)
+    await expect(editor(page, 'Fußzeile')).toBeVisible()
+    const axe = () => new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze()
+    const summary = (r: Awaited<ReturnType<typeof axe>>) => r.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`)
+    expect(summary(await axe())).toEqual([])
+    await page.getByRole('button', { name: /^Anzahlung 20 %/ }).click()
+    await expect(editor(panel(page), 'Text')).toBeVisible()
+    await expect.poll(() => panel(page).evaluate((d) => d.getBoundingClientRect().right - window.innerWidth)).toBeLessThanOrEqual(0.5)
+    expect(summary(await axe())).toEqual([])
   })
 })

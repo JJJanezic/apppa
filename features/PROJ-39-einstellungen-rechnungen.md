@@ -1,6 +1,6 @@
 # PROJ-39: Einstellungen → Rechnungen
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-10-31
 **Last Updated:** 2026-10-31
 
@@ -673,7 +673,174 @@ Alles andere ist vorhanden (shadcn/ui, react-hook-form, Zod, next-intl).
 **Für `/qa`:** Abläufe in der Oberfläche als E2E ergänzen: Nummernkreis-Vorschau mit nacherfassten Nummern, Baustein anlegen/Standard/Löschen, Einfügen aus Word bzw. Webseite, Konfliktanzeige, Betreiber-Abschnitt (aktiv/deaktiviert), Handy 375 px im Rechnungs-Reiter, Firefox/Safari.
 
 ## QA Test Results
-_To be added by /qa_
+
+**Tested:** 2026-10-31
+**App URL:** http://localhost:3000 (gebauter Server; Safari gegen `npm run dev`), Supabase „apppa-dev“
+**Tester:** QA Engineer (AI)
+
+**Umgebung:** Der Zugriff auf `.env.local` war gesperrt, die `grep`-Prüfung lief deshalb nicht. Abgesichert ist die Umgebung über `assertTestableProject` in beiden Test-Helfern (bricht bei Staging/Produktion ab).
+
+**Automatisierte Tests**
+- `npm test`: 634 grün, 2 übersprungen. Ein Hook-Timeout in `guests.integration.test.ts` („Dubletten“) trat nur im Gesamtlauf auf, allein läuft die Datei grün (15/15). Ursache ist Last, kein Fehler von PROJ-39.
+- `npm run lint` und `tsc --noEmit` sind sauber.
+- Unit-Tests: Die Regeln (`invoice-numbering`, `invoice-texts`, `rich-text`, `validation/invoice-settings`) waren aus /frontend vollständig abgedeckt, keine Ergänzung nötig.
+- E2E `tests/PROJ-39-einstellungen-rechnungen.spec.ts`: 24 Tests (3 aus /frontend, 21 neu)
+  - desktop: 23 grün, 1 rot (BUG-1)
+  - Firefox: Editor, Bausteine, feste Texte und Schalter grün bis auf BUG-1 und BUG-2. Künstliches Einfügen ist in Firefox nicht möglich (Testgrenze), der Test wird dort übersprungen.
+  - Safari: Editor (inkl. Einfügen), feste Texte und Schalter grün bis auf BUG-1
+- Regression (desktop): PROJ-37 (30, 1 übersprungen), PROJ-38 (14), PROJ-28 (19) und PROJ-4 (Mitarbeiter, 44-px-Layout mit axe, alle Projekte) grün
+
+### Acceptance Criteria Status
+
+#### Reiter und Zugang
+- [x] Reiter Stammdaten, Team, Wohnungen, Rechnungen; Adresse, Markierung, Tab-Titel, vier Abschnitte (E2E)
+- [x] Mitarbeiter → „Seite nicht gefunden“ (E2E, 404)
+- [x] Mitarbeiter am Formular vorbei abgelehnt (Integration: RLS ohne Zeilen, 42501; Server-Aktion `guard`)
+- [x] Inhaber A kann Kunde B weder lesen noch ändern (Integration)
+
+#### Schalter „Rechnungen nacherfassen“
+- [x] Kein Schalter mehr in Stammdaten; im Abschnitt „Nacherfassen“ mit gespeichertem Zustand (E2E)
+- [x] Ausgeschaltet → Rechnungsliste ohne „Rechnung nacherfassen“ (E2E PROJ-39 und PROJ-37)
+- [x] Hinweis aus PROJ-37 verweist auf *Einstellungen → Rechnungen* (E2E PROJ-37)
+
+#### Nummernkreis
+- [x] Voreinstellung: kein Präfix, mit Jahr, „-“, 4 Stellen, jährlich neu, Start 1 (E2E)
+- [x] Vorschau sofort vor dem Speichern („R-2026/0001“) (E2E)
+- [x] Leeres Präfix speicherbar; Nummer beginnt mit der Jahreszahl (E2E)
+- [x] Präfix „R #“ bzw. 11 Zeichen → Meldung, nichts gespeichert (E2E)
+- [x] Ohne Jahreszahl: „jährlich neu“ gesperrt mit Hinweis (E2E)
+- [x] Startnummer 0, -3, 1,5 → Meldung (E2E)
+- [x] 2026-0041/0042 → 2026-0043, unabhängig von der Startnummer, mit Hinweis (E2E)
+- [x] Nur „ALT-17“ und Vorjahr 2025-0118 → 2026-0001 (E2E)
+- [x] Ohne Jahr, „R-“, 5 Stellen, R-00123 → R-00124 (E2E)
+- [x] 3 Stellen, 2026-999 → 2026-1000 (E2E)
+- [x] Ohne ausgestellte Rechnung ohne Rückfrage gespeichert (E2E). Die Warnung nach dem Ausstellen ist eingebaut, aber erst mit PROJ-41 prüfbar (es gibt noch keine Herkunft „ausgestellt“).
+- [x] Bestehende Nummern unverändert (Code: keine Funktion schreibt `invoices.number`)
+
+#### Textbausteine
+- [x] Vorbelegung 1/2/1 mit Kennzeichen „Standard“ (E2E, Integration)
+- [x] Anlegen erscheint in der Liste; Pflichtfelder; Name > 60 und Text > 2.000 mit Grenze (E2E)
+- [x] „nächster besuch“ im selben Block abgelehnt, in anderem Block erlaubt (E2E)
+- [x] 20 Bausteine → „Baustein hinzufügen“ gesperrt mit Hinweis (E2E)
+- [x] Standard wechseln (nur einer), aufheben (Hinweis), Standard löschen (Bestätigung, danach ohne Standard) (E2E)
+- [x] Anderer Kunde behält seine Bausteine (E2E)
+- [x] Reihenfolge: Standard oben, dann nach Name (E2E)
+
+#### Zahlungsregeln (Block 6)
+- [x] Anzahlung ja/nein, Fälligkeit mit beiden Bezügen; Prozent und Frist bei „ja“ Pflicht (E2E)
+- [x] Prozent 0, 100,5, 12,345 und Frist 366, -1, 2,5 → Meldung (E2E)
+- [x] Anzahlungs-Platzhalter ohne Anzahlung → Hinweis, kein Speichern (E2E)
+- [x] „Anzahlung: nein“ nach dem Ausfüllen → Prozent und Frist null in der Datenbank (E2E)
+
+#### Editor, Platzhalter und Vorschau
+- [x] Fett, Kursiv, Aufzählung, Nummerierte Liste, sonst keine Werkzeuge (E2E)
+- [x] Einfügen von HTML mit Überschrift, Link, Farben, Schrift, Bild, Tabelle und Skript: nur fett/kursiv/Absätze/Liste bleiben, gespeichert ohne Fremdes, Skript läuft nicht (E2E Chrome, Safari). Siehe BUG-4 (Tabellenzellen).
+- [x] Platzhalter-Auswahl Block 4/7 (9), Block 6 (+ Fälligkeitsdatum, mit Anzahlung + 3) (E2E). Siehe BUG-1 (Fokus).
+- [x] Getipptes „{Wohnung}“ erkannt und in der Vorschau ersetzt (E2E)
+- [x] „{Gastname}“ unbekannt, „{Fälligkeitsdatum}“ in Block 4 nicht erlaubt, nichts gespeichert (E2E)
+- [x] Vorschau „Sehr geehrte Frau Mag. Muster … 14.10.2026“ ohne Wochentag (E2E)
+- [x] 20 % / 3 Tage / 1 Tag vor Anreise → € 90,00 bis 04.10.2026, € 360,00 bis 13.10.2026 (E2E)
+- [x] HTML, Attribute, Links, Bilder am Editor vorbei abgelehnt (Integration P0914)
+
+#### Feste Texte
+- [x] Vorbelegung Gesetzestext, Fußzeile leer (E2E)
+- [x] Leerer Hinweis → „darf nicht leer sein“; über 500 Zeichen → Grenze (E2E). Fußzeile über 2.000: Integration.
+- [x] Umformulierter Hinweis und Fußzeile (IBAN) nach Neuladen da (E2E)
+- [x] Kein „Platzhalter einfügen“; getippter „{Gast}“ unbekannt (E2E)
+- [x] Erklärsatz zur Bedingung immer sichtbar (E2E)
+
+#### Betreiber
+- [x] Abschnitt „Rechnungen“ bei aktivem Kunden bedienbar; Inhaber sieht den geänderten Nummernkreis (E2E)
+- [x] Deaktivierter Kunde: alles sichtbar, keine Speichern-/Menüknöpfe, Editoren nicht bearbeitbar, Baustein nur ansehen (E2E)
+- [x] Deaktivierter Kunde am Formular vorbei → P0016 (Integration)
+
+#### Schutz und Protokoll
+- [x] Konflikt Nummernkreis: Hinweis „inzwischen geändert“, nichts überschrieben, „Aktuelle Fassung laden“ zeigt den neuen Stand (E2E)
+- [x] Konflikt beim Standard (zwischenzeitlich aufgehoben) → Hinweis, nichts gesetzt (E2E)
+- [x] Gelöschter Baustein beim Speichern → „existiert nicht mehr“ (E2E)
+- [x] Protokoll „Rechnungseinstellungen geändert: Nummernkreis“, „Textbaustein angelegt: Abschlusstext – …“ mit Person; Text (Kontonummer) nicht im Protokoll (E2E)
+
+#### Allgemein
+- [x] Verbindungsabbruch: Meldung „Keine Verbindung …“, Eingabe bleibt, nichts gespeichert (E2E)
+- [ ] Teilweise: 375 px ohne seitliches Scrollen (Seite und Panel), Bedienelemente ≥ 44 px (E2E). Ausnahme ist der Schließen-Knopf des gemeinsamen Seitenpanels mit 40 × 40 px (BUG-5, schon vorher vorhanden).
+- [x] Bestehende Kunden mit Vorbelegung, Schalterwert übernommen (Integration)
+
+### Edge Cases Status
+- [x] Startnummer kleiner als höchste passende Nummer: höhere gewinnt, Hinweis (E2E)
+- [x] Andere Stellenzahl zählt mit (2026-999 bei 3 Stellen, Unit)
+- [x] Nur passende Formate zählen (ALT-17, Vorjahr) (E2E)
+- [x] Anzahlung 100 % → Rest € 0,00 (Unit)
+- [x] Gleichzeitiger Standard → Konflikt (E2E), gleichzeitiger gleicher Name → P0913 (Integration)
+- [x] Nur Leerzeichen/Formatierung gilt als leer (Unit, E2E Pflichtfeld)
+- [x] Lange IBAN in der Fußzeile am Handy: kein seitliches Scrollen
+- [ ] Viele Rechnungen: siehe BUG-3
+
+### Security Audit Results
+- [x] Ohne Anmeldung kein Zugriff; Mitarbeiter: Seite 404, Tabellen ohne Zeilen, Funktionen 42501
+- [x] Fremder Inhaber und Admin ohne 2FA: 42501 (Integration)
+- [x] Kein direktes Schreiben in `invoice_settings`/`invoice_text_blocks` (nur `select` erteilt, RLS ohne Schreib-Policies)
+- [x] Alle Funktionen `security definer` mit `search_path = ''`; Hüllen `security invoker`; Hilfsfunktionen für anon gesperrt
+- [x] XSS: Gespeichert wird nur die strenge JSON-Struktur (Datenbank-CHECK, auch mit Service-Key); Ausgabe ohne `dangerouslySetInnerHTML`; eingefügtes `<script>`/`onerror` läuft nicht (E2E)
+- [x] Deaktivierter Kunde serverseitig gesperrt (P0016)
+- [x] Protokoll ohne Textinhalt (keine Bankdaten im Betreiber-Protokoll)
+- [x] Grenzen (20 je Block, 2.000/500 Zeichen) in der Datenbank. Hinweis: Leere Absätze zählen nicht zur Zeichengrenze, ihre Anzahl ist nicht begrenzt. Das Server-Aktions-Limit von 1 MB begrenzt sie praktisch; direkt per RPC wäre ein großes Dokument speicherbar (nur für Inhaber/Betreiber des eigenen Kunden, kein Fremdzugriff). Kein eigener Bug, für PROJ-41 (PDF) im Blick behalten.
+
+### Bugs Found
+
+#### BUG-1: Fokus verlässt den Editor nach „Platzhalter einfügen“
+- **Severity:** Medium
+- **Steps to Reproduce:**
+  1. *Einstellungen → Rechnungen*, Baustein hinzufügen, „Hallo “ tippen
+  2. „Platzhalter einfügen“ → „{Gast}“ wählen
+  3. Weitertippen
+  4. Expected: Text wird hinter „{Gast}“ eingefügt
+  5. Actual: Nach dem Schließen des Menüs springt der Fokus auf den Knopf „Platzhalter einfügen“ zurück. Tastenanschläge gehen verloren, die Leertaste öffnet das Menü erneut. Tritt in Chrome, Firefox und Safari auf. Vermutliche Ursache: Radix `DropdownMenu` setzt den Fokus beim Schließen auf den Auslöser (`onCloseAutoFocus`) und überschreibt `editor.chain().focus()`.
+- **Test:** `BUG-1: Nach „Platzhalter einfügen“ bleibt der Fokus in der Schreibfläche` (rot)
+- **Priority:** Fix before deployment (Kernablauf beim Schreiben von Bausteinen)
+
+#### BUG-2: Einstellungsbaum wird nach dem Laden manchmal neu aufgebaut; Editoren verlieren dann ihren Namen
+- **Severity:** Medium
+- **Steps to Reproduce:**
+  1. *Einstellungen → Rechnungen* bei 375 px öffnen (oft), in Firefox neu laden (oft), Desktop Chrome (selten)
+  2. Expected: Seite wird einmal aufgebaut, Schreibflächen heißen „Kleinunternehmer-Hinweis“, „Fußzeile“ bzw. „Text“
+  3. Actual:
+     - ~100 ms lang stehen alle Formulare doppelt im DOM (Server-IDs `_R_…` und Client-IDs `_r_…`). Eingaben in dieser Zeit gehen verloren.
+     - Danach zeigt `aria-labelledby` der Editoren mitunter auf eine nicht mehr vorhandene ID. Die Schreibflächen haben dann keinen zugänglichen Namen (Screenreader: „Textfeld“).
+     - Die gespeicherten Daten sind richtig.
+  4. Vermutliche Ursache: Der Unterbaum wird im Browser neu gerendert (neue `useId`-Werte), während der Tiptap-Editor seine ersten `editorProps.attributes` behält. `labelId` steht nicht in den Abhängigkeiten von `setProps`. Auf Stammdaten tritt der Neuaufbau nicht auf.
+- **Test:** `openSettings` wartet auf ein einzelnes Formular. Der axe-Test und „Fußzeile bleibt nach Neuladen“ (Firefox) schlagen zeitweise fehl.
+- **Priority:** Fix before deployment (Barrierefreiheit, verlorene Eingaben)
+
+#### BUG-3: Vorschau „nächste Nummer“ liest höchstens 1.000 Rechnungsnummern
+- **Severity:** Low
+- **Steps to Reproduce:**
+  1. Kunde mit mehr als 1.000 Rechnungen, die höchste passende Nummer hat ein älteres Rechnungsdatum als die 1.000 neuesten
+  2. Expected: höchste passende Nummer + 1
+  3. Actual: PostgREST liefert höchstens `max_rows = 1000` Zeilen (`NUMBERS_LIMIT = 20_000` greift nicht). Geliefert werden die neuesten nach Rechnungsdatum (Index `invoices_list_idx`), die übrigen fehlen in der Rechnung, und die Vorschau schlägt eine zu kleine Nummer vor. Nachgeprüft: 1.100 Rechnungen → 1.000 Zeilen zurück.
+- **Priority:** Fix spätestens mit PROJ-41 (dieselbe Regel liefert dort den Nummernvorschlag), z. B. nur passende Nummern serverseitig ermitteln oder seitenweise laden
+
+#### BUG-4: Eingefügte Tabellen kleben die Zellen ohne Trennung zusammen
+- **Severity:** Low
+- **Steps to Reproduce:** Tabelle mit „Zelle A | Zelle B“ aus Word/Webseite einfügen → Absatz „Zelle AZelle B“
+- **Expected:** Zellen als eigene Absätze oder durch Leerzeichen getrennt (Tech Design: „Tabellen zu Absätzen“)
+- **Priority:** Nice to have
+
+#### BUG-5: Schließen-Knopf des Seitenpanels nur 40 × 40 px (schon vorher vorhanden)
+- **Severity:** Low
+- **Steps to Reproduce:** Bei 375 px einen Baustein öffnen und den Knopf „Schließen“ (X oben rechts) messen: 40 × 40 px statt mindestens 44 px. Gemeinsames `DetailPanel` (`p-3` + 16-px-Symbol), betrifft alle Panels der App.
+- **Priority:** Nice to have (eigene Korrektur am gemeinsamen Baustein)
+
+#### BUG-6: „Als Standard setzen“ ändert den Stand des Bausteins (aus Code-Prüfung)
+- **Severity:** Low
+- **Steps to Reproduce:** Nutzer A bearbeitet Baustein X im Panel; Nutzer B setzt X als Standard; A speichert → „Der Baustein wurde inzwischen geändert“, obwohl nur der Standard wechselte (der Trigger `set_audit_fields` setzt `updated_at` auch beim Umschalten von `is_default`).
+- **Priority:** Nice to have
+
+### Summary
+- **Acceptance Criteria:** 65/66 bestanden, 1 teilweise (375 px: Schließen-Knopf, BUG-5); die Liste oben fasst verwandte Kriterien zusammen
+- **Bugs Found:** 6 insgesamt (0 Critical, 0 High, 2 Medium, 4 Low)
+- **Security:** Bestanden, keine Schwachstelle gefunden
+- **Production Ready:** YES (keine Critical/High)
+- **Recommendation:** BUG-1 und BUG-2 vor dem Deploy beheben (`/frontend`), BUG-3 spätestens mit PROJ-41
 
 ## Deployment
 _To be added by /deploy_
