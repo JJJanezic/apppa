@@ -61,6 +61,9 @@ const SidebarProvider = React.forwardRef<
     onOpenChange?: (open: boolean) => void
     // apppa: Cmd/Ctrl+B abschaltbar (fest ausgeklappte Seitenleiste soll das Kürzel nicht verschlucken)
     keyboardShortcut?: boolean
+    // apppa: Handy-Erkennung abschaltbar. Ohne Schublade (collapsible="none") braucht sie niemand; sie ändert sonst
+    // nach dem Laden den Kontext, und React baut eine noch gestreamte Seite im Browser neu auf (BUG-2 aus QA PROJ-39)
+    detectMobile?: boolean
   }
 >(
   (
@@ -69,6 +72,7 @@ const SidebarProvider = React.forwardRef<
       open: openProp,
       onOpenChange: setOpenProp,
       keyboardShortcut = true,
+      detectMobile = true,
       className,
       style,
       children,
@@ -76,7 +80,7 @@ const SidebarProvider = React.forwardRef<
     },
     ref
   ) => {
-    const isMobile = useIsMobile()
+    const isMobile = useIsMobile(detectMobile)
     const [openMobile, setOpenMobile] = React.useState(false)
 
     // This is the internal state of the sidebar.

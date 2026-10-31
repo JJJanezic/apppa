@@ -8,12 +8,13 @@ import type { Node as PmNode } from '@tiptap/pm/model'
 import { EditorContent, useEditor, useEditorState } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import { useTranslations } from 'next-intl'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Toggle } from '@/components/ui/toggle'
 import { formatNumber } from '@/lib/format'
+import { tablesToBlocks } from '@/lib/paste-html'
 import { allowedPlaceholders, PLACEHOLDER_PATTERN, type PlaceholderContext } from '@/lib/invoice-texts'
 import { docLength, normalizeDoc, type RichDoc } from '@/lib/rich-text'
 import { cn } from '@/lib/utils'
@@ -109,6 +110,8 @@ export function RichTextEditor({ value, onChange, context, max, labelId, describ
     ],
     content: value,
     editorProps: {
+      // Tabellen aus Word oder Webseiten: jede Zelle ein Absatz statt zusammengeklebtem Text (BUG-4 aus QA)
+      transformPastedHTML: tablesToBlocks,
       attributes: {
         role: 'textbox',
         'aria-multiline': 'true',
@@ -129,13 +132,23 @@ export function RichTextEditor({ value, onChange, context, max, labelId, describ
     editor.view.dispatch(editor.state.tr.setMeta(placeholderKey, next))
   }, [editor, placeholderList])
 
+  // Angaben für Screenreader immer aus den aktuellen Werten, auch die Bezeichnung: Der Editor behält sonst die
+  // Attribute seines ersten Aufbaus (BUG-2 aus QA)
   useEffect(() => {
     if (!editor || editor.isDestroyed) return
     editor.setEditable(!readOnly)
-    const attrs: Record<string, string> = { 'aria-invalid': invalid ? 'true' : 'false', 'aria-readonly': readOnly ? 'true' : 'false' }
+    const attrs: Record<string, string> = {
+      'aria-labelledby': labelId,
+      'aria-invalid': invalid ? 'true' : 'false',
+      'aria-readonly': readOnly ? 'true' : 'false',
+    }
     if (describedBy) attrs['aria-describedby'] = describedBy
     editor.view.setProps({ attributes: { ...editor.options.editorProps.attributes, ...attrs } as Record<string, string> })
-  }, [editor, readOnly, invalid, describedBy])
+  }, [editor, labelId, readOnly, invalid, describedBy])
+
+  // Nach „Platzhalter einfügen“ zurück in die Schreibfläche statt auf den Menüknopf (BUG-1 aus QA). Ohne Auswahl
+  // (Escape, Klick daneben) bleibt der Fokus wie üblich auf dem Knopf.
+  const inserted = useRef(false)
 
   const active = useEditorState({
     editor,
@@ -178,12 +191,24 @@ export function RichTextEditor({ value, onChange, context, max, labelId, describ
                   {t('insertPlaceholder')}
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="max-h-80 overflow-y-auto">
+              <DropdownMenuContent
+                align="end"
+                className="max-h-80 overflow-y-auto"
+                onCloseAutoFocus={(event) => {
+                  if (!inserted.current) return
+                  inserted.current = false
+                  event.preventDefault()
+                  editor?.commands.focus()
+                }}
+              >
                 {placeholders.map((name) => (
                   <DropdownMenuItem
                     key={name}
                     className="min-h-11"
-                    onSelect={() => editor?.chain().focus().insertContent({ type: 'text', text: `{${name}}` }).run()}
+                    onSelect={() => {
+                      inserted.current = true
+                      editor?.chain().focus().insertContent({ type: 'text', text: `{${name}}` }).run()
+                    }}
                   >
                     {`{${name}}`}
                   </DropdownMenuItem>

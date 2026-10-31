@@ -22,7 +22,7 @@ export function DetailPanel({ open, onOpenChange, title, eyebrow, description, c
       <SheetContent
         side="right"
         onEscapeKeyDown={onEscapeKeyDown}
-        className="flex w-full flex-col gap-6 overflow-y-auto bg-ds-bg p-6 sm:max-w-[440px] [&>button:last-child]:right-2 [&>button:last-child]:top-2 [&>button:last-child]:p-3"
+        className="flex w-full flex-col gap-6 overflow-y-auto bg-ds-bg p-6 sm:max-w-[440px] [&>button:last-child]:right-2 [&>button:last-child]:top-2 [&>button:last-child]:p-3.5"
       >
         <SheetHeader className="gap-1 pr-10 text-left">
           {eyebrow && <div className="text-[13px] text-ds-neutral-700">{eyebrow}</div>}

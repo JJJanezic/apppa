@@ -60,7 +60,7 @@ export function BottomNav() {
             </SheetTrigger>
             <SheetContent
               side="bottom"
-              className="max-h-[85svh] overflow-y-auto rounded-t-lg bg-ds-bg pb-[calc(1.5rem+env(safe-area-inset-bottom))] [&>button:last-child]:right-2 [&>button:last-child]:top-2 [&>button:last-child]:p-3"
+              className="max-h-[85svh] overflow-y-auto rounded-t-lg bg-ds-bg pb-[calc(1.5rem+env(safe-area-inset-bottom))] [&>button:last-child]:right-2 [&>button:last-child]:top-2 [&>button:last-child]:p-3.5"
             >
               <SheetHeader className="text-left">
                 <SheetTitle className="text-xl">{t('moreTitle')}</SheetTitle>

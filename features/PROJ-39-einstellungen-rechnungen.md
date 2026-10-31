@@ -1,6 +1,6 @@
 # PROJ-39: Einstellungen → Rechnungen
 
-## Status: Approved
+## Status: In Progress
 **Created:** 2026-10-31
 **Last Updated:** 2026-10-31
 
@@ -609,6 +609,21 @@ Alles andere ist vorhanden (shadcn/ui, react-hook-form, Zod, next-intl).
   - `update_tenant_master_data` ohne diesen Schlüssel
   - `save_invoice` (P0905) liest `invoice_settings.backfill_enabled`
 - Nach der Migration die Typen neu erzeugen
+
+### Korrekturen nach QA (Frontend, 2026-10-31)
+- **BUG-1 (Fokus nach „Platzhalter einfügen“):** `rich-text-editor.tsx` merkt sich die Auswahl eines Platzhalters. Beim Schließen des Menüs verhindert `onCloseAutoFocus` dann den Sprung zum Menüknopf und setzt den Fokus in die Schreibfläche. Ohne Auswahl (Escape, Klick daneben) bleibt der Fokus wie üblich auf dem Knopf.
+- **BUG-2 (doppelter Aufbau, Schreibflächen ohne Namen):** Die Ursache lag nicht in PROJ-39.
+  - `SidebarProvider` setzt nach dem Laden `isMobile` (bei 375 px auf `true`). Diese Kontextänderung erreicht die noch gestreamte Seite hinter `loading.tsx`. React kann sie dann nicht mehr hydrieren und baut sie im Browser neu auf, während der Server-Inhalt versteckt (`div#S:0[hidden]`) noch ankommt. Nachgestellt mit Playwright; im React-Quelltext bestätigt: jede Kontextänderung oberhalb einer wartenden Grenze führt zum Neuaufbau.
+  - Die App nutzt die Seitenleiste ohne Schublade (`collapsible="none"`, unter 1024 px die untere Leiste) und braucht `isMobile` nicht. Neue Option `detectMobile` in `ui/sidebar.tsx` (nach dem Muster von `keyboardShortcut`), `useIsMobile(enabled)` in `hooks/use-mobile.tsx`; `(app)/layout.tsx` setzt `detectMobile={false}`. Das betrifft alle Seiten der App und behebt den Neuaufbau überall bei 375 px.
+  - Zusätzlich setzt der Editor `aria-labelledby` jetzt im selben Effekt wie die übrigen ARIA-Angaben, mit der aktuellen Bezeichnung.
+  - Nachgeprüft gegen den Produktions-Build, je 16 Ladevorgänge bei 375 px (Chrome) und in Firefox: immer genau ein Formular, alle Schreibflächen mit Namen. Im Dev-Modus (`npm run dev`) gibt es weiterhin vereinzelte `useId`-Abweichungen ab der App-Hülle. Sie treten im Build nicht auf und betreffen nicht nur PROJ-39.
+- **BUG-4 (Tabellen beim Einfügen):** neue Funktion `src/lib/paste-html.ts` `tablesToBlocks` (mit Unit-Test) als `transformPastedHTML`. Jede Tabelle wird durch ihre Zellen als eigene Blöcke ersetzt, verschachtelte Tabellen von innen nach außen. Jede Zelle wird so ein eigener Absatz.
+- **BUG-5 (Schließen-Knopf 40 px):** `detail-panel.tsx` und das „Mehr“-Blatt in `shell/bottom-nav.tsx` mit `p-3.5` statt `p-3`, also 44 × 44 px. Das gilt für alle Seitenpanels der App.
+- **E2E angepasst:** Die Umgehung für BUG-1 in der Platzhalter-Prüfung ist entfernt. Die Prüfung des Einfügens erwartet „Zelle A“ und „Zelle B“ als eigene Absätze. Die 44-px-Prüfung bei 375 px nimmt den Schließen-Knopf nicht mehr aus.
+- **Tests:** `npm test` (unit) 467 grün, Lint und Typprüfung sauber, Produktions-Build läuft durch. E2E PROJ-39 gegen den Build:
+  - desktop: 26/26 grün
+  - Firefox: 24 grün, 1 übersprungen (künstliches Einfügen), 1 rot. Rot ist der Grenzfall „mehr als 1.000 Rechnungen“, also BUG-3. Er ist dem Backend zugeordnet und noch offen. Auf desktop war er nur zufällig grün, weil alle Testrechnungen dasselbe Datum haben.
+- **Offen per `/backend`:** BUG-3 und BUG-6
 
 ## Implementation Notes (Backend)
 **Stand 2026-10-31.** Migration `20261031110516_invoice_settings.sql` ist in Dev („apppa-dev“) eingespielt (vom Nutzer freigegeben wegen neuer Zugriffsregeln), die Typen sind neu erzeugt. Die Advisors melden nur die bekannten Auth-Hinweise (`auth_otp_long_expiry`, `auth_leaked_password_protection`, Runbook).

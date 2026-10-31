@@ -104,7 +104,7 @@ async function ownerWithTenant(users: Fixtures['users'], name: string) {
 async function openSettings(page: Page) {
   await page.goto('/einstellungen/rechnungen')
   await ready(page)
-  // bei 375 px kurz doppelt aufgebaut (BUG-2): warten, bis nur noch ein Formular steht
+  // genau ein Formular: Die Seite wird nicht im Browser ein zweites Mal aufgebaut (BUG-2)
   await expect(page.locator('input[name=prefix]')).toHaveCount(1)
 }
 
@@ -500,11 +500,7 @@ test.describe('Zahlungsregeln, Editor und Vorschau', () => {
     await panel(page).getByRole('button', { name: 'Platzhalter einfügen' }).click()
     await expect(page.getByRole('menuitem')).toHaveText(base)
     await page.getByRole('menuitem', { name: '{Anrede}' }).click()
-    // Fokus springt nach dem Einfügen zurück auf den Menüknopf (BUG-1, eigener Test): wieder ans Textende
-    await page.waitForTimeout(500)
-    await editor(panel(page), 'Text').click()
-    await page.keyboard.press('ControlOrMeta+End')
-    // getippt wie eingefügt; Vorschau mit Beispieldaten, Datum ohne Wochentag
+    // Fokus bleibt in der Schreibfläche (BUG-1, eigener Test); getippt wie eingefügt; Vorschau mit Beispieldaten, Datum ohne Wochentag
     await page.keyboard.type(', willkommen in {Wohnung} am {Anreise}.')
     await expect(panel(page).getByText('Sehr geehrte Frau Mag. Muster, willkommen in Top 1 am 14.10.2026.')).toBeVisible()
 
@@ -575,7 +571,9 @@ test.describe('Zahlungsregeln, Editor und Vorschau', () => {
       document.activeElement!.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }))
     })
     const box = editor(p, 'Text')
-    await expect(box).toContainText('Zelle A')
+    // Tabellenzellen als eigene Absätze statt zusammengeklebt (BUG-4)
+    await expect(box.locator('p').filter({ hasText: /^Zelle A$/ })).toHaveCount(1)
+    await expect(box.locator('p').filter({ hasText: /^Zelle B$/ })).toHaveCount(1)
     await expect(box.locator('a, img, table, h1, script, [style]')).toHaveCount(0)
     await expect(box.locator('strong')).toHaveText('Fett')
     await expect(box.locator('em')).toHaveText('kursiv')
@@ -744,10 +742,8 @@ test.describe('Handy', () => {
     expect(await noHorizontalScroll()).toBe(true)
 
     const small = async (scope: ReturnType<Page['getByRole']> | Page) => {
-      // ohne versteckte Formularfelder (aria-hidden) und ohne den Schließen-Knopf des gemeinsamen Seitenpanels (BUG-5, PROJ-2)
-      const controls = scope.locator(
-        'button:visible:not([data-slot=sheet-close]):not(:has(> .sr-only:text-is("Schließen"))), input:visible:not([aria-hidden=true]), [role="switch"]:visible, [role="combobox"]:visible'
-      )
+      // ohne versteckte Formularfelder (aria-hidden); der Schließen-Knopf des Seitenpanels zählt mit (BUG-5)
+      const controls = scope.locator('button:visible, input:visible:not([aria-hidden=true]), [role="switch"]:visible, [role="combobox"]:visible')
       const out: string[] = []
       for (const el of await controls.all()) {
         const box = await el.boundingBox()

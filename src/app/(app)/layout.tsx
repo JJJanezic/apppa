@@ -49,6 +49,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <SidebarProvider
           defaultOpen
           keyboardShortcut={false}
+          // Seitenleiste ohne Schublade (unter 1024 px die untere Leiste): keine Handy-Erkennung, siehe sidebar.tsx
+          detectMobile={false}
           // Breite wie im Entwurf; SidebarProvider setzt sonst 16rem per Inline-Style
           style={{ '--sidebar-width': '236px' } as React.CSSProperties}
           className="bg-ds-bg"
