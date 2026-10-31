@@ -90,6 +90,18 @@ const PlaceholderMarks = Extension.create<{ allowed: string[] }>({
 export function RichTextEditor({ value, onChange, context, max, labelId, describedBy, invalid, readOnly = false }: RichTextEditorProps) {
   const t = useTranslations('invoiceSettings.editor')
   const placeholders = allowedPlaceholders(context)
+  // Angaben für Screenreader bei jedem Rendern aus den aktuellen Werten: useEditor übernimmt nach jedem Rendern die
+  // editorProps neu und würde nachträglich gesetzte Attribute wieder entfernen (BUG-2 aus QA)
+  const attributes: Record<string, string> = {
+    role: 'textbox',
+    'aria-multiline': 'true',
+    'aria-labelledby': labelId,
+    'aria-invalid': invalid ? 'true' : 'false',
+    'aria-readonly': readOnly ? 'true' : 'false',
+    class:
+      'min-h-32 break-words px-3 py-2 text-[15px] leading-relaxed outline-none [&_ol]:list-decimal [&_ol]:pl-6 [&_p]:my-1 [&_ul]:list-disc [&_ul]:pl-6',
+  }
+  if (describedBy) attributes['aria-describedby'] = describedBy
   const editor = useEditor({
     immediatelyRender: false,
     editable: !readOnly,
@@ -112,13 +124,7 @@ export function RichTextEditor({ value, onChange, context, max, labelId, describ
     editorProps: {
       // Tabellen aus Word oder Webseiten: jede Zelle ein Absatz statt zusammengeklebtem Text (BUG-4 aus QA)
       transformPastedHTML: tablesToBlocks,
-      attributes: {
-        role: 'textbox',
-        'aria-multiline': 'true',
-        'aria-labelledby': labelId,
-        class:
-          'min-h-32 break-words px-3 py-2 text-[15px] leading-relaxed outline-none [&_ol]:list-decimal [&_ol]:pl-6 [&_p]:my-1 [&_ul]:list-disc [&_ul]:pl-6',
-      },
+      attributes,
     },
     // useEditor ruft immer den aktuellen Rückruf auf
     onUpdate: ({ editor: e }) => onChange(normalizeDoc(e.getJSON())),
@@ -132,19 +138,10 @@ export function RichTextEditor({ value, onChange, context, max, labelId, describ
     editor.view.dispatch(editor.state.tr.setMeta(placeholderKey, next))
   }, [editor, placeholderList])
 
-  // Angaben für Screenreader immer aus den aktuellen Werten, auch die Bezeichnung: Der Editor behält sonst die
-  // Attribute seines ersten Aufbaus (BUG-2 aus QA)
   useEffect(() => {
     if (!editor || editor.isDestroyed) return
     editor.setEditable(!readOnly)
-    const attrs: Record<string, string> = {
-      'aria-labelledby': labelId,
-      'aria-invalid': invalid ? 'true' : 'false',
-      'aria-readonly': readOnly ? 'true' : 'false',
-    }
-    if (describedBy) attrs['aria-describedby'] = describedBy
-    editor.view.setProps({ attributes: { ...editor.options.editorProps.attributes, ...attrs } as Record<string, string> })
-  }, [editor, labelId, readOnly, invalid, describedBy])
+  }, [editor, readOnly])
 
   // Nach „Platzhalter einfügen“ zurück in die Schreibfläche statt auf den Menüknopf (BUG-1 aus QA). Ohne Auswahl
   // (Escape, Klick daneben) bleibt der Fokus wie üblich auf dem Knopf.

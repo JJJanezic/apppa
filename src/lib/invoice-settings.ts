@@ -29,7 +29,7 @@ export type InvoiceSettingsData = {
 export const INVOICE_SETTINGS_COLUMNS =
   'tenant_id, number_prefix, number_with_year, number_separator, number_digits, number_yearly_reset, number_start, number_start_year, numbering_updated_at, small_business_note, footer, texts_updated_at, backfill_enabled, backfill_updated_at'
 
-export const TEXT_BLOCK_COLUMNS = 'id, block, name, body, is_default, deposit_percent, deposit_days, due_days, due_basis, updated_at'
+export const TEXT_BLOCK_COLUMNS = 'id, block, name, body, is_default, deposit_percent, deposit_days, due_days, due_basis, content_updated_at'
 
 export type InvoiceSettingsRow = {
   tenant_id: string
@@ -58,7 +58,8 @@ export type TextBlockRow = {
   deposit_days: number | null
   due_days: number | null
   due_basis: string | null
-  updated_at: string
+  // Stand des Inhalts (Name, Text, Zahlungsregeln); der Standard ändert ihn nicht (BUG-6 aus QA)
+  content_updated_at: string
 }
 
 // Gespeicherte Texte sind von der Datenbank geprüft; normalizeDoc fängt trotzdem jede Abweichung ab
@@ -81,7 +82,7 @@ export function textBlockFromRow(row: TextBlockRow): TextBlock {
             dueBasis: (row.due_basis ?? 'after_invoice') as DueBasis,
           }
         : null,
-    updatedAt: row.updated_at,
+    updatedAt: row.content_updated_at,
   }
 }
 

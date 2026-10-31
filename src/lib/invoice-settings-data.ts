@@ -15,9 +15,6 @@ import { getTenantContext } from '@/lib/tenant'
 // Lesefunktionen für Einstellungen → Rechnungen (PROJ-39). Lesen dürfen nur Inhaber des Kunden und der Betreiber;
 // die Datenbank (RLS) prüft das zusätzlich, Mitarbeiter sehen keine Zeile.
 
-// Obergrenze der geladenen Rechnungsnummern für die Vorschau (reicht für viele Jahre)
-const NUMBERS_LIMIT = 20_000
-
 // null: Einstellungen nicht lesbar (z. B. Migration fehlt); die Seite zeigt dann einen Hinweis
 export async function loadInvoiceSettings(tenantId: string): Promise<InvoiceSettingsData | null> {
   if (!/^[0-9a-f-]{36}$/i.test(tenantId)) return null
@@ -25,7 +22,8 @@ export async function loadInvoiceSettings(tenantId: string): Promise<InvoiceSett
   const [settings, blocks, numbers, issued] = await Promise.all([
     supabase.from('invoice_settings').select(INVOICE_SETTINGS_COLUMNS).eq('tenant_id', tenantId).maybeSingle(),
     supabase.from('invoice_text_blocks').select(TEXT_BLOCK_COLUMNS).eq('tenant_id', tenantId).limit(100),
-    supabase.from('invoices').select('number').eq('tenant_id', tenantId).limit(NUMBERS_LIMIT),
+    // alle Nummern als ein Wert: Zeilenabfragen kappt PostgREST bei 1.000 (BUG-3 aus QA)
+    supabase.rpc('invoice_numbers', { p_tenant_id: tenantId }),
     supabase.from('invoices').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId).neq('origin', 'backfilled'),
   ])
   for (const [label, r] of [
@@ -40,7 +38,7 @@ export async function loadInvoiceSettings(tenantId: string): Promise<InvoiceSett
   return invoiceSettingsFromRows(
     settings.data,
     blocks.data ?? [],
-    (numbers.data ?? []).map((n) => n.number),
+    numbers.data ?? [],
     (issued.count ?? 0) > 0
   )
 }

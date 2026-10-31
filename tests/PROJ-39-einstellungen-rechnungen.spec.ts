@@ -616,6 +616,10 @@ test.describe('Feste Texte und Schalter', () => {
     await page.keyboard.insertText('k'.repeat(501))
     await save.click()
     await expect(page.getByText('Der Text ist zu lang: 501 von höchstens 500 Zeichen.')).toBeVisible()
+    // Fehlerzustand für Screenreader, auch nach weiteren Eingaben (useEditor setzt die Attribute je Rendern neu)
+    await expect(note).toHaveAttribute('aria-invalid', 'true')
+    await expect(note).toHaveAccessibleDescription(/Der Text ist zu lang: 501 von höchstens 500 Zeichen\./)
+    await expect(footer).toHaveAttribute('aria-invalid', 'false')
     // getippter Platzhalter in fester Text = unbekannt
     await typeInto(page, note, 'Steuerfrei als Kleinunternehmer.', { clear: true })
     await typeInto(page, footer, 'IBAN AT61 1904 3002 3457 3201 · {Gast}')

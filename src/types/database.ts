@@ -863,6 +863,7 @@ export type Database = {
         Row: {
           block: string
           body: Json
+          content_updated_at: string
           created_at: string
           created_by: string | null
           deposit_days: number | null
@@ -880,6 +881,7 @@ export type Database = {
         Insert: {
           block: string
           body: Json
+          content_updated_at?: string
           created_at?: string
           created_by?: string | null
           deposit_days?: number | null
@@ -897,6 +899,7 @@ export type Database = {
         Update: {
           block?: string
           body?: Json
+          content_updated_at?: string
           created_at?: string
           created_by?: string | null
           deposit_days?: number | null
@@ -1526,6 +1529,7 @@ export type Database = {
           total: number
         }[]
       }
+      invoice_numbers: { Args: { p_tenant_id: string }; Returns: string[] }
       merge_guests: {
         Args: { p_choice: Json; p_keep: string; p_remove: string }
         Returns: undefined

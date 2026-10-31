@@ -2,7 +2,6 @@
 
 import dynamic from 'next/dynamic'
 import { useTranslations } from 'next-intl'
-import { useId } from 'react'
 import type { Control, FieldPath, FieldValues } from 'react-hook-form'
 
 import { RichTextView } from '@/components/invoice-settings/rich-text-view'
@@ -31,7 +30,10 @@ interface RichTextFieldProps<V extends FieldValues> {
 
 export function RichTextField<V extends FieldValues>({ control, name, label, hint, context, max, readOnly, preview }: RichTextFieldProps<V>) {
   const t = useTranslations('invoiceSettings.editor')
-  const id = useId()
+  // Feste IDs aus dem Feldnamen statt useId: Tiptap setzt aria-labelledby/-describedby selbst im Browser. Weicht eine
+  // useId zwischen Server und Browser ab, behält die Bezeichnung die Server-ID und die Schreibfläche verliert ihren
+  // Namen (gesehen auf der Betreiber-Seite, BUG-2 aus QA). Je Seite gibt es jedes Feld nur einmal.
+  const id = `rich-text-${String(name).replace(/[^A-Za-z0-9_-]/g, '-')}`
   const labelId = `${id}-label`
   const hintId = `${id}-hint`
   const messageId = `${id}-message`

@@ -21,6 +21,7 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-39 Rechnungseinstellungen', () => {
   const tenants: string[] = []
   let tenantA: string, tenantB: string
   let ownerA: Client, staffA: Client, ownerB: Client, admin: Client, adminAal1: Client
+  let ownerBUser: TestUser
   const runId = randomUUID().slice(0, 8)
 
   const newTenant = async (members: [TestUser, 'owner' | 'staff'][]) => {
@@ -91,6 +92,7 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-39 Rechnungseinstellungen', () => {
       [oa.user, 'owner'],
       [sa.user, 'staff'],
     ])
+    ownerBUser = ob.user
     tenantB = await newTenant([[ob.user, 'owner']])
   }, 60_000)
 
@@ -273,12 +275,12 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-39 Rechnungseinstellungen', () => {
 
     const [row] = (await blocks(tenantA)).filter((b) => b.id === id)
     expect(row.name).toBe('Nächster Besuch')
-    const edited = await saveBlock(ownerA, { id, updated_at: row.updated_at, name: 'Wiedersehen', body: doc('Bis bald, {Gast}!') })
+    const edited = await saveBlock(ownerA, { id, updated_at: row.content_updated_at, name: 'Wiedersehen', body: doc('Bis bald, {Gast}!') })
     expect(edited.error).toBeNull()
     // alter Stand → Konflikt; Block wechseln geht nicht
-    expect((await saveBlock(admin, { id, updated_at: row.updated_at, name: 'Admin' })).error?.code).toBe('P0910')
+    expect((await saveBlock(admin, { id, updated_at: row.content_updated_at, name: 'Admin' })).error?.code).toBe('P0910')
     const [now] = (await blocks(tenantA)).filter((b) => b.id === id)
-    expect((await saveBlock(ownerA, { id, updated_at: now.updated_at, block: 'closing', name: 'X' })).error?.code).toBe('P0914')
+    expect((await saveBlock(ownerA, { id, updated_at: now.content_updated_at, block: 'closing', name: 'X' })).error?.code).toBe('P0914')
     expect((await log(tenantA)).at(-1)).toEqual({
       action: 'text_block_updated',
       changed_fields: ['name', 'body'],
@@ -287,7 +289,7 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-39 Rechnungseinstellungen', () => {
     })
 
     expect((await ownerA.rpc('delete_invoice_text_block', { p_tenant_id: tenantA, p_block_id: id })).error).toBeNull()
-    expect((await saveBlock(ownerA, { id, updated_at: now.updated_at, name: 'Weg' })).error?.code).toBe('P0911')
+    expect((await saveBlock(ownerA, { id, updated_at: now.content_updated_at, name: 'Weg' })).error?.code).toBe('P0911')
     expect((await ownerA.rpc('delete_invoice_text_block', { p_tenant_id: tenantA, p_block_id: id })).error?.code).toBe('P0911')
     expect((await log(tenantA)).at(-1)).toMatchObject({ action: 'text_block_deleted', target_block: 'intro', target_label: 'Wiedersehen' })
     // fremder Inhaber löscht nicht
@@ -365,6 +367,51 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-39 Rechnungseinstellungen', () => {
     expect(second.error?.code).toBe('23505')
     expect((await log(tenantB)).filter((e) => e.changed_fields?.includes('is_default')).length).toBeGreaterThanOrEqual(2)
   })
+
+  it('BUG-6: Standard umschalten ändert den Inhaltsstand nicht; Speichern danach ohne Konflikt', async () => {
+    const created = await saveBlock(ownerB, { tenant_id: tenantB, name: `Stand ${runId}` })
+    expect(created.error).toBeNull()
+    const before = (await blocks(tenantB)).find((b) => b.id === created.data)!
+    const expected = (await blocks(tenantB)).find((b) => b.block === 'intro' && b.is_default)?.id ?? null
+    expect((await setDefault(admin, tenantB, 'intro', created.data!, expected)).error).toBeNull()
+    const after = (await blocks(tenantB)).find((b) => b.id === created.data)!
+    expect(after.is_default).toBe(true)
+    expect(after.updated_at).not.toBe(before.updated_at)
+    expect(after.content_updated_at).toBe(before.content_updated_at)
+    // Panel mit dem Stand von vorher speichert ohne „inzwischen geändert“ und bleibt Standard
+    const saved = await saveBlock(ownerB, { tenant_id: tenantB, id: created.data, updated_at: before.content_updated_at, name: `Stand neu ${runId}` })
+    expect(saved.error).toBeNull()
+    const edited = (await blocks(tenantB)).find((b) => b.id === created.data)!
+    expect(edited).toMatchObject({ name: `Stand neu ${runId}`, is_default: true })
+    expect(edited.content_updated_at).not.toBe(before.content_updated_at)
+    // eine echte Inhaltsänderung dazwischen bleibt ein Konflikt
+    expect((await saveBlock(admin, { tenant_id: tenantB, id: created.data, updated_at: before.content_updated_at, name: 'Admin' })).error?.code).toBe('P0910')
+  })
+
+  it('BUG-3: invoice_numbers liefert alle Nummern (über 1.000), nur für Berechtigte', async () => {
+    const tenant = await newTenant([[ownerBUser, 'owner']])
+    const rows = Array.from({ length: 1100 }, (_, i) => ({
+      tenant_id: tenant,
+      number: `2026-${String(i + 1).padStart(4, '0')}`,
+      invoice_date: '2026-01-15',
+      recipient: 'Alt KG',
+      total_cents: 100,
+    }))
+    for (let i = 0; i < rows.length; i += 550) {
+      const { error } = await service.from('invoices').insert(rows.slice(i, i + 550) as never)
+      expect(error).toBeNull()
+    }
+    const own = await ownerB.rpc('invoice_numbers', { p_tenant_id: tenant })
+    expect(own.error).toBeNull()
+    expect(own.data).toHaveLength(1100)
+    expect(own.data).toContain('2026-1100')
+    expect((await admin.rpc('invoice_numbers', { p_tenant_id: tenant })).data).toHaveLength(1100)
+    // fremder Inhaber und Admin ohne 2FA sehen nichts (RLS), anonym darf die Funktion nicht aufrufen
+    for (const client of [ownerA, adminAal1]) {
+      expect((await client.rpc('invoice_numbers', { p_tenant_id: tenant })).data).toEqual([])
+    }
+    expect((await anonClient().rpc('invoice_numbers', { p_tenant_id: tenant })).error?.code).toBe('42501')
+  }, 60_000)
 
   it('höchstens 20 Bausteine je Block', async () => {
     const tenant = await newTenant([])

@@ -623,7 +623,7 @@ Alles andere ist vorhanden (shadcn/ui, react-hook-form, Zod, next-intl).
 - **Tests:** `npm test` (unit) 467 grün, Lint und Typprüfung sauber, Produktions-Build läuft durch. E2E PROJ-39 gegen den Build:
   - desktop: 26/26 grün
   - Firefox: 24 grün, 1 übersprungen (künstliches Einfügen), 1 rot. Rot ist der Grenzfall „mehr als 1.000 Rechnungen“, also BUG-3. Er ist dem Backend zugeordnet und noch offen. Auf desktop war er nur zufällig grün, weil alle Testrechnungen dasselbe Datum haben.
-- **Offen per `/backend`:** BUG-3 und BUG-6
+- **Offen per `/backend`:** BUG-3 und BUG-6 (erledigt, siehe Implementation Notes (Backend) → Korrekturen nach QA)
 
 ## Implementation Notes (Backend)
 **Stand 2026-10-31.** Migration `20261031110516_invoice_settings.sql` ist in Dev („apppa-dev“) eingespielt (vom Nutzer freigegeben wegen neuer Zugriffsregeln), die Typen sind neu erzeugt. Die Advisors melden nur die bekannten Auth-Hinweise (`auth_otp_long_expiry`, `auth_leaked_password_protection`, Runbook).
@@ -684,6 +684,29 @@ Alles andere ist vorhanden (shadcn/ui, react-hook-form, Zod, next-intl).
   - PROJ-28: grün (19)
   - PROJ-38: grün (nach der Reiter-Korrektur)
   - PROJ-4: Mitarbeiter und 44-px-Layout grün
+
+### Korrekturen nach QA (Backend, 2026-10-31)
+Migration `20261031135815_invoice_settings_qa_fixes.sql`, in Dev eingespielt; Typen neu erzeugt; Advisors ohne Meldung.
+- **BUG-3 (Vorschau liest höchstens 1.000 Nummern):** neue Funktion `public.invoice_numbers(p_tenant_id) → text[]`.
+  - Gibt alle Rechnungsnummern als einen Array-Wert zurück. Die PostgREST-Grenze `max_rows` (1.000) gilt nur für Zeilen und greift deshalb nicht.
+  - `security invoker`: RLS von `invoices` entscheidet, also nur Inhaber des Kunden und Admin mit 2FA. Für anon nicht aufrufbar.
+  - `loadInvoiceSettings` ruft sie statt `select('number').limit(20000)` auf, `NUMBERS_LIMIT` entfällt. Dieselbe Funktion kann PROJ-41 für den Nummernvorschlag nutzen.
+- **BUG-6 („Als Standard setzen“ ändert den Stand des Bausteins):** neue Spalte `invoice_text_blocks.content_updated_at`, nach dem Muster von `numbering_updated_at`/`texts_updated_at`.
+  - `save_invoice_text_block` setzt sie bei jeder Inhaltsänderung (Name, Text, Zahlungsregeln) und prüft den Konflikt gegen sie.
+  - Das Umschalten des Standards ändert nur `updated_at` (Trigger `set_audit_fields`), nicht den Inhaltsstand.
+  - Das Frontend liest `content_updated_at` als `updatedAt` des Bausteins (`TEXT_BLOCK_COLUMNS`), der Parameter `p_input.updated_at` bleibt gleich.
+  - Bestehende Zeilen starten mit `now()`, ohne Update. Ein Update hätte Trigger und Protokoll für jede Zeile ausgelöst.
+- **Dabei gefunden, Frontend (Rest von BUG-2):** Zwei weitere Ursachen für Schreibflächen ohne Namen oder mit veralteten ARIA-Angaben.
+  - `useEditor` übernimmt nach jedem Rendern die `editorProps` neu. Nachträglich per `setProps` gesetzte Attribute (`aria-invalid`, `aria-describedby`, `aria-readonly`) gingen dadurch beim nächsten Rendern verloren. Jetzt stehen alle Attribute direkt in `editorProps.attributes` und werden je Rendern berechnet; ein Effekt schaltet nur noch `editable`.
+  - Im Produktions-Build weicht `useId` zwischen Server und Browser zeitweise ab. Im Trace gesehen: Die Schreibfläche verwies auf eine Browser-ID, die Bezeichnung trug die Server-ID. Das betraf die Betreiber-Seite, der Test „deaktivierter Kunde“ war in 2 von 10 Läufen rot. Tiptap setzt die Attribute außerhalb von React, deshalb passt die Verknüpfung dann nicht mehr. `RichTextField` bildet die IDs jetzt fest aus dem Feldnamen (`rich-text-<name>`), danach 10 von 10 grün. Beschriftete Felder (`htmlFor`/`id`) sind nicht betroffen, weil beide Seiten den Server-Wert behalten.
+  - **Offen:** Die Ursache der `useId`-Abweichung selbst ist nicht gefunden. Im Dev-Modus beginnt sie schon in der Seitenleiste beim Benutzermenü und betrifft die ganze App. Sie fällt nur dort auf, wo IDs außerhalb von React gesetzt werden (wie bei Tiptap) oder erst im Browser entstehen (Radix-Inhalte beim Öffnen).
+- **E2E:** Die Prüfung der festen Texte kontrolliert jetzt `aria-invalid` und die zugängliche Beschreibung (Fehlermeldung) nach weiteren Eingaben.
+- **Tests:**
+  - Integration `invoice-settings.integration.test.ts`: 15 von 15 grün, davon neu „BUG-6: Standard umschalten …“ und „BUG-3: invoice_numbers liefert alle Nummern (über 1.000) …“ (Rechte: Inhaber, Admin mit 2FA, fremder Inhaber und Admin ohne 2FA leer, anon 42501).
+  - `npm test`: 641 grün, 1 rot. Rot ist „Person ohne Mitgliedschaft …“ in `rls.integration.test.ts`, allein grün. Das ist der bekannte Fall mit Testresten im Dev-`audit_log` (Zeitgrenze 8 s), kein Bezug zu PROJ-39.
+  - Lint, Typprüfung und Build sauber.
+  - E2E PROJ-39 gegen den Build: desktop 26/26 grün, Grenzfall mit 1.100 Rechnungen auch in Firefox grün.
+  - Firefox: 24 grün, 1 übersprungen, 1 einzelner Ausreißer im Konflikt-Test des Nummernkreises. „Aktuelle Fassung laden“ zeigte den alten Wert, danach 8 von 8 grün. Passt zum bekannten sporadischen Verhalten von Next 16 bei `router.refresh()` nach Server-Aktionen; der Code dort ist unverändert.
 
 **Für `/qa`:** Abläufe in der Oberfläche als E2E ergänzen: Nummernkreis-Vorschau mit nacherfassten Nummern, Baustein anlegen/Standard/Löschen, Einfügen aus Word bzw. Webseite, Konfliktanzeige, Betreiber-Abschnitt (aktiv/deaktiviert), Handy 375 px im Rechnungs-Reiter, Firefox/Safari.
 
