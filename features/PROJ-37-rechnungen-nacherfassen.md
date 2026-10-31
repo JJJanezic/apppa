@@ -1,10 +1,10 @@
 # PROJ-37: Rechnungen nacherfassen
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-10-30
 **Last Updated:** 2026-10-31
 
-> Grundumfang und Erweiterung „Rechnungen in der Buchungsübersicht“ am 2026-10-30 in Production ausgeliefert (siehe Abschnitt Deployment). Am 2026-10-31 per /refine geändert: Schalter „Ohne Umsatzsteuer (Kleinunternehmer)“ je Rechnung statt automatischer Ermittlung (Abschnitt „Kleinunternehmer-Kennzeichen“); noch nicht gebaut.
+> Grundumfang und Erweiterung „Rechnungen in der Buchungsübersicht“ am 2026-10-30 in Production ausgeliefert (siehe Abschnitt Deployment). Am 2026-10-31 per /refine geändert: Schalter „Ohne Umsatzsteuer (Kleinunternehmer)“ je Rechnung statt automatischer Ermittlung (Abschnitt „Kleinunternehmer-Kennzeichen“); Tech Design dazu im PROJ-40-Spec (wird mit PROJ-40 gebaut und ausgeliefert); noch nicht gebaut.
 
 ## Dependencies
 - Requires: PROJ-4 (Kundenkonten & Rollen) — Rollen Inhaber/Mitarbeiter, Mandantentrennung

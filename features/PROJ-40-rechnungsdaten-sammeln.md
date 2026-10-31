@@ -1,6 +1,6 @@
 # PROJ-40: Rechnungsdaten sammeln (Entwurf)
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-10-31
 **Last Updated:** 2026-10-31
 
@@ -310,13 +310,136 @@ Im Entwurf und in der Vorschau sichtbare Liste „Pflichtangaben“ mit ✓ bzw.
 ### Technical Decisions
 | Decision | Rationale | Date |
 |----------|-----------|------|
-| _To be added by /architecture_ | | |
+| Entwürfe in derselben Rechnungstabelle wie PROJ-37; „Herkunft“ bekommt den Wert „Entwurf“ (PROJ-41 ergänzt „ausgestellt“), Nummer bei Entwürfen leer | Liste, Rechnungen je Buchung, Spalte und Summen funktionieren ohne zweite Quelle; Ausstellen wird in PROJ-41 ein Zustandswechsel statt Umkopieren; leere Nummern stören weder Eindeutigkeit noch Nummernvorschlag | 2026-10-31 |
+| Prüfung „hat ausgestellte Rechnungen“ (PROJ-39) fragt künftig gezielt nach „ausgestellt“ statt „nicht nacherfasst“ | Sonst würde schon der erste Entwurf die Warnung beim Ändern des Nummernkreises auslösen | 2026-10-31 |
+| Empfänger als eigene Felder an der Rechnung (Art Gast/Firma, Name, Adresszeilen, PLZ, Ort, Staat, UID); das bisherige Freitextfeld bleibt für nacherfasste Rechnungen und als Anzeigename | Pflichtangaben-Prüfung braucht einzelne Felder; nacherfasste Rechnungen bleiben unverändert | 2026-10-31 |
+| Herkunft jeder Rechnungsposition: „Übernachtung“, „Stornogebühr“ oder eine bestimmte Zusatzkosten-Position der Buchung | Grundlage für die Vorauswahl „noch nicht verrechnet“ | 2026-10-31 |
+| Zusatzkosten-Positionen einer Buchung behalten beim Speichern der Buchung ihre Kennung (bisher bei jedem Speichern neu angelegt) | Ohne stabile Kennung ginge die Verbindung Rechnungsposition → Buchungsposition bei jeder Buchungsänderung verloren; gelöschte Zusatzkosten verlieren die Verbindung bewusst | 2026-10-31 |
+| „Buchung geändert“ über einen Fingerabdruck der preisrelevanten Buchungsdaten (Positionen, Beträge, Sätze, Stornostatus), am Entwurf gespeichert | Hinweis erscheint nur bei Änderungen, die die Positionen betreffen, nicht bei jeder Änderung an Notiz oder Mitreisenden | 2026-10-31 |
+| Teilrechnung speichert die Eingabe (Prozent oder Betrag) und die daraus berechneten Zeilen je USt-Satz | Anzeige, Summen und Abzug in der Schlussrechnung lesen feste Werte; Aufteilung ist beim Speichern nachvollziehbar festgelegt | 2026-10-31 |
+| Abzüge der Schlussrechnung als eigene Verknüpfung Schlussrechnung → abgezogene Rechnung; Betrag und Sätze werden aus der abgezogenen Rechnung gelesen; Gesamtbetrag der Schlussrechnung wird neu gebildet, wenn sich eine abgezogene Rechnung ändert oder gelöscht wird | Keine doppelte Datenhaltung; Liste und Summen bleiben stimmig | 2026-10-31 |
+| Textblöcke als Kopie im selben strukturierten Format wie PROJ-39 (kein HTML), mit Verweis auf den gewählten Baustein nur zur Anzeige | Sicherheit und Prüfung wie bei den Bausteinen; Änderungen an Bausteinen wirken nicht auf Entwürfe | 2026-10-31 |
+| Platzhalter bleiben im gespeicherten Text, ersetzt wird beim Anzeigen mit derselben Regel wie PROJ-39 | Zeitraum, Fristen und Namen sind immer aktuell; PROJ-41 ersetzt beim Ausstellen endgültig | 2026-10-31 |
+| Alle Rechenregeln des Entwurfs (Positionen-Vorauswahl, Teilbetrag mit Rundung, Abzüge, Fälligkeiten mit Rückfallregel, Kleinunternehmer nach Buchung, Pflichtangaben) in einer gemeinsamen Rechen-Bibliothek, die Browser und Server nutzen | Formular, Detailseite, Vorschau und später PROJ-41 rechnen gleich; gut mit Unit-Tests abzudecken | 2026-10-31 |
+| Speichern über eine geschützte Datenbank-Funktion je Entwurf (Anlegen/Ändern) und eine zum Löschen, wie `save_invoice` | Rechte, Konfliktschutz, Summenregel beim Anlegen, Gesamtbetrag und Protokoll an einer Stelle; Anfragen am Formular vorbei sind abgesichert | 2026-10-31 |
+| Pflichtangaben werden im Entwurf nur angezeigt, nicht vom Server erzwungen | Speichern mit Lücken ist ausdrücklich erlaubt; durchgesetzt wird erst beim Ausstellen (PROJ-41) mit derselben Regel | 2026-10-31 |
+| Vorschau als eine Darstellung, die sowohl auf einer eigenen Seite (gespeicherter Entwurf) als auch direkt im Formular (ungespeicherter Stand) läuft | „Vorschau“ aus dem Formular verliert keine Eingaben; Mitarbeiter und Detailseite nutzen dieselbe Darstellung; PROJ-41 kann sie als Vorlage fürs PDF nehmen | 2026-10-31 |
+| Aussteller-Angaben, Fußzeile und Kleinunternehmer-Hinweis für die Vorschau liest der Server über eine Funktion, die nur diese Felder liefert | Mitarbeiter haben keinen Zugang zu Stammdaten und Rechnungseinstellungen, sollen die Vorschau aber sehen | 2026-10-31 |
+| PROJ-37-Änderung: Kleinunternehmer-Kennzeichen kommt als Schalterwert vom Formular; die Speicherfunktion übernimmt ihn, statt ihn aus dem Rechnungsdatum zu bilden | Umsetzung des Refine vom 2026-10-31; gemeinsam mit PROJ-40 gebaut und ausgeliefert | 2026-10-31 |
+| Keine neuen Pakete | Editor (Tiptap), Formulare, Prüfung und Oberflächenbausteine sind vorhanden | 2026-10-31 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### Ausgangslage (bereits vorhanden)
+- **Rechnungen** (PROJ-37): eine Tabelle für Rechnungen mit Positionen, Feld „Herkunft“ (bisher nur „nacherfasst“), Gesamtbetrag und Kleinunternehmer-Kennzeichen, beide von der Datenbank gebildet; geschützte Speicher- und Löschfunktion mit Konfliktschutz; Änderungsprotokoll; Rechnungsliste, Detailseite, Abschnitt „Rechnungen“ im Buchungsdetail, Spalte und Filter in der Buchungsübersicht.
+- **Rechnungseinstellungen** (PROJ-39): Bausteine je Block mit Standard und Zahlungsregeln; beschränkter Editor; Platzhalter-Liste mit Zulässigkeit je Block; Regeln für {Anrede}, Gastname mit Titeln, Zahlungsbeträge/Fristen und das Ersetzen der Platzhalter (Datum ohne Wochentag); Kleinunternehmer-Hinweis und Fußzeile.
+- **Rechenregeln**: USt je Satz (PROJ-35), Kleinunternehmer-Status je Buchung (PROJ-36), Positionen aus der Buchung in der Reihenfolge aus PROJ-34.
+- **Buchungsdetail** mit Knopfreihe „Bearbeiten“, „Mitreisende bearbeiten“, „Stornieren“.
+
+### Seiten und Bausteine der Oberfläche
+```
+Buchungsdetail (/buchungen/[id])
++-- Knopfreihe: Bearbeiten · Mitreisende bearbeiten · Stornieren · „Rechnung“ (neu, rechts außen, nur Inhaber)
+|   +-- inaktiv mit Begründung (voll verrechnet/in Entwürfen, Sperre, Storno ohne Gebühr)
++-- Abschnitt „Rechnungen“ (erweitert)
+    +-- Entwürfe mit Status „Entwurf“ und Art
+    +-- „Verrechnet: € …“ und neu „In Entwürfen: € …“
+
+Rechnung erstellen (/rechnungen/neu?buchung=…) und Entwurf bearbeiten (/rechnungen/[id]/bearbeiten)
++-- Kopf: Buchung (Gast · Wohnung · Zeitraum), Hinweise (Option, „Buchung wurde seit dem Entwurf geändert“ + „Positionen neu übernehmen“)
++-- Art: Rechnung · Teilrechnung · Schlussrechnung
++-- Empfänger: Gast / Firma, Felder (Name, Adresszeilen, PLZ, Ort, Staat, UID); bei Firma Wahl der Anrede
++-- Rechnungsdatum (mit Hinweis bei Vergangenheit)
++-- Gastnamen: keine · Hauptgast · Hauptgast mit Mitreisenden
++-- je nach Art:
+|   +-- Positionen (wie Nacherfassen: anwählen, ändern, hinzufügen, ordnen; Hinweis „bereits in Rechnung …“)
+|   +-- Teilbetrag (Prozent oder Betrag, Aufteilung je Satz)
+|   +-- Positionen + Abzüge (Liste der abziehbaren Rechnungen mit Auswahl)
++-- Summen: Gesamtbetrag, USt je Satz bzw. Kleinunternehmer-Hinweis
++-- Einleitung · Zahlungsmodalitäten (+ Zahlungsregeln, berechnete Fristen, Rückfall-Hinweise) · Abschlusstext
+|   +-- je Block: Bausteinauswahl, Editor aus PROJ-39
++-- Pflichtangaben-Liste (✓ / Fehler mit Sprung zum Feld)
++-- Knöpfe: Vorschau · Entwurf speichern · Abbrechen (Rückfrage bei ungespeicherten Änderungen)
+
+Entwurf-Detail (/rechnungen/[id], bestehende Detailseite erweitert)
++-- Status „Entwurf“, Art, Empfänger, Datum, Positionen/Teilbetrag/Abzüge, Summen, Pflichtangaben
++-- Hinweis „Buchung wurde seit dem Entwurf geändert“ (+ Knopf für Inhaber)
++-- Inhaber: Bearbeiten · Vorschau · Löschen   ·   Mitarbeiter: Vorschau
+
+Vorschau (/rechnungen/[id]/vorschau bzw. Ansicht innerhalb des Formulars)
++-- Kopfzeile (Aussteller) · Block 1 · 2a · 2b · 2c „Entwurf“ · 3 · 4 · 5 (+ Kleinunternehmer-Hinweis) · 6 · 7 · Fußzeile
++-- „Zurück zum Entwurf“
+
+Rechnungsliste (/rechnungen): Entwürfe mit Nummer „–“, Status „Entwurf“ (+ Art)
+Buchungsübersicht: Spalte „Rechnungen“ zeigt „Entwurf“-Link; Filter ohne/mit Rechnung zählt Entwürfe nicht
+
+PROJ-37-Formular „Rechnung nacherfassen“: neuer Schalter „Ohne Umsatzsteuer (Kleinunternehmer)“
+```
+
+### Datenmodell (in Worten)
+**Rechnung (bestehende Tabelle, erweitert)**
+- Herkunft: „nacherfasst“, neu „Entwurf“ (PROJ-41: „ausgestellt“)
+- Nummer: bei Entwürfen leer; bei nacherfassten weiterhin Pflicht und je Kunde eindeutig
+- Art: Rechnung, Teilrechnung oder Schlussrechnung (nur bei Entwürfen/ausgestellten)
+- Rechnungsdatum, Buchung (bei Entwürfen Pflicht), Gast (Hauptgast)
+- Empfänger: Art (Gast/Firma), Name, Adresszeile 1/2, PLZ, Ort, Staat, UID; dazu der bestehende Anzeigename (für Liste und Suche)
+- Anrede bei Firma: „Damen und Herren“ oder „Hauptgast“
+- Gastnamen: keine / Hauptgast / Hauptgast mit Mitreisenden
+- Teilrechnung: Eingabe als Prozent oder Betrag
+- Texte der Blöcke 4, 6, 7 als formatierter Text (Kopie), jeweils mit Verweis auf den gewählten Baustein
+- Zahlungsregeln dieser Rechnung: Anzahlung ja/nein, Prozent, Frist; Fälligkeit (Bezug, Tage)
+- Fingerabdruck der Buchung beim letzten Speichern (für „Buchung geändert“)
+- Gesamtbetrag (von der Datenbank gebildet), Kleinunternehmer-Kennzeichen (nacherfasst: Schalterwert; Entwurf: nur Momentaufnahme, angezeigt wird der aktuelle Status nach der Buchung)
+- Änderungsstempel und Protokoll wie bisher
+
+**Rechnungsposition (bestehend, erweitert)**
+- Bezeichnung, Betrag brutto, USt-Satz, Reihenfolge wie bisher
+- neu: Herkunft in der Buchung (Übernachtung, Stornogebühr, bestimmte Zusatzkosten-Position oder keine), bei Teilrechnungen Kennzeichen „Anteil je Satz“
+
+**Abzug (neu)**: Schlussrechnung → abgezogene Rechnung (Teilrechnung oder nacherfasste Rechnung derselben Buchung). Betrag und Sätze kommen aus der abgezogenen Rechnung.
+
+**Buchung (Änderung)**: Zusatzkosten-Positionen behalten beim Speichern ihre Kennung.
+
+Gespeichert in: Supabase (PostgreSQL), getrennt je Kunde wie bisher. Lesen: Inhaber und Mitarbeiter des Kunden; Schreiben nur Inhaber über die geschützten Funktionen; Betreiber kein Zugriff auf Entwürfe.
+
+### Regeln an einer Stelle
+Eine gemeinsame Rechen-Bibliothek liefert für Formular, Detailseite und Vorschau (und später PROJ-41):
+- **Vorauswahl der Positionen** aus Buchung und anderen Rechnungen der Buchung
+- **Teilbetrag**: Prozent ↔ Betrag, Aufteilung je USt-Satz mit Rundungsrest beim größten Anteil
+- **Schlussrechnung**: Positionen minus Abzüge, USt je Satz
+- **Summen**: „Verrechnet“, „In Entwürfen“, Regel für den Knopf „Rechnung“
+- **Fälligkeiten**: aus Zahlungsregeln und Rechnungsdatum, Rückfall auf das Rechnungsdatum, Anzahlung nie nach dem Rest
+- **Kleinunternehmer** nach der Buchung (bestehende Regel aus PROJ-36)
+- **Pflichtangaben** mit den Grenzen € 400 / € 10.000
+- **Platzhalter-Werte** inkl. {Anrede} bei Firma; Ersetzen mit der Regel aus PROJ-39
+
+### Server
+- **Entwurf speichern** (eine geschützte Funktion für Anlegen und Ändern): nur Inhaber des Kunden; Buchung des eigenen Kunden, keine Sperre, stornierte nur mit Stornogebühr; beim **Anlegen** Summenregel (Verrechnet + Entwürfe < Gesamtpreis bzw. Stornogebühr); Konfliktschutz („inzwischen geändert“); Prüfung von Positionen, Teilbetrag (> 0), Zahlungsregeln (Grenzen aus PROJ-39), Texten (Struktur, Länge, Platzhalter je Block) und Abzügen (nur Teilrechnungen bzw. nacherfasste Rechnungen derselben Buchung); bildet Gesamtbetrag, speichert Fingerabdruck, schreibt Positionen und Abzüge in einem Schritt.
+- **Entwurf löschen**: nur Inhaber, nur Entwürfe; Schlussrechnungen, die ihn abziehen, verlieren den Abzug und werden neu berechnet.
+- **Vorschau-Daten**: liefert Aussteller (Name, Anschrift, UID), Ort, Fußzeile und Kleinunternehmer-Hinweis für Inhaber und Mitarbeiter.
+- **Buchung speichern** (bestehend): Zusatzkosten mit Kennung erhalten.
+- **Rechnung nacherfassen** (bestehend, PROJ-37-Änderung): übernimmt den Schalterwert für das Kleinunternehmer-Kennzeichen.
+- **Lesen**: Rechnungsliste, Rechnungen je Buchung und Buchungsübersicht kennen den Status „Entwurf“; der Filter „ohne/mit Rechnung“ zählt nur nacherfasste (später auch ausgestellte) Rechnungen; die Prüfung „hat ausgestellte Rechnungen“ (PROJ-39) fragt gezielt nach „ausgestellt“.
+
+### Seitenablauf
+- „Rechnung“ → `/rechnungen/neu?buchung=…`: Server lädt Buchung, Hauptgast, Mitreisende, andere Rechnungen der Buchung, Bausteine, Vorschau-Daten; Formular wird vorbelegt.
+- „Entwurf speichern“ leitet in der Server-Aktion selbst auf die Detailseite weiter (Lehre aus PROJ-39: Weiterleiten im Browser nach dem Speichern geht in Next 16 sporadisch verloren).
+- „Vorschau“ im Formular zeigt die Vorschau-Darstellung mit dem aktuellen Formularstand ohne Seitenwechsel; „Zurück zum Entwurf“ blendet das Formular wieder ein.
+- Speichern lädt Rechnungsliste, Buchungsdetail und Buchungsübersicht neu (Summen, Knopf, Spalte).
+
+### Abhängigkeiten
+Keine neuen Pakete.
+
+### Für /backend
+- Migration: Herkunft „Entwurf“, Nummer bei Entwürfen leer, neue Felder an Rechnung und Position, Abzugstabelle, Speicher-/Löschfunktion für Entwürfe, Vorschau-Daten-Funktion; `save_booking` mit stabilen Zusatzkosten-Kennungen; `save_invoice` mit Kleinunternehmer-Schalter; Prüfung „ausgestellt“ in den Rechnungseinstellungen
+- Integrationstests: Rechte (Mitarbeiter, fremder Kunde, Betreiber), Summenregel beim Anlegen, Konfliktschutz, Prüfregeln, Abzüge und Neuberechnung beim Löschen, stabile Zusatzkosten-Kennungen, Kleinunternehmer-Schalter beim Nacherfassen
+
+### Für /qa
+- Unit-Tests der Rechen-Bibliothek (Rundung, Rückfallregel, Grenzen der Pflichtangaben, Vorauswahl)
+- E2E: Rechnung erstellen aus Buchung, Teilung nach Positionen, Teil- und Schlussrechnung, Empfänger Firma/Gast, Vorschau ohne Datenverlust, Knopf-Sperre, Mitarbeiter-Ansicht, Handy 375 px
 
 ## QA Test Results
 _To be added by /qa_
