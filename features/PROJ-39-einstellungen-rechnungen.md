@@ -1,6 +1,6 @@
 # PROJ-39: Einstellungen → Rechnungen
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-10-31
 **Last Updated:** 2026-10-31
 
@@ -306,13 +306,205 @@ Dazu: Kleinunternehmer-Hinweis mit Gesetzestext, Fußzeile leer, Nummernkreis JJ
 ### Technical Decisions
 | Decision | Rationale | Date |
 |----------|-----------|------|
-| _To be added by /architecture_ | | |
+| Eigene Tabellen „Rechnungseinstellungen“ (eine Zeile je Kunde) und „Textbausteine“ statt Felder am Kunden | Rechnungsdaten an einer Stelle für PROJ-40/41; Stammdaten bleiben unberührt | 2026-10-31 |
+| Ein Änderungsstempel je Abschnitt; bei Bausteinen je Baustein; „Standard setzen“ prüft den bisherigen Standard des Blocks | Konflikthinweis genau dort, wo zwei dasselbe bearbeiten; auch zwei gleichzeitige Standards werden erkannt | 2026-10-31 |
+| Schalter „Rechnungen nacherfassen“ zieht in die Rechnungseinstellungen um (Wert übernommen); Stammdaten- und Rechnungs-Speicherfunktion angepasst | Umschalten ändert die Stammdaten nicht mehr, kein falscher Konflikt; alle Rechnungseinstellungen beisammen | 2026-10-31 |
+| Formatierter Text als strukturierte Beschreibung (Absätze, Listen, fett/kursiv, Umbruch) statt HTML; Datenbank prüft Struktur, Länge und Platzhalter | Freies HTML ist damit gar nicht speicherbar; auch Anfragen am Formular vorbei sind abgesichert; PDF (PROJ-41) kann daraus direkt setzen | 2026-10-31 |
+| Editor Tiptap (`@tiptap/react`, `@tiptap/pm`, `@tiptap/starter-kit`), auf erlaubte Formate beschränkt, nur auf dieser Seite geladen | Verbreitet, frei nutzbar, React-tauglich; filtert Eingefügtes automatisch auf die erlaubten Formate | 2026-10-31 |
+| Platzhalter als normaler Text „{Name}“, Liste mit Zulässigkeit je Block an einer Stelle in der App (Datenbank prüft dieselbe Liste) | Getippte und eingefügte Platzhalter sind gleich; Markierung, Prüfung und späteres Ersetzen (PROJ-40) nutzen eine Quelle | 2026-10-31 |
+| Vorschau mit festem Beispiel-Datensatz (Rechnungsdatum 01.10.2026, Anreise 14.10.2026, € 450,00) im Browser | Stabile, prüfbare Vorschau; Fristen „vor Anreise“ ergeben stets sinnvolle Daten | 2026-10-31 |
+| Regel „nächste Nummer“ als eine Rechenregel in der App (Format + vorhandene Nummern + Datum); Vorschau rechnet im Browser, PROJ-41 nutzt sie für den Vorschlag | Vorschau ohne Wartezeit vor dem Speichern; Nummer ist in PROJ-41 ohnehin überschreibbar, Doppelte verhindert die Eindeutigkeit in der Datenbank | 2026-10-31 |
+| „Jährlich neu“ vergleicht die Jahreszahl **in der Nummer** mit dem Jahr des Rechnungsdatums; Jahr der Startnummer wird gespeichert | Altnummern mit abweichendem Rechnungsdatum (z. B. Jänner-Rechnung fürs Vorjahr) stören die Folge nicht; Startnummer gilt nur im Eintragungsjahr | 2026-10-31 |
+| Vorbelegung per Migration für bestehende Kunden und automatisch beim Anlegen neuer Kunden (unabhängig vom Anlageweg) | Jeder Kunde hat sofort eine eigene, änderbare Kopie | 2026-10-31 |
+| Betreiber-Protokoll mit neuen Aktionsarten und Bausteinbezeichnung, ohne Textinhalt | Nachvollziehbar wer was geändert hat; Rechnungstexte können Bankdaten enthalten und gehören nicht ins Protokoll | 2026-10-31 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### Ausgangslage (bereits vorhanden)
+- **Einstellungen-Reiter** als Links (`settings-tabs`), nur für Inhaber; Mitarbeiter erhalten „Seite nicht gefunden“ (PROJ-4/38).
+- **Stammdaten-Formular** für Inhaber und Betreiber mit einer geschützten Datenbank-Funktion: Rechte, „Kunde aktiv?“, Schutz vor gleichzeitigen Änderungen, Eintrag im Betreiber-Protokoll mit geänderten Feldern (PROJ-28/36/37/38). Dieses Muster wird übernommen.
+- **Schalter „Rechnungen nacherfassen“** liegt heute als Feld am Kunden, wird über das Stammdaten-Formular gespeichert und von der Rechnungs-Speicherfunktion (PROJ-37) geprüft.
+- **Rechnungen** (PROJ-37) mit je Kunde eindeutiger Nummer und Herkunft „nacherfasst“; „ausgestellt“ kommt mit PROJ-41.
+- **Seitenpanel** (`detail-panel`, rechts, am Handy bildschirmfüllend), **Bestätigungsdialog** (`confirm-dialog`), shadcn-Bausteine Switch, Select, Radio-Group, Dropdown-Menü, Badge, Alert.
+- Der Design-Entwurf (`docs/design/`) enthält für Einstellungen keine eigene Vorlage. Der neue Reiter folgt dem Aufbau von Stammdaten und Team: Abschnitte untereinander, Panels von rechts.
+
+### A) Seiten und Bausteine
+
+```
+Einstellungen (nur Inhaber)
++-- Reiter: Stammdaten · Team · Wohnungen · Rechnungen      (NEU: vierter Reiter)
++-- /einstellungen/stammdaten
+|   +-- Stammdaten-Formular OHNE Schalter „Rechnungen nacherfassen“
++-- /einstellungen/rechnungen  (NEU, Titel „Rechnungen“)
+    +-- Rechnungseinstellungen (gemeinsamer Baustein für Inhaber und Betreiber)
+        +-- Abschnitt „Nummernkreis“
+        |   +-- Präfix (Textfeld) · mit/ohne Jahreszahl · Trennzeichen (Auswahl) · Stellen (Auswahl 3–6)
+        |   +-- Schalter „Jährlich neu beginnen“ (gesperrt ohne Jahreszahl, mit Hinweis)
+        |   +-- Startnummer
+        |   +-- Vorschau „Nächste Nummer: 2026-0043“ (rechnet sofort beim Tippen)
+        |   +-- Hinweis, wenn eine höhere passende Nummer die Startnummer überholt
+        |   +-- Speichern (bei bereits ausgestellten Rechnungen: Bestätigungsdialog mit Warnung)
+        +-- Abschnitt „Textbausteine“
+        |   +-- Gruppe „Einleitung“ / „Zahlungsmodalitäten“ / „Abschlusstext“
+        |       +-- Liste: Name · Kennzeichen „Standard“ · Kurztext · Menü (Bearbeiten, Als Standard
+        |       |   setzen / Standard aufheben, Löschen mit Bestätigung)
+        |       +-- Hinweis „Kein Standard – der Block beginnt im Entwurf leer“
+        |       +-- Knopf „Baustein hinzufügen“ (gesperrt ab 20, mit Hinweis)
+        |       +-- Seitenpanel „Baustein bearbeiten“ / „Neuer Baustein“
+        |           +-- Name
+        |           +-- nur Zahlungsmodalitäten: Anzahlung ja/nein → Prozent, fällig nach … Tagen;
+        |           |   Fälligkeit: … Tage, Bezug „nach Rechnungsdatum“ / „vor Anreise“
+        |           +-- Text-Editor (siehe unten) mit „Platzhalter einfügen“
+        |           +-- Vorschau mit Beispieldaten
+        |           +-- Speichern / Abbrechen
+        +-- Abschnitt „Feste Texte“
+        |   +-- Kleinunternehmer-Hinweis (Editor ohne Platzhalter) + Erklärsatz zur Bedingung
+        |   +-- Fußzeile (Editor ohne Platzhalter)
+        |   +-- Speichern
+        +-- Abschnitt „Nacherfassen“
+            +-- Schalter „Rechnungen nacherfassen“ + Speichern
+
+Text-Editor (gemeinsamer Baustein)
++-- Werkzeugleiste: Fett · Kursiv · Aufzählung · Nummerierte Liste · [Platzhalter einfügen ▾]
++-- Schreibfläche: Platzhalter farbig markiert, unbekannte bzw. hier unzulässige rot mit Meldung darunter
++-- Zeichenzähler „1.234 / 2.000“
++-- Vorschau: der Text, wie er auf der Rechnung stünde
+
+Betreiber → Kunden-Detailseite
++-- Abschnitt „Stammdaten“ (ohne Schalter)
++-- NEU: Abschnitt „Rechnungen“ = derselbe Baustein; bei deaktiviertem Kunden nur Ansicht ohne Knöpfe
++-- Protokoll: neue Einträge (siehe E)
+```
+
+- **Ein gemeinsamer Baustein für Inhaber und Betreiber**, wie beim Stammdaten-Formular. Er bekommt den Kunden, die Rolle und „nur ansehen“ mitgegeben.
+- **Jeder Abschnitt speichert für sich** und hat einen eigenen Speichern-Knopf. Ein Fehler in einem Abschnitt lässt die Eingaben in den anderen stehen.
+- **Bausteine bearbeiten im Seitenpanel**. Bausteinlisten, Name, Zahlungsregeln, Editor und Vorschau passen so auch am Handy (375 px) untereinander, und das Muster kennt man aus Buchungen und Rechnungen.
+- **Verweise auf den Schalter** (z. B. Hinweise in der Rechnungsliste aus PROJ-37) zeigen künftig auf `/einstellungen/rechnungen`.
+
+### B) Datenmodell (in Worten)
+
+**Neue Tabelle „Rechnungseinstellungen“**: genau eine Zeile je Kunde.
+- Nummernkreis: Präfix (leer oder bis 10 zulässige Zeichen), mit Jahreszahl ja/nein, Trennzeichen (`-`, `/`, `.` oder keines), Stellen (3–6), jährlich neu ja/nein (ja nur mit Jahreszahl), Startnummer (ab 1), **Jahr der Startnummer** (wird beim Speichern einer geänderten Startnummer automatisch gesetzt; nötig für „gilt nur im Jahr, in dem sie eingetragen wurde“)
+- Kleinunternehmer-Hinweis (formatierter Text, Pflicht, bis 500 Zeichen)
+- Fußzeile (formatierter Text, optional, bis 2.000 Zeichen)
+- Schalter „Rechnungen nacherfassen“ (aus der Kunden-Tabelle hierher verschoben, Wert je Kunde übernommen)
+- **Ein Änderungsstempel je Abschnitt** (Nummernkreis, Feste Texte, Nacherfassen). So stört das Speichern eines Abschnitts nicht den, der gerade einen anderen bearbeitet.
+
+**Neue Tabelle „Textbausteine“**: beliebig viele Zeilen je Kunde.
+- Kunde, Block (Einleitung / Zahlungsmodalitäten / Abschlusstext), Name (bis 60 Zeichen), Text (formatiert, bis 2.000 Zeichen), Standard ja/nein, Änderungsstempel, angelegt/geändert von
+- nur bei Zahlungsmodalitäten: Anzahlung in Prozent (1–100, 2 Nachkommastellen) und Anzahlungsfrist (0–365 Tage), beide gemeinsam oder beide leer; Fälligkeit in Tagen (0–365) mit Bezug „nach Rechnungsdatum“ / „vor Anreise“ (Pflicht)
+
+**Regeln in der Datenbank** (gelten auch bei Anfragen am Formular vorbei):
+- Name je Kunde und Block eindeutig, ohne Rücksicht auf Groß-/Kleinschreibung. Zwei gleichzeitige Anlagen mit gleichem Namen scheitern daher beim zweiten Mal.
+- Höchstens ein Standard je Kunde und Block
+- Höchstens 20 Bausteine je Block (beim Anlegen geprüft, gegen gleichzeitiges Anlegen gesperrt)
+- Zahlungsfelder nur bei Zahlungsmodalitäten, Grenzen wie in der Spec
+- Formatierter Text nur in der erlaubten Struktur (siehe C), Zeichengrenzen auf den reinen Text gerechnet, Platzhalter nur aus der für den Block erlaubten Liste
+
+**Formatierter Text** wird **nicht als HTML** gespeichert, sondern als kleine, strukturierte Beschreibung: Absätze und Listen, darin Textstücke mit „fett“/„kursiv“ und Zeilenumbrüche. Platzhalter stehen als normaler Text, z. B. „{Wohnung}“, darin. Die Datenbank kennt nur diese Bausteine. Alles andere (Links, Farben, Bilder, Skripte) lässt sich so gar nicht ablegen.
+
+**Vorbelegung:**
+- Die Migration legt für **jeden bestehenden Kunden** die Einstellungszeile und die vier Beispiel-Bausteine aus der Spec an, jeweils als eigene Kopie. Der bisherige Schalterwert wird übernommen.
+- **Neue Kunden** bekommen dasselbe automatisch beim Anlegen, egal über welchen Weg sie entstehen.
+- Spätere Änderungen an den Beispielen in der App betreffen nur neu angelegte Kunden.
+
+**Löschen eines Kunden** entfernt Einstellungen und Bausteine mit, wie bei allen Kundendaten.
+
+### C) Editor, Platzhalter und Vorschau
+
+- **Editor-Paket Tiptap** (frei nutzbar, verbreitet, für React gebaut). Es ist so eingestellt, dass nur fett, kursiv, Absätze, Zeilenumbruch, Aufzählung und nummerierte Liste existieren.
+  - **Einfügen aus Word/E-Mail/Webseite:** Der Editor behält von eingefügtem Inhalt nur, was er kennt. Links werden zu normalem Text, Tabellen zu Absätzen, Bilder, Farben und Schriftarten fallen weg.
+  - Der Editor wird **nur auf dieser Seite** geladen. Die übrige App wird dadurch nicht langsamer.
+- **Platzhalter:** Eine Liste in der App legt fest, welche Platzhalter es gibt und in welchem Block sie erlaubt sind (Anzahlungs-Platzhalter nur bei Bausteinen mit Anzahlung). Editor-Markierung, „Platzhalter einfügen“, Prüfung beim Speichern und später das Ersetzen im Entwurf (PROJ-40) greifen alle auf diese Liste zu. Ob ein Platzhalter eingefügt oder getippt wurde, macht keinen Unterschied, denn beide sind derselbe Text.
+- **Vorschau:** Sie entsteht im Browser aus dem formatierten Text. Die Platzhalter werden durch einen **festen Beispiel-Datensatz** ersetzt: Frau Mag. Maria Muster, Top 1, Anreise 14.10.2026, Abreise 17.10.2026, 3 Nächte, Rechnungsdatum 01.10.2026, Rechnungsnummer im eingestellten Format, Betrag € 450,00.
+  - Anzahlung, Anzahlungsfrist, Restbetrag und Fälligkeit werden aus den Zahlungsregeln des Bausteins **berechnet**. Bei 20 % in 3 Tagen und Rest 1 Tag vor Anreise ergibt das € 90,00 bis 04.10.2026 und € 360,00 bis 13.10.2026.
+  - Feste Beispielwerte statt „heute“ halten die Vorschau stabil und prüfbar.
+- **Datumsangaben** in Platzhaltern ohne Wochentag, Beträge wie PROJ-31. Dafür kommt eine eigene Formatregel neben die bestehenden.
+- Dieselbe Umwandlung „formatierter Text + Werte → Rechnungstext“ nutzen später Entwurf (PROJ-40) und PDF (PROJ-41).
+
+### D) Nummernkreis: Regel „nächste Nummer“
+
+- **Eine Rechenregel in der App** mit drei Eingaben: Format, Liste der vorhandenen Rechnungsnummern des Kunden, Rechnungsdatum. Sie gibt die nächste Nummer zurück.
+  - Gezählt werden nur Nummern, die genau zum Format passen: Präfix (ohne Rücksicht auf Groß-/Kleinschreibung), gegebenenfalls vier Ziffern Jahr, Trennzeichen, dann nur Ziffern. Andere Stellenzahl zählt mit („2026-12“ = 12).
+  - **Jährlich neu:** Nur Nummern, deren Jahreszahl dem Jahr des Rechnungsdatums entspricht. Ohne passende Nummer gilt die Startnummer, wenn sie in diesem Jahr eingetragen wurde, sonst 1.
+  - **Nicht jährlich neu:** höchste passende laufende Nummer über alle Jahre + 1, sonst die Startnummer.
+  - Mehr Ziffern als Stellen: Die Nummer wächst weiter („2026-1000“).
+- **Vorschau ohne Wartezeit:** Die Seite lädt einmal die Rechnungsnummern des Kunden (nur die Nummern, wenige Tausend Zeichen). Danach rechnet der Browser bei jeder Eingabe neu, noch vor dem Speichern.
+- **PROJ-41** nutzt dieselbe Regel für den Nummernvorschlag beim Ausstellen. Doppelte Nummern verhindert dort weiterhin die Eindeutigkeit in der Datenbank. Überschreiben ist ohnehin erlaubt, die Regel muss also nicht zusätzlich in der Datenbank stecken.
+- **Warnung beim Ändern:** Die Seite weiß, ob der Kunde schon Rechnungen mit Herkunft „ausgestellt“ hat. Bis PROJ-41 ist das nie der Fall, deshalb wird bis dahin ohne Rückfrage gespeichert. Die Prüfung ist trotzdem schon eingebaut.
+- Bestehende Rechnungsnummern werden nie umgeschrieben.
+
+### E) Speichern, Rechte, Schutz und Protokoll
+
+Gespeichert wird über **geschützte Datenbank-Funktionen**, nie direkt in die Tabellen:
+
+| Funktion | Zweck | Konfliktschutz |
+|---|---|---|
+| Nummernkreis speichern | alle Nummernkreis-Felder | Stempel „Nummernkreis“ |
+| Feste Texte speichern | Kleinunternehmer-Hinweis, Fußzeile | Stempel „Feste Texte“ |
+| Nacherfassen speichern | Schalter | Stempel „Nacherfassen“ |
+| Baustein anlegen | neuer Baustein in einem Block | Name eindeutig, Höchstzahl |
+| Baustein ändern | Name, Text, Zahlungsregeln | Stempel des Bausteins; gelöscht → eigene Meldung |
+| Standard setzen/aufheben | genau ein bzw. kein Standard je Block | Prüft, ob der Standard des Blocks seit dem Laden gewechselt hat. So bekommt auch das zweite von zwei gleichzeitigen „Als Standard setzen“ den Konflikthinweis |
+| Baustein löschen | mit Bestätigung | gelöscht → eigene Meldung |
+
+Jede Funktion prüft:
+- Inhaber des eigenen Kunden **oder** Betreiber mit 2FA
+- Kunde aktiv; bei deaktiviertem Kunden lehnt sie ab, auch am Formular vorbei
+- Inhalt (Grenzen, Struktur, Platzhalter)
+
+**Rechte:**
+
+| Aktion | Inhaber | Mitarbeiter | Betreiber (2FA) |
+|---|---|---|---|
+| Einstellungen und Bausteine lesen | ✓ eigener Kunde | – (auch nicht am Formular vorbei) | ✓ alle Kunden |
+| Ändern über die Funktionen | ✓ eigener, aktiver Kunde | – | ✓ aktive Kunden |
+| Direkt in die Tabellen schreiben | – | – | – |
+
+PROJ-40/41 lesen die Bausteine später beim Erstellen auf dem Server. Wie Mitarbeiter dabei mitwirken, entscheiden diese Specs.
+
+**Gleiche Prüfregeln in Oberfläche und Server:** Eine gemeinsame Prüfbeschreibung (Zod) für Formular und Server-Aktion liefert die deutschen Fehlermeldungen. Die Datenbank prüft dieselben Grenzen noch einmal als letzte Sicherung. Diese doppelte Pflege ist bewusst, wie bei Rechnungen und Stammdaten.
+
+**Betreiber-Protokoll:** Einträge mit Person und Zeitpunkt, **nie mit dem Text selbst**:
+- „Rechnungseinstellungen geändert: Nummernkreis“ (bzw. Kleinunternehmer-Hinweis, Fußzeile, Nacherfassen)
+- „Textbaustein angelegt / geändert / gelöscht: Einleitung – Dank für den Aufenthalt“ (geändert mit Feldern wie Name, Text, Zahlungsregeln, Standard)
+
+Das Protokoll bekommt dafür neue Aktionsarten und ein Feld für die Bezeichnung des betroffenen Bausteins. Wie bei den Stammdaten werden Änderungen von Inhaber und Betreiber eingetragen.
+
+### F) Schalter „Rechnungen nacherfassen“ umziehen
+- Der Wert wandert von der Kunden-Tabelle in die Rechnungseinstellungen. Jeder Kunde behält seinen Zustand.
+- Die Stammdaten-Funktion und das Stammdaten-Formular verlieren den Schalter. Das Protokollfeld „Rechnungen nacherfassen“ bleibt für alte Einträge lesbar.
+- Die Rechnungs-Speicherfunktion (PROJ-37) und die Rechnungsliste lesen den Schalter künftig aus den Rechnungseinstellungen. Ihr Verhalten bleibt gleich.
+- Vorteil gegenüber „Feld bleibt am Kunden“: Das Umschalten ändert die Stammdaten nicht mehr. Wer gleichzeitig Stammdaten bearbeitet, bekommt also keinen falschen Konflikthinweis.
+
+### G) Abhängigkeiten (Pakete)
+- `@tiptap/react`, `@tiptap/pm`, `@tiptap/starter-kit`: beschränkter Text-Editor (nicht benötigte Teile wie Überschriften, Links, Code, Zitate werden abgeschaltet)
+
+Alles andere ist vorhanden (shadcn/ui, react-hook-form, Zod, next-intl).
+
+### H) Tests (Plan)
+- **Unit:**
+  - Regel „nächste Nummer“ mit allen Beispielen aus den Kriterien und Grenzfällen
+  - Platzhalter-Erkennung und -Zulässigkeit je Block
+  - Prüfung des formatierten Texts (Struktur, Länge auf reinen Text, „nur Formatierung“ = leer)
+  - Vorschau-Werte (Anzahlung, Fristen, Rundung, 100 %)
+- **Integration (Datenbank):**
+  - Rechte Inhaber/Mitarbeiter/fremder Inhaber/Betreiber mit und ohne 2FA, deaktivierter Kunde
+  - Konflikte je Abschnitt und Standard, gelöschter Baustein
+  - doppelter Name, 21. Baustein
+  - unzulässige Struktur und Platzhalter am Formular vorbei
+  - Vorbelegung für bestehende und neue Kunden, Schalter-Umzug, Protokoll ohne Text
+- **E2E:**
+  - Reiter und Zugang
+  - Nummernkreis mit Vorschau
+  - Baustein anlegen/Standard/löschen
+  - Einfügen formatierten Texts
+  - feste Texte, Schalter am neuen Ort
+  - Betreiber-Abschnitt
+  - Handy 375 px mit 44-px-Bedienelementen
 
 ## QA Test Results
 _To be added by /qa_
