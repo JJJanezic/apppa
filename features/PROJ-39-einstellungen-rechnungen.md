@@ -1,6 +1,6 @@
 # PROJ-39: Einstellungen → Rechnungen
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-10-31
 **Last Updated:** 2026-10-31
 
@@ -826,6 +826,7 @@ Migration `20261031135815_invoice_settings_qa_fixes.sql`, in Dev eingespielt; Ty
 ### Bugs Found
 
 #### BUG-1: Fokus verlässt den Editor nach „Platzhalter einfügen“
+- **Status:** behoben, in QA Runde 2 bestätigt
 - **Severity:** Medium
 - **Steps to Reproduce:**
   1. *Einstellungen → Rechnungen*, Baustein hinzufügen, „Hallo “ tippen
@@ -837,6 +838,7 @@ Migration `20261031135815_invoice_settings_qa_fixes.sql`, in Dev eingespielt; Ty
 - **Priority:** Fix before deployment (Kernablauf beim Schreiben von Bausteinen)
 
 #### BUG-2: Einstellungsbaum wird nach dem Laden manchmal neu aufgebaut; Editoren verlieren dann ihren Namen
+- **Status:** behoben, in QA Runde 2 bestätigt
 - **Severity:** Medium
 - **Steps to Reproduce:**
   1. *Einstellungen → Rechnungen* bei 375 px öffnen (oft), in Firefox neu laden (oft), Desktop Chrome (selten)
@@ -850,6 +852,7 @@ Migration `20261031135815_invoice_settings_qa_fixes.sql`, in Dev eingespielt; Ty
 - **Priority:** Fix before deployment (Barrierefreiheit, verlorene Eingaben)
 
 #### BUG-3: Vorschau „nächste Nummer“ liest höchstens 1.000 Rechnungsnummern
+- **Status:** behoben, in QA Runde 2 bestätigt
 - **Severity:** Low
 - **Steps to Reproduce:**
   1. Kunde mit mehr als 1.000 Rechnungen, die höchste passende Nummer hat ein älteres Rechnungsdatum als die 1.000 neuesten
@@ -858,17 +861,20 @@ Migration `20261031135815_invoice_settings_qa_fixes.sql`, in Dev eingespielt; Ty
 - **Priority:** Fix spätestens mit PROJ-41 (dieselbe Regel liefert dort den Nummernvorschlag), z. B. nur passende Nummern serverseitig ermitteln oder seitenweise laden
 
 #### BUG-4: Eingefügte Tabellen kleben die Zellen ohne Trennung zusammen
+- **Status:** behoben, in QA Runde 2 bestätigt
 - **Severity:** Low
 - **Steps to Reproduce:** Tabelle mit „Zelle A | Zelle B“ aus Word/Webseite einfügen → Absatz „Zelle AZelle B“
 - **Expected:** Zellen als eigene Absätze oder durch Leerzeichen getrennt (Tech Design: „Tabellen zu Absätzen“)
 - **Priority:** Nice to have
 
 #### BUG-5: Schließen-Knopf des Seitenpanels nur 40 × 40 px (schon vorher vorhanden)
+- **Status:** behoben, in QA Runde 2 bestätigt
 - **Severity:** Low
 - **Steps to Reproduce:** Bei 375 px einen Baustein öffnen und den Knopf „Schließen“ (X oben rechts) messen: 40 × 40 px statt mindestens 44 px. Gemeinsames `DetailPanel` (`p-3` + 16-px-Symbol), betrifft alle Panels der App.
 - **Priority:** Nice to have (eigene Korrektur am gemeinsamen Baustein)
 
 #### BUG-6: „Als Standard setzen“ ändert den Stand des Bausteins (aus Code-Prüfung)
+- **Status:** behoben, in QA Runde 2 bestätigt
 - **Severity:** Low
 - **Steps to Reproduce:** Nutzer A bearbeitet Baustein X im Panel; Nutzer B setzt X als Standard; A speichert → „Der Baustein wurde inzwischen geändert“, obwohl nur der Standard wechselte (der Trigger `set_audit_fields` setzt `updated_at` auch beim Umschalten von `is_default`).
 - **Priority:** Nice to have
@@ -880,6 +886,63 @@ Migration `20261031135815_invoice_settings_qa_fixes.sql`, in Dev eingespielt; Ty
 - **Production Ready:** YES (keine Critical/High)
 - **Recommendation:** BUG-1 und BUG-2 vor dem Deploy beheben (`/frontend`), BUG-3 spätestens mit PROJ-41
 - **Entscheidung Nutzer (2026-10-31):** alle 6 Bugs vor dem Deploy beheben (BUG-1, 2, 4, 5 per `/frontend`; BUG-3, 6 per `/backend`), danach `/qa` Runde 2
+
+### QA Runde 2 (2026-10-31)
+**Gegenstand:** Korrekturen aus `/frontend` (7e36364) und `/backend` (e842524) für BUG-1 bis BUG-6, dazu die im Backend-Schritt gefundenen Editor-Korrekturen (ARIA-Angaben je Rendern, feste IDs).
+
+**Umgebung:** Gebauter Server (`npm run build` + `npm run start`), Safari gegen `npm run dev`, Supabase „apppa-dev“. Der Zugriff auf `.env.local` war gesperrt. Abgesichert über `assertTestableProject` in beiden Test-Helfern; die Supabase-Verbindung zeigt nachweislich auf Dev (`nizgfmvjplhegoosanmu`). Vorher Testreste im Dev-`audit_log` bereinigt (67.077 Waisenzeilen, `VACUUM FULL`).
+
+**Automatisierte Tests**
+- Unit: 467 grün. Integration: 175/175 grün, nacheinander (`--no-file-parallelism`). Im parallelen Gesamtlauf fielen je Lauf 7 bis 8 wechselnde Tests mit Zeitüberschreitung bzw. `57014 statement timeout` aus. Ursache ist die Dev-Datenbank: Selbst einfache Inserts brauchten zeitweise 5 bis 9 s, nach einem Tag mit sehr vielen Testläufen. Ein Bezug zu PROJ-39 besteht nicht, nacheinander ist alles grün.
+- Lint und Typprüfung sauber; Produktions-Build läuft durch (ein erster Versuch scheiterte an einem kurzzeitig fehlgeschlagenen Download von Google Fonts).
+- E2E `tests/PROJ-39-einstellungen-rechnungen.spec.ts`: 30 Tests, davon 4 neu in Runde 2:
+  - `BUG-2: 375 px – Seite wird einmal aufgebaut, Schreibflächen behalten ihren Namen` (3 Ladevorgänge, Formular zählt nie doppelt, alle Schreibflächen verweisen auf eine vorhandene Bezeichnung)
+  - `BUG-2: Betreiber-Seite – Schreibflächen behalten nach jedem Laden ihren Namen` (4 Ladevorgänge)
+  - `BUG-6: Standard wechselt, während das Panel offen ist – Speichern ohne Konflikt`
+  - `BUG-7: Sofort nach „Platzhalter einfügen“ weitertippen …` (rot in Chrome, siehe unten)
+  - Die AC-Prüfung der Platzhalter-Auswahl wartet jetzt, bis das Menü zu ist und der Fokus in der Schreibfläche steht (sofortiges Tippen prüft der BUG-7-Test).
+- Ergebnisse:
+  - **desktop (Chrome):** 29 grün, 1 rot (BUG-7). Im ersten Lauf war die Platzhalter-Prüfung einmal rot; Ursache war BUG-7, der Test ist entsprechend getrennt (danach 3/3 grün).
+  - **Firefox:** 29 grün, 1 übersprungen (künstliches Einfügen, Testgrenze). BUG-7 tritt in Firefox nicht auf.
+  - **Safari (gegen `npm run dev`):** 28 grün, 2 einzeln rot: Nummernkreis-Vorschau nach `reload` und Meldung „Baustein angelegt.“. Beide bei Wiederholung grün (2/2). Ursache ist der langsame Dev-Modus: `ready` wartet nur auf den App-Rahmen, nicht auf die Hydration des Seiteninhalts. Kein Produktfehler; Chrome und Firefox gegen den Build sind an denselben Stellen grün. BUG-7 ist in Safari grün.
+- Regression gegen den Build (geänderte gemeinsame Bausteine: Seitenleiste/Layout, Seitenpanel, „Mehr“-Blatt):
+  - PROJ-2 App-Shell desktop/tablet/mobile: 50 grün
+  - PROJ-4 desktop/tablet/mobile (inkl. 44-px-Layout mit axe): 33 grün
+  - PROJ-37 und PROJ-38: 40 grün, 1 übersprungen, 1 einzeln rot. Rot war PROJ-38 „kleines Logo“: Der Hinweis fehlte direkt nach dem Hochladen. Danach 4/4 grün; die Stelle läuft nur im Browser und ist von den Änderungen nicht berührt.
+  - PROJ-29, PROJ-34, PROJ-3: 65 grün, 1 übersprungen
+
+**Nachtest der Bugs**
+- BUG-1: behoben. Fokus kehrt nach der Auswahl in die Schreibfläche zurück (Chrome, Firefox, Safari). Rest siehe BUG-7.
+- BUG-2: behoben. Bei 375 px nie zwei Formulare, Schreibflächen auf Inhaber- und Betreiber-Seite immer mit Namen. Fehlerzustand (`aria-invalid`, Fehlermeldung als Beschreibung) bleibt auch nach weiteren Eingaben erhalten.
+- BUG-3: behoben. Grenzfall mit 1.100 Rechnungen zeigt `…-1101` (Chrome, Firefox). Integrationstest: `invoice_numbers` liefert alle Nummern.
+- BUG-4: behoben. „Zelle A“ und „Zelle B“ als eigene Absätze (Chrome, Safari; Firefox Testgrenze).
+- BUG-5: behoben. Die 44-px-Prüfung bei 375 px nimmt den Schließen-Knopf nicht mehr aus und ist grün; PROJ-4-Layouttest grün.
+- BUG-6: behoben. Standard wechselt bei offenem Panel, Speichern gelingt ohne Konfliktmeldung, der Baustein bleibt Standard; echte Inhaltsänderungen dazwischen bleiben ein Konflikt (Integrationstest).
+
+**Sicherheit (Änderungen der Runde)**
+- `invoice_numbers(p_tenant_id)`: `security invoker`, RLS von `invoices` gilt. Fremder Inhaber und Admin ohne 2FA bekommen ein leeres Ergebnis, anon `42501` (Integrationstest). Eine fremde `p_tenant_id` liefert nichts, eine Ausweitung gegenüber dem direkten Lesen der Tabelle gibt es nicht.
+- `content_updated_at`: nur ein Zeitstempel, lesbar wie die übrigen Spalten; Schreiben weiterhin nur über die geprüften Funktionen.
+- Feste IDs `rich-text-<feldname>`: keine Nutzereingaben in IDs (Feldnamen aus dem Code).
+- Ergebnis: keine neue Schwachstelle.
+
+#### BUG-7: Sofort nach „Platzhalter einfügen“ getippte Zeichen gehen ins Menü
+- **Severity:** Low
+- **Steps to Reproduce:**
+  1. Baustein öffnen, „Hallo“ tippen
+  2. „Platzhalter einfügen“ → „{Gast}“ wählen und ohne Pause „ und“ weitertippen
+  3. Expected: `Hallo{Gast} und`
+  4. Actual (Chrome, 3 von 3 Läufen): z. B. `Hallo{Gast}{Gast}und` oder `{Gast}nd`. Während das Menü ausblendet (etwa 100 bis 200 ms), hat noch der Menüeintrag den Fokus. Die Leertaste wählt ihn ein zweites Mal (doppelter Platzhalter, Leerzeichen fehlt), andere Zeichen gehen als Schnellsuche im Menü verloren. Firefox und Safari: nicht aufgetreten.
+- **Test:** `BUG-7: Sofort nach „Platzhalter einfügen“ weitertippen – nichts geht verloren, kein doppelter Platzhalter` (rot in Chrome)
+- **Hinweis für die Korrektur:** Fokus schon beim Auswählen in die Schreibfläche setzen, nicht erst nach dem Ausblenden, z. B. über ein gesteuertes Menü (`open`), das in `onSelect` sofort schließt.
+- **Priority:** Nice to have. Der doppelte Platzhalter ist in der Vorschau sichtbar und schnell gelöscht; betroffen sind nur sehr schnelle Eingaben.
+
+### Summary (Runde 2)
+- **Bugs aus Runde 1:** alle 6 behoben und bestätigt
+- **Neu:** 1 Bug (BUG-7, Low)
+- **Acceptance Criteria:** alle bestanden, auch die bisher teilweise erfüllte 44-px-Prüfung bei 375 px
+- **Security:** bestanden, keine Schwachstelle
+- **Production Ready:** YES (keine Critical/High)
+- **Recommendation:** Deploy möglich; BUG-7 vorher per `/frontend` beheben oder als bekannter Low-Bug mitnehmen
 
 ## Deployment
 _To be added by /deploy_

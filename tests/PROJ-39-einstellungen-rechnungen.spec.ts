@@ -500,7 +500,10 @@ test.describe('Zahlungsregeln, Editor und Vorschau', () => {
     await panel(page).getByRole('button', { name: 'Platzhalter einfügen' }).click()
     await expect(page.getByRole('menuitem')).toHaveText(base)
     await page.getByRole('menuitem', { name: '{Anrede}' }).click()
-    // Fokus bleibt in der Schreibfläche (BUG-1, eigener Test); getippt wie eingefügt; Vorschau mit Beispieldaten, Datum ohne Wochentag
+    // Fokus kehrt in die Schreibfläche zurück (BUG-1); erst danach tippen, sofortiges Tippen siehe BUG-7
+    await expect(page.getByRole('menu')).toHaveCount(0)
+    await expect(editor(panel(page), 'Text')).toBeFocused()
+    // getippt wie eingefügt; Vorschau mit Beispieldaten, Datum ohne Wochentag
     await page.keyboard.type(', willkommen in {Wohnung} am {Anreise}.')
     await expect(panel(page).getByText('Sehr geehrte Frau Mag. Muster, willkommen in Top 1 am 14.10.2026.')).toBeVisible()
 
@@ -538,6 +541,24 @@ test.describe('Zahlungsregeln, Editor und Vorschau', () => {
     await expect(editor(panel(page), 'Text')).toBeFocused()
     await page.keyboard.type(' und willkommen')
     await expect(editor(panel(page), 'Text')).toHaveText('Hallo {Gast} und willkommen')
+  })
+
+  test('BUG-7: Sofort nach „Platzhalter einfügen“ weitertippen – nichts geht verloren, kein doppelter Platzhalter', async ({ page, users }) => {
+    desktopOnly()
+    const { owner } = await ownerWithTenant(users, 'Sofort')
+    await signInAs(page, owner)
+    await openSettings(page)
+    await openNewBlock(page, 'intro')
+    const box = editor(panel(page), 'Text')
+    await typeInto(page, box, 'Hallo')
+    // wie schnelles Tippen: ohne Pause nach der Auswahl (während das Menü noch ausblendet)
+    for (let i = 0; i < 3; i++) {
+      await panel(page).getByRole('button', { name: 'Platzhalter einfügen' }).click()
+      await page.getByRole('menuitem', { name: '{Gast}' }).click()
+      await page.keyboard.type(` und${i}`)
+      await expect(page.getByRole('menu')).toHaveCount(0)
+    }
+    await expect(box).toHaveText('Hallo{Gast} und0{Gast} und1{Gast} und2')
   })
 
   test('AC: Fett, Kursiv, Listen; Einfügen aus Word/Webseite behält nur erlaubte Formatierungen', async ({ page, users }) => {
@@ -800,5 +821,72 @@ test.describe('Barrierefreiheit', () => {
     await expect(editor(panel(page), 'Text')).toBeVisible()
     await expect.poll(() => panel(page).evaluate((d) => d.getBoundingClientRect().right - window.innerWidth)).toBeLessThanOrEqual(0.5)
     expect(summary(await axe())).toEqual([])
+  })
+})
+
+// ---- Nachtest QA Runde 2 (BUG-2, BUG-6) ---------------------------------------------------------------------------
+
+test.describe('Nachtest QA Runde 2', () => {
+  test.skip(!hasSupabaseEnv, 'keine .env.local')
+
+  // Verweist jede Schreibfläche auf eine vorhandene Bezeichnung? (Tiptap setzt die Attribute außerhalb von React)
+  const editorLabels = (page: Page) =>
+    page.$$eval('[role=textbox][contenteditable]', (els) =>
+      els.map((e) => document.getElementById(e.getAttribute('aria-labelledby') ?? '')?.textContent ?? 'FEHLT')
+    )
+
+  test('BUG-2: 375 px – Seite wird einmal aufgebaut, Schreibflächen behalten ihren Namen', async ({ page, users }) => {
+    desktopOnly()
+    const { owner } = await ownerWithTenant(users, 'Einmal')
+    await page.setViewportSize({ width: 375, height: 800 })
+    await signInAs(page, owner)
+    for (let run = 0; run < 3; run++) {
+      await page.goto('/einstellungen/rechnungen')
+      // während des Ladens nie zwei Formulare (vorher kurz doppelt: Server- und Browser-Fassung)
+      let most = 0
+      for (let i = 0; i < 30; i++) {
+        most = Math.max(most, await page.locator('input[name=prefix]').count())
+        await page.waitForTimeout(50)
+      }
+      expect(most, `Lauf ${run}`).toBe(1)
+      await expect(editor(page, 'Fußzeile')).toBeVisible()
+      expect(await editorLabels(page)).toEqual(['Kleinunternehmer-Hinweis', 'Fußzeile'])
+    }
+  })
+
+  test('BUG-2: Betreiber-Seite – Schreibflächen behalten nach jedem Laden ihren Namen', async ({ page, users }) => {
+    desktopOnly()
+    const { tenantId } = await ownerWithTenant(users, 'Betreiber Namen')
+    const admin = await users({ admin: true })
+    await signInAsAdmin(page, admin)
+    for (let run = 0; run < 4; run++) {
+      await page.goto(`/betreiber/kunden/${tenantId}`)
+      await ready(page)
+      await expect(editor(page, 'Fußzeile')).toBeVisible()
+      expect(await editorLabels(page), `Lauf ${run}`).toEqual(['Kleinunternehmer-Hinweis', 'Fußzeile'])
+    }
+  })
+
+  test('BUG-6: Standard wechselt, während das Panel offen ist – Speichern ohne Konflikt', async ({ page, users }) => {
+    desktopOnly()
+    const { owner, tenantId } = await ownerWithTenant(users, 'Standard offen')
+    await signInAs(page, owner)
+    await openSettings(page)
+    await page.getByRole('button', { name: /^Anzahlung 20 %/ }).click()
+    await expect(panel(page).getByLabel('Name')).toHaveValue('Anzahlung 20 %, Rest vor Anreise')
+
+    // inzwischen wird dieser Baustein Standard (z. B. vom Betreiber)
+    const rows = (await blockRows(tenantId)).filter((r) => r.block === 'payment')
+    const target = rows.find((r) => r.name.startsWith('Anzahlung 20'))!
+    const before = target.updated_at
+    await service().from('invoice_text_blocks').update({ is_default: false } as never).eq('id', rows.find((r) => r.is_default)!.id)
+    await service().from('invoice_text_blocks').update({ is_default: true } as never).eq('id', target.id)
+    expect((await blockRows(tenantId)).find((r) => r.id === target.id)!.updated_at).not.toBe(before)
+
+    await panel(page).getByLabel('Name').fill('Anzahlung 25 %')
+    await panel(page).getByRole('button', { name: 'Baustein speichern' }).click()
+    await expect(page.getByText('Baustein gespeichert.')).toBeVisible()
+    await expect(page.getByText('Der Baustein wurde inzwischen geändert.')).toHaveCount(0)
+    await expect.poll(async () => (await blockRows(tenantId)).find((r) => r.id === target.id)).toMatchObject({ name: 'Anzahlung 25 %', is_default: true })
   })
 })
