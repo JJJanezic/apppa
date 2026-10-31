@@ -841,6 +841,7 @@ Alles andere ist vorhanden (shadcn/ui, react-hook-form, Zod, next-intl).
 - **Security:** Bestanden, keine Schwachstelle gefunden
 - **Production Ready:** YES (keine Critical/High)
 - **Recommendation:** BUG-1 und BUG-2 vor dem Deploy beheben (`/frontend`), BUG-3 spätestens mit PROJ-41
+- **Entscheidung Nutzer (2026-10-31):** alle 6 Bugs vor dem Deploy beheben (BUG-1, 2, 4, 5 per `/frontend`; BUG-3, 6 per `/backend`), danach `/qa` Runde 2
 
 ## Deployment
 _To be added by /deploy_
