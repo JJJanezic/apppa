@@ -200,4 +200,32 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-38 Kunden-Logo', () => {
     expect(data).not.toContain(used)
     expect(data).not.toContain(fresh)
   })
+
+  // QA (Red Team)
+  it('Mitarbeiter und fremde Inhaber bekommen keinen signierten Upload', async () => {
+    expect((await staffA.storage.from(BUCKET).createSignedUploadUrl(path(tenantA))).data).toBeNull()
+    expect((await ownerB.storage.from(BUCKET).createSignedUploadUrl(path(tenantA))).data).toBeNull()
+  })
+
+  it('ein eingetragenes Logo lässt sich nicht überschreiben, auch nicht mit upsert', async () => {
+    const p = path(tenantA)
+    expect((await upload(ownerA, p)).error).toBeNull()
+    expect((await save(ownerA, tenantA, p)).error).toBeNull()
+    const overwrite = await ownerA.storage.from(BUCKET).upload(p, Buffer.from('anders'), { contentType: 'image/png', upsert: true })
+    expect(overwrite.error).not.toBeNull()
+    expect((await ownerA.storage.from(BUCKET).remove([p])).data ?? []).toEqual([])
+    const { data } = await service.storage.from(BUCKET).download(p)
+    expect(Buffer.from(await data!.arrayBuffer()).equals(PNG)).toBe(true)
+  })
+
+  it('als PNG getarnter Inhalt wird als image/png ausgeliefert, nie als HTML', async () => {
+    const p = path(tenantA)
+    const html = Buffer.from('<html><script>alert(1)</script></html>')
+    expect((await upload(ownerA, p, html)).error).toBeNull()
+    expect((await save(ownerA, tenantA, p)).error).toBeNull()
+    const { data } = await ownerA.storage.from(BUCKET).createSignedUrl(p, 60)
+    const response = await fetch(data!.signedUrl)
+    expect(response.headers.get('content-type')).toBe('image/png')
+  })
 })
+

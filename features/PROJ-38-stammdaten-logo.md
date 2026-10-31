@@ -1,6 +1,6 @@
 # PROJ-38: Stammdaten: Umbenennung und Logo
 
-## Status: In Progress
+## Status: In Review
 **Created:** 2026-10-31
 **Last Updated:** 2026-10-31
 
@@ -356,7 +356,126 @@ Der Tabellenkommentar wird in der neuen Migration mitgeändert. Die alte Migrati
 **Befund für `/qa` (bestand schon vor PROJ-38):** Die PROJ-4-Prüfung „Team- und Kundenseite … Bedienelemente ≥ 44 px“ schlägt auf der Stammdaten-Seite fehl. Sie misst ein Element mit 44 × 24 px. Das ist der Schalter „Rechnungen nacherfassen“ (shadcn-Switch `h-6 w-11`), der seit PROJ-37 (`b5b95e2`) im Formular steht. Mit PROJ-38 hat das nichts zu tun, es fiel nur erst jetzt auf. Die axe-Prüfung kam in diesem Test nicht mehr zum Zug.
 
 ## QA Test Results
-_To be added by /qa_
+
+**Tested:** 2026-10-31
+**App URL:** http://localhost:3000 (gebauter Server; Safari gegen `npm run dev`), Supabase „apppa-dev“
+**Tester:** QA Engineer (AI)
+
+**Umgebung:** Der Zugriff auf `.env.local` war in dieser Sitzung gesperrt, die vorgeschriebene `grep`-Prüfung lief deshalb nicht. Abgesichert ist die Umgebung trotzdem: Die Playwright-Helfer brechen bei Staging- und Produktions-URLs ab (`assertTestableProject`), und die CLI ist mit Dev verknüpft (`supabase/.temp/project-ref`).
+
+### Acceptance Criteria Status
+
+#### Umbenennung
+- [x] Reiter in der Reihenfolge „Stammdaten“, „Team“, „Wohnungen“, kein Reiter „Kunde“ (E2E)
+- [x] `/einstellungen` → `/einstellungen/stammdaten` (E2E)
+- [x] Adresse `/einstellungen/stammdaten`, Reiter markiert, Tab-Titel „Stammdaten“ (E2E)
+- [x] `/einstellungen/kunde` und `/einstellungen/kunde?x=1` leiten weiter, Zusätze bleiben (E2E, 308)
+- [x] Mitarbeiter: `/einstellungen/stammdaten` und `/einstellungen/kunde` → „Seite nicht gefunden“ (E2E PROJ-4)
+- [x] Felder aus PROJ-28 und Kleinunternehmer-Status aus PROJ-36 unverändert (E2E PROJ-28, PROJ-36)
+- [x] Hinweis „Nacherfassen ausgeschaltet“ verweist auf *Einstellungen → Stammdaten* (E2E PROJ-37, Schalter)
+
+#### Logo hochladen
+- [x] Ohne Logo: Überschrift „Logo“ und Knopf „Logo hochladen“
+- [x] PNG mit Transparenz: Vorschau auf Karomuster; gespeichert als PNG mit Alphakanal (Farbtyp 6), 800 × 500
+- [x] JPEG und HEIC (3000 × 2000): Vorschau, gespeichert als PNG mit 1000 × 667 px, in Chrome, Firefox und Safari
+- [x] Hochgeladen, aber nicht gespeichert: Neuladen zeigt wieder „Logo hochladen“, nichts eingetragen
+- [x] „Speichern“ → „Kundendaten gespeichert.“, Logo nach dem Neuladen sichtbar
+- [x] Längste Seite über 1.000 px → 1.000 px, Datei ist ein PNG
+- [x] Kleines Logo (200 × 125) beim Hochladen: Hinweis, Speichern trotzdem möglich
+- [ ] BUG-2: Nach dem Neuladen fehlt der Hinweis beim gespeicherten kleinen Logo
+- [x] Logo ab 300 px: kein Hinweis
+- [x] Klick auf die Vorschau öffnet das Logo groß
+
+#### Ersetzen und Entfernen
+- [x] Ersetzen: neues Logo eingetragen, altes sofort gelöscht (Ordner enthält nur noch das neue)
+- [x] Entfernen + Speichern: kein Logo, Ordner leer, wieder „Logo hochladen“
+- [x] Entfernt, aber nicht gespeichert: Neuladen zeigt das gespeicherte Logo; Hinweis „wird beim Speichern entfernt“
+
+#### Fehler beim Hochladen
+- [x] SVG und PDF → „kann nicht als Logo verwendet werden“, bisheriges Logo bleibt
+- [x] Über 10 MB → „Die Datei ist zu groß. Erlaubt sind Bilder bis 10 MB.“
+- [x] Beschädigte Datei → verständliche Meldung, bisheriges Logo bleibt
+- [x] Speichern scheitert (gleichzeitige Änderung): Hinweis, Vorschau und Eingaben bleiben, nichts gespeichert. Ein Verbindungsabbruch läuft über denselben, aus PROJ-28 bekannten Weg und wurde nicht eigens simuliert.
+
+#### Betreiber
+- [x] Feld „Logo“ im Abschnitt „Stammdaten“ der Detailseite
+- [x] Betreiber lädt hoch und speichert, der Inhaber sieht das Logo
+- [x] Deaktivierter Kunde: nur Vorschau bzw. „Kein Logo hinterlegt.“, keine Knöpfe
+- [x] Deaktivierter Kunde: Hochladen und Eintragen auf anderem Weg abgelehnt (Integration, P0016)
+
+#### Schutz, Protokoll, Mandantentrennung
+- [x] Gleichzeitige Änderung → „Die Kundendaten wurden inzwischen geändert“, Logo nicht gespeichert
+- [x] Protokoll: „Stammdaten geändert: … Logo“ mit Person und Zeitpunkt. Beim ersten Speichern eines neuen Kunden steht dort auch „Staat“ (Vorbelegung aus PROJ-28, erwartet)
+- [x] Mitarbeiter: kein Hochladen (auch nicht signiert), kein Lesen, kein Eintragen (Integration)
+- [x] Kunde B kann das Logo von Kunde A nicht lesen, nicht dort hochladen, nicht bei sich eintragen (Integration)
+- [x] Ohne Anmeldung kein Abruf, kein Upload (Integration)
+
+#### Allgemein
+- [x] Handy 375 px: kein seitliches Scrollen, Knöpfe ≥ 44 px, keine axe-Verstöße im Hauptbereich (E2E)
+- [x] Bestehende Kunden: Feld leer, übrige Daten unverändert (Migration ohne Datenänderung)
+- [ ] Galerie oder Dateien am echten Handy: nicht geprüft, kein Gerät verfügbar. Die Dateiauswahl nimmt nur Bildtypen an. **Manuell am iPhone prüfen.**
+
+### Edge Cases Status
+- [x] Zweite Datei vor dem Speichern ersetzt die erste in der Vorschau; nur die zuletzt gewählte wird gespeichert, die Zwischendatei räumt die Bereinigung weg
+- [x] Seite verlassen ohne Speichern: nichts eingetragen, die Datei ist für niemanden lesbar
+- [x] Speichern ohne Änderung: kein Protokolleintrag, Logo bleibt (Integration)
+- [x] Nur das Logo geändert: Protokoll nennt „Logo“
+- [x] Sehr breites Logo: Seitenverhältnis bleibt (Unit-Test 4000 × 300 → 1000 × 75)
+- [ ] Animiertes GIF: nicht eigens getestet (der Browser übernimmt das erste Bild)
+- [x] Deaktiviert bzw. Rolle verloren während der Bearbeitung: Speichern abgelehnt (Integration; Ablauf wie PROJ-28)
+- [x] Zwei gleichzeitige Bearbeiter: Hinweis auf zwischenzeitliche Änderung (E2E)
+- [x] Alte Adresse mit Zusatz leitet weiter (E2E)
+- [x] Zusatz: Speichern während des Hochladens gesperrt („Bitte warte, bis das Logo hochgeladen ist.“)
+- [x] Zusatz: „Kunde löschen“ entfernt den Logo-Ordner (E2E)
+
+### Security Audit Results
+- [x] Authentifizierung: ohne Anmeldung kein Lesen und kein Upload
+- [x] Autorisierung: Mitarbeiter und fremde Inhaber ohne Zugriff, auch nicht über signierte Upload-Links. Admin ohne 2FA hat keine Admin-Rechte.
+- [x] Mandantentrennung: Die Prüfregel der Tabelle lässt nur den eigenen Ordner zu, auch für den Server (23514)
+- [x] Direktes Schreiben an der Tabelle vorbei wirkungslos (nur Lesen erlaubt)
+- [x] Überschreiben eines eingetragenen Logos (auch mit `upsert`) und Löschen durch Nutzer abgelehnt
+- [x] Speicherbereich: nur `image/png` bis 5 MB, nur `<Kunde>/<uuid>.png`, kein Unterordner, kein `../`
+- [x] Als PNG getarnter HTML-Inhalt wird als `image/png` ausgeliefert, nie als HTML
+- [x] SVG (Code im Bild) ist schon im Browser ausgeschlossen
+- [x] Abruf-Links gelten 10 Minuten; ersetzte und nicht gespeicherte Dateien sind für niemanden lesbar
+- [x] Bereinigungsfunktion nur für den Server
+- Hinweis: Mitarbeiter sehen über die Kunden-Tabelle den Speicherort-Text des Logos, nicht die Datei. Kein Risiko.
+
+### Regression
+- [x] `npm test`: 50 Dateien, 576 Tests grün, darunter 9 neue Logo-Integrationstests (3 davon Red Team)
+- [x] E2E PROJ-38 (12 Tests) in Chrome; Kernabläufe in Firefox (3) und Safari (4)
+- [x] E2E PROJ-28 (19), PROJ-36 (3), PROJ-37 (Schalter), PROJ-29 (Ausweisbilder: JPEG/HEIC, PNG/PDF, Warten auf Upload), PROJ-5 (Löschen, Deaktivieren, gelöschter Kunde, axe)
+- [ ] BUG-1: E2E PROJ-4 „Team- und Kundenseite … Bedienelemente ≥ 44 px“ schlägt fehl
+
+### Bugs Found
+
+#### BUG-1: Schalter „Rechnungen nacherfassen“ nur 24 px hoch (PROJ-4-Layouttest rot)
+- **Severity:** High. Die Regel stuft einen roten Test der bestehenden Suite als High ein. Für die Nutzer ist es ein kleines Bedienproblem auf Touch-Geräten.
+- **Herkunft:** PROJ-37 (`b5b95e2`), nicht PROJ-38. Der Fehler fiel erst jetzt auf, weil die Prüfung nach PROJ-37 nicht mehr lief.
+- **Steps to Reproduce:**
+  1. Als Inhaber *Einstellungen → Stammdaten* öffnen
+  2. Größe des Schalters „Rechnungen nacherfassen“ messen
+  3. Expected: Bedienfläche mindestens 44 px hoch (Projektregel, PROJ-4-Test)
+  4. Actual: 44 × 24 px (shadcn-Switch `h-6 w-11`). Die axe-Prüfung desselben Tests kommt nicht mehr zum Zug.
+- **Priority:** Fix before deployment (kleine Änderung: größere Klickfläche um den Schalter, das sichtbare Bild bleibt gleich)
+
+#### BUG-2: Hinweis „Logo ist klein“ fehlt nach dem Neuladen
+- **Severity:** Low
+- **Steps to Reproduce:**
+  1. Logo mit 200 × 125 px hochladen: Hinweis erscheint, richtig
+  2. Speichern, Seite neu laden
+  3. Expected: Hinweis steht unter der Vorschau (Spec-Überblick: „Unter der Vorschau steht dann der Hinweis“)
+  4. Actual: kein Hinweis, auch nicht nach 4 Sekunden. Das Bild ist fertig geladen (`complete`, 200 px breit).
+- **Ursache:** Das vom Server ausgelieferte Bild lädt fertig, bevor React das `onLoad` anhängt. Das Ereignis geht dadurch verloren. Abhilfe: beim Einhängen `complete`/`naturalWidth` des Bildes prüfen.
+- **Priority:** Fix before deployment (klein) oder im nächsten Paket
+
+### Summary
+- **Acceptance Criteria:** 37 von 39 geprüften Punkten bestanden. Nicht bestanden: 1 (BUG-2). Nicht geprüft: 1 (Galerie am echten Handy, manuell).
+- **Bugs Found:** 2 total (0 critical, 1 high, 0 medium, 1 low); der High-Bug stammt aus PROJ-37
+- **Security:** Pass
+- **Production Ready:** NO, solange BUG-1 offen ist (rote Regressionssuite)
+- **Recommendation:** BUG-1 (und am besten BUG-2) beheben, dann `/qa` erneut für die betroffenen Tests
+
 
 ## Deployment
 _To be added by /deploy_
