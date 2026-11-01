@@ -29,8 +29,8 @@
 | PROJ-12 | Verfügbarkeitssperre an Channex | Manuell erfasste Buchungen sperren die Wohnung auf booking.com/Airbnb | P0 | PROJ-1, PROJ-8, PROJ-10 | Roadmap | – | 2026-10-12 |
 | PROJ-13 | Zahlungserfassung | Zahlungen je Buchung, Status offen/teilweise/bezahlt, Übernahme aus Channex | P0 | PROJ-1, PROJ-8 | Roadmap | – | 2026-10-12 |
 | PROJ-14 | Dashboard | Heutige An-/Abreisen, kommende Buchungen, offene Zahlungen, Sync-Status | P0 | PROJ-1, PROJ-8, PROJ-13 | Roadmap | – | 2026-10-12 |
-| PROJ-15 | Abgaberegeln je Gemeinde | Konfigurierbare Ortstaxe-Regeln (Prozent oder Betrag pro Person/Nacht, Befreiungen) + Vorlagen pro Bundesland | P0 | PROJ-1, PROJ-6 | Roadmap | – | 2026-10-12 |
-| PROJ-16 | Tourismusabgabe-Berechnung | Abgabe je Buchung, Monatsbericht pro Gemeinde, Export | P0 | PROJ-1, PROJ-8, PROJ-15 | Roadmap | – | 2026-10-12 |
+| PROJ-15 | Ortstaxe je Wohnung | Tarife je Wohnung mit „gültig ab“ (Bezeichnung, Betrag p. P./Nacht oder Prozent netto/brutto, Altersbefreiung tagesgenau, USt-Satz); Häkchen „Von der Ortstaxe befreit“ je Person; automatische, überschreibbare Zusatzposition je Tarif in der Buchung | P0 | PROJ-6, PROJ-7, PROJ-8, PROJ-29, PROJ-30, PROJ-32, PROJ-34, PROJ-35, PROJ-36 | Planned | [Spec](PROJ-15-ortstaxe-je-wohnung.md) | 2026-10-12 |
+| PROJ-16 | Tourismusabgabe-Monatsbericht | Monatsbericht pro Gemeinde aus den Abgabe-Positionen (PROJ-15), Export | P0 | PROJ-1, PROJ-8, PROJ-15 | Roadmap | – | 2026-10-12 |
 | PROJ-17 | Kalender-Abo-Link | Privater iCal-Feed für Outlook/M365 und Google Calendar, Link erneuerbar | P0 | PROJ-1, PROJ-8 | Roadmap | – | 2026-10-12 |
 | PROJ-18 | Statistische Auswertungen | Auslastung, Umsatz, Gästeherkunft, Kanäle; Filter nach Wohnung und Zeitraum | P0 | PROJ-1, PROJ-7, PROJ-8, PROJ-13 | Roadmap | – | 2026-10-12 |
 | PROJ-19 | Marketing: Einwilligung, Segmente & Export | DSGVO-Einwilligung erfassen, Gäste-Segmente, CSV-Export | P0 | PROJ-1, PROJ-7 | Roadmap | – | 2026-10-12 |
@@ -59,7 +59,7 @@
 <!-- Add features above this line -->
 
 ## Build Order
-1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 29 → 30 → 31 → 32 → 33 → 34 → 36 → 35 → 37 → 38 → 39 → 40 → 10 → 11 → 12 → 13 → 14 → 15 → 16 → 26 → 17 (**Pilotstand**, ca. 3 Monate) → 18 → 19 (**MVP komplett**, ca. 4–5 Monate) → P2 nach Bedarf.
+1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 29 → 30 → 31 → 32 → 33 → 34 → 36 → 35 → 37 → 38 → 39 → 40 → 15 → 41 → 42 → 43 (Rechnungsmodul: Briefpapier/Gestaltung, Ausstellen mit PDF, Übersicht; IDs werden mit /write-spec vergeben) → 10 → 11 → 12 → 13 → 14 → 16 → 26 → 17 (**Pilotstand**, ca. 3 Monate) → 18 → 19 (**MVP komplett**, ca. 4–5 Monate) → P2 nach Bedarf.
 
 Den Channex-Block (PROJ-10 bis PROJ-12) früh angehen: Er ist das größte Risiko (Testzugang, Webhooks, Abläufe mit den Plattformen).
 
