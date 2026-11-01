@@ -1,8 +1,8 @@
 # PROJ-15: Ortstaxe je Wohnung
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-11-01
-**Last Updated:** 2026-11-01 (QA Runde 2)
+**Last Updated:** 2026-11-01 (Deployment)
 
 ## Dependencies
 - Requires: PROJ-6 (Wohnungsverwaltung): Wohnungsformular unter *Einstellungen → Wohnungen*, nur Inhaber
@@ -556,4 +556,10 @@ Buchungsdetail (bestehend)
 **Summary Runde 2:** 53/53 · offene Bugs: 1 Medium (BUG-5, PROJ-40) · Security: Pass (Änderungen berühren keine Rechte) · **Production Ready: YES**
 
 ## Deployment
-_To be added by /deploy_
+
+**Ausgeliefert:** 2026-11-01, Tag `v1.19.0-PROJ-15` auf Commit `6b5dda2`
+- **Staging:** https://staging.apppa.at (2026-11-01, vom Nutzer geprüft)
+- **Produktion:** https://app.apppa.at (2026-11-01, vom Nutzer geprüft)
+- **Migrationen (Staging und Produktion):** `20261101061318_tourist_tax.sql`, `20261101061802_tourist_tax_checks.sql`; kein `config push`, keine neuen Umgebungsvariablen
+- **Bestand:** Bestehende Buchungen stehen auf „noch nicht berechnet“ und ändern sich erst mit „Abgabe berechnen“
+- **Offen:** BUG-5 aus PROJ-40 (Entwurf gespeichert, Seite bleibt sporadisch auf dem Formular), vor PROJ-42 klären; Safari nicht automatisiert geprüft
