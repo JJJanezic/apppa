@@ -1,8 +1,8 @@
 # PROJ-15: Ortstaxe je Wohnung
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-11-01
-**Last Updated:** 2026-11-01 (Tech Design)
+**Last Updated:** 2026-11-01 (Frontend)
 
 ## Dependencies
 - Requires: PROJ-6 (Wohnungsverwaltung): Wohnungsformular unter *Einstellungen → Wohnungen*, nur Inhaber
@@ -381,6 +381,31 @@ Buchungsdetail (bestehend)
 - **Frontend:** Abschnitt „Ortstaxe“ im Wohnungs-Panel (Liste mit Hinzufügen/Entfernen im bestehenden Formular), Häkchen im Buchungsformular und im Mitreisende-Panel, Kennzeichen „automatisch berechnet“ in der Zusatzkosten-Liste, Hinweisfeld mit „Abgabe (neu) berechnen“, Anzeige „von der Ortstaxe befreit“ im Detail. App-Fassung der Rechenregel als reine Rechenbibliothek mit Unit-Tests (Beispieltabelle). Texte in `messages/de.json`.
 - **Backend:** Tabelle für Tarife mit Inhaber-Regeln und Protokoll, Funktion zum Ersetzen der Tarifliste, neue Felder an Buchung, Mitreisenden und Zusatzkosten, Datenbank-Fassung der Rechenregel und der Kleinunternehmer-Regel, Erweiterung von „Buchung speichern“ und „Mitreisende speichern“ um Zustand, Häkchen, Neuberechnung und „Preis prüfen“. Integrationstests mit derselben Beispieltabelle sowie für Rollen und Mandantentrennung.
 
+
+## Implementation Notes (Frontend, 2026-11-01)
+
+**Gebaut**
+- `src/lib/tourist-tax.ts`: Rechenregel (App-Fassung) `computeTouristTax` – Betrags-Tarife je tatsächlicher Nacht mit tagesgenauer Altersbefreiung und Häkchen, Prozent-Tarife je abgerechneter Nacht (Basis netto/brutto, Kleinunternehmer = brutto, Rundung je Position, exakt über BigInt), Hinweise „Geburtsdatum fehlt“ (nur bei Altersgrenze und Kindern) und „Nächte ohne Tarif“. Dazu Vergleich gespeichert/berechnet (`sameTaxLines`), Doppelungs-Hinweis (`duplicateTaxLabels`), Lesen der Tabellenzeilen. 31 Unit-Tests in `tourist-tax.test.ts` = Beispieltabelle für die Datenbank-Fassung.
+- Wohnungsformular: Abschnitt „Ortstaxe“ (`src/components/apartments/tourist-tax-fields.tsx`) mit Zeile „Aktuell“/Leerzustand, Einträgen neueste oben (neue werden oben eingefügt, vorbelegt mit Bezeichnung und Werten des neuesten), Kennzeichen „künftig“, Berechnungsart, Betrag + „befreit unter … Jahren“ bzw. Prozentsatz + Basis, USt-Satz (0,00 vorbelegt), Bezeichnung mit Auswahl „Nächtigungsabgabe/Ortstaxe/Aufenthaltsabgabe“. Prüfregeln in `src/lib/validation/apartments.ts` (inkl. Datum je Wohnung einmal), Unit-Tests ergänzt.
+- Buchungsformular: Häkchen „Hauptgast von der Ortstaxe befreit“ (alle Mitglieder); für Inhaber Abgabe-Positionen mit Kennzeichen „automatisch berechnet“ bzw. „von Hand geändert“, Neuberechnung bei geänderter Berechnungsgrundlage (nicht beim Öffnen), Wechsel auf „von Hand“ beim Ändern/Entfernen einer Abgabe-Position, Hinweisfeld mit „Abgabe berechnen“/„Abgabe neu berechnen“ und Doppelungs-Hinweis. Geburtsdatum des gewählten Hauptgasts über neue Aktion `loadGuestBirthDate` (nur Inhaber).
+- Mitreisende-Panel: Häkchen „Von der Ortstaxe befreit“ je Person.
+- Buchungsdetail: „von der Ortstaxe befreit“ bei Hauptgast und Mitreisenden; Ortstaxe-Hinweise im Preisbereich (Inhaber).
+
+**Abweichungen / Präzisierungen**
+- Das Angebot „Abgabe neu berechnen“ erscheint bei „von Hand“ auch für Buchungen mit Rechnung (bewusste Handlung des Inhabers); bei „automatisch“/„noch nicht berechnet“ nicht, wenn eine nacherfasste oder ausgestellte Rechnung existiert.
+- Ändern des USt-Satzes einer Abgabe-Position zählt ebenfalls als Änderung von Hand.
+- Ohne Migration sind Wohnungs- und Buchungsseiten in Dev nicht lesbar (neue Spalten/Tabelle in den Abfragen) – wie bei PROJ-40 wird das mit `/backend` behoben.
+
+### Offen für /backend (Schnittstelle, Typen bereits in `src/types/database.ts`)
+- **Tabelle `apartment_tourist_tax_rates`**: id, tenant_id, apartment_id (FK `(apartment_id, tenant_id)` → apartments, Name `apartment_tourist_tax_rates_apartment_fkey`), valid_from (date, eindeutig je Wohnung – Name der Regel muss `apartment_tourist_tax_rates` enthalten, die Aktion erkennt 23505 daran), label (1–100, getrimmt), method (`per_person_night` | `percent`), amount_cents (0–100.000, Pflicht bei Betrag), percent_rate (numeric(5,2), > 0 bis 100, Pflicht bei Prozent), base (`net` | `gross`, Pflicht bei Prozent), exempt_under_age (1–18 oder null, nur bei Betrag), vat_rate (numeric(5,2), Standard 0), created/updated_at/by. RLS: nur Inhaber lesen/schreiben; Änderungsprotokoll.
+- **Funktion `save_tourist_tax_rates(p_apartment_id uuid, p_rates jsonb)`**: ersetzt die Liste als Ganzes (Felder je Eintrag: id, valid_from, label, method, amount_cents, percent_rate als Text „3.20“, base, exempt_under_age, vat_rate als Text „0.00“); nur Inhaber des Kunden der Wohnung; bei unveränderter Liste keine Änderung. Wird bei jedem Speichern einer Wohnung aufgerufen (auch Anlegen).
+- **`bookings`**: `tourist_tax_mode` text (`pending` | `auto` | `manual`, Standard für neue Zeilen `auto`, bestehende Buchungen per Migration `pending`), `main_guest_tourist_tax_exempt` boolean (Standard false).
+- **`booking_companions`**: `tourist_tax_exempt` boolean (Standard false).
+- **`booking_charges`**: `tourist_tax` boolean (Standard false), `tourist_tax_rate_id` uuid null (FK auf den Tarif, beim Löschen null), `tax_person_nights` integer null.
+- **`save_booking`**: neue Eingaben `main_guest_tourist_tax_exempt`, `tourist_tax_mode`, `tourist_tax_recalculate` (boolean), je Position `tourist_tax: { rate_id, person_nights } | null`. Regeln laut Tech Design C: Zustand „automatisch“ → bei geänderter Berechnungsgrundlage oder `tourist_tax_recalculate` Abgabe-Positionen selbst rechnen (gesendete Abgabe-Beträge ignorieren, Reihenfolge der übrigen Positionen erhalten; Abgabe-Positionen an der Stelle der bisherigen ersten bzw. am Ende); „von Hand“ → gesendete Positionen übernehmen; „noch nicht berechnet“ → nichts rechnen, mit `tourist_tax_recalculate` auf „automatisch“. Zustand und Neuberechnung nur von Inhabern; Mitarbeiter: Häkchen ja, bei „automatisch“ neu rechnen, bei „von Hand“ und geänderter Grundlage `price_review`. Neue Buchungen: „automatisch“.
+- **`save_companions`**: je Person `tourist_tax_exempt`; danach wie Mitarbeiter-Änderung (automatisch neu rechnen bzw. `price_review`).
+- **Datenbank-Fassung der Rechenregel** und **Kleinunternehmer-Regel** (`vatStatusForBooking`), geprüft mit den Fällen aus `src/lib/tourist-tax.test.ts`.
+- Lesen: `findBooking` liest zusätzlich `guests.birth_date` und `invoices(origin)` (vorhanden).
 
 ## QA Test Results
 _To be added by /qa_

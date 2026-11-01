@@ -15,6 +15,7 @@ import {
   updateApartment,
 } from '@/app/(app)/einstellungen/wohnungen/actions'
 import { PropertyFields } from '@/components/apartments/property-fields'
+import { toRateFormValues, TouristTaxFields, type TouristTaxRateFormValues } from '@/components/apartments/tourist-tax-fields'
 import { callAction, FormError } from '@/components/auth/form-error'
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { DetailPanel } from '@/components/detail-panel'
@@ -55,6 +56,8 @@ type FormValues = {
   cleaningFee: string
   checkIn: string
   checkOut: string
+  // Ortstaxe-Tarife (PROJ-15), neueste oben
+  touristTaxRates: TouristTaxRateFormValues[]
   note: string
 }
 
@@ -95,6 +98,7 @@ export function ApartmentPanel({ open, onOpenChange, properties, apartment, pres
         cleaningFee: priceInput(apartment.cleaningFeeCents),
         checkIn: apartment.checkIn,
         checkOut: apartment.checkOut,
+        touristTaxRates: apartment.touristTaxRates.map(toRateFormValues),
         note: apartment.note ?? '',
       }
     : {
@@ -111,6 +115,7 @@ export function ApartmentPanel({ open, onOpenChange, properties, apartment, pres
         cleaningFee: '',
         checkIn: APARTMENT_DEFAULTS.checkIn,
         checkOut: APARTMENT_DEFAULTS.checkOut,
+        touristTaxRates: [],
         note: '',
       }
 
@@ -413,6 +418,7 @@ export function ApartmentPanel({ open, onOpenChange, properties, apartment, pres
               )}
             />
           </fieldset>
+          <TouristTaxFields />
           <div className="grid grid-cols-2 gap-3">
             {(['checkIn', 'checkOut'] as const).map((name) => (
               <FormField

@@ -17,6 +17,9 @@ const valid: BookingInput = {
   checkOut: '10:00',
   guestSheetNumber: '',
   residenceRegistered: false,
+  mainGuestTaxExempt: false,
+  touristTaxMode: 'auto',
+  touristTaxRecalc: false,
   source: 'none',
   sourceCustom: '',
   guestMode: 'existing',
@@ -157,7 +160,7 @@ describe('Sperre', () => {
 })
 
 describe('Mitreisende', () => {
-  const person = { firstName: 'Max', lastName: 'Huber', birthDate: '1985-03-12' }
+  const person = { firstName: 'Max', lastName: 'Huber', birthDate: '1985-03-12', taxExempt: false }
 
   it('erlaubt höchstens Personen minus Hauptgast', () => {
     expect(companionsSchema(t, { max: 1, today: TODAY }).safeParse({ companions: [person] }).success).toBe(true)

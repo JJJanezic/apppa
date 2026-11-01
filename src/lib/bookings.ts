@@ -3,6 +3,7 @@
 
 import { AMOUNT_MAX_CENTS, type ApartmentPricing } from '@/lib/apartments'
 import { TIME_ZONE } from '@/lib/locale'
+import type { TouristTaxMark, TouristTaxMode, TouristTaxRate } from '@/lib/tourist-tax'
 
 // Rechnerischer Vorschlag nach Preisart der Wohnung (PROJ-27); Regel in src/lib/apartments.ts
 export { suggestedNightsCents } from '@/lib/apartments'
@@ -69,7 +70,8 @@ export const LIMITS = {
 
 // vatBp: Umsatzsteuersatz in Hundertstel-Prozent (PROJ-35, src/lib/vat.ts)
 // id: Kennung der gespeicherten Zusatzkosten-Position (bleibt beim Speichern erhalten, PROJ-40); neue Positionen ohne
-export type Charge = { id?: string; label: string; amountCents: number; vatBp: number }
+// touristTax: Abgabe-Position der Ortstaxe (PROJ-15) mit Verweis auf den Tarif-Eintrag; sonst fehlt es
+export type Charge = { id?: string; label: string; amountCents: number; vatBp: number; touristTax?: TouristTaxMark | null }
 
 // Beträge sehen nur Inhaber (eigene Tabellen, Tech Design C)
 // Preisregel bei Verlängerung (PROJ-30, geändert 2026-10-30): eingetragener Preis gilt für den gesamten Aufenthalt
@@ -87,7 +89,8 @@ export type BookingAmounts = {
   cancellationFeeVatBp: number
 }
 
-export type Companion = { firstName: string; lastName: string; birthDate: string | null }
+// taxExempt: „Von der Ortstaxe befreit“ (PROJ-15), gilt nur für diese Buchung
+export type Companion = { firstName: string; lastName: string; birthDate: string | null; taxExempt: boolean }
 
 // Wohnung, wie das Buchungsformular sie braucht (Preise nur für den Vorschlag des Inhabers)
 export type BookableApartment = ApartmentPricing & {
@@ -99,6 +102,8 @@ export type BookableApartment = ApartmentPricing & {
   checkIn: string
   checkOut: string
   archived: boolean
+  // Ortstaxe-Tarife (PROJ-15), nur für Inhaber geladen; neueste zuerst
+  touristTaxRates: TouristTaxRate[]
 }
 
 export type BookingGuest = {
@@ -109,6 +114,8 @@ export type BookingGuest = {
   titleSuffix: string | null
   country: string
   anonymized: boolean
+  // Geburtsdatum für die Altersbefreiung der Ortstaxe (PROJ-15)
+  birthDate: string | null
 }
 
 // Anderer Eintrag, mit dem sich ein Zeitraum überschneidet
@@ -169,6 +176,11 @@ export type Booking = {
   // Wer trotz Überschneidung oder Überbelegung gespeichert hat
   overrideBy: string | null
   priceReview: boolean
+  // Ortstaxe (PROJ-15): Abgabe-Zustand und „Hauptgast von der Ortstaxe befreit“
+  touristTaxMode: TouristTaxMode
+  mainGuestTaxExempt: boolean
+  // Gibt es eine nacherfasste oder ausgestellte Rechnung (keine Entwürfe)? Dann kein Abgabe-Vorschlag nach Tarifänderung
+  hasBilledInvoice: boolean
   companions: Companion[]
   // null für Mitarbeiter und bei Sperren; dazu der abgerechnete Übernachtungspreis (vom Server berechnet)
   amounts: (BookingAmounts & { billedNightsCents: number }) | null

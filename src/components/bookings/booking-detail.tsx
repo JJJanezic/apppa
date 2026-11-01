@@ -12,6 +12,7 @@ import { countryName, guestDisplayName, guestHref, guestSortName } from '@/lib/g
 import { cn } from '@/lib/utils'
 import { invoiceButtonState } from '@/lib/invoice-drafts'
 import { getBookingInvoices } from '@/lib/invoices-data'
+import { computeTouristTax } from '@/lib/tourist-tax'
 import { formatVatRate, vatBreakdown } from '@/lib/vat'
 import { vatStatusForBooking } from '@/lib/vat-status'
 import { getVatStatusHistory } from '@/lib/vat-status-data'
@@ -88,6 +89,28 @@ export async function BookingDetail({ booking, apartments, owner, today, layout,
       draftCents,
     })
   }
+  // Ortstaxe-Hinweise (PROJ-15, nur Inhaber): fehlende Geburtsdaten, Nächte ohne Tarif
+  const apartment = apartments.find((a) => a.id === booking.apartment.id)
+  const tax =
+    owner && amounts && !isBlock && !booking.cancelledAt && apartment
+      ? computeTouristTax({
+          kind: booking.kind,
+          rates: apartment.touristTaxRates,
+          arrival: booking.arrival,
+          departure: booking.departure,
+          billableNights: billable,
+          billedNightsCents: amounts.billedNightsCents,
+          nightsVatBp: amounts.nightsVatBp,
+          smallBusiness,
+          residenceRegistered: booking.residenceRegistered,
+          persons,
+          childCount: booking.childAges.length,
+          people: [
+            { birthDate: booking.guest?.birthDate ?? null, exempt: booking.mainGuestTaxExempt },
+            ...booking.companions.map((c) => ({ birthDate: c.birthDate, exempt: c.taxExempt })),
+          ],
+        })
+      : null
   const sourceLabel = booking.source === 'custom' && booking.sourceCustom ? booking.sourceCustom : t(`source.${booking.source}`)
 
   return (
@@ -146,6 +169,7 @@ export async function BookingDetail({ booking, apartments, owner, today, layout,
                     </Link>
                   </Fact>
                   <Fact label={t('detail.country')}>{countryName(booking.guest.country, locale)}</Fact>
+                  {booking.mainGuestTaxExempt && <Fact label={t('detail.touristTax')}>{t('detail.taxExempt')}</Fact>}
                 </DetailSection>
               )}
 
@@ -159,7 +183,10 @@ export async function BookingDetail({ booking, apartments, owner, today, layout,
                   <ul className="flex flex-col divide-y rounded-lg bg-ds-surface px-4">
                     {booking.companions.map((c, i) => (
                       <li key={i} className="flex flex-wrap justify-between gap-2 py-3">
-                        <span>{guestSortName(c)}</span>
+                        <span>
+                          {guestSortName(c)}
+                          {c.taxExempt && <span className="text-[13px] text-ds-neutral-800"> · {t('detail.taxExempt')}</span>}
+                        </span>
                         {c.birthDate && <span className="text-ds-neutral-800 tabular-nums">{formatDatePlain(c.birthDate)}</span>}
                       </li>
                     ))}
@@ -209,6 +236,14 @@ export async function BookingDetail({ booking, apartments, owner, today, layout,
                 {booking.priceReview && (
                   <Alert className="border-ds-accent-700/40 bg-ds-accent-100">
                     <AlertDescription>{t('detail.priceReviewNote')}</AlertDescription>
+                  </Alert>
+                )}
+                {tax && (tax.missingBirthDates > 0 || tax.nightsWithoutRate > 0) && (
+                  <Alert className="border-ds-accent-700/40 bg-ds-accent-100">
+                    <AlertDescription className="flex flex-col gap-1">
+                      {tax.missingBirthDates > 0 && <span>{t('panel.taxMissingBirthDates', { count: tax.missingBirthDates })}</span>}
+                      {tax.nightsWithoutRate > 0 && <span>{t('panel.taxNightsWithoutRate', { count: tax.nightsWithoutRate })}</span>}
+                    </AlertDescription>
                   </Alert>
                 )}
                 <dl className="flex flex-col divide-y rounded-lg bg-ds-surface px-4">

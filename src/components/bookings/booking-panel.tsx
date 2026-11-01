@@ -8,7 +8,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useFieldArray, useForm, useWatch } from 'react-hook-form'
 import { toast } from 'sonner'
 
-import { saveBooking } from '@/app/(app)/buchungen/actions'
+import { loadGuestBirthDate, saveBooking } from '@/app/(app)/buchungen/actions'
 import { checkGuestDuplicates } from '@/app/(app)/gaeste/actions'
 import { Amount } from '@/components/amount'
 import { AmountInput } from '@/components/amount-input'
@@ -20,6 +20,7 @@ import { DetailPanel } from '@/components/detail-panel'
 import { GuestFields } from '@/components/guests/guest-fields'
 import { GuestPicker } from '@/components/guests/guest-picker'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
@@ -49,9 +50,10 @@ import {
 } from '@/lib/bookings'
 import { formatCents } from '@/lib/format'
 import { countryName, type DuplicateMatch, guestSortName } from '@/lib/guests'
+import { computeTouristTax, duplicateTaxLabels, sameTaxLines, type TouristTaxLine } from '@/lib/tourist-tax'
 import { type BookingInput, bookingSchema } from '@/lib/validation/bookings'
 import { EMPTY_GUEST_INPUT, type GuestInput, guestSchema } from '@/lib/validation/guests'
-import { CHARGE_CHOICES, VAT_DEFAULTS, vatRateInput } from '@/lib/vat'
+import { CHARGE_CHOICES, parseVatRate, VAT_DEFAULTS, vatRateInput } from '@/lib/vat'
 import { vatStatusOn } from '@/lib/vat-status'
 
 type PickedGuest = {
@@ -61,6 +63,8 @@ type PickedGuest = {
   titlePrefix: string | null
   titleSuffix: string | null
   country: string
+  // Geburtsdatum für die Altersbefreiung der Ortstaxe (PROJ-15); undefined = noch nicht geladen
+  birthDate?: string | null
 }
 
 interface BookingPanelProps {
@@ -81,6 +85,35 @@ interface BookingPanelProps {
 const euro = formatCents
 const CLEANING_VAT_BP = CHARGE_CHOICES.find((c) => c.key === 'cleaning')!.vatBp
 
+type ChargeRow = BookingInput['charges'][number]
+
+// Abgabe-Positionen der Ortstaxe (PROJ-15) als Zeilen des Formulars
+const taxRow = (l: TouristTaxLine): ChargeRow => ({
+  label: l.label,
+  amount: amountInput(l.amountCents),
+  vat: vatRateInput(l.vatBp),
+  touristTax: true,
+  touristTaxRateId: l.rateId,
+  taxPersonNights: l.personNights,
+})
+
+// Zeilen → vergleichbare Abgabe-Positionen (ungültige Beträge zählen als Abweichung)
+const taxLinesOf = (rows: ChargeRow[]) =>
+  rows
+    .filter((c) => c.touristTax)
+    .map((c) => ({ label: c.label ?? '', amountCents: parseAmountCents(c.amount ?? '', { negative: true }) ?? Number.NaN, vatBp: parseVatRate(c.vat ?? '') ?? Number.NaN }))
+
+// Abgabe-Positionen ersetzen: an der Stelle der bisherigen ersten, sonst am Ende; übrige Positionen und ihre
+// Reihenfolge bleiben. Kennungen bisheriger Abgabe-Positionen werden der Reihe nach weiterverwendet.
+function withTaxRows(rows: ChargeRow[], lines: TouristTaxLine[]): ChargeRow[] {
+  const oldTax = rows.filter((c) => c.touristTax)
+  const next = lines.map((l, i) => ({ ...taxRow(l), chargeId: oldTax[i]?.chargeId }))
+  const first = rows.findIndex((c) => c.touristTax)
+  const others = rows.filter((c) => !c.touristTax)
+  const at = first < 0 ? others.length : rows.slice(0, first).filter((c) => !c.touristTax).length
+  return [...others.slice(0, at), ...next, ...others.slice(at)]
+}
+
 // Neue Buchung: Inhaber erhalten die Reinigungsgebühr der Wohnung als Position (cleaningLabel), Mitarbeiter keine Beträge
 function initialValues(
   booking: Booking | null,
@@ -100,6 +133,9 @@ function initialValues(
       checkOut: booking.checkOut,
       guestSheetNumber: booking.guestSheetNumber ?? '',
       residenceRegistered: booking.residenceRegistered,
+      mainGuestTaxExempt: booking.mainGuestTaxExempt,
+      touristTaxMode: booking.touristTaxMode,
+      touristTaxRecalc: false,
       source: booking.source,
       sourceCustom: booking.sourceCustom ?? '',
       guestMode: 'existing',
@@ -111,7 +147,16 @@ function initialValues(
       extensionPricing: booking.amounts?.extensionPricing ?? 'total',
       nightsVat: vatRateInput(booking.amounts?.nightsVatBp ?? VAT_DEFAULTS.nights),
       // Kennung mitführen: Rechnungspositionen bleiben mit der Zusatzkosten-Position verbunden (PROJ-40)
-      charges: (booking.amounts?.charges ?? []).map((c) => ({ chargeId: c.id, label: c.label, amount: amountInput(c.amountCents), vat: vatRateInput(c.vatBp) })),
+      charges: (booking.amounts?.charges ?? []).map((c) => ({
+        chargeId: c.id,
+        label: c.label,
+        amount: amountInput(c.amountCents),
+        vat: vatRateInput(c.vatBp),
+        // Abgabe-Position der Ortstaxe (PROJ-15)
+        touristTax: Boolean(c.touristTax),
+        touristTaxRateId: c.touristTax?.rateId ?? null,
+        taxPersonNights: c.touristTax?.personNights ?? null,
+      })),
       note: booking.note ?? '',
     }
   }
@@ -128,6 +173,10 @@ function initialValues(
     checkOut: only?.checkOut ?? '10:00',
     guestSheetNumber: '',
     residenceRegistered: false,
+    // Neue Buchungen rechnen die Ortstaxe automatisch (PROJ-15)
+    mainGuestTaxExempt: false,
+    touristTaxMode: 'auto',
+    touristTaxRecalc: false,
     source: 'none',
     sourceCustom: '',
     guestMode: 'existing',
@@ -186,8 +235,25 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
   const labelListOpen = useRef(false)
   const vatHistory = useVatStatus()
 
-  const [kind, apartmentId, arrival, plannedDeparture, departure, guestMode, adults, childRows, nightsPrice, chargeRows, source, guestSheetNumber, extensionPricing] =
-    useWatch({
+  const [
+    kind,
+    apartmentId,
+    arrival,
+    plannedDeparture,
+    departure,
+    guestMode,
+    adults,
+    childRows,
+    nightsPrice,
+    chargeRows,
+    source,
+    guestSheetNumber,
+    extensionPricing,
+    residenceRegistered,
+    mainGuestTaxExempt,
+    touristTaxMode,
+    nightsVat,
+  ] = useWatch({
       control: form.control,
       name: [
         'kind',
@@ -203,6 +269,10 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
         'source',
         'guestSheetNumber',
         'extensionPricing',
+        'residenceRegistered',
+        'mainGuestTaxExempt',
+        'touristTaxMode',
+        'nightsVat',
       ],
     })
   const guestValues = JSON.stringify(useWatch({ control: guestForm.control }))
@@ -259,6 +329,74 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
   const showVat = !vatStatusOn(vatHistory, isIsoDate(departure) ? departure : today).smallBusiness
   const chargeChoices = CHARGE_CHOICES.map((c) => ({ key: c.key, label: t(`chargeSuggestions.${c.key}`) }))
   const total = totalParts.every((c) => c === null || !Number.isNaN(c)) ? totalParts.reduce<number>((sum, c) => sum + (c ?? 0), 0) : null
+
+  // Ortstaxe (PROJ-15, nur Inhaber): Rechnung nach den Tarifen der Wohnung; maßgeblich rechnet beim Speichern die
+  // Datenbank. Geburtsdatum des Hauptgastes: neuer Gast aus dem Gast-Formular, gewählter Gast vom Server.
+  const newGuestBirthDate = useWatch({ control: guestForm.control, name: 'birthDate' })
+  useEffect(() => {
+    if (!owner || !picked || picked.birthDate !== undefined) return
+    let cancelled = false
+    void callAction(() => loadGuestBirthDate({ id: picked.id })).then((r) => {
+      if (!cancelled) setPicked((p) => (p && p.id === picked.id ? { ...p, birthDate: r.ok && r.data ? r.data.birthDate : null } : p))
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [owner, picked])
+  const mainBirthDate = guestMode === 'new' ? (isIsoDate(newGuestBirthDate ?? '') ? newGuestBirthDate : null) : (picked?.birthDate ?? null)
+  const taxInput = {
+    kind,
+    apartmentId,
+    rates: apartment?.touristTaxRates ?? [],
+    arrival,
+    departure,
+    billableNights: billable,
+    billedNightsCents: billedCents !== null && !Number.isNaN(billedCents) ? billedCents : 0,
+    nightsVatBp: Number.isNaN(parseVatRate(nightsVat ?? '')) ? VAT_DEFAULTS.nights : (parseVatRate(nightsVat ?? '') ?? VAT_DEFAULTS.nights),
+    smallBusiness: !showVat,
+    residenceRegistered,
+    persons,
+    childCount: childRows.length,
+    people: [{ birthDate: mainBirthDate, exempt: mainGuestTaxExempt }, ...(booking?.companions ?? []).map((c) => ({ birthDate: c.birthDate, exempt: c.taxExempt }))],
+  }
+  const taxBasis = JSON.stringify({ ...taxInput, rates: undefined })
+  const tax = owner && periodOk && plannedOk && apartment ? computeTouristTax(taxInput) : { lines: [], missingBirthDates: 0, nightsWithoutRate: 0 }
+  const taxDiffers = !sameTaxLines(taxLinesOf(chargeRows), tax.lines)
+  // Angebot „Abgabe (neu) berechnen“: Altbestand mit Tarif, abweichende Rechnung (z. B. nach Tarifänderung) oder von Hand
+  // geänderte Abgabe; nicht nach Tarifänderung bei Buchungen mit nacherfasster bzw. ausgestellter Rechnung
+  const taxOffer =
+    owner &&
+    taxDiffers &&
+    (touristTaxMode === 'manual' || (!booking?.hasBilledInvoice && (touristTaxMode === 'auto' || tax.lines.length > 0)))
+  const taxDuplicates = taxOffer && touristTaxMode === 'pending' ? duplicateTaxLabels(chargeRows.filter((c) => !c.touristTax).map((c) => ({ label: c.label ?? '' })), tax.lines) : []
+
+  function applyTax(lines: TouristTaxLine[]) {
+    const rows = form.getValues('charges')
+    if (sameTaxLines(taxLinesOf(rows), lines) && rows.filter((c) => c.touristTax).length === lines.length) return
+    charges.replace(withTaxRows(rows, lines))
+  }
+
+  // Automatisch: neu rechnen, sobald sich eine Berechnungsgrundlage ändert. Beim Öffnen einer gespeicherten Buchung
+  // nicht (Tarifänderungen ziehen nicht nach, Spec); neue Buchungen rechnen sofort.
+  const taxBasisSeen = useRef(booking ? taxBasis : '')
+  useEffect(() => {
+    if (taxBasisSeen.current === taxBasis) return
+    taxBasisSeen.current = taxBasis
+    if (owner && touristTaxMode === 'auto') applyTax(tax.lines)
+    // applyTax liest die aktuellen Zeilen selbst; ausgelöst wird nur von der Berechnungsgrundlage
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [taxBasis])
+
+  function recalcTax() {
+    applyTax(tax.lines)
+    form.setValue('touristTaxMode', 'auto')
+    form.setValue('touristTaxRecalc', true)
+  }
+
+  // Eine Abgabe-Position von Hand geändert oder entfernt: ab jetzt „von Hand“
+  function touchTaxRow(i: number) {
+    if (form.getValues(`charges.${i}.touristTax`) && form.getValues('touristTaxMode') === 'auto') form.setValue('touristTaxMode', 'manual')
+  }
 
   // Neuer Vorschlag nach Änderung von Wohnung, Zeitraum oder Personen: übernehmen, solange der Preis nicht von Hand
   // geändert wurde (sonst nur „Neuen Vorschlag übernehmen“). Wohnung ohne Preis oder Rechnung über dem Höchstbetrag:
@@ -616,6 +754,19 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
                 )}
               </div>
             )}
+            {/* Ortstaxe (PROJ-15): gilt nur für diese Buchung, für Inhaber und Mitarbeiter */}
+            <FormField
+              control={form.control}
+              name="mainGuestTaxExempt"
+              render={({ field }) => (
+                <FormItem className="flex min-h-11 items-center gap-3">
+                  <FormControl>
+                    <Checkbox checked={field.value} onCheckedChange={(v) => field.onChange(v === true)} className="size-5" />
+                  </FormControl>
+                  <FormLabel className="font-normal">{t('panel.mainGuestTaxExempt')}</FormLabel>
+                </FormItem>
+              )}
+            />
           </fieldset>
 
           <fieldset className="flex flex-col gap-4">
@@ -836,13 +987,21 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
                                   labelListOpen.current = o
                                 }}
                                 {...field}
-                                onValueChange={field.onChange}
+                                onValueChange={(v) => {
+                                  touchTaxRow(i)
+                                  field.onChange(v)
+                                }}
                                 onChoose={(choice) => {
                                   const bp = CHARGE_CHOICES.find((c) => c.key === choice.key)?.vatBp
                                   if (bp !== undefined) form.setValue(`charges.${i}.vat`, vatRateInput(bp), { shouldValidate: form.formState.isSubmitted })
                                 }}
                               />
                             </FormControl>
+                            {chargeRows[i]?.touristTax && (
+                              <FormDescription className="flex flex-wrap items-center gap-2">
+                                <Badge variant="outline">{touristTaxMode === 'auto' ? t('panel.taxAuto') : t('panel.taxManual')}</Badge>
+                              </FormDescription>
+                            )}
                             <FormMessage />
                           </FormItem>
                         )}
@@ -856,7 +1015,16 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
                             <FormItem className={showVat ? 'w-28 shrink-0' : undefined}>
                               <FormLabel className="sr-only">{t('panel.chargeAmount')}</FormLabel>
                               <FormControl>
-                                <AmountInput negative placeholder={t('panel.chargeAmount')} className="min-h-11 w-28" {...field} onValueChange={field.onChange} />
+                                <AmountInput
+                                  negative
+                                  placeholder={t('panel.chargeAmount')}
+                                  className="min-h-11 w-28"
+                                  {...field}
+                                  onValueChange={(v) => {
+                                    touchTaxRow(i)
+                                    field.onChange(v)
+                                  }}
+                                />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -871,7 +1039,14 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
                                 <FormLabel className="sr-only">{t('panel.chargeVat', { n: i + 1 })}</FormLabel>
                                 <div className="flex items-center gap-1.5">
                                   <FormControl>
-                                    <VatRateInput className="min-h-11 w-20" {...field} onValueChange={field.onChange} />
+                                    <VatRateInput
+                                      className="min-h-11 w-20"
+                                      {...field}
+                                      onValueChange={(v) => {
+                                        touchTaxRow(i)
+                                        field.onChange(v)
+                                      }}
+                                    />
                                   </FormControl>
                                   <span className="text-sm text-ds-neutral-800" aria-hidden="true">
                                     {t('panel.vatSuffix')}
@@ -883,7 +1058,17 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
                           />
                         )}
                       </div>
-                      <Button type="button" variant="ghost" size="icon" className="size-11" aria-label={t('panel.removeCharge', { n: i + 1 })} onClick={() => charges.remove(i)}>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="size-11"
+                        aria-label={t('panel.removeCharge', { n: i + 1 })}
+                        onClick={() => {
+                          touchTaxRow(i)
+                          charges.remove(i)
+                        }}
+                      >
                         <Trash size={18} aria-hidden="true" />
                       </Button>
                     </SortableChargeRow>
@@ -896,6 +1081,30 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
                   </Button>
                 )}
               </div>
+
+              {/* Ortstaxe (PROJ-15): Hinweise und „Abgabe (neu) berechnen“ */}
+              {(tax.missingBirthDates > 0 || tax.nightsWithoutRate > 0 || taxOffer) && (
+                <Alert className="border-ds-accent-700/40 bg-ds-accent-100" aria-live="polite">
+                  <WarningCircle size={18} weight="duotone" aria-hidden="true" />
+                  <AlertDescription className="flex flex-col items-start gap-2">
+                    {tax.missingBirthDates > 0 && <p>{t('panel.taxMissingBirthDates', { count: tax.missingBirthDates })}</p>}
+                    {tax.nightsWithoutRate > 0 && <p>{t('panel.taxNightsWithoutRate', { count: tax.nightsWithoutRate })}</p>}
+                    {taxOffer && (
+                      <>
+                        <p>{tax.lines.length === 0 ? t('panel.taxOfferNone') : t('panel.taxOfferText')}</p>
+                        {taxDuplicates.map((label) => (
+                          <p key={label} className="font-medium">
+                            {t('panel.taxDuplicate', { label })}
+                          </p>
+                        ))}
+                        <Button type="button" variant="outline" className="min-h-11" onClick={recalcTax}>
+                          {touristTaxMode === 'pending' ? t('panel.taxCalculate') : t('panel.taxRecalculate')}
+                        </Button>
+                      </>
+                    )}
+                  </AlertDescription>
+                </Alert>
+              )}
 
               <div className="flex items-baseline justify-between gap-3 border-t pt-3" aria-live="polite">
                 <span>

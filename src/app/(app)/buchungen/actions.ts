@@ -224,6 +224,11 @@ export async function saveBooking(input: SaveBooking): Promise<Result<{ id: stri
       guest_sheet_number: v.guestSheetNumber,
       confirm_guest_sheet_number: input.confirmGuestSheet === true,
       residence_registered: v.residenceRegistered,
+      // Ortstaxe (PROJ-15): Häkchen für alle Mitglieder; Zustand und Neuberechnung wertet die Datenbank nur für
+      // Inhaber aus, die Abgabe-Beträge rechnet sie im Zustand „automatisch“ selbst
+      main_guest_tourist_tax_exempt: v.mainGuestTaxExempt,
+      tourist_tax_mode: v.touristTaxMode,
+      tourist_tax_recalculate: v.touristTaxRecalc,
       source: v.source,
       source_custom: v.sourceCustom,
       guest_id: v.guestId,
@@ -240,7 +245,13 @@ export async function saveBooking(input: SaveBooking): Promise<Result<{ id: stri
         // Sätze als exakte Dezimalzahl („10.00“), PROJ-35
         nights_vat_rate: vatRateToDb(v.amounts.nightsVatBp),
         // Kennung bekannter Positionen: die Datenbank ändert sie statt sie neu anzulegen (PROJ-40)
-        charges: v.amounts.charges.map((c) => ({ id: c.id ?? null, label: c.label, amount_cents: c.amountCents, vat_rate: vatRateToDb(c.vatBp) })),
+        charges: v.amounts.charges.map((c) => ({
+          id: c.id ?? null,
+          label: c.label,
+          amount_cents: c.amountCents,
+          vat_rate: vatRateToDb(c.vatBp),
+          tourist_tax: c.touristTax ? { rate_id: c.touristTax.rateId, person_nights: c.touristTax.personNights } : null,
+        })),
       },
     },
     p_confirm: owner && input.confirmOverride === true,
@@ -346,6 +357,18 @@ export async function confirmOption(input: { id: string; confirmOverride?: boole
   return { ok: true }
 }
 
+// Geburtsdatum des gewählten Hauptgastes für die Altersbefreiung der Ortstaxe im Formular (PROJ-15, nur Inhaber)
+export async function loadGuestBirthDate(input: { id: string }): Promise<Result<{ birthDate: string | null }>> {
+  const guard = await requireOwner()
+  if (!guard.ok) return guard
+  if (!isId(input?.id)) return fail('notFound')
+  const supabase = await createClient()
+  const { data, error } = await supabase.from('guests').select('birth_date').eq('id', input.id).eq('tenant_id', guard.tenant.id).maybeSingle()
+  if (error) return dbFail(error, 'Geburtsdatum des Gastes')
+  if (!data) return fail('notFound')
+  return { ok: true, data: { birthDate: data.birth_date } }
+}
+
 export async function saveCompanions(input: { id: string; updatedAt: string; values: CompanionsInput }): Promise<Result> {
   const guard = await requireMember()
   if (!guard.ok) return guard
@@ -357,7 +380,12 @@ export async function saveCompanions(input: { id: string; updatedAt: string; val
   const { error } = await supabase.rpc('save_companions', {
     p_booking_id: input.id,
     p_updated_at: input.updatedAt,
-    p_companions: parsed.data.companions.map((c) => ({ first_name: c.firstName, last_name: c.lastName, birth_date: c.birthDate })),
+    p_companions: parsed.data.companions.map((c) => ({
+      first_name: c.firstName,
+      last_name: c.lastName,
+      birth_date: c.birthDate,
+      tourist_tax_exempt: c.taxExempt,
+    })),
   })
   if (error) return dbFail(error, 'Mitreisende speichern')
   revalidate(input.id)

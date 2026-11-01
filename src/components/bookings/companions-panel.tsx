@@ -12,6 +12,7 @@ import { saveCompanions } from '@/app/(app)/buchungen/actions'
 import { callAction, FormError } from '@/components/auth/form-error'
 import { DetailPanel } from '@/components/detail-panel'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { type Booking, LIMITS, personCount } from '@/lib/bookings'
@@ -24,7 +25,7 @@ interface CompanionsPanelProps {
   today: string
 }
 
-// Detail-Panel „Mitreisende bearbeiten“ (PROJ-8): je Person Nach-, Vorname und Geburtsdatum,
+// Detail-Panel „Mitreisende bearbeiten“ (PROJ-8): je Person Nach-, Vorname, Geburtsdatum und „Von der Ortstaxe befreit“ (PROJ-15),
 // höchstens Personen minus Hauptgast; jederzeit nachtragbar (z. B. beim Check-in)
 export function CompanionsPanel({ open, onOpenChange, booking, today }: CompanionsPanelProps) {
   const t = useTranslations('bookings.companions')
@@ -36,7 +37,7 @@ export function CompanionsPanel({ open, onOpenChange, booking, today }: Companio
   const form = useForm<CompanionsInput>({
     resolver: zodResolver(companionsSchema(tv, { max, today }), undefined, { raw: true }),
     defaultValues: {
-      companions: booking.companions.map((c) => ({ firstName: c.firstName, lastName: c.lastName, birthDate: c.birthDate ?? '' })),
+      companions: booking.companions.map((c) => ({ firstName: c.firstName, lastName: c.lastName, birthDate: c.birthDate ?? '', taxExempt: c.taxExempt })),
     },
   })
   const rows = useFieldArray({ control: form.control, name: 'companions' })
@@ -100,6 +101,19 @@ export function CompanionsPanel({ open, onOpenChange, booking, today }: Companio
                     </FormItem>
                   )}
                 />
+                {/* Ortstaxe (PROJ-15): gilt nur für diese Buchung */}
+                <FormField
+                  control={form.control}
+                  name={`companions.${i}.taxExempt`}
+                  render={({ field }) => (
+                    <FormItem className="flex min-h-11 items-center gap-3">
+                      <FormControl>
+                        <Checkbox checked={field.value} onCheckedChange={(v) => field.onChange(v === true)} className="size-5" />
+                      </FormControl>
+                      <FormLabel className="font-normal">{t('taxExempt')}</FormLabel>
+                    </FormItem>
+                  )}
+                />
                 <Button type="button" variant="ghost" className="min-h-11 self-start text-ds-accent-2-700" onClick={() => rows.remove(i)}>
                   <Trash size={16} aria-hidden="true" />
                   {t('remove', { n: i + 1 })}
@@ -113,7 +127,7 @@ export function CompanionsPanel({ open, onOpenChange, booking, today }: Companio
                 className="min-h-11 self-start"
                 onClick={() =>
                   // Nachname ist mit dem des Hauptgastes vorbelegt: gleich in den Vornamen springen
-                  rows.append({ firstName: '', lastName: booking.guest?.lastName ?? '', birthDate: '' }, { focusName: `companions.${rows.fields.length}.firstName` })
+                  rows.append({ firstName: '', lastName: booking.guest?.lastName ?? '', birthDate: '', taxExempt: false }, { focusName: `companions.${rows.fields.length}.firstName` })
                 }
               >
                 <Plus size={16} aria-hidden="true" />

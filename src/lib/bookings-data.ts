@@ -26,6 +26,7 @@ import { guestSortName, searchKey } from '@/lib/guests'
 import type { Role } from '@/lib/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getTenantContext } from '@/lib/tenant'
+import { ratesByApartment, TOURIST_TAX_MODES, TOURIST_TAX_RATE_COLUMNS, type TouristTaxMode, type TouristTaxRate } from '@/lib/tourist-tax'
 import { VAT_DEFAULTS, vatRateFromDb } from '@/lib/vat'
 
 // Lesefunktionen der Buchungen (PROJ-8) für alle Mitglieder des gewählten Kunden; Beträge nur für Inhaber.
@@ -49,8 +50,10 @@ async function requireMember(): Promise<{ tenantId: string; role: Role }> {
 
 // Wohnungen für Formulare und Filter (auch archivierte, gekennzeichnet), sortiert nach „Objekt · Wohnung“
 export const getBookableApartments = cache(async (): Promise<BookableApartment[]> => {
-  const { tenantId } = await requireMember()
+  const { tenantId, role } = await requireMember()
   const supabase = await createClient()
+  // Ortstaxe-Tarife (PROJ-15) nur für Inhaber: Rechnung im Formular und Hinweise im Detail
+  const rates = role === 'owner' ? await touristTaxRates(tenantId) : new Map<string, TouristTaxRate[]>()
   const { data, error } = await supabase
     .from('apartments')
     .select(
@@ -74,10 +77,21 @@ export const getBookableApartments = cache(async (): Promise<BookableApartment[]
         checkIn: hhmm(a.check_in),
         checkOut: hhmm(a.check_out),
         archived: a.archived_at !== null,
+        touristTaxRates: rates.get(a.id) ?? [],
       })
     )
     .sort((a, b) => a.label.localeCompare(b.label, 'de', { numeric: true }))
 })
+
+async function touristTaxRates(tenantId: string): Promise<Map<string, TouristTaxRate[]>> {
+  const supabase = await createClient()
+  const { data, error } = await supabase.from('apartment_tourist_tax_rates').select(TOURIST_TAX_RATE_COLUMNS).eq('tenant_id', tenantId).limit(5000)
+  if (error) console.error('[buchungen] Ortstaxe-Tarife nicht lesbar', error.message)
+  return ratesByApartment(data ?? [])
+}
+
+const touristTaxMode = (value: string | null | undefined): TouristTaxMode =>
+  (TOURIST_TAX_MODES as readonly string[]).includes(value ?? '') ? (value as TouristTaxMode) : 'pending'
 
 const ROW_COLUMNS =
   'id, kind, number, apartment_id, arrival, departure, adults, child_ages, block_reason, option_until, cancelled_at, price_review, guest_sheet_number, source, guest:guests(id, last_name, first_name, title_prefix, title_suffix), apartment:apartments!inner(name, property:properties!inner(name)), amounts:booking_amounts(billed_nights_cents), charges:booking_charges(amount_cents), ' +
@@ -302,7 +316,7 @@ export const findBooking = cache(async (id: string): Promise<Booking | null> => 
   const { data: b, error } = await supabase
     .from('bookings')
     .select(
-      'id, kind, channel, number, apartment_id, arrival, planned_departure, departure, check_in, check_out, adults, child_ages, block_reason, option_until, guest_sheet_number, residence_registered, source, source_custom, note, cancelled_at, cancelled_by, cancel_reason, override_by, price_review, updated_at, guest:guests(id, last_name, first_name, title_prefix, title_suffix, country, anonymized_at), apartment:apartments!inner(name, max_guests, archived_at, property:properties!inner(name)), companions:booking_companions(position, first_name, last_name, birth_date), amounts:booking_amounts(nights_cents, billed_nights_cents, nights_extension_pricing, cancellation_fee_cents, nights_vat_rate, cancellation_fee_vat_rate), charges:booking_charges(id, position, label, amount_cents, vat_rate)'
+      'id, kind, channel, number, apartment_id, arrival, planned_departure, departure, check_in, check_out, adults, child_ages, block_reason, option_until, guest_sheet_number, residence_registered, source, source_custom, note, cancelled_at, cancelled_by, cancel_reason, override_by, price_review, tourist_tax_mode, main_guest_tourist_tax_exempt, updated_at, guest:guests(id, last_name, first_name, title_prefix, title_suffix, country, anonymized_at, birth_date), apartment:apartments!inner(name, max_guests, archived_at, property:properties!inner(name)), companions:booking_companions(position, first_name, last_name, birth_date, tourist_tax_exempt), amounts:booking_amounts(nights_cents, billed_nights_cents, nights_extension_pricing, cancellation_fee_cents, nights_vat_rate, cancellation_fee_vat_rate), charges:booking_charges(id, position, label, amount_cents, vat_rate, tourist_tax, tourist_tax_rate_id, tax_person_nights), invoices(origin)'
     )
     .eq('id', id)
     .eq('tenant_id', tenantId)
@@ -344,6 +358,7 @@ export const findBooking = cache(async (id: string): Promise<Booking | null> => 
       titleSuffix: b.guest.title_suffix,
       country: b.guest.country,
       anonymized: b.guest.anonymized_at !== null,
+      birthDate: b.guest.birth_date,
     },
     adults: b.adults ?? 0,
     childAges: b.child_ages,
@@ -359,7 +374,15 @@ export const findBooking = cache(async (id: string): Promise<Booking | null> => 
     cancelReason: b.cancel_reason,
     overrideBy: b.override_by ? (names.get(b.override_by) ?? '–') : null,
     priceReview: b.price_review,
-    companions: byPosition(b.companions).map((c) => ({ firstName: c.first_name, lastName: c.last_name, birthDate: c.birth_date })),
+    touristTaxMode: touristTaxMode(b.tourist_tax_mode),
+    mainGuestTaxExempt: b.main_guest_tourist_tax_exempt,
+    hasBilledInvoice: (b.invoices ?? []).some((i) => i.origin !== 'draft'),
+    companions: byPosition(b.companions).map((c) => ({
+      firstName: c.first_name,
+      lastName: c.last_name,
+      birthDate: c.birth_date,
+      taxExempt: c.tourist_tax_exempt,
+    })),
     amounts:
       role === 'owner' && kind !== 'block'
         ? {
@@ -367,7 +390,13 @@ export const findBooking = cache(async (id: string): Promise<Booking | null> => 
             extensionPricing: amounts?.nights_extension_pricing === 'prorated' ? 'prorated' : 'total',
             nightsVatBp: amounts ? vatRateFromDb(amounts.nights_vat_rate) : VAT_DEFAULTS.nights,
             billedNightsCents: amounts?.billed_nights_cents ?? amounts?.nights_cents ?? 0,
-            charges: byPosition(b.charges).map((c) => ({ id: c.id, label: c.label, amountCents: c.amount_cents, vatBp: vatRateFromDb(c.vat_rate) })),
+            charges: byPosition(b.charges).map((c) => ({
+              id: c.id,
+              label: c.label,
+              amountCents: c.amount_cents,
+              vatBp: vatRateFromDb(c.vat_rate),
+              touristTax: c.tourist_tax ? { rateId: c.tourist_tax_rate_id, personNights: c.tax_person_nights } : null,
+            })),
             cancellationFeeCents: amounts?.cancellation_fee_cents ?? null,
             cancellationFeeVatBp: amounts ? vatRateFromDb(amounts.cancellation_fee_vat_rate) : VAT_DEFAULTS.cancellationFee,
           }

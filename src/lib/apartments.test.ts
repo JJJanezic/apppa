@@ -77,6 +77,7 @@ describe('Sichtbare Objekte', () => {
     maxGuests: 2,
     maxAdults: null,
     kind: 'holiday',
+    touristTaxRates: [],
     priceMode: 'apartment',
     priceCents: null,
     adultPriceCents: null,

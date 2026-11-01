@@ -2,6 +2,7 @@
 // Lesefunktionen: src/lib/apartments-data.ts (nur Server), Aktionen: src/app/(app)/einstellungen/wohnungen/actions.ts.
 
 import { amountInput, parseAmountCents } from '@/lib/format'
+import type { TouristTaxRate } from '@/lib/tourist-tax'
 
 export type ApartmentErrorCode =
   | 'duplicateApartmentName'
@@ -9,6 +10,7 @@ export type ApartmentErrorCode =
   | 'municipalityInvalid'
   | 'propertyInUse'
   | 'apartmentHasBookings'
+  | 'duplicateTouristTaxDate'
   | 'notFound'
 
 // Bundesländer in der Reihenfolge der Gemeindekennziffern von Statistik Austria (erste Ziffer 1–9)
@@ -70,6 +72,8 @@ export type Apartment = {
   checkIn: string
   checkOut: string
   note: string | null
+  // Ortstaxe-Tarife (PROJ-15), neueste zuerst
+  touristTaxRates: TouristTaxRate[]
   archivedAt: string | null
   // PROJ-8: Hat die Wohnung Buchungen oder Sperren (auch stornierte)? Dann kein „Endgültig löschen“
   hasBookings: boolean

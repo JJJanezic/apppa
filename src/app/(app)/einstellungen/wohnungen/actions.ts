@@ -14,6 +14,7 @@ import type { ActionResult, CommonErrorCode } from '@/lib/auth/result'
 import { getSessionUser, pendingMfaStep } from '@/lib/auth/session'
 import { createClient } from '@/lib/supabase/server'
 import { getTenantContext, type TenantSummary } from '@/lib/tenant'
+import type { TouristTaxRate } from '@/lib/tourist-tax'
 import {
   apartmentSchema,
   NEW_PROPERTY,
@@ -21,7 +22,9 @@ import {
   type ApartmentInput,
   type PropertyInput,
   toChildPrices,
+  toTouristTaxRates,
 } from '@/lib/validation/apartments'
+import { vatRateToDb } from '@/lib/vat'
 
 // Server-Aktionen für „Einstellungen → Wohnungen“ (PROJ-6), nur für Inhaber des gewählten Kunden.
 // Alle Änderungen laufen im Namen der Person: Die Datenbank-Regeln (RLS, Eindeutigkeit, Fremdschlüssel)
@@ -49,6 +52,7 @@ function dbFail(error: DbError, context: string): Failure {
   const message = error.message ?? ''
   if (error.code === '23505' && message.includes('apartments_property_name_key')) return fail('duplicateApartmentName')
   if (error.code === '23505' && message.includes('properties_tenant_name_key')) return fail('duplicatePropertyName')
+  if (error.code === '23505' && message.includes('apartment_tourist_tax_rates')) return fail('duplicateTouristTaxDate')
   if (error.code === '23503' && message.includes('municipality')) return fail('municipalityInvalid')
   if (error.code === '23503' && message.includes('apartments_property_fkey')) return fail('propertyInUse')
   // Ab PROJ-8: Buchungen verweisen auf die Wohnung
@@ -100,6 +104,26 @@ const apartmentColumns = (v: ApartmentFields) => ({
   ...extraColumns(v),
 })
 
+// Ortstaxe-Tarife (PROJ-15) als Ganzes ersetzen; Prozent- und Steuersätze als exakte Dezimalzahl („3.20“)
+async function saveTouristTaxRates(apartmentId: string, rates: TouristTaxRate[]): Promise<Failure | null> {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc('save_tourist_tax_rates', {
+    p_apartment_id: apartmentId,
+    p_rates: rates.map((r) => ({
+      id: r.id ?? null,
+      valid_from: r.validFrom,
+      label: r.label,
+      method: r.method,
+      amount_cents: r.amountCents,
+      percent_rate: r.percentBp === null ? null : vatRateToDb(r.percentBp),
+      base: r.base,
+      exempt_under_age: r.exemptUnderAge,
+      vat_rate: vatRateToDb(r.vatBp),
+    })),
+  })
+  return error ? dbFail(error, 'Ortstaxe-Tarife nicht gespeichert') : null
+}
+
 // Wohnung anlegen, bei „Neues Objekt“ samt Objekt in einem Datenbankvorgang
 export async function createApartment(values: ApartmentInput): Promise<Result<{ id: string }>> {
   const parsed = apartmentSchema(key).safeParse(values)
@@ -131,6 +155,8 @@ export async function createApartment(values: ApartmentInput): Promise<Result<{ 
     // Felder, die die Funktion aus PROJ-6 nicht kennt, nachtragen
     const { error: extraError } = await supabase.from('apartments').update(extraColumns(v)).eq('id', data)
     if (extraError) return dbFail(extraError, 'Preis-Konfiguration nicht gespeichert')
+    const ratesError = await saveTouristTaxRates(data, toTouristTaxRates(v.touristTaxRates))
+    if (ratesError) return ratesError
     revalidatePath(PAGE)
     return { ok: true, data: { id: data } }
   }
@@ -141,6 +167,8 @@ export async function createApartment(values: ApartmentInput): Promise<Result<{ 
     .select('id')
     .single()
   if (error || !data) return dbFail(error ?? {}, 'Wohnung nicht angelegt')
+  const ratesError = await saveTouristTaxRates(data.id, toTouristTaxRates(v.touristTaxRates))
+  if (ratesError) return ratesError
   revalidatePath(PAGE)
   return { ok: true, data: { id: data.id } }
 }
@@ -161,6 +189,8 @@ export async function updateApartment(values: { id: string } & ApartmentInput): 
     .select('id')
   if (error) return dbFail(error, 'Wohnung nicht geändert')
   if (!data?.length) return fail('notFound')
+  const ratesError = await saveTouristTaxRates(values.id, toTouristTaxRates(parsed.data.touristTaxRates))
+  if (ratesError) return ratesError
   revalidatePath(PAGE)
   return { ok: true }
 }

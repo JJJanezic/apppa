@@ -685,7 +685,19 @@
       "adultPriceRequired": "Bitte den Erwachsenenpreis eingeben.",
       "childAgeInvalid": "Bitte ein Alter von 0 bis 17 eingeben.",
       "childAgesAscending": "Die Altersgrenzen müssen aufsteigen (z. B. 2, dann 11).",
-      "childPriceRequired": "Bitte einen Preis eingeben (0 für gratis)."
+      "childPriceRequired": "Bitte einen Preis eingeben (0 für gratis).",
+      "touristTax": {
+        "validFromRequired": "Bitte ein Datum wählen.",
+        "validFromDuplicate": "Für dieses Datum gibt es schon einen Tarif.",
+        "labelRequired": "Bitte eine Bezeichnung eingeben.",
+        "amountRequired": "Bitte einen Betrag eingeben (0 für keine Abgabe).",
+        "amountInvalid": "Bitte einen Betrag von € 0,00 bis € 1.000,00 eingeben.",
+        "percentRequired": "Bitte einen Prozentsatz eingeben.",
+        "percentInvalid": "Bitte einen Prozentsatz über 0 bis 100 mit höchstens zwei Nachkommastellen eingeben.",
+        "ageInvalid": "Bitte ein Alter von 1 bis 18 eingeben oder leer lassen.",
+        "vatRequired": "Bitte einen Steuersatz eingeben.",
+        "vatInvalid": "Bitte einen Satz von 0 bis 100 mit höchstens zwei Nachkommastellen eingeben."
+      }
     },
     "errors": {
       "duplicateApartmentName": "In diesem Objekt gibt es schon eine Wohnung mit diesem Namen.",
@@ -697,7 +709,8 @@
       "network": "Keine Verbindung. Bitte prüfe deine Internetverbindung und versuche es erneut.",
       "sessionExpired": "Deine Sitzung ist abgelaufen. Bitte melde dich erneut an.",
       "notImplemented": "Diese Funktion wird gerade eingerichtet.",
-      "unknown": "Etwas ist schiefgelaufen. Bitte versuche es erneut."
+      "unknown": "Etwas ist schiefgelaufen. Bitte versuche es erneut.",
+      "duplicateTouristTaxDate": "Für ein Datum gibt es zwei Ortstaxe-Tarife. Bitte ein Datum ändern."
     },
     "editPropertyFor": "Objekt „{name}“ bearbeiten",
     "addToProperty": "Wohnung in „{name}“ hinzufügen",
@@ -708,7 +721,50 @@
     "perAdult": "{price} / Erw. und Nacht",
     "adultsLimit": "davon max. {count, plural, one {# Erwachsener} other {# Erwachsene}}",
     "perAdultShort": "{price} / Erw.",
-    "adultsLimitShort": "max. {count} Erw."
+    "adultsLimitShort": "max. {count} Erw.",
+    "touristTax": {
+      "title": "Ortstaxe",
+      "empty": "Keine Ortstaxe hinterlegt: Buchungen dieser Wohnung erhalten keine Abgabe.",
+      "current": "Aktuell: {text}",
+      "noCurrent": "Heute gilt noch kein Tarif.",
+      "summaryPerPerson": "{label} {amount} pro Person und Nacht, seit {since}",
+      "summaryPerPersonAge": "{label} {amount} pro Person und Nacht, befreit unter {age} Jahren, seit {since}",
+      "summaryPercent": "{label} {percent} vom Übernachtungspreis {base}, seit {since}",
+      "entry": "Tarif {n}",
+      "validFrom": "Gültig ab",
+      "future": "künftig",
+      "remove": "Tarif {n} entfernen",
+      "label": "Bezeichnung",
+      "labelHint": "So heißt die Position in der Buchung und auf der Rechnung.",
+      "labelChoicesList": "Übliche Bezeichnungen",
+      "labelChoices": {
+        "overnightLevy": "Nächtigungsabgabe",
+        "localTax": "Ortstaxe",
+        "stayLevy": "Aufenthaltsabgabe"
+      },
+      "method": "Berechnungsart",
+      "methods": {
+        "per_person_night": "Betrag pro Person und Nacht",
+        "percent": "Prozent vom Übernachtungspreis"
+      },
+      "amount": "Betrag pro Person und Nacht",
+      "exemptUnderAge": "Befreit unter",
+      "years": "Jahren",
+      "exemptUnderAgeHint": "Leer lassen, wenn es keine Altersbefreiung gibt. Gerechnet wird tagesgenau nach dem Geburtsdatum.",
+      "percent": "Prozentsatz",
+      "baseLabel": "Basis",
+      "baseOption": {
+        "net": "Übernachtungspreis netto (ohne USt)",
+        "gross": "Übernachtungspreis brutto (mit USt)"
+      },
+      "base": {
+        "net": "netto",
+        "gross": "brutto"
+      },
+      "percentHint": "Gerechnet wird vom abgerechneten Übernachtungspreis ohne Zusatzkosten.",
+      "vat": "USt-Satz",
+      "add": "Tarif hinzufügen"
+    }
   },
   "guests": {
     "title": "Gäste",
@@ -1121,7 +1177,9 @@
       "confirm": "Option bestätigen",
       "cancel": "Stornieren",
       "deleteBlock": "Sperre löschen",
-      "editNote": "Notiz bearbeiten"
+      "editNote": "Notiz bearbeiten",
+      "touristTax": "Ortstaxe",
+      "taxExempt": "von der Ortstaxe befreit"
     },
     "panel": {
       "createTitle": "Neue Buchung",
@@ -1195,7 +1253,17 @@
       "extensionPricingOption": {
         "total": "Preis gilt für den gesamten Aufenthalt",
         "prorated": "Anteilig hochrechnen"
-      }
+      },
+      "mainGuestTaxExempt": "Hauptgast von der Ortstaxe befreit",
+      "taxAuto": "automatisch berechnet",
+      "taxManual": "von Hand geändert",
+      "taxMissingBirthDates": "{count, plural, one {Für 1 Person fehlt das Geburtsdatum} other {Für # Personen fehlt das Geburtsdatum}}: Abgabe ohne Altersbefreiung berechnet.",
+      "taxNightsWithoutRate": "{count, plural, one {Für 1 Nacht ist kein Ortstaxe-Tarif hinterlegt.} other {Für # Nächte ist kein Ortstaxe-Tarif hinterlegt.}}",
+      "taxOfferText": "Die Ortstaxe nach den aktuellen Tarifen weicht von den eingetragenen Positionen ab.",
+      "taxOfferNone": "Nach den aktuellen Tarifen fällt keine Ortstaxe an.",
+      "taxDuplicate": "Es gibt bereits eine Position „{label}“. Bitte prüfen, sonst wird die Abgabe doppelt verrechnet.",
+      "taxCalculate": "Abgabe berechnen",
+      "taxRecalculate": "Abgabe neu berechnen"
     },
     "chargeSuggestions": {
       "cleaning": "Reinigung",
@@ -1239,7 +1307,8 @@
       "lastName": "Nachname",
       "birthDate": "Geburtsdatum",
       "save": "Mitreisende speichern",
-      "none": "Diese Buchung hat keine weiteren Personen. Erhöhe zuerst die Personenzahl."
+      "none": "Diese Buchung hat keine weiteren Personen. Erhöhe zuerst die Personenzahl.",
+      "taxExempt": "Von der Ortstaxe befreit"
     },
     "cancel": {
       "title": "Buchung {number} stornieren?",

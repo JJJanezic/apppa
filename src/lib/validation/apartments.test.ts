@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { apartmentSchema, NEW_PROPERTY, propertySchema, withExistingProperty } from './apartments'
+import { apartmentSchema, NEW_PROPERTY, propertySchema, toTouristTaxRates, withExistingProperty } from './apartments'
 
 const key = (k: string) => k
 
@@ -17,6 +17,17 @@ const base = {
   cleaningFee: '',
   checkIn: '15:00',
   checkOut: '10:00',
+  touristTaxRates: [] as {
+    id?: string
+    validFrom: string
+    label: string
+    method: 'per_person_night' | 'percent'
+    amount: string
+    percent: string
+    base: 'net' | 'gross'
+    exemptUnderAge: string
+    vat: string
+  }[],
   note: '  ',
 }
 const property = { name: 'Haus Seeblick', street: 'Seeweg 1', postalCode: '5340', city: 'St. Gilgen', municipalityCode: '50408' }
@@ -96,6 +107,57 @@ describe('Kapazität und Personenpreise (PROJ-27)', () => {
     expect(issues(tiers(['2', '0'], ['2', '5']))).toContain('childPrices.1.toAge:childAgesAscending')
     expect(issues(tiers(['2', '']))).toContain('childPrices.0.price:childPriceRequired')
     expect(issues(tiers(['1', '0'], ['5', '0'], ['9', '0'], ['12', '0'])).length).toBeGreaterThan(0)
+  })
+})
+
+describe('Ortstaxe-Tarife (PROJ-15)', () => {
+  const rate = {
+    validFrom: '2026-01-01',
+    label: ' Nächtigungsabgabe ',
+    method: 'per_person_night' as const,
+    amount: '2,50',
+    percent: '',
+    base: 'net' as const,
+    exemptUnderAge: '15',
+    vat: '0,00',
+  }
+  const issues = (rates: (typeof base)['touristTaxRates']) =>
+    (withExistingProperty(key).safeParse({ ...base, touristTaxRates: rates }).error?.issues ?? []).map((i) => [i.path.slice(2).join('.'), i.message])
+
+  it('gültiger Betrags-Tarif wird zu Cent, Altersgrenze und Satz', () => {
+    const r = withExistingProperty(key).parse({ ...base, touristTaxRates: [rate] })
+    expect(toTouristTaxRates(r.touristTaxRates)).toEqual([
+      { id: undefined, validFrom: '2026-01-01', label: 'Nächtigungsabgabe', method: 'per_person_night', amountCents: 250, percentBp: null, base: null, exemptUnderAge: 15, vatBp: 0 },
+    ])
+  })
+
+  it('Prozent-Tarif: Prozentsatz und Basis, keine Altersgrenze', () => {
+    const r = withExistingProperty(key).parse({ ...base, touristTaxRates: [{ ...rate, method: 'percent', amount: '', percent: '3,2', base: 'gross' }] })
+    expect(toTouristTaxRates(r.touristTaxRates)[0]).toMatchObject({ amountCents: null, percentBp: 320, base: 'gross', exemptUnderAge: null })
+  })
+
+  it('Betrag € 0,00 und leere Altersgrenze erlaubt', () => {
+    expect(issues([{ ...rate, amount: '0', exemptUnderAge: '' }])).toEqual([])
+  })
+
+  it('Pflichtfelder und Bereiche je Feld', () => {
+    expect(issues([{ ...rate, validFrom: '', label: ' ', amount: '-1', exemptUnderAge: '19', vat: '101' }]).sort()).toEqual(
+      [
+        ['validFrom', 'touristTax.validFromRequired'],
+        ['label', 'touristTax.labelRequired'],
+        ['vat', 'touristTax.vatInvalid'],
+        ['amount', 'touristTax.amountInvalid'],
+        ['exemptUnderAge', 'touristTax.ageInvalid'],
+      ].sort()
+    )
+    expect(issues([{ ...rate, amount: '' }])).toEqual([['amount', 'touristTax.amountRequired']])
+    expect(issues([{ ...rate, method: 'percent', percent: '0' }])).toEqual([['percent', 'touristTax.percentInvalid']])
+    expect(issues([{ ...rate, method: 'percent', percent: '100,01' }])).toEqual([['percent', 'touristTax.percentInvalid']])
+    expect(issues([{ ...rate, method: 'percent', percent: '' }])).toEqual([['percent', 'touristTax.percentRequired']])
+  })
+
+  it('jedes Datum nur einmal je Wohnung', () => {
+    expect(issues([rate, { ...rate, amount: '3' }])).toEqual([['validFrom', 'touristTax.validFromDuplicate']])
   })
 })
 

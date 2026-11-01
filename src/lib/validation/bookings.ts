@@ -12,6 +12,7 @@ import {
   parseAmountCents,
   todayIso,
 } from '@/lib/bookings'
+import { TOURIST_TAX_MODES } from '@/lib/tourist-tax'
 import { parseVatRate, VAT_DEFAULTS } from '@/lib/vat'
 
 // Prüfregeln für Buchungen, Optionen, Sperren, Mitreisende und Storno (PROJ-8).
@@ -103,6 +104,10 @@ export const bookingSchema = (t: T, { owner, today = todayIso() }: { owner: bool
         .max(LIMITS.guestSheetNumberMax, t('guestSheetNumberTooLong'))
         .transform((v) => v || null),
       residenceRegistered: z.boolean(),
+      // Ortstaxe (PROJ-15): Hauptgast befreit (alle Mitglieder); Abgabe-Zustand und „Abgabe (neu) berechnen“ (Inhaber)
+      mainGuestTaxExempt: z.boolean(),
+      touristTaxMode: z.enum(TOURIST_TAX_MODES),
+      touristTaxRecalc: z.boolean(),
       source: z.enum(BOOKING_SOURCES),
       sourceCustom: z.string().trim().max(LIMITS.sourceCustomMax, t('tooLong')),
       nightsPrice: z.string(),
@@ -114,6 +119,10 @@ export const bookingSchema = (t: T, { owner, today = todayIso() }: { owner: bool
           z.object({
             // Kennung der gespeicherten Position (PROJ-40); neue Positionen ohne
             chargeId: z.string().optional(),
+            // Abgabe-Position der Ortstaxe (PROJ-15): Kennzeichen, Tarif-Eintrag und Personennächte
+            touristTax: z.boolean().optional(),
+            touristTaxRateId: z.string().nullable().optional(),
+            taxPersonNights: z.number().int().min(0).nullable().optional(),
             label: z.string().trim().min(1, t('chargeLabelRequired')).max(LIMITS.chargeLabelMax, t('tooLong')),
             amount: amount(t, { negative: true }).refine((v) => parseAmountCents(v, { negative: true }) !== null, t('amountRequired')),
             vat: vatRate(t),
@@ -160,6 +169,9 @@ export const bookingSchema = (t: T, { owner, today = todayIso() }: { owner: bool
       checkOut: v.checkOut,
       guestSheetNumber: v.guestSheetNumber,
       residenceRegistered: v.residenceRegistered,
+      mainGuestTaxExempt: v.mainGuestTaxExempt,
+      touristTaxMode: v.touristTaxMode,
+      touristTaxRecalc: v.touristTaxRecalc,
       source: v.source,
       // Freitext nur bei „Eigene Angabe“, sonst verworfen
       sourceCustom: v.source === 'custom' ? v.sourceCustom : null,
@@ -177,6 +189,12 @@ export const bookingSchema = (t: T, { owner, today = todayIso() }: { owner: bool
               label: c.label.trim(),
               amountCents: parseAmountCents(c.amount, { negative: true }) ?? 0,
               vatBp: parseVatRate(c.vat) ?? VAT_DEFAULTS.charge,
+              touristTax: c.touristTax
+                ? {
+                    rateId: c.touristTaxRateId && /^[0-9a-f-]{36}$/i.test(c.touristTaxRateId) ? c.touristTaxRateId : null,
+                    personNights: c.taxPersonNights ?? null,
+                  }
+                : null,
             })),
             cancellationFeeCents: null,
             cancellationFeeVatBp: VAT_DEFAULTS.cancellationFee,
@@ -218,6 +236,8 @@ export const companionsSchema = (t: T, { max, today = todayIso() }: { max: numbe
             .refine((v) => v === '' || (isIsoDate(v) && v >= '1900-01-01'), t('dateInvalid'))
             .refine((v) => v === '' || v <= today, t('birthDateFuture'))
             .transform((v) => v || null),
+          // „Von der Ortstaxe befreit“ (PROJ-15)
+          taxExempt: z.boolean(),
         })
       )
       .max(max, t('tooManyCompanions')),

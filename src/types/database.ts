@@ -14,6 +14,75 @@ export type Database = {
   }
   public: {
     Tables: {
+      apartment_tourist_tax_rates: {
+        Row: {
+          amount_cents: number | null
+          apartment_id: string
+          base: string | null
+          created_at: string
+          created_by: string | null
+          exempt_under_age: number | null
+          id: string
+          label: string
+          method: string
+          percent_rate: number | null
+          tenant_id: string
+          updated_at: string
+          updated_by: string | null
+          valid_from: string
+          vat_rate: number
+        }
+        Insert: {
+          amount_cents?: number | null
+          apartment_id: string
+          base?: string | null
+          created_at?: string
+          created_by?: string | null
+          exempt_under_age?: number | null
+          id?: string
+          label: string
+          method: string
+          percent_rate?: number | null
+          tenant_id: string
+          updated_at?: string
+          updated_by?: string | null
+          valid_from: string
+          vat_rate?: number
+        }
+        Update: {
+          amount_cents?: number | null
+          apartment_id?: string
+          base?: string | null
+          created_at?: string
+          created_by?: string | null
+          exempt_under_age?: number | null
+          id?: string
+          label?: string
+          method?: string
+          percent_rate?: number | null
+          tenant_id?: string
+          updated_at?: string
+          updated_by?: string | null
+          valid_from?: string
+          vat_rate?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "apartment_tourist_tax_rates_apartment_fkey"
+            columns: ["apartment_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "apartments"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "apartment_tourist_tax_rates_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       apartments: {
         Row: {
           adult_price_cents: number | null
@@ -206,7 +275,10 @@ export type Database = {
           id: string
           label: string
           position: number
+          tax_person_nights: number | null
           tenant_id: string
+          tourist_tax: boolean
+          tourist_tax_rate_id: string | null
           updated_at: string
           updated_by: string | null
           vat_rate: number
@@ -219,7 +291,10 @@ export type Database = {
           id?: string
           label: string
           position: number
+          tax_person_nights?: number | null
           tenant_id: string
+          tourist_tax?: boolean
+          tourist_tax_rate_id?: string | null
           updated_at?: string
           updated_by?: string | null
           vat_rate?: number
@@ -232,7 +307,10 @@ export type Database = {
           id?: string
           label?: string
           position?: number
+          tax_person_nights?: number | null
           tenant_id?: string
+          tourist_tax?: boolean
+          tourist_tax_rate_id?: string | null
           updated_at?: string
           updated_by?: string | null
           vat_rate?: number
@@ -265,6 +343,7 @@ export type Database = {
           last_name: string
           position: number
           tenant_id: string
+          tourist_tax_exempt: boolean
           updated_at: string
           updated_by: string | null
         }
@@ -278,6 +357,7 @@ export type Database = {
           last_name: string
           position: number
           tenant_id: string
+          tourist_tax_exempt?: boolean
           updated_at?: string
           updated_by?: string | null
         }
@@ -291,6 +371,7 @@ export type Database = {
           last_name?: string
           position?: number
           tenant_id?: string
+          tourist_tax_exempt?: boolean
           updated_at?: string
           updated_by?: string | null
         }
@@ -357,6 +438,7 @@ export type Database = {
           guest_sheet_number: string | null
           id: string
           kind: string
+          main_guest_tourist_tax_exempt: boolean
           note: string | null
           number: string | null
           number_seq: number | null
@@ -370,6 +452,7 @@ export type Database = {
           source: string
           source_custom: string | null
           tenant_id: string
+          tourist_tax_mode: string
           updated_at: string
           updated_by: string | null
         }
@@ -392,6 +475,7 @@ export type Database = {
           guest_sheet_number?: string | null
           id?: string
           kind: string
+          main_guest_tourist_tax_exempt?: boolean
           note?: string | null
           number?: string | null
           number_seq?: number | null
@@ -405,6 +489,7 @@ export type Database = {
           source?: string
           source_custom?: string | null
           tenant_id: string
+          tourist_tax_mode?: string
           updated_at?: string
           updated_by?: string | null
         }
@@ -427,6 +512,7 @@ export type Database = {
           guest_sheet_number?: string | null
           id?: string
           kind?: string
+          main_guest_tourist_tax_exempt?: boolean
           note?: string | null
           number?: string | null
           number_seq?: number | null
@@ -440,6 +526,7 @@ export type Database = {
           source?: string
           source_custom?: string | null
           tenant_id?: string
+          tourist_tax_mode?: string
           updated_at?: string
           updated_by?: string | null
         }
@@ -1751,6 +1838,10 @@ export type Database = {
         Returns: undefined
       }
       save_invoice_text_block: { Args: { p_input: Json }; Returns: string }
+      save_tourist_tax_rates: {
+        Args: { p_apartment_id: string; p_rates: Json }
+        Returns: undefined
+      }
       search_invoice_bookings: {
         Args: { p_limit?: number; p_query: string; p_tenant_id: string }
         Returns: {

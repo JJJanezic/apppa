@@ -1,6 +1,9 @@
 import { z } from 'zod'
 
 import { type ChildPrice, LIMITS, parsePriceCents, PRICE_MODES } from '@/lib/apartments'
+import { isIsoDate, parseAmountCents } from '@/lib/bookings'
+import { TOURIST_TAX_BASES, TOURIST_TAX_LIMITS, TOURIST_TAX_METHODS, type TouristTaxRate } from '@/lib/tourist-tax'
+import { parseVatRate } from '@/lib/vat'
 
 // Prüfregeln für Objekte und Wohnungen (PROJ-6). Browser und Server-Aktionen nutzen dieselben Schemas.
 // Meldungen kommen über `t` aus messages/de.json („apartments.validation“).
@@ -67,6 +70,25 @@ const apartmentFields = (t: T) => ({
   cleaningFee: money(t),
   checkIn: time(t),
   checkOut: time(t),
+  // Ortstaxe-Tarife (PROJ-15); Pflichtfelder je Berechnungsart prüft checkApartment
+  touristTaxRates: z
+    .array(
+      z.object({
+        id: z.string().optional(),
+        validFrom: z.string().refine((v) => isIsoDate(v), t('touristTax.validFromRequired')),
+        label: z.string().trim().min(1, t('touristTax.labelRequired')).max(TOURIST_TAX_LIMITS.labelMax, t('tooLong')),
+        method: z.enum(TOURIST_TAX_METHODS),
+        amount: z.string(),
+        percent: z.string(),
+        base: z.enum(TOURIST_TAX_BASES),
+        exemptUnderAge: z.string().trim(),
+        vat: z
+          .string()
+          .refine((v) => parseVatRate(v) !== null, t('touristTax.vatRequired'))
+          .refine((v) => parseVatRate(v) === null || !Number.isNaN(parseVatRate(v)), t('touristTax.vatInvalid')),
+      })
+    )
+    .max(TOURIST_TAX_LIMITS.ratesMax),
   note: z
     .string()
     .trim()
@@ -82,8 +104,10 @@ type CrossFields = {
   priceMode: (typeof PRICE_MODES)[number]
   adultPrice: number | null
   childPrices: { toAge: string; price: number | null }[]
+  touristTaxRates: TouristTaxRateInput[]
 }
 function checkApartment(t: T, v: CrossFields, ctx: z.RefinementCtx) {
+  checkTouristTaxRates(t, v.touristTaxRates, ctx)
   if (v.maxAdults !== null && v.maxAdults > v.maxGuests) ctx.addIssue({ code: 'custom', path: ['maxAdults'], message: t('adultsTooMany') })
   if (v.priceMode === 'person' && v.adultPrice === null) ctx.addIssue({ code: 'custom', path: ['adultPrice'], message: t('adultPriceRequired') })
   v.childPrices.forEach((tier, i) => {
@@ -91,6 +115,65 @@ function checkApartment(t: T, v: CrossFields, ctx: z.RefinementCtx) {
       ctx.addIssue({ code: 'custom', path: ['childPrices', i, 'toAge'], message: t('childAgesAscending') })
   })
 }
+
+// Ortstaxe-Tarif im Formular (Rohwerte); Betrag und Prozentsatz als Text wie in den Eingabefeldern
+type TouristTaxRateInput = {
+  id?: string
+  validFrom: string
+  label: string
+  method: (typeof TOURIST_TAX_METHODS)[number]
+  amount: string
+  percent: string
+  base: (typeof TOURIST_TAX_BASES)[number]
+  exemptUnderAge: string
+  vat: string
+}
+
+const touristTaxAmount = (v: string) => parseAmountCents(v)
+const touristTaxAge = (v: string) => (/^\d{1,2}$/.test(v) ? Number(v) : Number.NaN)
+
+// Je Berechnungsart: Betrag (ab € 0,00) bzw. Prozentsatz (über 0 bis 100); Altersgrenze 1–18 oder leer;
+// „gültig ab“ je Wohnung nur einmal
+function checkTouristTaxRates(t: T, rates: TouristTaxRateInput[], ctx: z.RefinementCtx) {
+  const seen = new Set<string>()
+  rates.forEach((r, i) => {
+    const path = (field: string) => ['touristTaxRates', i, field]
+    if (r.method === 'per_person_night') {
+      const cents = touristTaxAmount(r.amount)
+      if (cents === null) ctx.addIssue({ code: 'custom', path: path('amount'), message: t('touristTax.amountRequired') })
+      else if (Number.isNaN(cents) || cents > TOURIST_TAX_LIMITS.amountMaxCents)
+        ctx.addIssue({ code: 'custom', path: path('amount'), message: t('touristTax.amountInvalid') })
+      const age = r.exemptUnderAge === '' ? null : touristTaxAge(r.exemptUnderAge)
+      if (age !== null && (Number.isNaN(age) || age < TOURIST_TAX_LIMITS.ageMin || age > TOURIST_TAX_LIMITS.ageMax))
+        ctx.addIssue({ code: 'custom', path: path('exemptUnderAge'), message: t('touristTax.ageInvalid') })
+    } else {
+      const bp = parseVatRate(r.percent)
+      if (bp === null) ctx.addIssue({ code: 'custom', path: path('percent'), message: t('touristTax.percentRequired') })
+      else if (Number.isNaN(bp) || bp <= 0) ctx.addIssue({ code: 'custom', path: path('percent'), message: t('touristTax.percentInvalid') })
+    }
+    if (isIsoDate(r.validFrom)) {
+      if (seen.has(r.validFrom)) ctx.addIssue({ code: 'custom', path: path('validFrom'), message: t('touristTax.validFromDuplicate') })
+      seen.add(r.validFrom)
+    }
+  })
+}
+
+// Tarife für Datenbank und Anzeige; Felder der nicht gewählten Berechnungsart entfallen
+export const toTouristTaxRates = (rates: TouristTaxRateInput[]): TouristTaxRate[] =>
+  rates.map((r) => {
+    const perPerson = r.method === 'per_person_night'
+    return {
+      id: r.id && /^[0-9a-f-]{36}$/i.test(r.id) ? r.id : undefined,
+      validFrom: r.validFrom,
+      label: r.label.trim(),
+      method: r.method,
+      amountCents: perPerson ? (touristTaxAmount(r.amount) ?? 0) : null,
+      percentBp: perPerson ? null : (parseVatRate(r.percent) ?? 0),
+      base: perPerson ? null : r.base,
+      exemptUnderAge: perPerson && r.exemptUnderAge !== '' ? touristTaxAge(r.exemptUnderAge) : null,
+      vatBp: parseVatRate(r.vat) ?? 0,
+    }
+  })
 
 // Kinderstufen für Datenbank und Anzeige
 export const toChildPrices = (tiers: { toAge: string; price: number | null }[]): ChildPrice[] =>

@@ -5,6 +5,7 @@ import { notFound } from 'next/navigation'
 import { type Apartment, childPricesFromDb, type FederalState, type PriceMode, type Property } from '@/lib/apartments'
 import { createClient } from '@/lib/supabase/server'
 import { getTenantContext } from '@/lib/tenant'
+import { ratesByApartment, TOURIST_TAX_RATE_COLUMNS } from '@/lib/tourist-tax'
 
 // Lesefunktionen für Objekte und Wohnungen (PROJ-6), nur für Inhaber des gewählten Kunden (Einstellungen).
 // Rechte prüft die Datenbank zusätzlich (RLS: Lesen für Mitglieder, Schreiben für Inhaber).
@@ -35,6 +36,15 @@ export async function getProperties(): Promise<Property[]> {
     .eq('tenant_id', active.id)
     .limit(10000)
   if (bookingsError) console.error('[wohnungen] Buchungen nicht lesbar', bookingsError.message)
+  // Ortstaxe-Tarife (PROJ-15), nur für Inhaber lesbar
+  const { data: rateRows, error: ratesError } = await supabase
+    .from('apartment_tourist_tax_rates')
+    .select(TOURIST_TAX_RATE_COLUMNS)
+    .eq('tenant_id', active.id)
+    .limit(5000)
+  if (ratesError) console.error('[wohnungen] Ortstaxe-Tarife nicht lesbar', ratesError.message)
+  const rates = ratesByApartment(rateRows ?? [])
+
   const withBookings = new Set((bookings ?? []).map((b) => b.apartment_id))
   const futureStays = new Map<string, Apartment['futureStays']>()
   for (const b of bookings ?? []) {
@@ -69,6 +79,7 @@ export async function getProperties(): Promise<Property[]> {
             checkIn: hhmm(a.check_in),
             checkOut: hhmm(a.check_out),
             note: a.note,
+            touristTaxRates: rates.get(a.id) ?? [],
             archivedAt: a.archived_at,
             hasBookings: withBookings.has(a.id),
             futureStays: futureStays.get(a.id) ?? [],
