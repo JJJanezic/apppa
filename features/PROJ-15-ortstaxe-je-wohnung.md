@@ -1,8 +1,8 @@
 # PROJ-15: Ortstaxe je Wohnung
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-11-01
-**Last Updated:** 2026-11-01
+**Last Updated:** 2026-11-01 (Tech Design)
 
 ## Dependencies
 - Requires: PROJ-6 (Wohnungsverwaltung): Wohnungsformular unter *Einstellungen → Wohnungen*, nur Inhaber
@@ -212,10 +212,10 @@ Die Ortstaxe ist in Österreich je Bundesland und Gemeinde unterschiedlich gereg
 - Mandantentrennung und Rollen wie bei den Wohnungsdaten (nur Inhaber)
 
 ## Open Questions
-- [ ] USt-Satz der Abgabe: Vorbelegung 0,00 % als „durchlaufender Posten“ mit Steuerberater bestätigen; je Eintrag änderbar
+- [x] USt-Satz der Abgabe: 0,00 % vom Nutzer bestätigt (2026-11-01); bleibt je Eintrag änderbar
 - [ ] Wien: gibt es tatsächlich keine Altersbefreiung bei der Ortstaxe? (Annahme für „keine Altersgrenze bei Prozent“)
 - [ ] Gelten Höchstdauern je Aufenthalt (Abgabe nur für die ersten N Nächte) in Gemeinden der Pilotkunden? Falls ja, später ergänzen
-- [ ] Importierte Buchungen (PROJ-11): Abgabe nach derselben Regel berechnen, auch wenn booking.com/Airbnb sie bereits ausweisen? Klärung in PROJ-11
+- [x] Importierte Buchungen: wird bei PROJ-11 (Buchungsimport) geklärt, nicht in PROJ-15 (Nutzer, 2026-11-01)
 
 ## Decision Log
 
@@ -247,12 +247,140 @@ Die Ortstaxe ist in Österreich je Bundesland und Gemeinde unterschiedlich gereg
 ### Technical Decisions
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Rechenregel zweimal: in der App (Formular, Hinweise, Abweichungs-Angebot) und in der Datenbank (maßgeblich beim Speichern), mit gemeinsamer Beispieltabelle für die Tests beider Fassungen | Mitarbeiter sehen keine Preise, ihre Speichervorgänge dürfen keine Beträge mitschicken; Vorbild ist der Preisvorschlag aus PROJ-27 (`suggested_nights_cents`). Die Beispieltabelle verhindert, dass beide Fassungen auseinanderlaufen | 2026-11-01 |
+| Die Datenbank rechnet automatische Positionen beim Speichern selbst und übernimmt keine vom Browser gesendeten Abgabe-Beträge im Automatik-Zustand | Niemand kann über einen direkten Aufruf falsche Abgaben speichern; Formular und Server kommen bei gleicher Regel zum selben Ergebnis | 2026-11-01 |
+| Neuberechnung beim Speichern nur, wenn sich eine Berechnungsgrundlage geändert hat oder der Inhaber „Abgabe (neu) berechnen“ gewählt hat | Setzt „Tarifänderungen ziehen nicht nach, ohne Klick bleibt der gespeicherte Betrag“ um; reine Notizänderungen lassen die Abgabe in Ruhe | 2026-11-01 |
+| Abgabe-Zustand je Buchung: „noch nicht berechnet“ / „automatisch“ / „von Hand“ | Altbestand (vor PROJ-15) bleibt unangetastet, neue Buchungen rechnen automatisch, überschriebene bleiben stehen; der Zustand steuert Server, Formular und „Preis prüfen“ | 2026-11-01 |
+| Tarife in einer eigenen Tabelle je Wohnung, Speichern als Ganzes (Liste ersetzen) über eine Datenbankfunktion im selben Speichervorgang wie die Wohnung | Wie der Kleinunternehmer-Verlauf (PROJ-36); eindeutiges „gültig ab“ je Wohnung in der Datenbank abgesichert; nur Inhaber lesen und schreiben | 2026-11-01 |
+| Abgabe-Positionen bleiben normale Zeilen der Zusatzkosten, ergänzt um Kennzeichen „Ortstaxe“, Verweis auf den Tarif-Eintrag und Zahl der abgabepflichtigen Personennächte | Reihenfolge (PROJ-34), USt-Aufstellung (PROJ-35), Rechnungsentwurf (PROJ-40) und Summen funktionieren ohne Änderung; PROJ-16 kann später nach Tarif/Gemeinde und Nächtigungen auswerten | 2026-11-01 |
+| Verweis auf den Tarif wird beim Entfernen des Eintrags geleert, die Position bleibt mit Kennzeichen erhalten | Spec: Entfernen eines Tarifs ändert gespeicherte Buchungen nicht | 2026-11-01 |
+| Befreiungs-Häkchen als Ja/Nein-Feld an der Buchung (Hauptgast) und je Mitreisendem | Gilt nur für den Aufenthalt (Produktentscheidung); Gästedatensatz bleibt unberührt | 2026-11-01 |
+| Kleinunternehmer-Regel (PROJ-36) bekommt zusätzlich eine Datenbank-Fassung | Prozent-Tarife mit Basis netto müssen auch bei Mitarbeiter-Speichern serverseitig rechnen; PROJ-42 braucht die Fassung ohnehin beim Festschreiben (offener Punkt aus PROJ-36) | 2026-11-01 |
+| Keine neuen Pakete | Formular, Liste und Häkchen mit vorhandenen shadcn-Bausteinen (Checkbox, RadioGroup, Select, Input, AmountInput) | 2026-11-01 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### Überblick
+PROJ-15 erweitert drei bestehende Stellen und bringt eine neue Rechenregel:
+1. **Wohnungsformular** (*Einstellungen → Wohnungen*): neuer Abschnitt „Ortstaxe“ mit Tarifliste.
+2. **Buchung** (Formular, Mitreisende-Nachtrag, Detail): Befreiungs-Häkchen, automatische Abgabe-Positionen, Hinweise.
+3. **Speichern in der Datenbank**: rechnet die Abgabe maßgeblich und schützt sie vor falschen Werten.
+4. **Rechenregel „Ortstaxe“**: einmal in der App (für sofortige Anzeige im Formular) und einmal in der Datenbank (für das Speichern, auch durch Mitarbeiter), geprüft mit derselben Beispieltabelle.
+
+Kein neuer Menüpunkt, keine neue Seite, keine neuen Pakete.
+
+### A) Komponentenstruktur
+
+```
+Einstellungen → Wohnungen → Wohnung bearbeiten (bestehendes Seitenpanel)
++-- (bestehend) Objekt, Name, Kapazität, Preisart, Reinigung, Zeiten, Notiz
++-- NEU Abschnitt „Ortstaxe“
+    +-- Zeile „Aktuell: …“ bzw. Leerzustand „Keine Ortstaxe hinterlegt …“
+    +-- Tarifliste (neueste oben, künftige mit Kennzeichen „künftig“)
+    |   +-- Tarif-Eintrag (aufklappbar bzw. als Karte)
+    |       +-- Gültig ab (Datum)
+    |       +-- Bezeichnung (Eingabe mit Vorschlägen)
+    |       +-- Berechnungsart (Auswahl: Betrag pro Person und Nacht / Prozent)
+    |       +-- Betrag  —oder—  Prozentsatz + Basis netto/brutto
+    |       +-- Befreit unter … Jahren (nur bei Betrag)
+    |       +-- USt % (vorbelegt 0,00)
+    |       +-- Entfernen
+    +-- Knopf „Tarif hinzufügen“
+    (gespeichert mit dem bestehenden „Speichern“ der Wohnung)
+
+Buchungsformular (bestehendes Panel)
++-- Hauptgast  + NEU Häkchen „Von der Ortstaxe befreit“
++-- Personen / Kinder (unverändert)
++-- Mitreisende  + NEU je Person Häkchen „Von der Ortstaxe befreit“
++-- Preis (nur Inhaber)
+    +-- Übernachtung (unverändert)
+    +-- Zusatzkosten (ordnen wie PROJ-34)
+    |   +-- NEU Abgabe-Positionen mit Kennzeichen „automatisch berechnet“
+    +-- NEU Ortstaxe-Hinweisfeld (nur wenn nötig)
+        +-- „Für N Personen fehlt das Geburtsdatum …“
+        +-- „Für N Nächte ist kein Ortstaxe-Tarif hinterlegt“
+        +-- Knopf „Abgabe berechnen“ / „Abgabe neu berechnen“
+        +-- ggf. Warnung „Es gibt bereits eine Position ‚…‘ … doppelt“
+
+Mitreisende nachtragen (bestehendes Panel, auch für Mitarbeiter)
++-- je Person NEU Häkchen „Von der Ortstaxe befreit“
+
+Buchungsdetail (bestehend)
++-- Hauptgast / Mitreisende: Zusatz „von der Ortstaxe befreit“
++-- Preis (nur Inhaber): Abgabe-Positionen als normale Zusatzpositionen
++-- Ortstaxe-Hinweise (nur Inhaber), „Preis prüfen“ wie bisher
+```
+
+### B) Datenmodell (in Worten)
+
+**Neu: Ortstaxe-Tarife** (je Wohnung beliebig viele Einträge)
+- Kunde, Wohnung
+- Gültig ab (je Wohnung eindeutig)
+- Bezeichnung (1–100 Zeichen)
+- Berechnungsart: Betrag pro Person und Nacht oder Prozent
+- Betrag in Cent (bei Betrag) bzw. Prozentsatz in Hundertstel-Prozent (bei Prozent; gleiche Darstellung wie die USt-Sätze aus PROJ-35)
+- Basis netto oder brutto (nur bei Prozent)
+- Befreit unter … Jahren (1–18, leer = keine; nur bei Betrag)
+- USt-Satz (vorbelegt 0,00 %)
+- Angelegt/geändert von und wann; jede Änderung im Änderungsprotokoll (PROJ-1)
+- Lesen und Schreiben nur durch Inhaber des Kunden; Mitarbeiter und andere Kunden haben keinen Zugriff
+
+**Erweitert: Buchung**
+- Abgabe-Zustand: „noch nicht berechnet“ (alle Buchungen vor PROJ-15), „automatisch“ (Standard für neue Buchungen und Optionen), „von Hand“ (Inhaber hat überschrieben)
+- Hauptgast von der Ortstaxe befreit (ja/nein, Standard nein)
+
+**Erweitert: Mitreisende**
+- Von der Ortstaxe befreit (ja/nein, Standard nein)
+
+**Erweitert: Zusatzkosten-Positionen**
+- Kennzeichen „Ortstaxe“ (sonst normale Position)
+- Verweis auf den Tarif-Eintrag (wird geleert, wenn der Eintrag entfernt wird)
+- Abgabepflichtige Personennächte (nur bei Betrags-Tarifen; Grundlage für den späteren Monatsbericht PROJ-16)
+
+**Gelesen, nicht geändert:** Geburtsdatum des Hauptgasts (Gäste-Datenbank), Geburtsdaten der Mitreisenden, Erwachsene/Kinder, Anreise, geplante und tatsächliche Abreise, abgerechneter Übernachtungspreis mit USt-Satz, „Wohnsitz angemeldet“, Kleinunternehmer-Verlauf, verknüpfte Rechnungen.
+
+**Bestehende Daten:** Keine Umrechnung. Bestehende Buchungen erhalten den Zustand „noch nicht berechnet“, alle Häkchen „nein“. Von Hand eingetragene „Nächtigungsabgabe“-Positionen bleiben normale Positionen.
+
+### C) Ablauf beim Rechnen und Speichern
+
+**Rechenregel (beide Fassungen gleich)**
+- Eingaben: Tarifliste der Wohnung, Aufenthalt (Anreise, tatsächliche Abreise, abgerechnete Nächte, abgerechneter Übernachtungspreis und dessen USt-Satz), Personen (Erwachsene + Kinder), Personen mit Geburtsdatum und Befreiungs-Häkchen, „Wohnsitz angemeldet“, Kleinunternehmer-Status der Buchung.
+- Ergebnis: je berührtem Tarif-Eintrag eine Position (Bezeichnung, Betrag, USt-Satz, Personennächte) sowie die Hinweise „Geburtsdatum fehlt“ (Anzahl) und „Nächte ohne Tarif“ (Anzahl).
+- Lange Aufenthalte (einige hundert Nächte) sind unkritisch: gerechnet wird je Nacht über wenige Personen.
+
+**Im Formular (Inhaber)**
+- Bei jeder Änderung einer Berechnungsgrundlage rechnet die App-Fassung sofort neu und ersetzt die automatischen Positionen in der Liste; manuelle Positionen und deren Reihenfolge bleiben.
+- Ändert der Inhaber eine Abgabe-Position oder entfernt er sie, wechselt das Formular in „von Hand“.
+- Beim Öffnen vergleicht die App die gespeicherten Abgabe-Positionen mit einer frischen Berechnung. Bei Abweichung erscheint „Abgabe neu berechnen“ bzw. bei „noch nicht berechnet“ „Abgabe berechnen“. Ausnahme: Die Buchung hat eine ausgestellte oder nacherfasste Rechnung.
+- Die App braucht dafür im Formular die Tarife der gewählten Wohnung und das Geburtsdatum des Hauptgasts. Beides wird nur für Inhaber geladen.
+
+**Beim Speichern (Datenbank, maßgeblich)**
+- Zustand „automatisch“: Die Datenbank vergleicht die Berechnungsgrundlagen vor und nach dem Speichern. Haben sie sich geändert, oder hat der Inhaber „Abgabe (neu) berechnen“ gewählt, rechnet sie die Abgabe-Positionen selbst neu und ersetzt sie. Vom Browser gesendete Abgabe-Beträge werden in diesem Zustand nicht übernommen. Ohne Änderung bleiben die gespeicherten Positionen (Tarifänderungen ziehen nicht nach).
+- Zustand „von Hand“: Die Abgabe-Positionen des Inhabers werden wie normale Zusatzkosten gespeichert.
+- Zustand „noch nicht berechnet“: nichts wird gerechnet, bis der Inhaber „Abgabe berechnen“ wählt; dann wechselt die Buchung auf „automatisch“.
+- **Mitarbeiter** (Buchung speichern oder Mitreisende nachtragen): bei „automatisch“ wie oben; bei „von Hand“ bleiben die Positionen, und bei geänderten Grundlagen wird „Preis prüfen“ gesetzt; bei „noch nicht berechnet“ passiert nichts.
+- Optionen werden wie Buchungen behandelt, Sperren nie. Stornieren ändert an den Positionen nichts.
+
+**Speichern der Tarife**
+- Das bestehende Speichern der Wohnung übergibt die vollständige Tarifliste an eine neue Datenbankfunktion, die sie als Ganzes ersetzt (wie der Kleinunternehmer-Verlauf). Prüfungen (Pflichtfelder, Bereiche, eindeutiges Datum) im Formular und in der Datenbank.
+- Gespeicherte Buchungen werden dabei nicht angefasst.
+
+### D) Technische Entscheidungen (Begründung für PM)
+- **Zwei Fassungen der Rechenregel:** Der Inhaber soll die Abgabe beim Tippen sehen (App-Fassung). Mitarbeiter speichern ohne Preise zu sehen, und niemand soll über Umwege falsche Abgaben speichern können, darum rechnet beim Speichern die Datenbank. Damit beide gleich rechnen, laufen dieselben Beispielfälle (u. a. alle Rechenbeispiele aus den Akzeptanzkriterien) gegen beide Fassungen. Dasselbe Muster wird bereits beim Preisvorschlag (PROJ-27) verwendet.
+- **Abgabe als normale Zusatzposition mit Kennzeichen:** Reihenfolge, USt-Aufstellung, Rechnungsentwurf und Summen funktionieren ohne Umbau. Das Kennzeichen und die Personennächte genügen später für den Monatsbericht (PROJ-16).
+- **Zustand je Buchung:** Er trennt sauber Altbestand, Automatik und Handeingabe. Ohne ihn könnte die App nicht unterscheiden, ob fehlende Abgabe-Positionen bewusst entfernt oder nie berechnet wurden.
+- **Kleinunternehmer-Regel auch in der Datenbank:** nötig für Prozent-Tarife mit Basis netto; wird von PROJ-42 beim Festschreiben ohnehin gebraucht.
+
+### E) Abhängigkeiten
+- Keine neuen Pakete.
+
+### F) Für /frontend und /backend
+- **Frontend:** Abschnitt „Ortstaxe“ im Wohnungs-Panel (Liste mit Hinzufügen/Entfernen im bestehenden Formular), Häkchen im Buchungsformular und im Mitreisende-Panel, Kennzeichen „automatisch berechnet“ in der Zusatzkosten-Liste, Hinweisfeld mit „Abgabe (neu) berechnen“, Anzeige „von der Ortstaxe befreit“ im Detail. App-Fassung der Rechenregel als reine Rechenbibliothek mit Unit-Tests (Beispieltabelle). Texte in `messages/de.json`.
+- **Backend:** Tabelle für Tarife mit Inhaber-Regeln und Protokoll, Funktion zum Ersetzen der Tarifliste, neue Felder an Buchung, Mitreisenden und Zusatzkosten, Datenbank-Fassung der Rechenregel und der Kleinunternehmer-Regel, Erweiterung von „Buchung speichern“ und „Mitreisende speichern“ um Zustand, Häkchen, Neuberechnung und „Preis prüfen“. Integrationstests mit derselben Beispieltabelle sowie für Rollen und Mandantentrennung.
+
 
 ## QA Test Results
 _To be added by /qa_
