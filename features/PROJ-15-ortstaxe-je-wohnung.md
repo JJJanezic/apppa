@@ -1,8 +1,8 @@
 # PROJ-15: Ortstaxe je Wohnung
 
-## Status: Approved
+## Status: In Progress
 **Created:** 2026-11-01
-**Last Updated:** 2026-11-01 (QA)
+**Last Updated:** 2026-11-01 (Bugfix QA Runde 1)
 
 ## Dependencies
 - Requires: PROJ-6 (Wohnungsverwaltung): Wohnungsformular unter *Einstellungen → Wohnungen*, nur Inhaber
@@ -420,6 +420,13 @@ Buchungsdetail (bestehend)
 - **Tests:** `supabase/tests/tourist-tax.integration.test.ts` (17 Fälle: Tarifliste, Regeln, Rechte; alle Rechenbeispiele der Spec inkl. Geburtstag während des Aufenthalts, Tarifwechsel, Prozent netto/brutto/Kleinunternehmer, frühere Abreise; Zustände automatisch/von Hand/noch nicht berechnet, Schutz vor gesendeten Beträgen, Reihenfolge, gelöschter Tarif).
 - **Advisors:** keine neuen Befunde (nur die bekannten Auth-Hinweise der Dev-Umgebung).
 - **RLS-Regel der Tarif-Tabelle** vom Nutzer freigegeben (2026-11-01).
+
+## Implementation Notes (Bugfix QA Runde 1, 2026-11-01)
+- **BUG-1:** Hinweis „Geburtsdatum fehlt“ zählt nur noch Kinder ohne bekanntes Geburtsdatum (`computeTouristTax`): höchstens Kinder minus Personen, die per Geburtsdatum als minderjährig erkennbar sind, minus angehakte Personen ohne Geburtsdatum.
+- **BUG-2:** Bei doppeltem Datum steht die Meldung beim neuen Eintrag; ohne Meldung bleibt der letzte gespeicherte, sonst der letzte Eintrag.
+- **BUG-3:** Feld heißt jetzt „Betrag (€)“, die Berechnungsart bleibt „Betrag pro Person und Nacht“.
+- **BUG-4:** Im Formular Hinweis und gesperrtes Speichern ab 21 Positionen. Greift die Grenze erst in der Datenbank (z. B. Mitarbeiter-Änderung, die eine zweite Abgabe-Position auslöst), erkennt die Aktion die Regel `booking_charges_position_check` und meldet „tooManyCharges“; der Vorgang wird nicht gespeichert. Keine Migration nötig.
+- **Tests:** Unit 554 grün, Integration PROJ-15 18 grün, E2E PROJ-15 (desktop) grün; neue Prüfungen je Bug ergänzt. Vollständige Prüfung folgt in `/qa` Runde 2.
 
 ## QA Test Results
 

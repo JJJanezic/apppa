@@ -157,7 +157,7 @@ test.describe('Tarife an der Wohnung', () => {
     await expect(section.getByLabel('Bezeichnung', { exact: true })).toHaveValue('Nächtigungsabgabe')
     await expect(section.getByLabel('USt-Satz')).toHaveValue('0,00')
     await section.getByLabel('Gültig ab').fill('2026-01-01')
-    await section.getByRole('textbox', { name: 'Betrag pro Person und Nacht' }).fill('2,50')
+    await section.getByLabel('Betrag (€)').fill('2,50')
     await section.getByLabel('Befreit unter').fill('15')
     await panel(page).getByRole('button', { name: 'Speichern', exact: true }).click()
     await expect(panel(page)).toHaveCount(0)
@@ -189,8 +189,9 @@ test.describe('Tarife an der Wohnung', () => {
     await entry.getByLabel('Bezeichnung', { exact: true }).fill(' ')
     await entry.getByLabel('Prozentsatz').fill('0')
     await panel(page).getByRole('button', { name: 'Speichern', exact: true }).click()
-    // Meldung steht beim bestehenden Eintrag „Tarif 2“, nicht beim neu eingegebenen (BUG-2)
-    await expect(section.getByRole('group', { name: 'Tarif 2' }).getByText('Für dieses Datum gibt es schon einen Tarif.')).toBeVisible()
+    // Meldung beim neuen Eintrag, nicht beim gespeicherten (QA BUG-2)
+    await expect(entry.getByText('Für dieses Datum gibt es schon einen Tarif.')).toBeVisible()
+    await expect(section.getByRole('group', { name: 'Tarif 2' }).getByText('Für dieses Datum gibt es schon einen Tarif.')).toHaveCount(0)
     await expect(entry.getByText('Bitte eine Bezeichnung eingeben.')).toBeVisible()
     await expect(entry.getByText(/Bitte einen Prozentsatz über 0 bis 100/)).toBeVisible()
 
@@ -262,6 +263,10 @@ test.describe('Abgabe in der Buchung', () => {
     await expect(taxAmount(page)).toHaveValue('10,00')
     await expect(panel(page).getByText('Für 1 Person fehlt das Geburtsdatum: Abgabe ohne Altersbefreiung berechnet.')).toBeVisible()
     await expect(panel(page).getByText('Für 2 Nächte ist kein Ortstaxe-Tarif hinterlegt.')).toBeVisible()
+    // Erwachsener ohne Namen zählt nicht mit (QA BUG-1)
+    await panel(page).getByLabel('Erwachsene').fill('2')
+    await expect(taxAmount(page)).toHaveValue('15,00')
+    await expect(panel(page).getByText('Für 1 Person fehlt das Geburtsdatum: Abgabe ohne Altersbefreiung berechnet.')).toBeVisible()
   })
 
   test('AC: Von Hand geänderter Betrag bleibt bei Personenänderung; „Abgabe neu berechnen“ stellt die Berechnung wieder her', async ({ page, users }) => {
@@ -300,6 +305,23 @@ test.describe('Abgabe in der Buchung', () => {
     await expect(panel(page)).toHaveCount(0)
     const { data } = await service().from('booking_charges').select('amount_cents, tourist_tax').eq('booking_id', id)
     expect(data).toEqual([{ amount_cents: 2000, tourist_tax: true }])
+  })
+
+  test('Mehr als 20 Positionen durch die Abgabe: Hinweis, Speichern gesperrt, nach Entfernen wieder möglich (QA BUG-4)', async ({ page, users }) => {
+    desktopOnly()
+    const { tenantId, propertyId } = await setup(page, users)
+    const apt = await addApartment(tenantId, propertyId, 'Top 1', [{ valid_from: '2026-01-01' }])
+    const id = await addBooking(tenantId, apt, await addGuest(tenantId, 'Huber'), {
+      charges: Array.from({ length: 20 }, (_, i) => ({ label: `Posten ${i + 1}`, amount_cents: 100 })),
+    })
+    await page.goto(`/buchungen/${id}`)
+    await ready(page)
+    await page.getByRole('button', { name: 'Bearbeiten', exact: true }).click()
+    await panel(page).getByRole('button', { name: 'Abgabe berechnen' }).click()
+    await expect(panel(page).getByRole('alert').getByText('Mit der Ortstaxe sind es mehr als 20 Positionen.', { exact: false })).toBeVisible()
+    await expect(panel(page).getByRole('button', { name: 'Änderungen speichern' })).toBeDisabled()
+    await panel(page).getByRole('button', { name: 'Position 1 entfernen' }).click()
+    await expect(panel(page).getByRole('button', { name: 'Änderungen speichern' })).toBeEnabled()
   })
 
   test('AC: Mitreisender „Von der Ortstaxe befreit“ im Mitreisende-Panel; Mitarbeiter sieht keine Abgabe-Positionen', async ({ page, users }) => {

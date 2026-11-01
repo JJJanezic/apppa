@@ -135,7 +135,12 @@ const touristTaxAge = (v: string) => (/^\d{1,2}$/.test(v) ? Number(v) : Number.N
 // Je Berechnungsart: Betrag (ab € 0,00) bzw. Prozentsatz (über 0 bis 100); Altersgrenze 1–18 oder leer;
 // „gültig ab“ je Wohnung nur einmal
 function checkTouristTaxRates(t: T, rates: TouristTaxRateInput[], ctx: z.RefinementCtx) {
-  const seen = new Set<string>()
+  // Doppeltes Datum: Die Meldung gehört zum neuen Eintrag. Es bleibt der letzte gespeicherte ohne Meldung, sonst der letzte
+  const keeper = new Map<string, number>()
+  rates.forEach((r, i) => {
+    const kept = keeper.get(r.validFrom)
+    if (kept === undefined || r.id || !rates[kept].id) keeper.set(r.validFrom, i)
+  })
   rates.forEach((r, i) => {
     const path = (field: string) => ['touristTaxRates', i, field]
     if (r.method === 'per_person_night') {
@@ -151,10 +156,8 @@ function checkTouristTaxRates(t: T, rates: TouristTaxRateInput[], ctx: z.Refinem
       if (bp === null) ctx.addIssue({ code: 'custom', path: path('percent'), message: t('touristTax.percentRequired') })
       else if (Number.isNaN(bp) || bp <= 0) ctx.addIssue({ code: 'custom', path: path('percent'), message: t('touristTax.percentInvalid') })
     }
-    if (isIsoDate(r.validFrom)) {
-      if (seen.has(r.validFrom)) ctx.addIssue({ code: 'custom', path: path('validFrom'), message: t('touristTax.validFromDuplicate') })
-      seen.add(r.validFrom)
-    }
+    if (isIsoDate(r.validFrom) && keeper.get(r.validFrom) !== i)
+      ctx.addIssue({ code: 'custom', path: path('validFrom'), message: t('touristTax.validFromDuplicate') })
   })
 }
 

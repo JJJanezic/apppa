@@ -156,8 +156,13 @@ describe('Ortstaxe-Tarife (PROJ-15)', () => {
     expect(issues([{ ...rate, method: 'percent', percent: '' }])).toEqual([['percent', 'touristTax.percentRequired']])
   })
 
-  it('jedes Datum nur einmal je Wohnung', () => {
+  it('jedes Datum nur einmal je Wohnung; Meldung beim neuen Eintrag, nicht beim gespeicherten (QA BUG-2)', () => {
     expect(issues([rate, { ...rate, amount: '3' }])).toEqual([['validFrom', 'touristTax.validFromDuplicate']])
+    const saved = { ...rate, id: '5b1d7a0e-0000-4000-8000-000000000002' }
+    const atIndex = (rates: (typeof base)['touristTaxRates']) =>
+      (withExistingProperty(key).safeParse({ ...base, touristTaxRates: rates }).error?.issues ?? []).map((i) => i.path[1])
+    expect(atIndex([rate, saved])).toEqual([0])
+    expect(atIndex([saved, rate])).toEqual([1])
   })
 })
 

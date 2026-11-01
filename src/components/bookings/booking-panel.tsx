@@ -314,7 +314,9 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
   const overrideOk = owner && override?.version === version
   const sheetWarn = hasGuestSheetDuplicates(warnings)
   const sheetOk = sheetOverride?.version === version
-  const blocked = (warn && !overrideOk) || (sheetWarn && !sheetOk)
+  // Abgabe-Positionen können die Höchstzahl überschreiten (PROJ-15): erst Positionen entfernen, dann speichern
+  const tooManyCharges = owner && chargeRows.length > LIMITS.chargesMax
+  const blocked = (warn && !overrideOk) || (sheetWarn && !sheetOk) || tooManyCharges
 
   // Eingetragener Preis → abgerechneter Preis (bei Verlängerung nach der gewählten Preisregel); verbindlich rechnet der Server
   const agreedCents = parseAmountCents(nightsPrice ?? '')
@@ -1074,6 +1076,11 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
                     </SortableChargeRow>
                   ))}
                 </SortableChargeList>
+                {tooManyCharges && (
+                  <p role="alert" className="text-sm font-medium text-destructive">
+                    {t('panel.tooManyCharges', { max: LIMITS.chargesMax })}
+                  </p>
+                )}
                 {charges.fields.length < LIMITS.chargesMax && (
                   <Button type="button" variant="outline" className="min-h-11 self-start" onClick={() => charges.append({ label: '', amount: '', vat: vatRateInput(VAT_DEFAULTS.charge) }, { shouldFocus: true })}>
                     <Plus size={16} aria-hidden="true" />

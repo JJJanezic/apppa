@@ -421,6 +421,19 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-15 Ortstaxe je Wohnung', () => {
       ])
     })
 
+    it('Mehr als 20 Positionen mit Abgabe: Fehler mit Regelname, nichts gespeichert (QA BUG-4)', async () => {
+      const apt = await apartment(tenantA, 'Viele Positionen')
+      await saveRates(ownerA, apt, [{ valid_from: '2026-01-01' }])
+      const many = Array.from({ length: 20 }, (_, i) => ({ label: `Posten ${i + 1}`, amount_cents: 100, vat_rate: '20.00' }))
+      const { error } = await ownerA.rpc('save_booking', {
+        p_input: input(apt, await guest(tenantA), '2028-05-01', '2028-05-03', { amounts: { nights_cents: 20000, nights_vat_rate: '10.00', charges: many } }) as Json,
+        p_confirm: true,
+      })
+      expect(error?.code).toBe('23514')
+      expect(error?.message).toContain('booking_charges_position_check')
+      expect((await service.from('bookings').select('id').eq('apartment_id', apt)).data).toEqual([])
+    })
+
     it('Gelöschter Tarif: Abgabe-Position bleibt mit Kennzeichen, Verweis leer', async () => {
       const apt = await apartment(tenantA, 'Tarif weg')
       await saveRates(ownerA, apt, [{ valid_from: '2026-01-01' }])

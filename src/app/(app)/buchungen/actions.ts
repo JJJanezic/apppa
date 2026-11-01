@@ -52,6 +52,8 @@ async function requireOwner(): Promise<{ ok: true; tenant: TenantSummary } | Fai
 
 // Fehler der Datenbank → Meldung (Codes siehe Migration)
 function dbFail(error: DbError, context: string): Failure {
+  // PROJ-15: Mit den Abgabe-Positionen wären es mehr als 20 Positionen (Regel der Tabelle booking_charges)
+  if (error.code === '23514' && error.message?.includes('booking_charges_position_check')) return fail('tooManyCharges')
   switch (error.code) {
     case 'P0801':
     case '42501':

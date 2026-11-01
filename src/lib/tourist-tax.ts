@@ -180,11 +180,14 @@ export function computeTouristTax(input: TouristTaxInput): TouristTaxResult {
   }
   lines.sort((a, b) => a.validFrom.localeCompare(b.validFrom))
 
+  // Hinweis nur für Kinder ohne bekanntes Geburtsdatum: Erwachsene kann die Altersgrenze (höchstens 18) nicht befreien.
+  // Abgezogen werden Personen, die als Kind erkennbar sind, und angehakte ohne Geburtsdatum (können ein Kind sein).
   const missing = named.filter((p) => !p.exempt && !p.birthDate).length + unnamed
+  const knownChildren = named.filter((p) => (p.birthDate ? ageOn(p.birthDate, input.arrival) < 18 : p.exempt)).length
+  const openChildren = Math.max(0, input.childCount - knownChildren)
   return {
     lines,
-    // Hinweis nur, wenn eine Altersgrenze gilt und Kinder in der Buchung sind (Spec)
-    missingBirthDates: ageLimitUsed && input.childCount > 0 ? missing : 0,
+    missingBirthDates: ageLimitUsed ? Math.min(missing, openChildren) : 0,
     nightsWithoutRate,
   }
 }

@@ -747,7 +747,7 @@
         "per_person_night": "Betrag pro Person und Nacht",
         "percent": "Prozent vom Übernachtungspreis"
       },
-      "amount": "Betrag pro Person und Nacht",
+      "amount": "Betrag (€)",
       "exemptUnderAge": "Befreit unter",
       "years": "Jahren",
       "exemptUnderAgeHint": "Leer lassen, wenn es keine Altersbefreiung gibt. Gerechnet wird tagesgenau nach dem Geburtsdatum.",
@@ -1263,7 +1263,8 @@
       "taxOfferNone": "Nach den aktuellen Tarifen fällt keine Ortstaxe an.",
       "taxDuplicate": "Es gibt bereits eine Position „{label}“. Bitte prüfen, sonst wird die Abgabe doppelt verrechnet.",
       "taxCalculate": "Abgabe berechnen",
-      "taxRecalculate": "Abgabe neu berechnen"
+      "taxRecalculate": "Abgabe neu berechnen",
+      "tooManyCharges": "Mit der Ortstaxe sind es mehr als {max} Positionen. Bitte Positionen entfernen, um speichern zu können."
     },
     "chargeSuggestions": {
       "cleaning": "Reinigung",
@@ -1357,7 +1358,8 @@
       "tooManyCompanions": "Es sind mehr Mitreisende erfasst, als die Personenzahl zulässt. Bitte zuerst Mitreisende entfernen.",
       "documentImageMissing": "Ein Ausweisbild ist nicht mehr verfügbar. Bitte lade es erneut hoch und speichere noch einmal.",
       "guestSheetDuplicate": "Die Gästeblattnummer ist bereits vergeben. Bitte prüfen und „Trotzdem speichern“ bestätigen.",
-      "billedTooHigh": "Der hochgerechnete Übernachtungspreis übersteigt den Höchstbetrag von € 1.000.000,00. Bitte den vereinbarten Preis oder die Abreise prüfen."
+      "billedTooHigh": "Der hochgerechnete Übernachtungspreis übersteigt den Höchstbetrag von € 1.000.000,00. Bitte den vereinbarten Preis oder die Abreise prüfen.",
+      "tooManyCharges": "Mit der Ortstaxe hätte diese Buchung mehr als 20 Zusatzkosten-Positionen. Ein Inhaber muss zuerst Positionen entfernen."
     },
     "validation": {
       "apartmentRequired": "Bitte eine Wohnung wählen.",

@@ -81,8 +81,8 @@ describe('Betrag pro Person und Nacht', () => {
       })
     )
     expect(r.lines[0].amountCents).toBe(2000)
-    // Der Erwachsene ohne Namen hat kein Geburtsdatum
-    expect(r.missingBirthDates).toBe(1)
+    // Der Erwachsene ohne Namen zahlt ohnehin: kein Hinweis
+    expect(r.missingBirthDates).toBe(0)
   })
 
   it('15. Geburtstag am 3. Tag: Nächte 1–2 frei, ab der 3. Nacht abgabepflichtig', () => {
@@ -116,6 +116,13 @@ describe('Betrag pro Person und Nacht', () => {
     )
     expect(r.lines[0].amountCents).toBe(2000)
     expect(r.missingBirthDates).toBe(1)
+  })
+
+  it('Hinweis zählt nur Kinder (QA BUG-1): 2 Erwachsene + 1 Kind ohne Geburtsdatum → 1 Person; ohne Hauptgast-Geburtsdatum ebenso', () => {
+    const rates = [perPerson('2026-01-01', 250, { exemptUnderAge: 15 })]
+    expect(computeTouristTax(stay({ rates, persons: 3, childCount: 1 })).missingBirthDates).toBe(1)
+    expect(computeTouristTax(stay({ rates, persons: 3, childCount: 1, people: [{ birthDate: null, exempt: false }] })).missingBirthDates).toBe(1)
+    expect(computeTouristTax(stay({ rates, persons: 4, childCount: 2 })).missingBirthDates).toBe(2)
   })
 
   it('Geburtsdatum nachgetragen: Abgabe sinkt, Hinweis verschwindet', () => {
