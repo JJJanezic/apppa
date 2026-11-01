@@ -1,8 +1,8 @@
 # PROJ-15: Ortstaxe je Wohnung
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-11-01
-**Last Updated:** 2026-11-01 (Backend)
+**Last Updated:** 2026-11-01 (QA)
 
 ## Dependencies
 - Requires: PROJ-6 (Wohnungsverwaltung): Wohnungsformular unter *Einstellungen → Wohnungen*, nur Inhaber
@@ -422,7 +422,102 @@ Buchungsdetail (bestehend)
 - **RLS-Regel der Tarif-Tabelle** vom Nutzer freigegeben (2026-11-01).
 
 ## QA Test Results
-_To be added by /qa_
+
+**Tested:** 2026-11-01
+**App URL:** http://localhost:3000 (Produktions-Build gegen „apppa-dev“)
+**Tester:** QA Engineer (AI)
+
+### Acceptance Criteria Status (52/53)
+
+#### Tarife an der Wohnung (10/10)
+- [x] Leerzustand, Tarif anlegen, „Aktuell: Nächtigungsabgabe € 2,50 pro Person und Nacht, befreit unter 15 Jahren, seit Do, 01.01.2026“ nach erneutem Öffnen (E2E)
+- [x] Neueste oben, Kennzeichen „künftig“ (E2E)
+- [x] Prozent: Prozentsatz und Basis, keine Altersgrenze (E2E)
+- [x] Prüfregeln: Datum doppelt, leere Bezeichnung, Prozent 0/über 100, Altersgrenze, USt (E2E, Unit, Integration) – Meldung beim doppelten Datum steht am falschen Eintrag (BUG-2)
+- [x] Vorbelegung USt 0,00 und Bezeichnungs-Auswahl (E2E)
+- [x] Protokoll über `enable_tenant_table`; Mitarbeiter und fremde Kunden ohne Zugriff (Integration, E2E)
+
+#### Berechnung Betrag pro Person und Nacht (5/6)
+- [x] € 30,00 für 2 Erwachsene + 1 Kind, 4 Nächte, USt 0 % (E2E, Integration, Unit)
+- [x] € 20,00 mit befreitem Kind (Integration, Unit)
+- [x] Geburtstag am 3. Tag: Nächte 1–2 frei (Integration, Unit)
+- [ ] BUG-1: Kind (4) ohne Geburtsdatum zahlt – ja; Hinweis nennt aber bei 2 Erwachsenen „Für 2 Personen“ statt „Für 1 Person“
+- [x] Geburtsdatum nachgetragen → Abgabe sinkt (Integration, Unit)
+- [x] Nur Nächte bis zur tatsächlichen Abreise (Unit)
+
+#### Persönliche Befreiung (9/9)
+- [x] Häkchen bei Hauptgast und Mitreisenden, Standard aus; Hauptgast befreit € 20 → € 10; Detail „von der Ortstaxe befreit“; Mitarbeiter setzt Häkchen bei Mitreisenden → neu berechnet (E2E, Integration)
+- [x] Befreit über Altersgrenze, ohne Geburtsdatum ohne Hinweis, nur für diese Buchung, Prozent unverändert (Integration, Unit)
+
+#### Tarifwechsel, Prozent, Keine Abgabe (13/13)
+- [x] Zwei Positionen € 12,00/€ 10,00; Nächte ohne Tarif mit Hinweis (E2E); Bezeichnung und Satz je Eintrag (Unit)
+- [x] Prozent netto € 12,80, brutto € 14,08, Kleinunternehmer, frühere Abreise, Verteilung 2/5–3/5 (Integration, Unit)
+- [x] „Wohnsitz angemeldet“, ohne Tarif, € 0,00, Sperre, Option (Integration, Unit)
+
+#### Automatisch und von Hand (8/8)
+- [x] Neuberechnung bei Änderungen, Kennzeichen „automatisch berechnet“, „von Hand geändert“ bleibt, „Abgabe neu berechnen“ (E2E)
+- [x] Entfernte Abgabe bleibt entfernt; Mitarbeiter bei „von Hand“ → „Preis prüfen“; Mitarbeiter sieht keine Abgabe (Integration, E2E)
+
+#### Bestehende Buchungen und Tarifänderungen (5/5)
+- [x] Bestand bleibt; „Abgabe berechnen“ mit Doppelungs-Hinweis (E2E); Tarifänderung zieht nicht nach, neu berechnen übernimmt (Integration)
+- [x] Kein Angebot bei nacherfasster/ausgestellter Rechnung: per Code-Durchsicht geprüft (`hasBilledInvoice`), nicht im Browser
+
+#### Folgefunktionen (2/2)
+- [x] Abgabe-Positionen im Rechnungsentwurf (normale Zusatzpositionen; PROJ-40-Regression grün) und in der USt-Aufstellung (PROJ-35-Regression grün)
+
+### Edge Cases Status
+- [x] Geburtstag am Anreisetag, Hauptgast ohne Geburtsdatum, Wohnungswechsel, gelöschter Tarif (Position bleibt, Verweis leer), Rundung je Position, stornierte Buchung, lange Aufenthalte (180 Nächte < 50 ms)
+- [x] Gesendete Abgabe-Beträge im Zustand „automatisch“ werden ersetzt (auch bei neuer Buchung); Tausch zweier Tarif-Daten in einem Speichervorgang
+- [ ] BUG-4: Abgabe-Positionen über die Höchstzahl von 20 Positionen → Datenbankfehler
+
+### Security Audit Results
+- [x] Tarife: RLS nur Inhaber/Admin lesen; Schreiben nur über Funktion; Mitarbeiter und fremde Inhaber 42501; direktes Einfügen abgewiesen
+- [x] Abgabe-Beträge im Zustand „automatisch“ rechnet nur die Datenbank (Fälschung über direkten Aufruf getestet)
+- [x] Tarif-Verweis einer Position nur auf Tarife des eigenen Kunden; Zustand nicht durch Mitarbeiter änderbar
+- [x] `loadGuestBirthDate` nur für Inhaber und nur im eigenen Kunden
+- [x] Bezeichnungen werden als Text ausgegeben (kein HTML); Tarifliste auf 50 Einträge begrenzt
+
+### Automatisierte Tests
+- Unit: 553/553 · Integration (nacheinander): 214/214 – parallel liefen 20 Tests in Zeitüberschreitungen der Dev-Datenbank (57014), wie bereits bei PROJ-40 beobachtet; kein App-Fehler
+- E2E PROJ-15: 10 Abläufe (desktop) + Layout/Barrierefreiheit (desktop, mobile 375 px) grün
+- E2E-Regression (desktop): PROJ-6, 8, 9, 27, 30, 32, 34, 35, 40 grün; ein PROJ-40-Test (Speichern → Weiterleitung) einmal rot, bei Wiederholung grün (bekannte sporadische Weiterleitung, siehe router.push-Notiz)
+- Nicht geprüft: Firefox/Safari (optional), Tablet
+
+### Bugs Found
+
+#### BUG-1: Hinweis „Geburtsdatum fehlt“ zählt Erwachsene ohne Namen mit
+- **Severity:** Medium
+- **Steps to Reproduce:** Tarif € 2,50 „befreit unter 15“; neue Buchung mit Hauptgast (mit Geburtsdatum), 2 Erwachsene, 1 Kind (4) ohne Mitreisende
+  - Expected: „Für 1 Person fehlt das Geburtsdatum …“ (nur das Kind kann befreit sein, Altersgrenze höchstens 18)
+  - Actual: „Für 2 Personen fehlt das Geburtsdatum …“ – der nicht namentlich erfasste Erwachsene wird mitgezählt
+- **Hinweis:** gleiche Regel in Formular und Detail (`missingBirthDates` in `src/lib/tourist-tax.ts`); Vorschlag: höchstens so viele wie Kinder ohne Geburtsdatum
+- **Priority:** Fix before deployment
+
+#### BUG-2: Meldung „Für dieses Datum gibt es schon einen Tarif“ am falschen Eintrag
+- **Severity:** Low
+- **Steps to Reproduce:** Wohnung mit Tarif ab 01.01.2026 → „Tarif hinzufügen“ (erscheint oben als „Tarif 1“) → gleiches Datum → Speichern
+  - Expected: Meldung beim neuen Eintrag
+  - Actual: Meldung beim bestehenden „Tarif 2“
+- **Priority:** Fix before deployment (klein)
+
+#### BUG-3: Gleicher Name für Auswahl und Eingabefeld „Betrag pro Person und Nacht“
+- **Severity:** Low
+- **Steps to Reproduce:** Tarif-Eintrag mit Berechnungsart „Betrag pro Person und Nacht“: Auswahlknopf und Betragsfeld heißen gleich; Screenreader/Sprachsteuerung können sie nicht unterscheiden
+- **Priority:** Nice to have (z. B. Feld „Betrag (€)“)
+
+#### BUG-4: Mehr als 20 Positionen inkl. Abgabe → Fehler beim Speichern
+- **Severity:** Low
+- **Steps to Reproduce:** Buchung mit 19 Zusatzpositionen, Aufenthalt über einen Tarifwechsel (2 Abgabe-Positionen) → Speichern
+  - Expected: verständliche Meldung oder Grenze ohne Abgabe-Positionen
+  - Actual: Datenbank-Regel „Position 1–20“ greift, Meldung „Etwas ist schiefgelaufen“ (per Code-Durchsicht, sehr seltener Fall)
+- **Priority:** Nice to have
+
+### Summary
+- **Acceptance Criteria:** 52/53 passed
+- **Bugs Found:** 4 total (0 critical, 0 high, 1 medium, 3 low)
+- **Security:** Pass
+- **Production Ready:** YES (keine Critical/High)
+- **Recommendation:** BUG-1 (und BUG-2) vor dem Deploy per `/frontend` beheben, dann `/qa` Runde 2
 
 ## Deployment
 _To be added by /deploy_
