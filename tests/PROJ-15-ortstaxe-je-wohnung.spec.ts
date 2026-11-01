@@ -21,7 +21,7 @@ const test = base.extend<{ users: (opts?: Parameters<typeof createUser>[0]) => P
 test.use({ storageState: { cookies: [], origins: [] } })
 
 type Users = (opts?: Parameters<typeof createUser>[0]) => Promise<E2EUser>
-const desktopOnly = () => test.skip(test.info().project.name !== 'desktop', 'Abläufe nur im Desktop-Projekt')
+const desktopOnly = () => test.skip(!['desktop', 'firefox', 'safari'].includes(test.info().project.name), 'Abläufe nicht in Tablet- und Handy-Breite')
 const ready = (page: Page) =>
   page.waitForFunction(() => Object.keys(document.querySelector('main') ?? {}).some((k) => k.startsWith('__reactFiber')))
 const panel = (page: Page) => page.getByRole('dialog')
@@ -345,6 +345,68 @@ test.describe('Abgabe in der Buchung', () => {
     await expect(page.getByText('von der Ortstaxe befreit')).toBeVisible()
     const { data } = await service().from('booking_charges').select('amount_cents').eq('booking_id', id).eq('tourist_tax', true)
     expect(data).toEqual([{ amount_cents: 1000 }])
+  })
+})
+
+test.describe('Tarifänderung und Rechnung', () => {
+  test('AC: Tariferhöhung zieht nicht nach; beim Bearbeiten „Abgabe neu berechnen“, ohne Klick bleibt der Betrag; mit Klick neuer Betrag', async ({ page, users }) => {
+    desktopOnly()
+    const { tenantId, propertyId } = await setup(page, users)
+    const apt = await addApartment(tenantId, propertyId, 'Top 1', [{ valid_from: '2026-01-01' }])
+    const id = await addBooking(tenantId, apt, await addGuest(tenantId, 'Huber'), {
+      mode: 'auto',
+      charges: [{ label: 'Nächtigungsabgabe', amount_cents: 2000, tourist_tax: true }],
+    })
+    await service().from('apartment_tourist_tax_rates').update({ amount_cents: 300 }).eq('apartment_id', apt)
+    const stored = async () => (await service().from('booking_charges').select('amount_cents').eq('booking_id', id).eq('tourist_tax', true)).data
+    await page.goto(`/buchungen/${id}`)
+    await ready(page)
+    await page.getByRole('button', { name: 'Bearbeiten', exact: true }).click()
+    await expect(panel(page).getByRole('button', { name: 'Abgabe neu berechnen' })).toBeVisible()
+    await expect(taxAmount(page)).toHaveValue('20,00')
+    // Ohne Klick speichern: Betrag bleibt
+    await panel(page).getByLabel('Notiz').fill('nur Notiz')
+    await panel(page).getByRole('button', { name: 'Änderungen speichern' }).click()
+    await expect(panel(page)).toHaveCount(0)
+    expect(await stored()).toEqual([{ amount_cents: 2000 }])
+    // Mit Klick: neuer Betrag (erst bearbeiten, wenn die Seite neu geladen ist)
+    await expect(page.getByText('nur Notiz')).toBeVisible()
+    await page.getByRole('button', { name: 'Bearbeiten', exact: true }).click()
+    await panel(page).getByRole('button', { name: 'Abgabe neu berechnen' }).click()
+    await expect(taxAmount(page)).toHaveValue('24,00')
+    await panel(page).getByRole('button', { name: 'Änderungen speichern' }).click()
+    await expect(panel(page)).toHaveCount(0)
+    expect(await stored()).toEqual([{ amount_cents: 2400 }])
+  })
+
+  test('AC: Buchung mit nacherfasster Rechnung bekommt kein Angebot; ein Rechnungsentwurf verhindert es nicht', async ({ page, users }) => {
+    desktopOnly()
+    const { tenantId, propertyId } = await setup(page, users)
+    const apt = await addApartment(tenantId, propertyId, 'Top 1', [{ valid_from: '2026-01-01' }])
+    const guest = await addGuest(tenantId, 'Huber')
+    const id = await addBooking(tenantId, apt, guest)
+    const invoice = { tenant_id: tenantId, booking_id: id, invoice_date: '2026-10-01', recipient: 'Huber Anna', total_cents: 40000 }
+    const { data, error } = await service()
+      .from('invoices')
+      .insert({ ...invoice, origin: 'draft', kind: 'invoice', recipient_kind: 'guest', company_salutation: 'generic', guest_names: 'main', due_days: 14, due_basis: 'after_invoice' } as never)
+      .select('id')
+      .single()
+    expect(error).toBeNull()
+    await page.goto(`/buchungen/${id}`)
+    await ready(page)
+    await page.getByRole('button', { name: 'Bearbeiten', exact: true }).click()
+    await expect(panel(page).getByRole('button', { name: 'Abgabe berechnen' })).toBeVisible()
+
+    const backfilled = await service()
+      .from('invoices')
+      .update({ origin: 'backfilled', number: 'RE-2026-1' } as never)
+      .eq('id', (data as unknown as { id: string }).id)
+    expect(backfilled.error).toBeNull()
+    await page.reload()
+    await ready(page)
+    await page.getByRole('button', { name: 'Bearbeiten', exact: true }).click()
+    await expect(panel(page)).toBeVisible()
+    await expect(panel(page).getByRole('button', { name: /Abgabe (neu )?berechnen/ })).toHaveCount(0)
   })
 })
 

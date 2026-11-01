@@ -1,8 +1,8 @@
 # PROJ-15: Ortstaxe je Wohnung
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-11-01
-**Last Updated:** 2026-11-01 (Bugfix QA Runde 1)
+**Last Updated:** 2026-11-01 (QA Runde 2)
 
 ## Dependencies
 - Requires: PROJ-6 (Wohnungsverwaltung): Wohnungsformular unter *Einstellungen → Wohnungen*, nur Inhaber
@@ -487,7 +487,7 @@ Buchungsdetail (bestehend)
 ### Automatisierte Tests
 - Unit: 553/553 · Integration (nacheinander): 214/214 – parallel liefen 20 Tests in Zeitüberschreitungen der Dev-Datenbank (57014), wie bereits bei PROJ-40 beobachtet; kein App-Fehler
 - E2E PROJ-15: 10 Abläufe (desktop) + Layout/Barrierefreiheit (desktop, mobile 375 px) grün
-- E2E-Regression (desktop): PROJ-6, 8, 9, 27, 30, 32, 34, 35, 40 grün; ein PROJ-40-Test (Speichern → Weiterleitung) einmal rot, bei Wiederholung grün (bekannte sporadische Weiterleitung, siehe router.push-Notiz)
+- E2E-Regression (desktop): PROJ-6, 8, 9, 27, 30, 32, 34, 35, 40 grün; ein PROJ-40-Test (Speichern → Weiterleitung) einmal rot, bei Wiederholung grün (Begründung in Runde 2 korrigiert, siehe BUG-5)
 - Nicht geprüft: Firefox/Safari (optional), Tablet
 
 ### Bugs Found
@@ -525,6 +525,35 @@ Buchungsdetail (bestehend)
 - **Security:** Pass
 - **Production Ready:** YES (keine Critical/High)
 - **Recommendation:** BUG-1 (und BUG-2) vor dem Deploy per `/frontend` beheben, dann `/qa` Runde 2
+
+### QA Runde 2 (2026-11-01, nach Commit 5ce81e4)
+
+**Ergebnis: 53/53 Akzeptanzkriterien erfüllt; BUG-1 bis BUG-4 bestätigt behoben; ein neuer Befund (BUG-5), nicht von PROJ-15 verursacht.**
+
+- [x] **BUG-1:** 2 Erwachsene + 1 Kind ohne Geburtsdatum → „Für 1 Person fehlt das Geburtsdatum“ (E2E, Unit)
+- [x] **BUG-2:** Meldung beim neuen Eintrag, keine beim gespeicherten (E2E, Unit)
+- [x] **BUG-3:** Feld „Betrag (€)“, Auswahl „Betrag pro Person und Nacht“ (E2E)
+- [x] **BUG-4:** Hinweis und gesperrtes Speichern ab 21 Positionen, nach Entfernen wieder möglich (E2E); Datenbank lehnt ab, nichts gespeichert (Integration). Die Übersetzung in die Meldung `tooManyCharges` ist nur per Code-Durchsicht geprüft
+- [x] **Lücke aus Runde 1 geschlossen:** Bei nacherfasster Rechnung kein Angebot, bei einem Entwurf schon (E2E); Tariferhöhung zieht nicht nach, ohne Klick bleibt der Betrag, mit Klick neuer Betrag (E2E, viermal wiederholt grün)
+
+**Automatisierte Tests**
+- Unit 554/554 · Integration nacheinander 215/215 · Typprüfung und Lint grün
+- E2E PROJ-15: desktop und Firefox alle Abläufe grün (Firefox erstmals, dafür `desktopOnly` im Testfall für firefox/safari geöffnet); Layout/Barrierefreiheit mobile (375 px) grün
+- E2E-Regression (desktop): PROJ-6, 8, 27, 30, 34, 35 grün; PROJ-40 Blöcke „Knopf“, „Rechnung erstellen“, „Detail, Listen“: 1 rot (BUG-5), bei fünffacher Wiederholung grün
+- Einmalige Aussetzer ohne Bezug zum Fachtest, bei Wiederholung grün: Anmeldung im Test-Setup; Seitenaufruf-Zeitüberschreitung in PROJ-30 (langer Lauf gegen Dev); Build-Fehler beim Laden der Google-Schrift (`next/font`)
+- Nicht geprüft: Safari, Blöcke PROJ-40 „Teil- und Schlussrechnung“, „Empfänger“, „Pflichtangaben“ in dieser Runde, PROJ-9 und PROJ-32 in dieser Runde (in Runde 1 grün; die Korrekturen berühren sie nicht)
+
+**Hinweis (kein Fehler von PROJ-15):** Wird eine Buchung gespeichert und sofort wieder bearbeitet, kann das noch laufende Neuladen das offene Formular zurücksetzen (`key={booking.updatedAt}` in `booking-actions.tsx`, seit PROJ-8). Im Test nur bei sofortigem Klick aufgetreten.
+
+#### BUG-5: Rechnungsentwurf gespeichert, aber Seite bleibt auf dem Formular (aus PROJ-40)
+- **Severity:** Medium
+- **Beobachtet:** In langen E2E-Läufen je Runde einmal (`saveDraft`, `tests/PROJ-40-rechnungsdaten-sammeln.spec.ts`): Meldung „Entwurf gespeichert.“ erscheint, die Adresse bleibt `/rechnungen/neu?buchung=…` statt der Detailseite. Bei fünffacher Wiederholung des Tests nicht aufgetreten
+- **Ursache:** nicht geklärt. Korrektur zu Runde 1: Das ist **nicht** das router.push-Problem, denn `saveInvoiceDraft` leitet bereits per `redirect()` in der Aktion weiter. Nicht unterschieden: Weiterleitung geht verloren oder dauert länger als die 5 s des Tests
+- **Folge, falls die Weiterleitung wirklich ausbleibt:** Ein zweiter Klick auf „Entwurf speichern“ legt vermutlich einen zweiten Entwurf an (nicht geprüft). Entwürfe haben keine Nummer und lassen sich löschen
+- **Bezug zu PROJ-15:** Formular und Aktion des Entwurfs wurden in PROJ-15 nicht geändert. Dass der Fehler schon vorher bestand, ist damit naheliegend, aber nicht belegt
+- **Priority:** Eigene Klärung (per Trace) vor dem Ausstellen in PROJ-42, kein Hindernis für PROJ-15
+
+**Summary Runde 2:** 53/53 · offene Bugs: 1 Medium (BUG-5, PROJ-40) · Security: Pass (Änderungen berühren keine Rechte) · **Production Ready: YES**
 
 ## Deployment
 _To be added by /deploy_
