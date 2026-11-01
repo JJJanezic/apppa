@@ -2,7 +2,7 @@
 
 ## Status: In Progress
 **Created:** 2026-11-01
-**Last Updated:** 2026-11-01 (Frontend)
+**Last Updated:** 2026-11-01 (Backend)
 
 ## Dependencies
 - Requires: PROJ-6 (Wohnungsverwaltung): Wohnungsformular unter *Einstellungen → Wohnungen*, nur Inhaber
@@ -406,6 +406,20 @@ Buchungsdetail (bestehend)
 - **`save_companions`**: je Person `tourist_tax_exempt`; danach wie Mitarbeiter-Änderung (automatisch neu rechnen bzw. `price_review`).
 - **Datenbank-Fassung der Rechenregel** und **Kleinunternehmer-Regel** (`vatStatusForBooking`), geprüft mit den Fällen aus `src/lib/tourist-tax.test.ts`.
 - Lesen: `findBooking` liest zusätzlich `guests.birth_date` und `invoices(origin)` (vorhanden).
+
+## Implementation Notes (Backend, 2026-11-01)
+
+**Migrationen (Dev):** `20261101061318_tourist_tax.sql`, `20261101061802_tourist_tax_checks.sql` (Prüfregel der Tarife nullsicher – ein fehlender Betrag bzw. eine fehlende Basis wurde sonst angenommen; vom eigenen Integrationstest gefunden).
+
+- **Tabelle `apartment_tourist_tax_rates`** wie in der Schnittstelle; Regel „Datum je Wohnung einmal“ wird erst am Ende geprüft (Tausch von Daten in einem Speichervorgang), in `save_tourist_tax_rates` aber sofort ausgewertet. RLS: Lesen nur Inhaber und Admin; Schreiben nur über die Funktion. Änderungsprotokoll über `enable_tenant_table`.
+- **`save_tourist_tax_rates`**: ersetzt die Liste; Kennungen nur übernommen, wenn sie zur Wohnung gehören; unveränderte Einträge werden nicht angefasst (kein Protokolleintrag).
+- **Bestand:** alle bestehenden Buchungen `tourist_tax_mode = 'pending'`, neue `auto`.
+- **Rechenregel `private.tourist_tax_lines`** (Datenbank-Fassung), **`private.small_business_on`** (Kleinunternehmer-Regel), **`private.apply_tourist_tax`** (ersetzt Abgabe-Positionen an der Stelle der bisherigen ersten bzw. am Ende, übrige Reihenfolge bleibt, Kennungen werden weiterverwendet), **`private.tourist_tax_basis`** (Berechnungsgrundlage ohne Tarife) und **`private.tourist_tax_rows`** (Vergleich der gespeicherten Abgabe-Positionen).
+- **`save_booking`**: Zustand nur vom Inhaber (zurück auf „noch nicht berechnet“ nicht möglich; aus „noch nicht berechnet“ nach „automatisch“ = Neuberechnung). Im Zustand „automatisch“ wird neu gerechnet bei neuer Buchung, „Abgabe (neu) berechnen“, geänderter Berechnungsgrundlage **oder veränderten Abgabe-Positionen** – so werden gesendete Abgabe-Beträge nie übernommen, Tarifänderungen allein ziehen aber nicht nach. „Von Hand“ + Mitarbeiter-Änderung der Grundlage → `price_review`. Tarif-Verweis einer gesendeten Position nur, wenn der Tarif zum Kunden gehört.
+- **`save_companions`**: „befreit“ je Person; danach automatisch neu rechnen bzw. „Preis prüfen“ (nur bei Mitarbeitern).
+- **Tests:** `supabase/tests/tourist-tax.integration.test.ts` (17 Fälle: Tarifliste, Regeln, Rechte; alle Rechenbeispiele der Spec inkl. Geburtstag während des Aufenthalts, Tarifwechsel, Prozent netto/brutto/Kleinunternehmer, frühere Abreise; Zustände automatisch/von Hand/noch nicht berechnet, Schutz vor gesendeten Beträgen, Reihenfolge, gelöschter Tarif).
+- **Advisors:** keine neuen Befunde (nur die bekannten Auth-Hinweise der Dev-Umgebung).
+- **RLS-Regel der Tarif-Tabelle** vom Nutzer freigegeben (2026-11-01).
 
 ## QA Test Results
 _To be added by /qa_

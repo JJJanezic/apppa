@@ -330,6 +330,13 @@ export type Database = {
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "booking_charges_tourist_tax_rate_id_fkey"
+            columns: ["tourist_tax_rate_id"]
+            isOneToOne: false
+            referencedRelation: "apartment_tourist_tax_rates"
+            referencedColumns: ["id"]
+          },
         ]
       }
       booking_companions: {
