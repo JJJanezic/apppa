@@ -1,6 +1,6 @@
 # PROJ-41: Briefpapier
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-11-04
 **Last Updated:** 2026-11-04
 
@@ -55,7 +55,7 @@ Der **Aussteller-Block** enthält Name, zweite Namenszeile, Adresse, PLZ und Ort
 |---|---|
 | links | rechts daneben |
 | rechts | links daneben |
-| mittig | zentriert unter dem Logo |
+| mittig | zentriert unter dem Logo, zweizeilig: Name, darunter die übrigen Angaben mit „·“ getrennt |
 
 - Das Seitenverhältnis des Logos bleibt immer erhalten.
 - Der Kopf ragt nie in das Adressfeld. Reicht der Platz nicht, wird das Logo verkleinert und das Formular nennt das in einem Hinweis.
@@ -133,6 +133,7 @@ Ist der Aussteller-Block abgeschaltet, erscheint im Formular dauerhaft der Hinwe
 
 ### Logo und Kopf
 - [ ] Angenommen ein Logo ist vorhanden, wenn die Position links, rechts oder mittig gewählt wird, dann stehen Logo und Aussteller-Block wie in der Tabelle „Kopf“ festgelegt
+- [ ] Angenommen das Logo steht mittig und der Aussteller-Block ist sichtbar, wenn die Vorschau erscheint, dann steht der Block zweizeilig zentriert unter dem Logo und ein Logo mit 25 mm Höhe wird nicht verkleinert
 - [ ] Angenommen eine Logo-Höhe zwischen 10 und 35 mm, wenn genügend Platz ist, dann hat das Logo genau diese Höhe, sein Seitenverhältnis bleibt erhalten
 - [ ] Angenommen ein Logo und ein Aussteller-Block passen zusammen nicht in den Kopf, wenn die Vorschau erscheint, dann ragt nichts in das Adressfeld, das Logo ist verkleinert und das Formular nennt das in einem Hinweis
 - [ ] Angenommen ein Kunde ohne Logo, wenn der Reiter lädt, dann sind Position und Höhe nicht wählbar, und ein Hinweis verlinkt zu den Stammdaten; gespeicherte Werte bleiben erhalten
@@ -182,7 +183,7 @@ Ist der Aussteller-Block abgeschaltet, erscheint im Formular dauerhaft der Hinwe
 
 ## Edge Cases
 - **Sehr breites Logo:** Wird auf den verfügbaren Platz in der Breite begrenzt und dadurch niedriger als eingestellt. Das Formular nennt das in einem Hinweis.
-- **Logo mittig, 35 mm, mit Aussteller-Block:** Passt voraussichtlich nicht vollständig über das Adressfeld. Das Logo wird verkleinert, das Adressfeld bleibt an seiner Stelle.
+- **Logo mittig, 35 mm, mit Aussteller-Block:** Über dem zweizeiligen Block bleiben etwa 26 mm. Das Logo wird entsprechend verkleinert und das Formular nennt das in einem Hinweis; das Adressfeld bleibt an seiner Stelle.
 - **Große Schrift und langer Aussteller-Block:** Der Kopf darf das Adressfeld nicht erreichen. Der Aussteller-Block nutzt deshalb eine feste, von der Grundschriftgröße begrenzte Darstellung.
 - **Sehr lange Fußzeile (bis 2.000 Zeichen):** Sie steht auf jeder Seite. Belegt sie mehr als ein Drittel der Seite, nennt das Formular das in einem Hinweis. Die Rechnung bleibt erzeugbar und läuft auf weitere Seiten.
 - **Aussteller-Block aus, kein Logo, leere Fußzeile:** Erlaubt. Die Rechnung hat dann einen leeren Kopf, und der Hinweis nennt die leere Fußzeile.
@@ -205,11 +206,12 @@ Ist der Aussteller-Block abgeschaltet, erscheint im Formular dauerhaft der Hinwe
 - Texte in den Sprachdateien (Deutsch, mehrsprachig vorbereitet)
 
 ## Open Questions
-- [ ] Genaue Maße des Adressfelds nach ÖNORM A 1080 in `/architecture` belegen und daraus den verfügbaren Platz im Kopf ableiten
-- [ ] Bestätigen, dass Name, Anschrift und UID nach § 11 UStG auch nur in der Fußzeile stehen dürfen (Einschätzung im Gespräch, fachlich durch den Nutzer zu bestätigen)
-- [ ] Reichen etwa 1.000 Pixel an der längsten Seite des Logos für den Druck? Ab welcher Pixeldichte erscheint der Hinweis „unscharf“? (offen aus PROJ-38)
-- [ ] Wie erscheint die Vorschau auf Handys, die eingebettete PDFs schlecht darstellen? (`/architecture`)
+- [ ] Drucktest vor dem Deploy: Passt das Adressfeld (45 mm von oben, 20 mm von links, 85 × 45 mm) ins tatsächlich verwendete Fensterkuvert? Die Maße aus ÖNORM A 1080 konnten nicht belegt werden; öffentlich auffindbar war nur die zurückgezogene Ausgabe von 1999 ohne Maßangaben
+- [ ] Gastnamen in nicht lateinischer Schrift (z. B. Chinesisch): Die sechs Schriften decken sie teils nicht ab. Wie soll sich das spätestens beim Ausstellen (PROJ-42) zeigen?
 - [ ] Soll die Rechnung den Leistungszeitraum in einer eigenen Zeile nennen, oder genügt die bisherige Zeile mit dem Zeitraum? (offen aus PROJ-40, Empfehlung: bisherige Zeile)
+- [x] Dürfen Name, Anschrift und UID nach § 11 UStG auch nur in der Fußzeile stehen? Ja, vom Nutzer am 2026-11-04 bestätigt
+- [x] Reichen etwa 1.000 Pixel für den Druck, und ab wann erscheint „unscharf“? Siehe Technical Decisions
+- [x] Wie erscheint die Vorschau auf Handys? Einheitlich als gezeichnete Seiten, siehe Technical Decisions
 
 ## Decision Log
 
@@ -229,6 +231,8 @@ Ist der Aussteller-Block abgeschaltet, erscheint im Formular dauerhaft der Hinwe
 | Inhaber und Betreiber gleichwertig, Protokoll, Konfliktschutz wie PROJ-39 | Gleiches Muster wie Stammdaten und Rechnungen; Betreiber richtet beim Onboarding ein | 2026-11-04 |
 | Fußzeile auf jeder Seite; Seitenzahl nur bei mehrseitigen Rechnungen, Nummer ab Seite 2 | Ausstellerdaten des Nutzers stehen in der Fußzeile; lose Blätter bleiben zuordenbar | 2026-11-04 |
 | Vorschau automatisch nach etwa einer Sekunde, auch ungespeichert | Freies Ausprobieren, ohne dass offene Entwürfe sich sofort ändern | 2026-11-04 |
+| Logo mittig: Aussteller-Block zweizeilig | Im 35 mm hohen Kopf ließe ein sechszeiliger Block dem Logo nur etwa 11 mm; zweizeilig passt der Standard von 25 mm (Nutzerentscheidung bei der Architektur) | 2026-11-04 |
+| Rechnungsmerkmale dürfen in der Fußzeile stehen | Vom Nutzer als § 11 UStG entsprechend bestätigt | 2026-11-04 |
 | Keine Absenderzeile über dem Adressfeld | Passt zu Ausstellerdaten in der Fußzeile; später ergänzbar | 2026-11-04 |
 | „Auf Standard zurücksetzen“, wirksam erst mit „Speichern“ | Sicherer Ausstieg beim Ausprobieren (von Claude ergänzt, Freigabe mit dieser Spec) | 2026-11-04 |
 | Hinweis, wenn die Fußzeile mehr als ein Drittel der Seite belegt; keine Sperre | Fußzeile steht auf jeder Seite und kann bis 2.000 Zeichen haben (von Claude ergänzt, Freigabe mit dieser Spec) | 2026-11-04 |
@@ -238,12 +242,122 @@ Ist der Aussteller-Block abgeschaltet, erscheint im Formular dauerhaft der Hinwe
 <!-- Added by /architecture -->
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Eine Vorlage erzeugt auf dem Server ein echtes PDF, die Vorschau zeigt dieses PDF | Vorschau und ausgestellte Rechnung können nicht auseinanderlaufen; die frühere Prüfung „Vorschau und PDF umbrechen gleich“ aus PROJ-39 entfällt | 2026-11-04 |
+| `@react-pdf/renderer` statt Headless-Browser oder eigener Seitenberechnung | Läuft ohne schweren Browser in der Serverfunktion, baut auf React auf, Fähigkeiten im Vorab-Versuch bestätigt | 2026-11-04 |
+| Version exakt festgelegt; Fußzeile wird in einem ersten Durchgang gemessen | Wiederholte Elemente reservieren keinen Platz; die Messung nutzt interne Layoutdaten, die sich ändern können, darum feste Version und Test | 2026-11-04 |
+| Jede Erzeugung in einem eigenen kurzlebigen Arbeitsprozess mit frisch geladenen Schriften | Vorab-Versuch: gemeinsamer Schriftzustand kann Buchstaben verlieren, frische Schriften im selben Prozess lassen den Speicher wachsen. Auf einer Rechnung ist ein fehlender Buchstabe nicht hinnehmbar; schützt auch bei parallelen Anfragen | 2026-11-04 |
+| Anzeige mit `pdfjs-dist` statt eingebettetem PDF | Die App verbietet Einbetten per Sicherheitsheader, und eingebettete PDFs erscheinen auf Handys uneinheitlich; so sieht die Vorschau überall gleich aus. Wird nur bei Bedarf geladen, die App bleibt sonst schnell | 2026-11-04 |
+| Schnittstellen eigener Art statt Server-Aktionen für die Vorschau | Veraltete Anfragen lassen sich abbrechen, Server-Aktionen laufen nacheinander und blockierten beim Ausprobieren; PDFs sind Binärdaten | 2026-11-04 |
+| Briefpapier als Abschnitt der Rechnungseinstellungen statt eigener Tabelle | Zeile je Kunde, Rechte, Vorbelegung, Stempel und Protokoll gibt es dort schon; andere Korrespondenz gibt es noch nicht, ein Umzug wäre später möglich | 2026-11-04 |
+| Logo liest der Server mit dem geheimen Schlüssel erst nach geprüftem Zugriff | Mitarbeiter sehen das Logo in der Entwurfsvorschau, die Speicherregeln aus PROJ-38 bleiben unverändert | 2026-11-04 |
+| Vorschau-PDFs werden nicht gespeichert und nicht zwischengespeichert | Enthalten bei Entwürfen Gästedaten; Ablage gehört zum Ausstellen (PROJ-42) | 2026-11-04 |
+| Adressfeld vorläufig 45 mm von oben, 20 mm von links, 85 × 45 mm; zentrale Festlegung, Drucktest vor Deploy | Die Maße aus ÖNORM A 1080 waren nicht öffentlich auffindbar; die Werte stammen aus der deutschen Kuvertnorm DIN 676 und müssen zu den tatsächlichen Kuverts passen | 2026-11-04 |
+| Hinweis „unscharf“ unter etwa 150 Bildpunkten je Zoll in der tatsächlichen Druckgröße | 1.000 Pixel an der längsten Seite reichen für die meisten Fälle; berechnet wird aus Bild- und Druckgröße | 2026-11-04 |
+| Schriften vollständig statt beschnitten als einzelne Dateien | Mehr Zeichen für Gastnamen; je Erzeugung werden nur die benötigten geladen. Einzeldateien sind nötig, weil die Erzeugung keine variablen Schriften nutzen kann; vier der sechs liegen nur variabel vor und werden einmalig umgewandelt | 2026-11-04 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### Grundgedanke
+Es gibt **eine einzige Rechnungsvorlage**, die auf dem Server ein echtes PDF erzeugt. Reiter „Briefpapier“, Entwurfsvorschau und später das Ausstellen (PROJ-42) nutzen dieselbe Vorlage. Was der Kunde in der Vorschau sieht, ist also bereits das PDF, einschließlich Umbruch und Seitenaufteilung. Die Inhalte kommen unverändert aus der bestehenden Rechenregel der Entwurfsvorschau (PROJ-40).
+
+```
+Daten des Kunden + Briefpapier + Entwurf oder Musterrechnung
+        |
+        v
+Inhalte der Rechnung (bestehende Regel aus PROJ-40)
+        |
+        v
+Rechnungsvorlage auf dem Server -> PDF
+        |
+        +--> Reiter „Briefpapier“: Musterrechnung
+        +--> Entwurfsvorschau: mit Aufdruck „Entwurf“
+        +--> PROJ-42: ohne Aufdruck, festgeschrieben und abgelegt
+```
+
+### Seitenaufbau
+Die Maße sind eine zentrale Festlegung und lassen sich nach dem Drucktest an einer Stelle ändern:
+
+| Bereich | Festlegung |
+|---|---|
+| Seitenrand links und rechts | 20 mm |
+| Kopf | 8 bis 43 mm von oben, also 35 mm hoch |
+| Adressfeld | 45 mm von oben, 20 mm von links, 85 × 45 mm |
+| Aussteller-Block | höchstens 10 pt, einfacher Zeilenabstand, unabhängig von Grundgröße und Abstandsstufe |
+| Adressfeld-Text | höchstens 11 pt, einfacher Zeilenabstand, damit er im Kuvertfenster bleibt |
+| Logo mit Aussteller-Block daneben | höchstens 95 mm breit |
+| Logo ohne Block oder mittig | höchstens 170 mm breit |
+| Logo mittig mit Aussteller-Block | Block zweizeilig: Name, darunter die übrigen Angaben mit „·“ getrennt; verfügbar für das Logo: etwa 26 mm Höhe |
+
+Die Regel „wie groß wird das Logo tatsächlich?“ ist eine gemeinsame Rechenregel für Formular und PDF. So stimmen Hinweis und Ergebnis überein.
+
+### Komponenten
+
+```
+Einstellungen
++-- Reiterleiste: neu „Briefpapier“ (fünf Reiter, am Handy wischbar)
++-- Reiter „Briefpapier“ (nur Inhaber)
+|   +-- Briefpapier-Formular
+|   |   +-- Schrift: Grundschrift, Grundgröße
+|   |   +-- Abstände: Zeilenabstand, Absatzabstand
+|   |   +-- Logo: Position, Höhe; Hinweise (kein Logo, verkleinert, unscharf)
+|   |   +-- Aussteller-Block: Schalter; Hinweis auf die Fußzeile
+|   |   +-- „Auf Standard zurücksetzen“, „Speichern“
+|   +-- PDF-Vorschau
+|       +-- Seitenansicht, Hinweis „wird aktualisiert“, „Erneut versuchen“
+|       +-- „PDF öffnen“
++-- Reiter „Rechnungen“ (PROJ-39)
+    +-- Baustein-Vorschau: folgt Grundschrift und Grundgröße
+
+Betreiber: Kunden-Detailseite
++-- Abschnitt „Briefpapier“: dasselbe Formular und dieselbe Vorschau
+
+Rechnungsentwurf (PROJ-40)
++-- Vorschau-Seite und Vorschau im Formular: PDF-Vorschau statt bisheriger Darstellung
+```
+
+Wiederverwendet werden die Reiterleiste, der Schutz vor ungespeicherten Änderungen, der Konfliktschutz und das Protokoll aus PROJ-38 und PROJ-39, die Schriftenliste, die Nummernregel und die Inhaltsregel der Entwurfsvorschau. Die bisherige Darstellung der Entwurfsvorschau entfällt, damit es nur eine Fassung gibt. Die Prüfungen ihrer Inhalte wandern auf die Inhaltsregel und den Text im PDF.
+
+### Datenmodell
+Die Rechnungseinstellungen (eine Zeile je Kunde, PROJ-39) bekommen einen Abschnitt „Briefpapier“:
+
+- Grundschrift (eine der sechs, Standard Carlito)
+- Grundschriftgröße (8 bis 14 pt, 0,5er-Schritte, Standard 11)
+- Zeilenabstand, Absatzabstand (eng, normal, weit; Standard normal)
+- Logo-Position (links, mittig, rechts; Standard links)
+- Logo-Höhe (10 bis 35 mm, ganze mm, Standard 25)
+- Aussteller-Block anzeigen (Standard ja)
+- Änderungsstempel des Abschnitts für den Konfliktschutz
+
+Bestehende und neue Kunden erhalten die Standardwerte automatisch, es ist keine Nacharbeit an Entwürfen nötig. Geschrieben wird nur über eine eigene Speicherfunktion mit Prüfung von Rechten und Werten in der Datenbank und mit Protokolleintrag ohne Werte. Die Lesefunktion für die Entwurfsvorschau, die schon Aussteller und Fußzeile auch für Mitarbeiter liefert, bekommt die Briefpapier-Werte dazu. PDFs der Vorschau werden nicht gespeichert.
+
+### So läuft eine Vorschau ab
+1. **Auslösen:** Das Formular wartet etwa eine Sekunde nach der letzten Änderung und sendet seinen Stand an den Server. Eine noch laufende ältere Anfrage wird abgebrochen.
+2. **Prüfen:** Der Server prüft Anmeldung, Rolle und Kunde und lädt Stammdaten, Texte und Logo selbst. Aus dem Browser kommen nur die Formularwerte, nie Aussteller oder Logo.
+3. **Erzeugen:** Der Server misst zuerst die Fußzeile und setzt danach das Dokument mit dem passenden Platz am Seitenende.
+4. **Zurückgeben:** Das PDF kommt zusammen mit Seitenzahl, Anteil der Fußzeile und tatsächlicher Logogröße zurück. Daraus entstehen die Hinweise im Formular. Die Antwort darf nicht zwischengespeichert werden.
+5. **Anzeigen:** Der Browser zeichnet die Seiten. Die alte Fassung bleibt sichtbar, bis die neue fertig ist.
+
+Beim Entwurf läuft es ebenso. Der ungespeicherte Stand kommt als Formularwert, Buchung, Abzüge und Stammdaten lädt der Server selbst. Für das Logo liest der Server die Datei mit dem geheimen Schlüssel, aber erst, nachdem er den Zugriff auf den Entwurf geprüft hat. Mitarbeiter sehen das Logo so im PDF und bekommen keinen Link zur Datei.
+
+### Für /frontend und /backend
+- **/frontend:** Reiter, Formular, PDF-Anzeige, Vorlage und Vorschau-Schnittstelle, Musterrechnung, Schriftdateien, Entwurfsvorschau. Bis zur Migration nutzt die Vorschau die Formularwerte; die erste Aufgabe ist der Nachweis, dass die Erzeugung im Next-16-Build und auf Vercel läuft, samt Schriftdateien.
+- **/backend:** Abschnitt in den Rechnungseinstellungen, Speicherfunktion, Protokoll, Lesefunktion für Mitarbeiter, Logo-Zugriff, Rechte und Integrationstests.
+- **Deploy:** Migration vor dem Code. Der Drucktest mit echtem Kuvert muss vor dem Deploy erledigt sein.
+
+### Abhängigkeiten
+- `@react-pdf/renderer` (exakt festgelegte Version 4.9.0): erzeugt das PDF auf dem Server
+- `pdfjs-dist`: zeigt das PDF im Browser, wird nur bei Bedarf geladen
+- Schriftdateien: sechs Familien mit je vier Schnitten (normal, fett, kursiv, fett kursiv) als einzelne TTF-Dateien samt Lizenztexten (OFL)
+
+### Ergebnis des Vorab-Versuchs (2026-11-04)
+Mit der genannten Version wurde außerhalb des Projekts ein Wegwerf-Versuch gemacht, in Node, noch nicht in Next.js und nicht auf Vercel:
+
+- **Bestätigt:** Fußzeile mit wechselnder Höhe auf jeder Seite, ohne Überlappung; „Seite x von y“; Zeilen werden nicht getrennt; Blocksatz; „Š“, „ő“, „ž“, „€“ in Carlito. Etwa 20 Millisekunden je Dokument ohne Serverstart.
+- **Fehler gefunden:** Wurde im selben Serverprozess zuvor ein anderes Dokument erzeugt, fehlte in einem Testaufbau der erste Buchstabe aller Zeilen („osition“ statt „Position“). Andere Abfolgen zeigten das nicht. Die genaue Ursache ist nicht geklärt, der Fehler folgt aber dem gemeinsam genutzten Schriftzustand: Frisch geladene Schriften je Erzeugung beseitigten ihn in allen geprüften Fällen.
+- **Folge:** Frische Schriften je Erzeugung ließen den Speicher im selben Prozess wachsen (etwa 3,5 MB je Dokument). Darum läuft jede Erzeugung abgeschirmt in einem eigenen, kurzlebigen Arbeitsprozess. Das ist noch nicht praktisch nachgewiesen und Teil des ersten Nachweises unter /frontend.
 
 ## QA Test Results
 _To be added by /qa_
