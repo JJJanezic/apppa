@@ -20,6 +20,7 @@ import { DraftTextBlock } from '@/components/invoice-drafts/draft-text-block'
 import { InvoicePreview } from '@/components/invoice-drafts/invoice-preview'
 import { RequiredChecks } from '@/components/invoice-drafts/required-checks'
 import { useUnsavedGuard } from '@/components/invoice-drafts/use-unsaved-guard'
+import { RichTextGuardProvider, useRichTextGuard } from '@/components/invoice-settings/rich-text-guard'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -194,6 +195,7 @@ export function DraftForm({ booking, others, preview, smallBusiness, textBlocks,
   const lines = useFieldArray({ control: form.control, name: 'lines' })
   const v = useWatch({ control: form.control }) as DraftInput
   const guard = useUnsavedGuard(form.formState.isDirty && !form.formState.isSubmitSuccessful)
+  const textGuard = useRichTextGuard()
   const validate = () => ({ shouldDirty: true, shouldValidate: form.formState.isSubmitted })
 
   const blocksOf = (k: TextBlockKind) => textBlocks.filter((b) => b.kind === k)
@@ -374,358 +376,360 @@ export function DraftForm({ booking, others, preview, smallBusiness, textBlocks,
 
       {/* Das Formular bleibt während der Vorschau erhalten (nur ausgeblendet): keine Eingabe geht verloren */}
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(save)} noValidate className={previewing ? 'hidden' : 'flex min-w-0 max-w-[760px] flex-col gap-10'}>
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1 rounded-lg bg-ds-surface px-4 py-3">
-              <Link href={bookingHref(booking.id)} className="flex min-h-11 w-fit items-center font-medium text-ds-accent-700 underline-offset-[3px] hover:underline">
-                {t('header.booking', { number: booking.number ?? '' })}
-              </Link>
-              <span className="break-words text-sm text-ds-neutral-800">
-                {[guestName, booking.apartmentLabel, formatPeriod(booking.arrival, booking.departure)].filter(Boolean).join(' · ')}
-              </span>
+        <RichTextGuardProvider value={textGuard.checks}>
+          <form onSubmit={textGuard.guardSubmit(form.handleSubmit(save))} noValidate className={previewing ? 'hidden' : 'flex min-w-0 max-w-[760px] flex-col gap-10'}>
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-1 rounded-lg bg-ds-surface px-4 py-3">
+                <Link href={bookingHref(booking.id)} className="flex min-h-11 w-fit items-center font-medium text-ds-accent-700 underline-offset-[3px] hover:underline">
+                  {t('header.booking', { number: booking.number ?? '' })}
+                </Link>
+                <span className="break-words text-sm text-ds-neutral-800">
+                  {[guestName, booking.apartmentLabel, formatPeriod(booking.arrival, booking.departure)].filter(Boolean).join(' · ')}
+                </span>
+              </div>
+              {booking.kind === 'option' && <Note>{t('header.option')}</Note>}
+              {booking.cancelledAt && <Note>{t('header.cancelled')}</Note>}
+              {changedNote && (
+                <Alert role="status" className="border-ds-accent-700/40 bg-ds-accent-100">
+                  <Info size={18} weight="duotone" aria-hidden="true" />
+                  <AlertDescription className="flex flex-col items-start gap-3">
+                    {t('changed.text')}
+                    <Button type="button" variant="outline" className="min-h-11" onClick={() => setConfirm({ type: 'refresh' })}>
+                      {t('changed.reload')}
+                    </Button>
+                  </AlertDescription>
+                </Alert>
+              )}
+              <FormError error={error} namespace="invoices.errors" />
+              {stale && (
+                <Alert role="alert" className="border-ds-accent-2-700/40 bg-ds-accent-2-100 text-ds-accent-2-800">
+                  <WarningCircle size={18} weight="duotone" aria-hidden="true" />
+                  <AlertDescription className="flex flex-col items-start gap-3">
+                    {t('stale.text')}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="min-h-11"
+                      onClick={() => {
+                        guard.release()
+                        router.refresh()
+                      }}
+                    >
+                      {t('stale.reload')}
+                    </Button>
+                  </AlertDescription>
+                </Alert>
+              )}
             </div>
-            {booking.kind === 'option' && <Note>{t('header.option')}</Note>}
-            {booking.cancelledAt && <Note>{t('header.cancelled')}</Note>}
-            {changedNote && (
-              <Alert role="status" className="border-ds-accent-700/40 bg-ds-accent-100">
-                <Info size={18} weight="duotone" aria-hidden="true" />
-                <AlertDescription className="flex flex-col items-start gap-3">
-                  {t('changed.text')}
-                  <Button type="button" variant="outline" className="min-h-11" onClick={() => setConfirm({ type: 'refresh' })}>
-                    {t('changed.reload')}
-                  </Button>
-                </AlertDescription>
-              </Alert>
-            )}
-            <FormError error={error} namespace="invoices.errors" />
-            {stale && (
-              <Alert role="alert" className="border-ds-accent-2-700/40 bg-ds-accent-2-100 text-ds-accent-2-800">
-                <WarningCircle size={18} weight="duotone" aria-hidden="true" />
-                <AlertDescription className="flex flex-col items-start gap-3">
-                  {t('stale.text')}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="min-h-11"
-                    onClick={() => {
-                      guard.release()
-                      router.refresh()
-                    }}
-                  >
-                    {t('stale.reload')}
-                  </Button>
-                </AlertDescription>
-              </Alert>
-            )}
-          </div>
 
-          {/* Art */}
-          <Fieldset legend={t('kind.title')}>
-            <RadioGroup value={kind} onValueChange={(k) => changeKind(k as InvoiceKind)} className="grid gap-3 sm:grid-cols-3" aria-label={t('kind.title')}>
-              {INVOICE_KINDS.map((k) => (
-                <Label key={k} className="flex min-h-11 cursor-pointer items-start gap-3 rounded-lg border px-3 py-3 font-normal has-[[data-state=checked]]:border-ds-accent-700">
-                  <RadioGroupItem value={k} className="mt-0.5" />
-                  <span className="flex flex-col gap-0.5">
-                    <span className="font-medium">{t(`kind.${k}`)}</span>
-                    <span className="text-[13px] text-ds-neutral-800">{t(`kind.${k}Hint`)}</span>
-                  </span>
-                </Label>
-              ))}
-            </RadioGroup>
-          </Fieldset>
-
-          {/* Empfänger (Block 1) */}
-          <Fieldset legend={t('recipient.title')}>
-            <RadioGroup
-              value={v.recipientKind}
-              onValueChange={(k) => changeRecipient(k as RecipientKind)}
-              className="grid grid-cols-2 gap-3"
-              aria-label={t('recipient.title')}
-            >
-              {(['guest', 'company'] as const).map((k) => {
-                const disabled = k === 'company' && !guestHasCompany(booking.guest)
-                return (
-                  <Label
-                    key={k}
-                    className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border px-3 font-normal has-[[data-state=checked]]:border-ds-accent-700 has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-60"
-                  >
-                    <RadioGroupItem value={k} disabled={disabled} />
-                    {t(`recipient.${k}`)}
+            {/* Art */}
+            <Fieldset legend={t('kind.title')}>
+              <RadioGroup value={kind} onValueChange={(k) => changeKind(k as InvoiceKind)} className="grid gap-3 sm:grid-cols-3" aria-label={t('kind.title')}>
+                {INVOICE_KINDS.map((k) => (
+                  <Label key={k} className="flex min-h-11 cursor-pointer items-start gap-3 rounded-lg border px-3 py-3 font-normal has-[[data-state=checked]]:border-ds-accent-700">
+                    <RadioGroupItem value={k} className="mt-0.5" />
+                    <span className="flex flex-col gap-0.5">
+                      <span className="font-medium">{t(`kind.${k}`)}</span>
+                      <span className="text-[13px] text-ds-neutral-800">{t(`kind.${k}Hint`)}</span>
+                    </span>
                   </Label>
-                )
-              })}
-            </RadioGroup>
-            {!guestHasCompany(booking.guest) && <p className="text-[13px] text-ds-neutral-800">{t('recipient.noCompany')}</p>}
-            <div className="grid gap-4 sm:grid-cols-2">
-              <TextField name="recipientName" id={F.recipientName} label={t('recipient.name')} max={D.recipientNameMax} className="sm:col-span-2" />
-              <TextField name="recipientLine1" id={F.recipientLine1} label={t('recipient.line1')} max={D.recipientLineMax} className="sm:col-span-2" />
-              <TextField name="recipientLine2" label={t('recipient.line2')} max={D.recipientLineMax} className="sm:col-span-2" />
-              <TextField name="recipientPostalCode" id={F.recipientPostalCode} label={t('recipient.postalCode')} max={D.postalCodeMax} />
-              <TextField name="recipientCity" id={F.recipientCity} label={t('recipient.city')} max={D.cityMax} />
+                ))}
+              </RadioGroup>
+            </Fieldset>
+
+            {/* Empfänger (Block 1) */}
+            <Fieldset legend={t('recipient.title')}>
+              <RadioGroup
+                value={v.recipientKind}
+                onValueChange={(k) => changeRecipient(k as RecipientKind)}
+                className="grid grid-cols-2 gap-3"
+                aria-label={t('recipient.title')}
+              >
+                {(['guest', 'company'] as const).map((k) => {
+                  const disabled = k === 'company' && !guestHasCompany(booking.guest)
+                  return (
+                    <Label
+                      key={k}
+                      className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border px-3 font-normal has-[[data-state=checked]]:border-ds-accent-700 has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-60"
+                    >
+                      <RadioGroupItem value={k} disabled={disabled} />
+                      {t(`recipient.${k}`)}
+                    </Label>
+                  )
+                })}
+              </RadioGroup>
+              {!guestHasCompany(booking.guest) && <p className="text-[13px] text-ds-neutral-800">{t('recipient.noCompany')}</p>}
+              <div className="grid gap-4 sm:grid-cols-2">
+                <TextField name="recipientName" id={F.recipientName} label={t('recipient.name')} max={D.recipientNameMax} className="sm:col-span-2" />
+                <TextField name="recipientLine1" id={F.recipientLine1} label={t('recipient.line1')} max={D.recipientLineMax} className="sm:col-span-2" />
+                <TextField name="recipientLine2" label={t('recipient.line2')} max={D.recipientLineMax} className="sm:col-span-2" />
+                <TextField name="recipientPostalCode" id={F.recipientPostalCode} label={t('recipient.postalCode')} max={D.postalCodeMax} />
+                <TextField name="recipientCity" id={F.recipientCity} label={t('recipient.city')} max={D.cityMax} />
+                <FormField
+                  control={form.control}
+                  name="recipientCountry"
+                  render={({ field, fieldState }) => (
+                    <FormItem id={F.recipientCountry}>
+                      <FormLabel>{t('recipient.country')}</FormLabel>
+                      <FormControl>
+                        <CountryPicker value={field.value} onChange={field.onChange} clearable invalid={Boolean(fieldState.error)} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <TextField name="recipientVatId" id={F.recipientVatId} label={t('recipient.vatId')} max={D.vatIdMax} />
+              </div>
+              <p className="text-[13px] text-ds-neutral-800">{t('recipient.copyHint')}</p>
+              {v.recipientKind === 'company' && (
+                <FormField
+                  control={form.control}
+                  name="companySalutation"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-col gap-2">
+                      <FormLabel>{t('recipient.salutation')}</FormLabel>
+                      <RadioGroup value={field.value} onValueChange={field.onChange} className="flex flex-col gap-2" aria-label={t('recipient.salutation')}>
+                        {COMPANY_SALUTATIONS.map((s) => (
+                          <Label key={s} className="flex min-h-11 cursor-pointer items-center gap-3 font-normal">
+                            <RadioGroupItem value={s} />
+                            {t(`recipient.salutation_${s}`)}
+                          </Label>
+                        ))}
+                      </RadioGroup>
+                    </FormItem>
+                  )}
+                />
+              )}
+            </Fieldset>
+
+            {/* Rechnungsdatum (Block 2b) und Gastnamen (Block 3) */}
+            <div className="grid gap-6 sm:grid-cols-2">
               <FormField
                 control={form.control}
-                name="recipientCountry"
-                render={({ field, fieldState }) => (
-                  <FormItem id={F.recipientCountry}>
-                    <FormLabel>{t('recipient.country')}</FormLabel>
+                name="invoiceDate"
+                render={({ field }) => (
+                  <FormItem id={F.invoiceDate}>
+                    <FormLabel>{t('date.label')}</FormLabel>
                     <FormControl>
-                      <CountryPicker value={field.value} onChange={field.onChange} clearable invalid={Boolean(fieldState.error)} />
+                      <Input type="date" className="min-h-11" {...field} />
                     </FormControl>
+                    {isIsoDate(field.value) && field.value < today && <FormDescription className="text-ds-text">{t('date.past')}</FormDescription>}
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              <TextField name="recipientVatId" id={F.recipientVatId} label={t('recipient.vatId')} max={D.vatIdMax} />
-            </div>
-            <p className="text-[13px] text-ds-neutral-800">{t('recipient.copyHint')}</p>
-            {v.recipientKind === 'company' && (
               <FormField
                 control={form.control}
-                name="companySalutation"
+                name="guestNames"
                 render={({ field }) => (
                   <FormItem className="flex flex-col gap-2">
-                    <FormLabel>{t('recipient.salutation')}</FormLabel>
-                    <RadioGroup value={field.value} onValueChange={field.onChange} className="flex flex-col gap-2" aria-label={t('recipient.salutation')}>
-                      {COMPANY_SALUTATIONS.map((s) => (
-                        <Label key={s} className="flex min-h-11 cursor-pointer items-center gap-3 font-normal">
-                          <RadioGroupItem value={s} />
-                          {t(`recipient.salutation_${s}`)}
+                    <FormLabel>{t('guestNames.label')}</FormLabel>
+                    <RadioGroup value={field.value} onValueChange={field.onChange} className="flex flex-col gap-1" aria-label={t('guestNames.label')}>
+                      {GUEST_NAME_MODES.map((m) => (
+                        <Label key={m} className="flex min-h-11 cursor-pointer items-center gap-3 font-normal">
+                          <RadioGroupItem value={m} />
+                          {t(`guestNames.${m}`)}
                         </Label>
                       ))}
                     </RadioGroup>
                   </FormItem>
                 )}
               />
-            )}
-          </Fieldset>
+            </div>
 
-          {/* Rechnungsdatum (Block 2b) und Gastnamen (Block 3) */}
-          <div className="grid gap-6 sm:grid-cols-2">
-            <FormField
-              control={form.control}
-              name="invoiceDate"
-              render={({ field }) => (
-                <FormItem id={F.invoiceDate}>
-                  <FormLabel>{t('date.label')}</FormLabel>
-                  <FormControl>
-                    <Input type="date" className="min-h-11" {...field} />
-                  </FormControl>
-                  {isIsoDate(field.value) && field.value < today && <FormDescription className="text-ds-text">{t('date.past')}</FormDescription>}
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="guestNames"
-              render={({ field }) => (
-                <FormItem className="flex flex-col gap-2">
-                  <FormLabel>{t('guestNames.label')}</FormLabel>
-                  <RadioGroup value={field.value} onValueChange={field.onChange} className="flex flex-col gap-1" aria-label={t('guestNames.label')}>
-                    {GUEST_NAME_MODES.map((m) => (
-                      <Label key={m} className="flex min-h-11 cursor-pointer items-center gap-3 font-normal">
-                        <RadioGroupItem value={m} />
-                        {t(`guestNames.${m}`)}
-                      </Label>
-                    ))}
-                  </RadioGroup>
-                </FormItem>
-              )}
-            />
-          </div>
-
-          {/* Positionen bzw. Teilbetrag, Abzüge, Summen (Block 5) */}
-          {kind === 'partial' ? (
-            <fieldset id={F.partial} className="flex min-w-0 flex-col gap-4">
-              <legend className="mb-2 text-xl">{t('partial.title')}</legend>
-              <p className="break-words text-sm text-ds-neutral-800">{t('partial.line', { label: partialLabel(booking) })}</p>
-              <FormField
-                control={form.control}
-                name="partialMode"
-                render={({ field }) => (
-                  <RadioGroup value={field.value} onValueChange={field.onChange} className="grid grid-cols-2 gap-3" aria-label={t('partial.mode')}>
-                    {(['percent', 'amount'] as const).map((m) => (
-                      <Label key={m} className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border px-3 font-normal has-[[data-state=checked]]:border-ds-accent-700">
-                        <RadioGroupItem value={m} />
-                        {t(`partial.${m}`)}
-                      </Label>
-                    ))}
-                  </RadioGroup>
-                )}
-              />
-              {/* Eigener Schlüssel je Feld: sonst verwendet React dieselbe Feld-Instanz mit neuem Namen weiter, und der Wert
-                  des ausgeblendeten Felds geht verloren (QA BUG-2: Speichern ohne Meldung blockiert) */}
-              {v.partialMode === 'percent' ? (
+            {/* Positionen bzw. Teilbetrag, Abzüge, Summen (Block 5) */}
+            {kind === 'partial' ? (
+              <fieldset id={F.partial} className="flex min-w-0 flex-col gap-4">
+                <legend className="mb-2 text-xl">{t('partial.title')}</legend>
+                <p className="break-words text-sm text-ds-neutral-800">{t('partial.line', { label: partialLabel(booking) })}</p>
                 <FormField
-                  key="partialPercent"
                   control={form.control}
-                  name="partialPercent"
+                  name="partialMode"
                   render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{t('partial.percentLabel', { total: amountInput(base) })}</FormLabel>
-                      <div className="flex items-center gap-2">
+                    <RadioGroup value={field.value} onValueChange={field.onChange} className="grid grid-cols-2 gap-3" aria-label={t('partial.mode')}>
+                      {(['percent', 'amount'] as const).map((m) => (
+                        <Label key={m} className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border px-3 font-normal has-[[data-state=checked]]:border-ds-accent-700">
+                          <RadioGroupItem value={m} />
+                          {t(`partial.${m}`)}
+                        </Label>
+                      ))}
+                    </RadioGroup>
+                  )}
+                />
+                {/* Eigener Schlüssel je Feld: sonst verwendet React dieselbe Feld-Instanz mit neuem Namen weiter, und der Wert
+                    des ausgeblendeten Felds geht verloren (QA BUG-2: Speichern ohne Meldung blockiert) */}
+                {v.partialMode === 'percent' ? (
+                  <FormField
+                    key="partialPercent"
+                    control={form.control}
+                    name="partialPercent"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('partial.percentLabel', { total: amountInput(base) })}</FormLabel>
+                        <div className="flex items-center gap-2">
+                          <FormControl>
+                            <Input inputMode="decimal" autoComplete="off" className="min-h-11 w-28" {...field} />
+                          </FormControl>
+                          <span aria-hidden="true">%</span>
+                        </div>
+                        {otherPartial && <FormDescription>{otherPartial}</FormDescription>}
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                ) : (
+                  <FormField
+                    key="partialAmount"
+                    control={form.control}
+                    name="partialAmount"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('partial.amountLabel')}</FormLabel>
                         <FormControl>
-                          <Input inputMode="decimal" autoComplete="off" className="min-h-11 w-28" {...field} />
+                          <AmountInput className="min-h-11 w-40" {...field} onValueChange={field.onChange} />
                         </FormControl>
-                        <span aria-hidden="true">%</span>
+                        {otherPartial && <FormDescription>{otherPartial}</FormDescription>}
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+                {partialLines.length > 0 && !smallBusiness && (
+                  <dl className="flex flex-col gap-1 text-sm" aria-label={t('partial.split')}>
+                    {partialLines.map((l) => (
+                      <div key={l.vatBp} className="flex items-baseline justify-between gap-4">
+                        <dt className="text-ds-neutral-800">{t('partial.share', { rate: formatVatRate(l.vatBp) })}</dt>
+                        <dd>
+                          <Amount cents={l.amountCents} />
+                        </dd>
                       </div>
-                      {otherPartial && <FormDescription>{otherPartial}</FormDescription>}
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              ) : (
-                <FormField
-                  key="partialAmount"
-                  control={form.control}
-                  name="partialAmount"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{t('partial.amountLabel')}</FormLabel>
-                      <FormControl>
-                        <AmountInput className="min-h-11 w-40" {...field} onValueChange={field.onChange} />
-                      </FormControl>
-                      {otherPartial && <FormDescription>{otherPartial}</FormDescription>}
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              )}
-              {partialLines.length > 0 && !smallBusiness && (
-                <dl className="flex flex-col gap-1 text-sm" aria-label={t('partial.split')}>
-                  {partialLines.map((l) => (
-                    <div key={l.vatBp} className="flex items-baseline justify-between gap-4">
-                      <dt className="text-ds-neutral-800">{t('partial.share', { rate: formatVatRate(l.vatBp) })}</dt>
-                      <dd>
-                        <Amount cents={l.amountCents} />
-                      </dd>
-                    </div>
-                  ))}
-                </dl>
-              )}
-            </fieldset>
-          ) : (
-            <fieldset id={F.lines} className="flex min-w-0 flex-col gap-3">
-              <legend className="mb-2 text-xl">{t('lines.title')}</legend>
-              <p className="text-sm text-ds-neutral-800">{t('lines.hint')}</p>
-              <DraftLines lines={lines} showVat={!smallBusiness} usedBy={usedBy} sortingRef={sortingLine} />
-            </fieldset>
-          )}
-
-          {kind === 'final' && (
-            <fieldset className="flex min-w-0 flex-col gap-3">
-              <legend className="mb-2 text-xl">{t('deductions.title')}</legend>
-              {candidates.length === 0 ? (
-                <p className="rounded-lg bg-ds-surface px-4 py-3 text-sm text-ds-neutral-800">{t('deductions.none')}</p>
-              ) : (
-                <FormField
-                  control={form.control}
-                  name="deductionIds"
-                  render={({ field }) => (
-                    <ul className="flex flex-col divide-y rounded-lg bg-ds-surface px-4">
-                      {candidates.map((c) => {
-                        const id = `abzug-${c.id}`
-                        const checked = field.value.includes(c.id)
-                        return (
-                          <li key={c.id} className="flex items-start gap-3 py-3">
-                            <Checkbox
-                              id={id}
-                              checked={checked}
-                              className="mt-1"
-                              onCheckedChange={(on) => field.onChange(on === true ? [...field.value, c.id] : field.value.filter((x) => x !== c.id))}
-                            />
-                            <Label htmlFor={id} className="flex min-w-0 flex-1 cursor-pointer flex-col gap-0.5 font-normal">
-                              <span className="flex items-baseline justify-between gap-3">
-                                <span className="break-words font-medium">
-                                  {c.origin === 'backfilled'
-                                    ? t('deductions.backfilled', { number: c.number ?? '–' })
-                                    : c.number
-                                      ? t('deductions.partial', { number: c.number })
-                                      : t('deductions.partialDraft')}
-                                </span>
-                                <Amount cents={c.totalCents} className="shrink-0" />
-                              </span>
-                              <span className="text-[13px] text-ds-neutral-800">{textDate(c.invoiceDate)}</span>
-                            </Label>
-                          </li>
-                        )
-                      })}
-                    </ul>
-                  )}
-                />
-              )}
-              {draft?.deductionRemoved && <Note>{t('deductions.removed')}</Note>}
-            </fieldset>
-          )}
-
-          <section aria-label={t('totals.title')} className="flex flex-col gap-2" aria-live="polite">
-            <dl className="flex flex-col divide-y rounded-lg bg-ds-surface px-4">
-              {kind === 'final' && selectedDeductions.length > 0 && (
-                <>
-                  <TotalRow label={t('totals.lines')} cents={totals.linesCents} />
-                  <TotalRow label={t('totals.deductions')} cents={-totals.deductionsCents} />
-                </>
-              )}
-              <TotalRow label={t('totals.total')} cents={totals.totalCents} strong />
-            </dl>
-            {smallBusiness ? (
-              <p className="text-[13px] text-ds-neutral-800">{t('totals.noVat')}</p>
+                    ))}
+                  </dl>
+                )}
+              </fieldset>
             ) : (
-              totals.vatShares.length > 0 && (
-                <dl className="flex flex-col gap-1 text-sm" aria-label={t('totals.vatIncluded')}>
-                  {totals.vatShares.map((s) => (
-                    <div key={s.vatBp} className="flex items-baseline justify-between gap-4">
-                      <dt className="text-ds-neutral-800">{t('totals.vatShare', { rate: formatVatRate(s.vatBp) })}</dt>
-                      <dd>
-                        <Amount cents={s.vatCents} />
-                      </dd>
-                    </div>
-                  ))}
-                </dl>
-              )
+              <fieldset id={F.lines} className="flex min-w-0 flex-col gap-3">
+                <legend className="mb-2 text-xl">{t('lines.title')}</legend>
+                <p className="text-sm text-ds-neutral-800">{t('lines.hint')}</p>
+                <DraftLines lines={lines} showVat={!smallBusiness} usedBy={usedBy} sortingRef={sortingLine} />
+              </fieldset>
             )}
-            {kind === 'final' && totals.totalCents <= 0 && selectedDeductions.length > 0 && <Note>{t('totals.notPositive')}</Note>}
-            {overBilled && <Note>{t('totals.overBilled')}</Note>}
-          </section>
 
-          {/* Textblöcke 4, 6 (mit Zahlungsregeln), 7 */}
-          <DraftTextBlock kind="intro" blocks={blocksOf('intro')} />
-          {v.recipientKind !== 'company' && <p className="-mt-6 text-[13px] text-ds-neutral-800">{t('texts.salutationGuest')}</p>}
+            {kind === 'final' && (
+              <fieldset className="flex min-w-0 flex-col gap-3">
+                <legend className="mb-2 text-xl">{t('deductions.title')}</legend>
+                {candidates.length === 0 ? (
+                  <p className="rounded-lg bg-ds-surface px-4 py-3 text-sm text-ds-neutral-800">{t('deductions.none')}</p>
+                ) : (
+                  <FormField
+                    control={form.control}
+                    name="deductionIds"
+                    render={({ field }) => (
+                      <ul className="flex flex-col divide-y rounded-lg bg-ds-surface px-4">
+                        {candidates.map((c) => {
+                          const id = `abzug-${c.id}`
+                          const checked = field.value.includes(c.id)
+                          return (
+                            <li key={c.id} className="flex items-start gap-3 py-3">
+                              <Checkbox
+                                id={id}
+                                checked={checked}
+                                className="mt-1"
+                                onCheckedChange={(on) => field.onChange(on === true ? [...field.value, c.id] : field.value.filter((x) => x !== c.id))}
+                              />
+                              <Label htmlFor={id} className="flex min-w-0 flex-1 cursor-pointer flex-col gap-0.5 font-normal">
+                                <span className="flex items-baseline justify-between gap-3">
+                                  <span className="break-words font-medium">
+                                    {c.origin === 'backfilled'
+                                      ? t('deductions.backfilled', { number: c.number ?? '–' })
+                                      : c.number
+                                        ? t('deductions.partial', { number: c.number })
+                                        : t('deductions.partialDraft')}
+                                  </span>
+                                  <Amount cents={c.totalCents} className="shrink-0" />
+                                </span>
+                                <span className="text-[13px] text-ds-neutral-800">{textDate(c.invoiceDate)}</span>
+                              </Label>
+                            </li>
+                          )
+                        })}
+                      </ul>
+                    )}
+                  />
+                )}
+                {draft?.deductionRemoved && <Note>{t('deductions.removed')}</Note>}
+              </fieldset>
+            )}
 
-          <DraftTextBlock kind="payment" blocks={blocksOf('payment')} deposit={v.deposit} onApplied={applyPaymentBlock}>
-            <PaymentRulesFields schedule={schedule} />
-          </DraftTextBlock>
+            <section aria-label={t('totals.title')} className="flex flex-col gap-2" aria-live="polite">
+              <dl className="flex flex-col divide-y rounded-lg bg-ds-surface px-4">
+                {kind === 'final' && selectedDeductions.length > 0 && (
+                  <>
+                    <TotalRow label={t('totals.lines')} cents={totals.linesCents} />
+                    <TotalRow label={t('totals.deductions')} cents={-totals.deductionsCents} />
+                  </>
+                )}
+                <TotalRow label={t('totals.total')} cents={totals.totalCents} strong />
+              </dl>
+              {smallBusiness ? (
+                <p className="text-[13px] text-ds-neutral-800">{t('totals.noVat')}</p>
+              ) : (
+                totals.vatShares.length > 0 && (
+                  <dl className="flex flex-col gap-1 text-sm" aria-label={t('totals.vatIncluded')}>
+                    {totals.vatShares.map((s) => (
+                      <div key={s.vatBp} className="flex items-baseline justify-between gap-4">
+                        <dt className="text-ds-neutral-800">{t('totals.vatShare', { rate: formatVatRate(s.vatBp) })}</dt>
+                        <dd>
+                          <Amount cents={s.vatCents} />
+                        </dd>
+                      </div>
+                    ))}
+                  </dl>
+                )
+              )}
+              {kind === 'final' && totals.totalCents <= 0 && selectedDeductions.length > 0 && <Note>{t('totals.notPositive')}</Note>}
+              {overBilled && <Note>{t('totals.overBilled')}</Note>}
+            </section>
 
-          <DraftTextBlock kind="closing" blocks={blocksOf('closing')} />
+            {/* Textblöcke 4, 6 (mit Zahlungsregeln), 7 */}
+            <DraftTextBlock kind="intro" blocks={blocksOf('intro')} />
+            {v.recipientKind !== 'company' && <p className="-mt-6 text-[13px] text-ds-neutral-800">{t('texts.salutationGuest')}</p>}
 
-          <RequiredChecks checks={checks} onJump={jump} settingsLink />
+            <DraftTextBlock kind="payment" blocks={blocksOf('payment')} deposit={v.deposit} onApplied={applyPaymentBlock}>
+              <PaymentRulesFields schedule={schedule} />
+            </DraftTextBlock>
 
-          <div className="flex flex-wrap gap-3 border-t pt-6">
-            <Button type="submit" disabled={submitting} aria-busy={submitting} className="min-h-11">
-              {t('form.save')}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              className="min-h-11"
-              onClick={() => {
-                setPreviewing(true)
-                window.scrollTo({ top: 0 })
-              }}
-            >
-              <Eye size={18} aria-hidden="true" />
-              {t('form.preview')}
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              className="min-h-11"
-              onClick={() => (form.formState.isDirty ? setConfirm({ type: 'cancel' }) : guard.leave(cancelHref))}
-            >
-              {t('form.cancel')}
-            </Button>
-          </div>
-        </form>
+            <DraftTextBlock kind="closing" blocks={blocksOf('closing')} />
+
+            <RequiredChecks checks={checks} onJump={jump} settingsLink />
+
+            <div className="flex flex-wrap gap-3 border-t pt-6">
+              <Button type="submit" disabled={submitting} aria-busy={submitting} className="min-h-11">
+                {t('form.save')}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="min-h-11"
+                onClick={() => {
+                  setPreviewing(true)
+                  window.scrollTo({ top: 0 })
+                }}
+              >
+                <Eye size={18} aria-hidden="true" />
+                {t('form.preview')}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                className="min-h-11"
+                onClick={() => (form.formState.isDirty ? setConfirm({ type: 'cancel' }) : guard.leave(cancelHref))}
+              >
+                {t('form.cancel')}
+              </Button>
+            </div>
+          </form>
+        </RichTextGuardProvider>
       </Form>
 
       {confirm?.type === 'kind' && (

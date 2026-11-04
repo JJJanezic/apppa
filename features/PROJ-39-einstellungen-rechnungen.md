@@ -1,6 +1,6 @@
 # PROJ-39: Einstellungen → Rechnungen
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-10-31
 **Last Updated:** 2026-11-04
 
@@ -350,6 +350,7 @@ Dazu: Kleinunternehmer-Hinweis mit Gesetzestext, Fußzeile leer, Nummernkreis JJ
 - [x] Wie entsteht das Fälligkeitsdatum, wenn im Entwurf kein Zahlungsbaustein gewählt ist, und was gilt, wenn „vor Anreise“ vor dem Rechnungsdatum liegt? → Fällig am Rechnungsdatum; frühere Fristen werden auf das Rechnungsdatum gesetzt, mit Hinweis (PROJ-40, 2026-10-31)
 - [x] Erscheinen auch die Datumsangaben in Block 2a/2b ohne Wochentag? → Ja, alle Datumsangaben auf der Rechnung ohne Wochentag (PROJ-40, 2026-10-31)
 - [x] Wie lautet {Anrede} bei Firmen als Empfänger (z. B. „Sehr geehrte Damen und Herren“)? → Im Entwurf wählbar, vorausgewählt „Sehr geehrte Damen und Herren“, alternativ Anrede des Hauptgasts (PROJ-40, 2026-10-31)
+- [ ] Eingabe im Entwurf vor dem Aktivwerden des Formulars geht verloren (Rechnungsdatum, siehe Implementation Notes „Für /qa“); vor PROJ-42 klären
 - [ ] PROJ-41: Schriften als TTF- oder WOFF-Dateien samt Lizenztexten ablegen und prüfen, dass Vorschau und PDF gleich umbrechen
 
 ## Decision Log
@@ -782,6 +783,21 @@ Weil jede Eingabe sofort übersetzt wird, funktionieren Vorschau, Zeichenzähler
   - BUG-7 in Chrome gegen den Build 3 von 3 grün
   - Chrome: Platzhalter, BUG-1, BUG-2, Fett/Listen/Einfügen 9 grün
   - Firefox (Build) und Safari (`npm run dev`): Platzhalter, BUG-1, BUG-7 je 6 grün
+
+### Editor-Erweiterung (Frontend, 2026-11-04)
+- `src/lib/rich-text.ts`: optionale Einstellungen `attrs` am Dokument (Schriftart, Größe, Ausrichtung). `normalizeDoc` behält nur gültige Werte in fester Reihenfolge, `isRichDoc` prüft streng, `parseFontSize` liest die Eingabe (Komma oder Punkt). Linksbündig wird nicht gespeichert.
+- `src/lib/rich-text-html.ts` (neu, nur im Browser): `docToHtml` und `htmlToDoc`; `htmlToDoc` liefert zusätzlich die Liste des Entfernten. Liest mit `DOMParser`, der nichts ausführt und nichts nachlädt.
+- `rich-text-fonts.ts` (neu): sechs Schriften über `next/font/google`, ohne Vorladen; `richTextStyle` setzt die Darstellung in Schreibfläche und `RichTextView`. Die Werte sind dynamisch, darum hier Inline-Stile statt Tailwind.
+- `rich-text-editor.tsx`: Werkzeugleiste mit Schriftart, Schriftgröße, Ausrichtung und Code; Code-Feld (`Textarea`, höchstens 20.000 Zeichen). Tiptap kennt die Einstellungen nicht, sie werden beim Speichern des Inhalts wieder angehängt.
+- `rich-text-guard.tsx` (neu): Formulare fragen vor dem Speichern ihre Editoren ab; eingebaut in Baustein, feste Texte und Entwurf.
+- Abweichung vom Spec: `<b>` und `<i>` im Code werden still als fett und kursiv übernommen statt entfernt, weil sie dasselbe bedeuten und sonst Formatierung verloren ginge.
+- Ergänzung zum Spec: Die Schriftauswahl zeigt jeden Eintrag in seiner eigenen Schrift; die Schrift lädt erst beim Öffnen der Liste.
+- Tests: 572 Unit-Tests grün. E2E grün: neuer Block „Editor-Erweiterung“ (Desktop, Handy), PROJ-39 Editor, feste Texte, Barrierefreiheit, PROJ-40 Texte und Vorschau. Firefox und Safari sind noch nicht geprüft.
+- Bestehende Tests angepasst: Knopfzahl der Werkzeugleiste; PROJ-40 sucht das Textfeld jetzt mit Namen, weil die Schriftgröße ebenfalls ein Textfeld ist; `openCreate` wartet auf den Editor.
+
+**Offen für /backend:** `private.rich_doc_ok` muss `attrs` annehmen, mit denselben Regeln wie `isRichDoc`: nur die drei Schlüssel, nicht leer, Schriftkennung aus `RICH_FONTS`, Größe 6 bis 24 in 0,5er-Schritten, Ausrichtung `center`, `right` oder `justify`. Bis dahin lehnt die Datenbank Texte mit Einstellungen ab; Texte ohne Einstellungen, auch aus dem Code-Modus, lassen sich speichern. Das Speichern mit Einstellungen, das erneute Öffnen und die Übernahme in den Entwurf sind deshalb noch nicht End-to-End getestet.
+
+**Für /qa:** Eingabe direkt nach dem Laden des Entwurfs. Füllt ein Test das Rechnungsdatum aus, bevor das Formular aktiv ist, zeigt das Feld den neuen Wert, das Formular rechnet aber mit dem heutigen Datum. Das bestand schon vor dieser Erweiterung (1 von 6 Läufen), mit ihr trat es im selben Test öfter auf (4 von 5 Läufen, kleine Stichprobe). Ursache und Größe des Zeitfensters sind nicht gemessen. In den Tests überbrückt `openCreate` die Lücke; behoben ist sie damit nicht. Vor PROJ-42 klären, weil das Datum dort festgeschrieben wird.
 
 ## Implementation Notes (Backend)
 **Stand 2026-10-31.** Migration `20261031110516_invoice_settings.sql` ist in Dev („apppa-dev“) eingespielt (vom Nutzer freigegeben wegen neuer Zugriffsregeln), die Typen sind neu erzeugt. Die Advisors melden nur die bekannten Auth-Hinweise (`auth_otp_long_expiry`, `auth_leaked_password_protection`, Runbook).

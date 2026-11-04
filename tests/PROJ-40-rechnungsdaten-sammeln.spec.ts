@@ -208,6 +208,8 @@ async function openBooking(page: Page, id: string) {
 async function openCreate(page: Page, bookingId: string) {
   await page.goto(`/rechnungen/neu?buchung=${bookingId}`)
   await ready(page)
+  // <main> ist früher aktiv als das Formular; eine sofortige Eingabe ginge sonst verloren. Der Editor erscheint erst danach.
+  await expect(page.locator('.ProseMirror').first()).toBeVisible()
 }
 const lineBox = (page: Page, label: string) => page.getByRole('checkbox', { name: `„${label}“ auf die Rechnung` })
 const invoicesSection = (page: Page) => page.locator('section').filter({ has: page.getByRole('heading', { name: 'Rechnungen', exact: true }) })
@@ -610,7 +612,7 @@ test.describe('Empfänger, Texte, Zahlungsregeln', () => {
     await openCreate(page, booking.id)
     await page.getByLabel('Rechnungsdatum').fill('2026-10-01')
     await expect(page.getByText('Das Rechnungsdatum liegt in der Vergangenheit. Du kannst trotzdem speichern.')).toBeVisible()
-    const editor = page.getByRole('region', { name: 'Einleitung' }).getByRole('textbox')
+    const editor = page.getByRole('region', { name: 'Einleitung' }).getByRole('textbox', { name: 'Text für diese Rechnung', exact: true })
     await editor.click()
     await page.keyboard.press('End')
     await page.keyboard.type(' {Gastname}')
@@ -636,14 +638,14 @@ test.describe('Empfänger, Texte, Zahlungsregeln', () => {
     await page.goto(`/rechnungen/${id}/bearbeiten`)
     await ready(page)
     const intro = page.getByRole('region', { name: 'Einleitung' })
-    await expect(intro.getByRole('textbox')).toContainText('vielen Dank für Ihren Aufenthalt')
-    await expect(intro.getByRole('textbox')).not.toContainText('Ganz neuer Einleitungstext')
+    await expect(intro.getByRole('textbox', { name: 'Text für diese Rechnung', exact: true })).toContainText('vielen Dank für Ihren Aufenthalt')
+    await expect(intro.getByRole('textbox', { name: 'Text für diese Rechnung', exact: true })).not.toContainText('Ganz neuer Einleitungstext')
     // Text ist gegenüber dem (geänderten) Baustein abweichend → Wechsel nur nach Rückfrage
     await intro.getByRole('combobox', { name: 'Baustein' }).click()
     await page.getByRole('option', { name: 'Kein Text' }).click()
     await expect(page.getByRole('alertdialog', { name: 'Text ersetzen?' })).toBeVisible()
     await page.getByRole('button', { name: 'Behalten' }).click()
-    await expect(intro.getByRole('textbox')).toContainText('vielen Dank für Ihren Aufenthalt')
+    await expect(intro.getByRole('textbox', { name: 'Text für diese Rechnung', exact: true })).toContainText('vielen Dank für Ihren Aufenthalt')
   })
 
   test('AC: Baustein „Anzahlung 20 %, Rest vor Anreise“ – € 90,00 fällig 04.10., Rest € 360,00 fällig 13.10.; 30 % je Rechnung lässt den Baustein unverändert', async ({ page, users }) => {
@@ -734,7 +736,7 @@ test.describe('Pflichtangaben und Vorschau', () => {
     await page.getByLabel('Rechnungsdatum').fill('2026-10-20')
     await page.getByRole('radio', { name: 'Hauptgast mit Mitreisenden' }).click()
     await page.getByLabel('Adresszeile 2 (optional)').fill('Stiege 2')
-    const editor = page.getByRole('region', { name: 'Abschlusstext' }).getByRole('textbox')
+    const editor = page.getByRole('region', { name: 'Abschlusstext' }).getByRole('textbox', { name: 'Text für diese Rechnung', exact: true })
     await editor.click()
     await page.keyboard.press('End')
     await page.keyboard.type(' Nummer {Rechnungsnummer}.')

@@ -10,6 +10,7 @@ import { toast } from 'sonner'
 import { saveInvoiceFixedTexts } from '@/app/(app)/einstellungen/rechnungen/actions'
 import { callAction, FormError } from '@/components/auth/form-error'
 import { RichTextField } from '@/components/invoice-settings/rich-text-field'
+import { RichTextGuardProvider, useRichTextGuard } from '@/components/invoice-settings/rich-text-guard'
 import { StaleAlert } from '@/components/invoice-settings/section-shell'
 import { Button } from '@/components/ui/button'
 import { Form } from '@/components/ui/form'
@@ -31,6 +32,7 @@ export function FixedTextsSection({ tenantId, data, readOnly }: { tenantId: stri
   })
   const [error, setError] = useState<string | null>(null)
   const [stale, setStale] = useState(false)
+  const guard = useRichTextGuard()
 
   async function onSubmit(v: FixedTextsInput) {
     setError(null)
@@ -46,33 +48,35 @@ export function FixedTextsSection({ tenantId, data, readOnly }: { tenantId: stri
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} noValidate className="flex flex-col gap-6">
-        <FormError error={error} namespace="invoiceSettings.errors" />
-        {stale && <StaleAlert />}
-        <RichTextField
-          control={form.control}
-          name="smallBusinessNote"
-          label={t('smallBusinessNote')}
-          hint={t('smallBusinessNoteHint')}
-          context="fixed"
-          max={L.smallBusinessNoteMax}
-          readOnly={readOnly}
-        />
-        <RichTextField
-          control={form.control}
-          name="footer"
-          label={t('footer')}
-          hint={t('footerHint')}
-          context="fixed"
-          max={L.footerMax}
-          readOnly={readOnly}
-        />
-        {!readOnly && (
-          <Button type="submit" disabled={form.formState.isSubmitting} className="min-h-11 self-start">
-            {t('save')}
-          </Button>
-        )}
-      </form>
+      <RichTextGuardProvider value={guard.checks}>
+        <form onSubmit={guard.guardSubmit(form.handleSubmit(onSubmit))} noValidate className="flex flex-col gap-6">
+          <FormError error={error} namespace="invoiceSettings.errors" />
+          {stale && <StaleAlert />}
+          <RichTextField
+            control={form.control}
+            name="smallBusinessNote"
+            label={t('smallBusinessNote')}
+            hint={t('smallBusinessNoteHint')}
+            context="fixed"
+            max={L.smallBusinessNoteMax}
+            readOnly={readOnly}
+          />
+          <RichTextField
+            control={form.control}
+            name="footer"
+            label={t('footer')}
+            hint={t('footerHint')}
+            context="fixed"
+            max={L.footerMax}
+            readOnly={readOnly}
+          />
+          {!readOnly && (
+            <Button type="submit" disabled={form.formState.isSubmitting} className="min-h-11 self-start">
+              {t('save')}
+            </Button>
+          )}
+        </form>
+      </RichTextGuardProvider>
     </Form>
   )
 }

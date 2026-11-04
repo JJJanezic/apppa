@@ -1,5 +1,6 @@
 import { Fragment } from 'react'
 
+import { richTextStyle } from '@/components/invoice-settings/rich-text-fonts'
 import { fillPlaceholders, type PlaceholderValues } from '@/lib/invoice-texts'
 import type { RichDoc, RichInline, RichParagraph } from '@/lib/rich-text'
 import { cn } from '@/lib/utils'
@@ -28,12 +29,12 @@ function Paragraph({ p, values }: { p: RichParagraph; values?: PlaceholderValues
 
 export function RichTextView({ doc, values, className }: { doc: RichDoc; values?: PlaceholderValues; className?: string }) {
   return (
-    <div className={cn('flex flex-col gap-2 break-words', className)}>
+    <div className={cn('flex flex-col gap-2 break-words', className)} style={richTextStyle(doc.attrs)}>
       {doc.content.map((block, i) => {
         if (block.type === 'paragraph') return <Paragraph key={i} p={block} values={values} />
         const List = block.type === 'bulletList' ? 'ul' : 'ol'
         return (
-          <List key={i} className={cn('flex flex-col gap-1 pl-6', block.type === 'bulletList' ? 'list-disc' : 'list-decimal')}>
+          <List key={i} className={cn('flex flex-col gap-1 pl-6 text-left', block.type === 'bulletList' ? 'list-disc' : 'list-decimal')}>
             {block.content.map((item, j) => (
               <li key={j}>
                 {item.content.map((p, k) => (

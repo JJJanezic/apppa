@@ -1,6 +1,6 @@
 'use client'
 
-import { BracketsCurly, ListBullets, ListNumbers, TextB, TextItalic } from '@phosphor-icons/react'
+import { BracketsCurly, Code, ListBullets, ListNumbers, TextAlignCenter, TextAlignJustify, TextAlignLeft, TextAlignRight, TextB, TextItalic } from '@phosphor-icons/react'
 import { Extension } from '@tiptap/core'
 import { Plugin, PluginKey } from '@tiptap/pm/state'
 import { Decoration, DecorationSet } from '@tiptap/pm/view'
@@ -11,19 +11,27 @@ import { useTranslations } from 'next-intl'
 import { useEffect, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 
+import { RICH_FONT_FAMILY, richTextStyle } from '@/components/invoice-settings/rich-text-fonts'
+import { useRichTextCheck } from '@/components/invoice-settings/rich-text-guard'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Textarea } from '@/components/ui/textarea'
 import { Toggle } from '@/components/ui/toggle'
 import { formatNumber } from '@/lib/format'
 import { tablesToBlocks } from '@/lib/paste-html'
 import { allowedPlaceholders, PLACEHOLDER_PATTERN, type PlaceholderContext } from '@/lib/invoice-texts'
-import { docLength, normalizeDoc, type RichDoc } from '@/lib/rich-text'
+import { docLength, normalizeDoc, parseFontSize, RICH_FONTS, withAttrs, type RichAlign, type RichAttrs, type RichDoc, type RichFont } from '@/lib/rich-text'
+import { docToHtml, htmlToDoc, RICH_CODE_MAX, RICH_HTML_TAGS } from '@/lib/rich-text-html'
 import { cn } from '@/lib/utils'
 
 // Beschränkter Editor der Rechnungstexte (PROJ-39): fett, kursiv, Absätze, Zeilenumbruch, Aufzählung und nummerierte
 // Liste. Alles andere ist im Editor gar nicht vorhanden; Eingefügtes aus Word, E-Mail oder Webseiten behält deshalb nur
 // diese Formate (Links werden Text, Bilder, Farben und Schriftarten fallen weg). Platzhalter sind normaler Text
 // „{Wohnung}“ und werden markiert: erlaubte farbig, unbekannte bzw. hier unzulässige rot.
+// Schriftart, Schriftgröße und Ausrichtung gelten für den ganzen Text und stehen neben dem Editor-Inhalt im Dokument.
+// Das Code-Feld zeigt den Text als HTML; jede Eingabe wird sofort in die Struktur übersetzt (rich-text-html.ts).
 // Wird nur auf den Rechnungs-Einstellungen geladen (next/dynamic in rich-text-field.tsx).
 
 interface RichTextEditorProps {
@@ -37,6 +45,18 @@ interface RichTextEditorProps {
   invalid?: boolean
   readOnly?: boolean
 }
+
+const STANDARD = 'standard'
+const ALIGNS = [
+  { key: 'alignLeft', value: undefined, icon: TextAlignLeft },
+  { key: 'alignCenter', value: 'center', icon: TextAlignCenter },
+  { key: 'alignRight', value: 'right', icon: TextAlignRight },
+  { key: 'alignJustify', value: 'justify', icon: TextAlignJustify },
+] as const
+
+const formatSize = (size: number | undefined) => (size === undefined ? '' : String(size).replace('.', ','))
+// Tiptap kennt die Einstellungen nicht; es bekommt nur den Inhalt
+const editorContent = (doc: RichDoc) => ({ type: 'doc', content: doc.content })
 
 const placeholderKey = new PluginKey<PlaceholderState>('invoicePlaceholders')
 
@@ -91,6 +111,8 @@ const PlaceholderMarks = Extension.create<{ allowed: string[] }>({
 export function RichTextEditor({ value, onChange, context, max, labelId, describedBy, invalid, readOnly = false }: RichTextEditorProps) {
   const t = useTranslations('invoiceSettings.editor')
   const placeholders = allowedPlaceholders(context)
+  // Was beim Verlassen des Code-Felds entfernt wurde; bis zur nächsten Bearbeitung sichtbar
+  const [removed, setRemoved] = useState<string[]>([])
   // Angaben für Screenreader bei jedem Rendern aus den aktuellen Werten: useEditor übernimmt nach jedem Rendern die
   // editorProps neu und würde nachträglich gesetzte Attribute wieder entfernen (BUG-2 aus QA)
   const attributes: Record<string, string> = {
@@ -100,8 +122,12 @@ export function RichTextEditor({ value, onChange, context, max, labelId, describ
     'aria-invalid': invalid ? 'true' : 'false',
     'aria-readonly': readOnly ? 'true' : 'false',
     class:
-      'min-h-32 break-words px-3 py-2 text-[15px] leading-relaxed outline-none [&_ol]:list-decimal [&_ol]:pl-6 [&_p]:my-1 [&_ul]:list-disc [&_ul]:pl-6',
+      'min-h-32 break-words px-3 py-2 text-[15px] leading-relaxed outline-none [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:text-left [&_p]:my-1 [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:text-left',
   }
+  // Einstellungen des Texts direkt an der Schreibfläche; Tiptap setzt das Attribut, darum als Text statt als React-Stil
+  const { fontFamily, fontSize, textAlign } = richTextStyle(value.attrs)
+  const style = [fontFamily && `font-family:${fontFamily}`, fontSize && `font-size:${fontSize}`, textAlign && `text-align:${textAlign}`].filter(Boolean).join(';')
+  if (style) attributes.style = style
   if (describedBy) attributes['aria-describedby'] = describedBy
   const editor = useEditor({
     immediatelyRender: false,
@@ -121,14 +147,17 @@ export function RichTextEditor({ value, onChange, context, max, labelId, describ
       }),
       PlaceholderMarks.configure({ allowed: placeholders }),
     ],
-    content: value,
+    content: editorContent(value),
     editorProps: {
       // Tabellen aus Word oder Webseiten: jede Zelle ein Absatz statt zusammengeklebtem Text (BUG-4 aus QA)
       transformPastedHTML: tablesToBlocks,
       attributes,
     },
     // useEditor ruft immer den aktuellen Rückruf auf
-    onUpdate: ({ editor: e }) => onChange(normalizeDoc(e.getJSON())),
+    onUpdate: ({ editor: e }) => {
+      setRemoved([])
+      onChange(withAttrs(normalizeDoc(e.getJSON()), value.attrs))
+    },
   })
 
   // Erlaubte Platzhalter geändert (z. B. Anzahlung ein/aus): Markierung neu berechnen
@@ -162,6 +191,64 @@ export function RichTextEditor({ value, onChange, context, max, labelId, describ
     }),
   })
 
+  const setAttrs = (next: RichAttrs) => onChange(withAttrs(value, { ...value.attrs, ...next }))
+
+  // Schriftgröße: Eingabe erst beim Verlassen des Felds übernehmen, ungültige Werte bleiben stehen und sperren das Speichern
+  const [sizeText, setSizeText] = useState(() => formatSize(value.attrs?.fontSize))
+  const [sizeInvalid, setSizeInvalid] = useState(false)
+  function commitSize() {
+    const size = parseFontSize(sizeText)
+    setSizeInvalid(size === null)
+    if (size === null) return
+    setSizeText(formatSize(size))
+    if (size !== value.attrs?.fontSize) setAttrs({ fontSize: size })
+  }
+
+  // Code-Feld: null = Schreibfläche. codeStart erkennt, ob der Code überhaupt bearbeitet wurde.
+  const [code, setCode] = useState<string | null>(null)
+  const codeStart = useRef('')
+
+  function openCode() {
+    const html = docToHtml(value)
+    codeStart.current = html
+    setCode(html)
+    setRemoved([])
+    // Eine ungültige Eingabe wird durch den gespeicherten Wert ersetzt; das Code-Feld zeigt die gültigen Einstellungen
+    setSizeText(formatSize(value.attrs?.fontSize))
+    setSizeInvalid(false)
+  }
+
+  function closeCode() {
+    const html = code ?? ''
+    setCode(null)
+    if (html === codeStart.current) return
+    const result = htmlToDoc(html)
+    editor?.commands.setContent(editorContent(result.doc), { emitUpdate: false })
+    onChange(result.doc)
+    setRemoved(result.removed)
+    setSizeText(formatSize(result.doc.attrs?.fontSize))
+  }
+
+  function changeCode(html: string) {
+    setCode(html)
+    onChange(htmlToDoc(html).doc)
+  }
+
+  useRichTextCheck(() => {
+    if (readOnly) return true
+    if (code !== null && htmlToDoc(code).removed.length > 0) {
+      closeCode()
+      return false
+    }
+    return !sizeInvalid
+  })
+
+  const codeOpen = code !== null
+  const toolDisabled = !editor || codeOpen
+  const fontField = `${labelId}-font`
+  const sizeField = `${labelId}-size`
+  const sizeMessage = `${labelId}-size-message`
+
   const length = docLength(value)
   const tools = [
     { key: 'bold', icon: TextB, pressed: active?.bold, run: () => editor?.chain().focus().toggleBold().run() },
@@ -181,14 +268,74 @@ export function RichTextEditor({ value, onChange, context, max, labelId, describ
       {!readOnly && (
         <div role="toolbar" aria-label={t('toolbar')} aria-controls={labelId} className="flex flex-wrap items-center gap-1 border-b p-1">
           {tools.map(({ key, icon: Icon, pressed, run }) => (
-            <Toggle key={key} size="lg" pressed={pressed ?? false} onPressedChange={run} aria-label={t(key)} disabled={!editor}>
+            <Toggle key={key} size="lg" pressed={pressed ?? false} onPressedChange={run} aria-label={t(key)} disabled={toolDisabled}>
               <Icon size={18} weight="bold" aria-hidden="true" />
             </Toggle>
           ))}
+          <Select
+            value={value.attrs?.fontFamily ?? STANDARD}
+            onValueChange={(v) => setAttrs({ fontFamily: v === STANDARD ? undefined : (v as RichFont) })}
+            disabled={toolDisabled}
+          >
+            <SelectTrigger id={fontField} aria-label={t('fontFamily')} className="min-h-11 w-48">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={STANDARD} className="min-h-11">
+                {t('fontStandard')}
+              </SelectItem>
+              {RICH_FONTS.map((font) => (
+                <SelectItem key={font} value={font} className="min-h-11" style={{ fontFamily: RICH_FONT_FAMILY[font] }}>
+                  {t(`fonts.${font}`)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <div className="flex items-center gap-1.5 px-1">
+            <Input
+              id={sizeField}
+              inputMode="decimal"
+              autoComplete="off"
+              aria-label={t('fontSize')}
+              aria-invalid={sizeInvalid}
+              aria-describedby={sizeInvalid ? sizeMessage : undefined}
+              placeholder={t('fontStandard')}
+              className="min-h-11 w-24"
+              value={sizeText}
+              disabled={toolDisabled}
+              onChange={(e) => setSizeText(e.target.value)}
+              onBlur={commitSize}
+              onKeyDown={(e) => {
+                // Enter übernimmt die Größe und speichert nicht das Formular
+                if (e.key !== 'Enter') return
+                e.preventDefault()
+                commitSize()
+              }}
+            />
+            <span aria-hidden="true" className="text-sm text-ds-neutral-800">
+              pt
+            </span>
+          </div>
+          {ALIGNS.map(({ key, value: align, icon: Icon }) => (
+            <Toggle
+              key={key}
+              size="lg"
+              pressed={value.attrs?.textAlign === align}
+              onPressedChange={() => setAttrs({ textAlign: align as RichAlign | undefined })}
+              aria-label={t(key)}
+              disabled={toolDisabled}
+            >
+              <Icon size={18} weight="bold" aria-hidden="true" />
+            </Toggle>
+          ))}
+          <Toggle size="lg" pressed={codeOpen} onPressedChange={() => (codeOpen ? closeCode() : openCode())} aria-label={t('code')} disabled={!editor} className="gap-1.5 px-3">
+            <Code size={18} weight="bold" aria-hidden="true" />
+            {t('codeShort')}
+          </Toggle>
           {placeholders.length > 0 && (
             <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
               <DropdownMenuTrigger asChild>
-                <Button type="button" variant="ghost" className="ml-auto min-h-11 gap-1.5" disabled={!editor}>
+                <Button type="button" variant="ghost" className="ml-auto min-h-11 gap-1.5" disabled={toolDisabled}>
                   <BracketsCurly size={18} aria-hidden="true" />
                   {t('insertPlaceholder')}
                 </Button>
@@ -226,7 +373,35 @@ export function RichTextEditor({ value, onChange, context, max, labelId, describ
           )}
         </div>
       )}
-      <EditorContent editor={editor} />
+      {sizeInvalid && (
+        <p id={sizeMessage} role="alert" className="border-b px-3 py-2 text-sm text-ds-accent-2-800">
+          {t('fontSizeInvalid')}
+        </p>
+      )}
+      {removed.length > 0 && (
+        <p role="alert" className="border-b px-3 py-2 text-sm text-ds-accent-2-800">
+          {t('removed', { items: removed.join(', ') })}
+        </p>
+      )}
+      {codeOpen && (
+        <div className="flex flex-col gap-2 p-3">
+          <p className="text-[13px] text-ds-neutral-800">{t('codeHint', { tags: RICH_HTML_TAGS, wrapper: '<div>' })}</p>
+          <Textarea
+            aria-labelledby={labelId}
+            aria-describedby={describedBy}
+            aria-invalid={invalid}
+            spellCheck={false}
+            autoCapitalize="off"
+            autoCorrect="off"
+            maxLength={RICH_CODE_MAX}
+            className="min-h-48 font-mono"
+            value={code}
+            onChange={(e) => changeCode(e.target.value)}
+          />
+        </div>
+      )}
+      {/* Bleibt im Code-Modus erhalten (nur ausgeblendet), damit Rückgängig und Markierung der Platzhalter weiterlaufen */}
+      <EditorContent editor={editor} className={codeOpen ? 'hidden' : undefined} />
       <p className={cn('px-3 pb-2 text-right text-[13px] text-ds-neutral-700', length > max && 'font-semibold text-ds-accent-2-800')}>
         {t('count', { length: formatNumber(length), max: formatNumber(max) })}
       </p>

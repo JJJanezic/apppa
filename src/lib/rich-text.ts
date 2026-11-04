@@ -1,6 +1,8 @@
 // Formatierter Text der Rechnungstexte (PROJ-39): Absätze und Listen, darin Text mit „fett“/„kursiv“ und Zeilenumbrüche.
 // Gespeichert wird nur diese kleine Struktur, nie HTML. Sie ist eine Teilmenge des Tiptap-Formats, damit der Editor sie
 // direkt laden kann. Gilt im Browser und auf dem Server; die Datenbank prüft dieselbe Struktur noch einmal.
+// Dazu optional je ganzem Text: Schriftart, Schriftgröße und Ausrichtung (attrs am Dokument); fehlt eine Angabe, gilt
+// „Standard“ bzw. linksbündig.
 
 export type RichMark = { type: 'bold' } | { type: 'italic' }
 export type RichInline = { type: 'text'; text: string; marks?: RichMark[] } | { type: 'hardBreak' }
@@ -8,7 +10,13 @@ export type RichParagraph = { type: 'paragraph'; content?: RichInline[] }
 export type RichListItem = { type: 'listItem'; content: RichParagraph[] }
 export type RichList = { type: 'bulletList' | 'orderedList'; content: RichListItem[] }
 export type RichBlock = RichParagraph | RichList
-export type RichDoc = { type: 'doc'; content: RichBlock[] }
+export const RICH_FONTS = ['arimo', 'tinos', 'carlito', 'source-sans', 'source-serif', 'open-sans'] as const
+export type RichFont = (typeof RICH_FONTS)[number]
+export const RICH_ALIGNS = ['center', 'right', 'justify'] as const
+export type RichAlign = (typeof RICH_ALIGNS)[number]
+export const RICH_FONT_SIZE = { min: 6, max: 24, step: 0.5 } as const
+export type RichAttrs = { fontFamily?: RichFont; fontSize?: number; textAlign?: RichAlign }
+export type RichDoc = { type: 'doc'; attrs?: RichAttrs; content: RichBlock[] }
 
 export const emptyDoc = (): RichDoc => ({ type: 'doc', content: [{ type: 'paragraph' }] })
 
@@ -25,7 +33,37 @@ export function docFromText(text: string): RichDoc {
   return { type: 'doc', content: paragraphs }
 }
 
-type Loose = { type?: unknown; text?: unknown; marks?: unknown; content?: unknown }
+export const isRichFont = (v: unknown): v is RichFont => RICH_FONTS.includes(v as RichFont)
+export const isRichAlign = (v: unknown): v is RichAlign => RICH_ALIGNS.includes(v as RichAlign)
+export const isRichFontSize = (v: unknown): v is number =>
+  typeof v === 'number' && v >= RICH_FONT_SIZE.min && v <= RICH_FONT_SIZE.max && Number.isInteger(v / RICH_FONT_SIZE.step)
+
+// Eingabe im Feld Schriftgröße (Komma oder Punkt); leer = Standard, undefined; ungültig = null
+export function parseFontSize(input: string): number | undefined | null {
+  const text = input.trim().replace(',', '.')
+  if (!text) return undefined
+  const size = /^\d+(\.\d+)?$/.test(text) ? Number(text) : NaN
+  return isRichFontSize(size) ? size : null
+}
+
+// Nur gültige Werte, feste Reihenfolge, leere Angaben fallen weg: Gleiche Einstellungen werden gleich gespeichert und verglichen
+function normalizeAttrs(input: unknown): RichAttrs | undefined {
+  if (typeof input !== 'object' || input === null) return undefined
+  const { fontFamily, fontSize, textAlign } = input as Record<string, unknown>
+  const attrs: RichAttrs = {}
+  if (isRichFont(fontFamily)) attrs.fontFamily = fontFamily
+  if (isRichFontSize(fontSize)) attrs.fontSize = fontSize
+  if (isRichAlign(textAlign)) attrs.textAlign = textAlign
+  return Object.keys(attrs).length ? attrs : undefined
+}
+
+// Dokument mit diesen Einstellungen; ohne Einstellungen ohne attrs
+export function withAttrs(doc: RichDoc, attrs: RichAttrs | undefined): RichDoc {
+  const clean = normalizeAttrs(attrs)
+  return clean ? { type: 'doc', attrs: clean, content: doc.content } : { type: 'doc', content: doc.content }
+}
+
+type Loose = { type?: unknown; text?: unknown; marks?: unknown; content?: unknown; attrs?: unknown }
 const isObject = (v: unknown): v is Loose => typeof v === 'object' && v !== null && !Array.isArray(v)
 const children = (v: Loose): unknown[] => (Array.isArray(v.content) ? v.content : [])
 
@@ -96,7 +134,8 @@ export function normalizeDoc(input: unknown): RichDoc {
     }
   }
   walk(isObject(input) ? children(input) : [])
-  return { type: 'doc', content: blocks.length ? blocks : [{ type: 'paragraph' }] }
+  const doc: RichDoc = { type: 'doc', content: blocks.length ? blocks : [{ type: 'paragraph' }] }
+  return withAttrs(doc, isObject(input) ? (input.attrs as RichAttrs | undefined) : undefined)
 }
 
 // Streng: genau die erlaubte Struktur ohne zusätzliche Angaben (Prüfung auf dem Server, am Editor vorbei)
@@ -128,7 +167,24 @@ export function isRichDoc(value: unknown): value is RichDoc {
       Array.isArray(n.content) &&
       n.content.length > 0 &&
       n.content.every(item))
-  return isObject(value) && value.type === 'doc' && keys(value, ['type', 'content']) && Array.isArray(value.content) && value.content.every(block)
+  const attrs = (a: unknown): boolean => {
+    if (a === undefined) return true
+    if (!isObject(a) || !keys(a, ['fontFamily', 'fontSize', 'textAlign']) || !Object.keys(a).length) return false
+    const { fontFamily, fontSize, textAlign } = a as Record<string, unknown>
+    return (
+      (fontFamily === undefined || isRichFont(fontFamily)) &&
+      (fontSize === undefined || isRichFontSize(fontSize)) &&
+      (textAlign === undefined || isRichAlign(textAlign))
+    )
+  }
+  return (
+    isObject(value) &&
+    value.type === 'doc' &&
+    keys(value, ['type', 'attrs', 'content']) &&
+    attrs(value.attrs) &&
+    Array.isArray(value.content) &&
+    value.content.every(block)
+  )
 }
 
 const paragraphText = (p: RichParagraph) => (p.content ?? []).map((n) => (n.type === 'text' ? n.text : '\n')).join('')

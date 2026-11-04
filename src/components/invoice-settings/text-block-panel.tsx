@@ -11,6 +11,7 @@ import { saveInvoiceTextBlock } from '@/app/(app)/einstellungen/rechnungen/actio
 import { callAction, FormError } from '@/components/auth/form-error'
 import { DetailPanel } from '@/components/detail-panel'
 import { RichTextField } from '@/components/invoice-settings/rich-text-field'
+import { RichTextGuardProvider, useRichTextGuard } from '@/components/invoice-settings/rich-text-guard'
 import { StaleAlert } from '@/components/invoice-settings/section-shell'
 import { Button } from '@/components/ui/button'
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
@@ -65,6 +66,7 @@ export function TextBlockPanel({ open, onOpenChange, tenantId, kind, block, othe
   const form = useForm<TextBlockInput>({ resolver: zodResolver(schema, undefined, { raw: true }), defaultValues: toInput(kind, block) })
   const [error, setError] = useState<string | null>(null)
   const [stale, setStale] = useState(false)
+  const guard = useRichTextGuard()
 
   const values = useWatch({ control: form.control }) as TextBlockInput
   const payment = kind === 'payment'
@@ -121,125 +123,127 @@ export function TextBlockPanel({ open, onOpenChange, tenantId, kind, block, othe
       description={payment ? t('paymentLead') : undefined}
     >
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} noValidate className="flex min-w-0 flex-col gap-5">
-          <FormError error={error} namespace="invoiceSettings.errors" />
-          {stale && <StaleAlert onReload={() => onOpenChange(false)} />}
+        <RichTextGuardProvider value={guard.checks}>
+          <form onSubmit={guard.guardSubmit(form.handleSubmit(onSubmit))} noValidate className="flex min-w-0 flex-col gap-5">
+            <FormError error={error} namespace="invoiceSettings.errors" />
+            {stale && <StaleAlert onReload={() => onOpenChange(false)} />}
 
-          <fieldset disabled={readOnly} className="flex min-w-0 flex-col gap-5">
-            <legend className="sr-only">{t(`kinds.${kind}`)}</legend>
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t('name')}</FormLabel>
-                  <FormControl>
-                    <Input maxLength={L.nameMax + 10} autoComplete="off" className="min-h-11" {...field} />
-                  </FormControl>
-                  <FormDescription>{t('nameHint')}</FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <fieldset disabled={readOnly} className="flex min-w-0 flex-col gap-5">
+              <legend className="sr-only">{t(`kinds.${kind}`)}</legend>
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('name')}</FormLabel>
+                    <FormControl>
+                      <Input maxLength={L.nameMax + 10} autoComplete="off" className="min-h-11" {...field} />
+                    </FormControl>
+                    <FormDescription>{t('nameHint')}</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            {payment && (
-              <div className="flex flex-col gap-4 rounded-md border p-4">
-                <FormField
-                  control={form.control}
-                  name="deposit"
-                  render={({ field }) => (
-                    <FormItem className="flex items-start gap-3">
-                      <FormControl>
-                        <Switch
-                          checked={field.value}
-                          onCheckedChange={(on) => {
-                            field.onChange(on)
-                            // Anzahlungs-Platzhalter sind nur mit Anzahlung erlaubt: Text neu prüfen
-                            if (form.formState.isSubmitted) void form.trigger('body')
-                          }}
-                          className="mt-0.5"
-                        />
-                      </FormControl>
-                      <div className="flex flex-col gap-0.5">
-                        <FormLabel className="font-normal">{t('deposit')}</FormLabel>
-                        <FormDescription>{t('depositHint')}</FormDescription>
-                      </div>
-                    </FormItem>
+              {payment && (
+                <div className="flex flex-col gap-4 rounded-md border p-4">
+                  <FormField
+                    control={form.control}
+                    name="deposit"
+                    render={({ field }) => (
+                      <FormItem className="flex items-start gap-3">
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={(on) => {
+                              field.onChange(on)
+                              // Anzahlungs-Platzhalter sind nur mit Anzahlung erlaubt: Text neu prüfen
+                              if (form.formState.isSubmitted) void form.trigger('body')
+                            }}
+                            className="mt-0.5"
+                          />
+                        </FormControl>
+                        <div className="flex flex-col gap-0.5">
+                          <FormLabel className="font-normal">{t('deposit')}</FormLabel>
+                          <FormDescription>{t('depositHint')}</FormDescription>
+                        </div>
+                      </FormItem>
+                    )}
+                  />
+                  {deposit && (
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <FormField
+                        control={form.control}
+                        name="depositPercent"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>{t('depositPercent')}</FormLabel>
+                            <div className="flex items-center gap-2">
+                              <FormControl>
+                                <Input inputMode="decimal" autoComplete="off" className="min-h-11 w-24" {...field} />
+                              </FormControl>
+                              <span className="text-ds-neutral-800">%</span>
+                            </div>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      {days('depositDays', t('depositDays'), t('depositDaysHint'))}
+                    </div>
                   )}
-                />
-                {deposit && (
-                  <div className="grid gap-4 sm:grid-cols-2">
+
+                  <div className="flex flex-col gap-3">
+                    {days('dueDays', deposit ? t('dueDaysRest') : t('dueDays'))}
                     <FormField
                       control={form.control}
-                      name="depositPercent"
+                      name="dueBasis"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>{t('depositPercent')}</FormLabel>
-                          <div className="flex items-center gap-2">
-                            <FormControl>
-                              <Input inputMode="decimal" autoComplete="off" className="min-h-11 w-24" {...field} />
-                            </FormControl>
-                            <span className="text-ds-neutral-800">%</span>
-                          </div>
+                          <FormLabel className="sr-only">{t('dueBasis')}</FormLabel>
+                          <FormControl>
+                            <RadioGroup value={field.value} onValueChange={field.onChange} className="flex flex-col gap-1">
+                              {DUE_BASES.map((basis) => (
+                                <FormItem key={basis} className="flex min-h-11 items-center gap-3 space-y-0">
+                                  <FormControl>
+                                    <RadioGroupItem value={basis} />
+                                  </FormControl>
+                                  <FormLabel className="font-normal">{t(`dueBases.${basis}`)}</FormLabel>
+                                </FormItem>
+                              ))}
+                            </RadioGroup>
+                          </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
-                    {days('depositDays', t('depositDays'), t('depositDaysHint'))}
                   </div>
-                )}
-
-                <div className="flex flex-col gap-3">
-                  {days('dueDays', deposit ? t('dueDaysRest') : t('dueDays'))}
-                  <FormField
-                    control={form.control}
-                    name="dueBasis"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="sr-only">{t('dueBasis')}</FormLabel>
-                        <FormControl>
-                          <RadioGroup value={field.value} onValueChange={field.onChange} className="flex flex-col gap-1">
-                            {DUE_BASES.map((basis) => (
-                              <FormItem key={basis} className="flex min-h-11 items-center gap-3 space-y-0">
-                                <FormControl>
-                                  <RadioGroupItem value={basis} />
-                                </FormControl>
-                                <FormLabel className="font-normal">{t(`dueBases.${basis}`)}</FormLabel>
-                              </FormItem>
-                            ))}
-                          </RadioGroup>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
                 </div>
-              </div>
-            )}
-          </fieldset>
+              )}
+            </fieldset>
 
-          <RichTextField
-            control={form.control}
-            name="body"
-            label={t('body')}
-            hint={payment ? (deposit ? t('bodyHintDeposit') : t('bodyHintPayment')) : t('bodyHint')}
-            context={{ kind, deposit }}
-            max={L.bodyMax}
-            readOnly={readOnly}
-            preview={{ values: sample }}
-          />
+            <RichTextField
+              control={form.control}
+              name="body"
+              label={t('body')}
+              hint={payment ? (deposit ? t('bodyHintDeposit') : t('bodyHintPayment')) : t('bodyHint')}
+              context={{ kind, deposit }}
+              max={L.bodyMax}
+              readOnly={readOnly}
+              preview={{ values: sample }}
+            />
 
-          <div className="flex flex-wrap gap-3">
-            {!readOnly && (
-              <Button type="submit" disabled={form.formState.isSubmitting} className="min-h-11">
-                {t('save')}
+            <div className="flex flex-wrap gap-3">
+              {!readOnly && (
+                <Button type="submit" disabled={form.formState.isSubmitting} className="min-h-11">
+                  {t('save')}
+                </Button>
+              )}
+              <Button type="button" variant="outline" className="min-h-11" onClick={() => onOpenChange(false)}>
+                {readOnly ? t('close') : t('cancel')}
               </Button>
-            )}
-            <Button type="button" variant="outline" className="min-h-11" onClick={() => onOpenChange(false)}>
-              {readOnly ? t('close') : t('cancel')}
-            </Button>
-          </div>
-        </form>
+            </div>
+          </form>
+        </RichTextGuardProvider>
       </Form>
     </DetailPanel>
   )

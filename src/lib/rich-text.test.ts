@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { docFromText, docLength, docPlainText, emptyDoc, isDocEmpty, isRichDoc, normalizeDoc } from '@/lib/rich-text'
+import { docFromText, docLength, docPlainText, emptyDoc, isDocEmpty, isRichDoc, normalizeDoc, parseFontSize, withAttrs } from '@/lib/rich-text'
 
 describe('normalizeDoc', () => {
   it('behält nur fett, kursiv, Absätze, Umbrüche und Listen', () => {
@@ -90,5 +90,50 @@ describe('Länge und leer', () => {
     expect(isDocEmpty(emptyDoc())).toBe(true)
     expect(isDocEmpty(docFromText('  \n\n   '))).toBe(true)
     expect(isDocEmpty(docFromText(' x '))).toBe(false)
+  })
+})
+
+describe('Einstellungen je Text', () => {
+  const content = [{ type: 'paragraph' }]
+
+  it('isRichDoc nimmt nur gültige Werte an', () => {
+    expect(isRichDoc({ type: 'doc', attrs: { fontFamily: 'arimo', fontSize: 10.5, textAlign: 'justify' }, content })).toBe(true)
+    expect(isRichDoc({ type: 'doc', content })).toBe(true)
+    for (const attrs of [
+      {},
+      { fontFamily: 'comic' },
+      { fontSize: 5.5 },
+      { fontSize: 24.5 },
+      { fontSize: 10.3 },
+      { fontSize: '10' },
+      { textAlign: 'left' },
+      { textAlign: 'middle' },
+      { color: 'red' },
+    ]) {
+      expect(isRichDoc({ type: 'doc', attrs, content })).toBe(false)
+    }
+  })
+
+  it('normalizeDoc behält gültige Werte in fester Reihenfolge und entfernt ungültige', () => {
+    const a = normalizeDoc({ type: 'doc', attrs: { textAlign: 'center', color: 'red', fontSize: 40, fontFamily: 'tinos' }, content })
+    expect(a.attrs).toEqual({ fontFamily: 'tinos', textAlign: 'center' })
+    const b = normalizeDoc({ content, attrs: { fontFamily: 'tinos', textAlign: 'center' }, type: 'doc' })
+    expect(JSON.stringify(a)).toBe(JSON.stringify(b))
+    expect(normalizeDoc({ type: 'doc', attrs: { textAlign: 'left' }, content }).attrs).toBeUndefined()
+    expect('attrs' in normalizeDoc({ type: 'doc', attrs: {}, content })).toBe(false)
+  })
+
+  it('withAttrs entfernt leere Angaben', () => {
+    expect('attrs' in withAttrs(emptyDoc(), { fontSize: undefined })).toBe(false)
+    expect(withAttrs(emptyDoc(), { fontSize: 9 }).attrs).toEqual({ fontSize: 9 })
+  })
+
+  it('parseFontSize: Komma oder Punkt, leer = Standard, sonst ungültig', () => {
+    expect(parseFontSize('10,5')).toBe(10.5)
+    expect(parseFontSize(' 11.0 ')).toBe(11)
+    expect(parseFontSize('6')).toBe(6)
+    expect(parseFontSize('24')).toBe(24)
+    expect(parseFontSize('')).toBeUndefined()
+    for (const bad of ['5', '25', '10,3', '-8', 'abc', '1e1']) expect(parseFontSize(bad)).toBeNull()
   })
 })

@@ -575,7 +575,7 @@ test.describe('Zahlungsregeln, Editor und Vorschau', () => {
     await expect(toolbar.getByRole('button', { name: 'Kursiv' })).toBeVisible()
     await expect(toolbar.getByRole('button', { name: 'Aufzählung' })).toBeVisible()
     await expect(toolbar.getByRole('button', { name: 'Nummerierte Liste' })).toBeVisible()
-    await expect(toolbar.getByRole('button')).toHaveCount(5) // dazu „Platzhalter einfügen“
+    await expect(toolbar.getByRole('button')).toHaveCount(10) // dazu 4 × Ausrichtung, Code, „Platzhalter einfügen“
 
     await p.getByLabel('Name').fill('Eingefügt')
     await editor(p, 'Text').click()
@@ -888,5 +888,154 @@ test.describe('Nachtest QA Runde 2', () => {
     await expect(page.getByText('Baustein gespeichert.')).toBeVisible()
     await expect(page.getByText('Der Baustein wurde inzwischen geändert.')).toHaveCount(0)
     await expect.poll(async () => (await blockRows(tenantId)).find((r) => r.id === target.id)).toMatchObject({ name: 'Anzahlung 25 %', is_default: true })
+  })
+})
+
+test.describe('Editor-Erweiterung: Schrift, Größe, Ausrichtung, Code', () => {
+  const code = (scope: ReturnType<Page['getByRole']>) => scope.locator('textarea')
+
+  test('AC: Auswahl gilt für den ganzen Text, in Schreibfläche und Vorschau', async ({ page, users }) => {
+    desktopOnly()
+    const { owner } = await ownerWithTenant(users, 'Schrift')
+    await signInAs(page, owner)
+    await openSettings(page)
+    await openNewBlock(page, 'closing')
+    const p = panel(page)
+    const box = editor(p, 'Text')
+    await typeInto(page, box, 'Ein Text', { clear: true })
+
+    await p.getByRole('combobox', { name: 'Schriftart' }).click()
+    for (const name of ['Standard', 'Arimo (wie Arial)', 'Tinos (wie Times)', 'Carlito (wie Calibri)', 'Source Sans 3', 'Source Serif 4', 'Open Sans']) {
+      await expect(page.getByRole('option', { name, exact: true })).toBeVisible()
+    }
+    await page.getByRole('option', { name: 'Arimo (wie Arial)' }).click()
+    await expect(box).toHaveCSS('font-family', /Arimo/)
+
+    const size = p.getByRole('textbox', { name: 'Schriftgröße in pt' })
+    await size.fill('12')
+    await size.blur()
+    await expect(box).toHaveCSS('font-size', '16px')
+    await p.getByRole('button', { name: 'Blocksatz' }).click()
+    await expect(box).toHaveCSS('text-align', 'justify')
+    await expect(p.getByRole('button', { name: 'Blocksatz' })).toHaveAttribute('aria-pressed', 'true')
+    await expect(p.getByRole('button', { name: 'Linksbündig' })).toHaveAttribute('aria-pressed', 'false')
+    await expect(p.locator('div.flex-col.gap-2.break-words').filter({ hasText: 'Ein Text' })).toHaveCSS('font-family', /Arimo/)
+
+    // Liste bleibt linksbündig
+    await p.getByRole('button', { name: 'Aufzählung' }).click()
+    await expect(box.locator('ul')).toHaveCSS('text-align', 'left')
+  })
+
+  test('AC: ungültige Schriftgröße zeigt den Hinweis und sperrt das Speichern; Enter speichert nicht', async ({ page, users }) => {
+    desktopOnly()
+    const { owner, tenantId } = await ownerWithTenant(users, 'Größe')
+    await signInAs(page, owner)
+    await openSettings(page)
+    const before = (await blockRows(tenantId)).length
+    await openNewBlock(page, 'closing')
+    const p = panel(page)
+    await p.getByLabel('Name').fill('Zu groß')
+    await typeInto(page, editor(p, 'Text'), 'Text', { clear: true })
+    const size = p.getByRole('textbox', { name: 'Schriftgröße in pt' })
+    for (const bad of ['5', '25', '10,3']) {
+      await size.fill(bad)
+      await size.press('Enter')
+      await expect(p.getByText('Schriftgröße: 6 bis 24 pt')).toBeVisible()
+    }
+    await p.getByRole('button', { name: 'Speichern' }).click()
+    await expect(p.getByText('Schriftgröße: 6 bis 24 pt')).toBeVisible()
+    await expect(p).toBeVisible()
+    expect((await blockRows(tenantId)).length).toBe(before)
+    await size.fill('10,5')
+    await size.blur()
+    await expect(p.getByText('Schriftgröße: 6 bis 24 pt')).toHaveCount(0)
+    await expect(editor(p, 'Text')).toHaveCSS('font-size', '14px')
+  })
+
+  test('AC: Code zeigt HTML, Änderungen kommen zurück, Unerlaubtes wird entfernt und genannt', async ({ page, users }) => {
+    desktopOnly()
+    const { owner } = await ownerWithTenant(users, 'Code')
+    await signInAs(page, owner)
+    await openSettings(page)
+    await openNewBlock(page, 'closing')
+    const p = panel(page)
+    const box = editor(p, 'Text')
+    await typeInto(page, box, 'Hallo', { clear: true })
+    const toggle = p.getByRole('button', { name: 'HTML-Code bearbeiten' })
+
+    await toggle.click()
+    await expect(code(p)).toHaveValue('<p>Hallo</p>')
+    await expect(p.getByRole('button', { name: 'Fett' })).toBeDisabled()
+    await expect(p.getByRole('button', { name: 'Platzhalter einfügen' })).toBeDisabled()
+    await expect(p.locator('.ProseMirror')).toBeHidden()
+    // ohne Änderung zurück: nichts passiert
+    await toggle.click()
+    await expect(box).toHaveText('Hallo')
+    await expect(p.getByText('Entfernt:')).toHaveCount(0)
+
+    await toggle.click()
+    await code(p).fill('<div style="font-size: 9pt; text-align: right"><ul><li>Punkt</li></ul></div>')
+    // Vorschau folgt schon im Code-Modus
+    await expect(p.locator('li').filter({ hasText: 'Punkt' }).first()).toBeVisible()
+    await toggle.click()
+    await expect(box.locator('li')).toHaveText('Punkt')
+    await expect(box).toHaveCSS('text-align', 'right')
+    await expect(box).toHaveCSS('font-size', '12px')
+    await expect(p.getByRole('textbox', { name: 'Schriftgröße in pt' })).toHaveValue('9')
+    await expect(p.getByText('Entfernt:')).toHaveCount(0)
+
+    let dialogs = 0
+    page.on('dialog', (d) => {
+      dialogs++
+      void d.dismiss()
+    })
+    await toggle.click()
+    await code(p).fill('<p>Text <a href="https://evil.example">Link</a><script>alert(1)</script><img src=x onerror="alert(2)"></p>')
+    await toggle.click()
+    await expect(box).toHaveText('Text Link')
+    await expect(box.locator('a, img, script')).toHaveCount(0)
+    await expect(p.getByText('Entfernt: <a>, <script>, <img>')).toBeVisible()
+    expect(dialogs).toBe(0)
+  })
+
+  test('AC: Speichern im Code-Modus mit Unerlaubtem bricht ab und zeigt den bereinigten Text', async ({ page, users }) => {
+    desktopOnly()
+    const { owner, tenantId } = await ownerWithTenant(users, 'CodeSpeichern')
+    await signInAs(page, owner)
+    await openSettings(page)
+    const before = (await blockRows(tenantId)).length
+    await openNewBlock(page, 'closing')
+    const p = panel(page)
+    await p.getByLabel('Name').fill('Aus Code')
+    await p.getByRole('button', { name: 'HTML-Code bearbeiten' }).click()
+    await code(p).fill('<p><span>Sauber</span></p>')
+    await p.getByRole('button', { name: 'Speichern' }).click()
+    await expect(p.getByText('Entfernt: <span>')).toBeVisible()
+    await expect(editor(p, 'Text')).toHaveText('Sauber')
+    expect((await blockRows(tenantId)).length).toBe(before)
+
+    // Jetzt ohne Unerlaubtes im Code-Modus: wird gespeichert
+    await p.getByRole('button', { name: 'HTML-Code bearbeiten' }).click()
+    await code(p).fill('<p>Sauber im Code</p>')
+    await p.getByRole('button', { name: 'Speichern' }).click()
+    await expect(p).toBeHidden()
+    await expect.poll(async () => (await blockRows(tenantId)).find((r) => r.name === 'Aus Code')?.name).toBe('Aus Code')
+  })
+
+  test('Handy: Werkzeugleiste und Code-Feld ohne seitliches Scrollen', async ({ page, users }) => {
+    test.skip(test.info().project.name !== 'mobile', 'Nur im Handy-Projekt')
+    const { owner } = await ownerWithTenant(users, 'CodeHandy')
+    await signInAs(page, owner)
+    await openSettings(page)
+    await openNewBlock(page, 'closing')
+    const p = panel(page)
+    await p.getByRole('button', { name: 'HTML-Code bearbeiten' }).click()
+    await code(p).fill(`<p>${'x'.repeat(300)}</p>`)
+    const overflow = await p.evaluate((el) => el.scrollWidth - el.clientWidth)
+    expect(overflow).toBeLessThanOrEqual(0)
+    for (const b of await p.getByRole('toolbar', { name: 'Formatierung' }).locator('button, input').all()) {
+      const size = await b.boundingBox()
+      if (size && (await b.isVisible())) expect(size.height).toBeGreaterThanOrEqual(44)
+    }
   })
 })
