@@ -1,10 +1,10 @@
 # PROJ-39: Einstellungen → Rechnungen
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-10-31
 **Last Updated:** 2026-11-04
 
-> Der Grundumfang ist seit v1.17.0 in Produktion. Der Status gilt für die Editor-Erweiterung vom 2026-11-04 (Abschnitt „Editor: Erweiterung“).
+> Grundumfang seit v1.17.0 in Produktion, Editor-Erweiterung (Abschnitt „Editor: Erweiterung“) seit v1.20.0.
 
 ## Dependencies
 - Requires: PROJ-4 (Kundenkonten & Rollen): Einstellungen nur für Inhaber, Mandantentrennung
@@ -1285,3 +1285,13 @@ Auf Wunsch des Nutzers alle Fehler behoben.
 - **Neue Umgebungsvariablen / `config push`:** keine
 - **Mit ausgeliefert:** Buchhaltungs-Commit PROJ-38 (`4a54071`)
 - **Tag:** `v1.17.0-PROJ-39` auf `0ea941f`
+
+### Editor-Erweiterung (2026-11-04)
+- **Staging:** https://staging.apppa.at (2026-11-04, `269e293`), vom Nutzer geprüft
+- **Produktion:** https://app.apppa.at (2026-11-04, `269e293`), Build und Kurztest vom Nutzer bestätigt
+- **Migrationen in Staging und Produktion:** `20261104172140_rich_text_attrs.sql`, `20261104172539_rich_text_attrs_grant.sql`
+- **Advisors:** Staging `auth_otp_long_expiry`, `auth_leaked_password_protection`; Produktion `auth_otp_long_expiry`; alle bekannt
+- **Neue Pakete, neue Umgebungsvariablen im Code, `config push`:** keine
+- **Mit ausgeliefert:** Buchhaltungs-Commit PROJ-15 (`6d8a60c`); BUG-7 (Hinweise zu `{Anrede}`, seit PROJ-40 in Produktion) und BUG-4 im Rechnungsentwurf
+- **Vorabprüfung:** Der erste Vitest-Lauf war rot (RLS-Test, 67.141 Zeilen im Dev-`audit_log`). Nach der Bereinigung durch den Nutzer 832/832 grün.
+- **Tag:** `v1.20.0-PROJ-39` auf `269e293`
