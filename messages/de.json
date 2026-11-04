@@ -1811,6 +1811,7 @@
       "codeShort": "Code",
       "codeHint": "Erlaubt: {tags}, dazu ein äußeres {wrapper} mit font-family, font-size und text-align. Anderes wird entfernt.",
       "removed": "Entfernt: {items}. Bitte prüfen Sie den Text.",
+      "codeTooLong": "Der eingefügte Code ist länger als {max} Zeichen und wurde nicht übernommen. Es wurde nichts gekürzt.",
       "insertPlaceholder": "Platzhalter einfügen",
       "count": "{length} / {max} Zeichen",
       "preview": "Vorschau mit Beispieldaten",
@@ -1929,7 +1930,7 @@
       "country": "Staat",
       "vatId": "UID (optional)",
       "copyHint": "Die Angaben sind eine Kopie für diese Rechnung. Du kannst sie ändern, ohne dass sich der Gast ändert.",
-      "salutation": "Anrede im Text ({Anrede})",
+      "salutation": "Anrede im Text ('{Anrede}')",
       "salutation_generic": "Sehr geehrte Damen und Herren",
       "salutation_guest": "Anrede des Hauptgasts",
       "confirmTitle": "Empfänger neu belegen?",
@@ -2004,7 +2005,7 @@
       "replaceText": "Du hast den Text für diese Rechnung geändert. Der andere Baustein ersetzt ihn.",
       "replaceConfirm": "Ersetzen",
       "replaceKeep": "Behalten",
-      "salutationGuest": "{Anrede} richtet sich nach dem Hauptgast (Geschlecht und Titel).",
+      "salutationGuest": "'{Anrede}' richtet sich nach dem Hauptgast (Geschlecht und Titel).",
       "intro": {
         "title": "Einleitung"
       },

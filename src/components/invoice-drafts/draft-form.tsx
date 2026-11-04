@@ -19,6 +19,7 @@ import { DraftLines } from '@/components/invoice-drafts/draft-lines'
 import { DraftTextBlock } from '@/components/invoice-drafts/draft-text-block'
 import { InvoicePreview } from '@/components/invoice-drafts/invoice-preview'
 import { RequiredChecks } from '@/components/invoice-drafts/required-checks'
+import { useAdoptEarlyInput } from '@/components/invoice-drafts/use-adopt-early-input'
 import { useUnsavedGuard } from '@/components/invoice-drafts/use-unsaved-guard'
 import { RichTextGuardProvider, useRichTextGuard } from '@/components/invoice-settings/rich-text-guard'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -196,6 +197,7 @@ export function DraftForm({ booking, others, preview, smallBusiness, textBlocks,
   const v = useWatch({ control: form.control }) as DraftInput
   const guard = useUnsavedGuard(form.formState.isDirty && !form.formState.isSubmitSuccessful)
   const textGuard = useRichTextGuard()
+  const formRef = useAdoptEarlyInput(form)
   const validate = () => ({ shouldDirty: true, shouldValidate: form.formState.isSubmitted })
 
   const blocksOf = (k: TextBlockKind) => textBlocks.filter((b) => b.kind === k)
@@ -377,7 +379,7 @@ export function DraftForm({ booking, others, preview, smallBusiness, textBlocks,
       {/* Das Formular bleibt während der Vorschau erhalten (nur ausgeblendet): keine Eingabe geht verloren */}
       <Form {...form}>
         <RichTextGuardProvider value={textGuard.checks}>
-          <form onSubmit={textGuard.guardSubmit(form.handleSubmit(save))} noValidate className={previewing ? 'hidden' : 'flex min-w-0 max-w-[760px] flex-col gap-10'}>
+          <form ref={formRef} onSubmit={textGuard.guardSubmit(form.handleSubmit(save))} noValidate className={previewing ? 'hidden' : 'flex min-w-0 max-w-[760px] flex-col gap-10'}>
             <div className="flex flex-col gap-4">
               <div className="flex flex-col gap-1 rounded-lg bg-ds-surface px-4 py-3">
                 <Link href={bookingHref(booking.id)} className="flex min-h-11 w-fit items-center font-medium text-ds-accent-700 underline-offset-[3px] hover:underline">

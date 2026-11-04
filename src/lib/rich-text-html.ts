@@ -25,7 +25,8 @@ export const RICH_FONT_NAMES: Record<RichFont, string> = {
 }
 
 export const RICH_HTML_TAGS = '<p>, <br>, <strong>, <em>, <ul>, <ol>, <li>'
-export const RICH_CODE_MAX = 20_000
+// Obergrenze des Code-Felds: großzügig, weil HTML aus Word viel Beiwerk enthält, das beim Lesen wegfällt
+export const RICH_CODE_MAX = 200_000
 
 const escapeText = (text: string) =>
   text.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll(' ', '&nbsp;')
@@ -69,10 +70,10 @@ export function docToHtml(doc: RichDoc): string {
 
 // Inhalt wird mitsamt dem Tag verworfen
 const DROP = new Set(
-  'script style template noscript iframe object embed applet svg math head title meta link base audio video canvas img picture source track map area input select textarea button hr wbr'.split(' ')
+  'script style template noscript iframe object embed applet svg math head title meta link base audio video canvas img picture source track map area input hr wbr'.split(' ')
 )
 const BLOCK = new Set(
-  'address article aside blockquote caption center dd details dialog dir dl dt fieldset figcaption figure footer form h1 h2 h3 h4 h5 h6 header hgroup legend main menu nav pre section summary table tbody td tfoot th thead tr'.split(' ')
+  'address article aside blockquote caption center dd details dialog dir dl dt fieldset figcaption figure footer form h1 h2 h3 h4 h5 h6 header hgroup legend main menu nav optgroup option pre section summary table tbody td tfoot th thead tr'.split(' ')
 )
 
 // Zeilenumbruch samt Einrückung im Code: wie in HTML ein Leerzeichen, am Rand einer Zeile nichts. Andere Leerzeichen
@@ -145,7 +146,7 @@ export function htmlToDoc(html: string): { doc: RichDoc; removed: string[] } {
     for (const child of Array.from(el.childNodes)) walk(child, w, marks)
   }
 
-  const listItems = (list: Element): RichListItem[] => {
+  const listItems = (list: Element, marks: Mark[]): RichListItem[] => {
     const items: RichListItem[] = []
     for (const child of Array.from(list.childNodes)) {
       if (child.nodeType === Node.COMMENT_NODE) note('Kommentar')
@@ -154,9 +155,10 @@ export function htmlToDoc(html: string): { doc: RichDoc; removed: string[] } {
       const inner: Walk = { blocks: [], run: [] }
       if (child.nodeType === Node.ELEMENT_NODE && (child as Element).localName === 'li') {
         noteAttrs(child as Element, 'li')
-        walkChildren(child as Element, inner, [])
-      } else walk(child, inner, [])
-      flush(inner)
+        walkChildren(child as Element, inner, marks)
+      } else walk(child, inner, marks)
+      // Ein Punkt nur aus Leerzeichen bleibt ein Punkt mit Leerzeichen; Leerraum neben Absätzen zählt nicht
+      flush(inner, inner.blocks.length === 0)
       const paragraphs = inner.blocks.filter((b): b is RichParagraph => b.type === 'paragraph')
       items.push({ type: 'listItem', content: paragraphs.length ? paragraphs : [{ type: 'paragraph' }] })
       // Verschachtelte Listen werden wie beim Einfügen zu weiteren Punkten derselben Liste
@@ -198,7 +200,7 @@ export function htmlToDoc(html: string): { doc: RichDoc; removed: string[] } {
     } else if (tag === 'ul' || tag === 'ol') {
       noteAttrs(el, tag)
       flush(w)
-      const items = listItems(el)
+      const items = listItems(el, marks)
       if (items.length) w.blocks.push({ type: tag === 'ul' ? 'bulletList' : 'orderedList', content: items })
     } else if (DROP.has(tag)) {
       note(`<${tag}>`)

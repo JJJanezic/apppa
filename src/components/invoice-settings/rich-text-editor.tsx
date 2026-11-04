@@ -221,6 +221,7 @@ export function RichTextEditor({ value, onChange, context, max, labelId, describ
   function closeCode() {
     const html = code ?? ''
     setCode(null)
+    setCodeTooLong(false)
     if (html === codeStart.current) return
     const result = htmlToDoc(html)
     editor?.commands.setContent(editorContent(result.doc), { emitUpdate: false })
@@ -229,7 +230,11 @@ export function RichTextEditor({ value, onChange, context, max, labelId, describ
     setSizeText(formatSize(result.doc.attrs?.fontSize))
   }
 
+  // Zu langer Code wird abgewiesen statt gekürzt (BUG-2 aus QA): ein maxLength am Feld schnitte Eingefügtes ohne Hinweis ab
+  const [codeTooLong, setCodeTooLong] = useState(false)
   function changeCode(html: string) {
+    setCodeTooLong(html.length > RICH_CODE_MAX)
+    if (html.length > RICH_CODE_MAX) return
     setCode(html)
     onChange(htmlToDoc(html).doc)
   }
@@ -386,6 +391,11 @@ export function RichTextEditor({ value, onChange, context, max, labelId, describ
       {codeOpen && (
         <div className="flex flex-col gap-2 p-3">
           <p className="text-[13px] text-ds-neutral-800">{t('codeHint', { tags: RICH_HTML_TAGS, wrapper: '<div>' })}</p>
+          {codeTooLong && (
+            <p role="alert" className="text-sm text-ds-accent-2-800">
+              {t('codeTooLong', { max: formatNumber(RICH_CODE_MAX) })}
+            </p>
+          )}
           <Textarea
             aria-labelledby={labelId}
             aria-describedby={describedBy}
@@ -393,7 +403,6 @@ export function RichTextEditor({ value, onChange, context, max, labelId, describ
             spellCheck={false}
             autoCapitalize="off"
             autoCorrect="off"
-            maxLength={RICH_CODE_MAX}
             className="min-h-48 font-mono"
             value={code}
             onChange={(e) => changeCode(e.target.value)}
