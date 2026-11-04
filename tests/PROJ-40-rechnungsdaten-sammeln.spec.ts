@@ -209,7 +209,8 @@ async function openCreate(page: Page, bookingId: string) {
   await page.goto(`/rechnungen/neu?buchung=${bookingId}`)
   await ready(page)
   // <main> ist früher aktiv als das Formular; eine sofortige Eingabe ginge sonst verloren. Der Editor erscheint erst danach.
-  await expect(page.locator('.ProseMirror').first()).toBeVisible()
+  // Ohne Formular (z. B. voll verrechnet) gibt es nichts abzuwarten
+  if (await page.locator('input[type="date"]').count()) await expect(page.locator('.ProseMirror').first()).toBeVisible()
 }
 const lineBox = (page: Page, label: string) => page.getByRole('checkbox', { name: `„${label}“ auf die Rechnung` })
 const invoicesSection = (page: Page) => page.locator('section').filter({ has: page.getByRole('heading', { name: 'Rechnungen', exact: true }) })
@@ -1041,5 +1042,48 @@ test.describe('Layout', () => {
         expect(small, path).toEqual([])
       }
     }
+  })
+})
+
+test.describe('QA Editor-Erweiterung (PROJ-39)', () => {
+  const intro = (page: Page) => page.getByRole('region', { name: 'Einleitung' })
+
+  test('AC: Einstellungen und Code im Entwurf: speichern, Detail, erneut öffnen, Rückfrage, Unerlaubtes bricht ab', async ({ page, users }) => {
+    desktopOnly()
+    const { owner, tenantId } = await setup(users)
+    const apt = await addApartment(tenantId)
+    const guest = await addGuest(tenantId)
+    const booking = await addBooking(tenantId, apt, { guestId: guest })
+    await signInAs(page, owner)
+    await openCreate(page, booking.id)
+
+    // Nur eine Formatänderung gilt als ungespeicherte Änderung
+    await intro(page).getByRole('button', { name: 'Blocksatz' }).click()
+    await page.getByRole('link', { name: /^Buchung/ }).first().click()
+    await expect(page.getByRole('alertdialog', { name: 'Seite verlassen?' })).toBeVisible()
+    await page.getByRole('alertdialog').getByRole('button', { name: /bearbeiten/i }).click()
+
+    // Code mit Unerlaubtem: nichts gespeichert, Hinweis im Formular
+    await intro(page).getByRole('button', { name: 'HTML-Code bearbeiten' }).click()
+    const code = intro(page).locator('textarea')
+    await code.fill('<div style="font-family: Tinos; font-size: 12pt; text-align: justify"><p>{Anrede}, <a href="https://x.example">danke</a></p></div>')
+    await page.getByRole('button', { name: 'Entwurf speichern', exact: true }).click()
+    await expect(intro(page).getByText('Entfernt: <a>')).toBeVisible()
+    await expect(page).toHaveURL(/\/rechnungen\/neu/)
+
+    const id = await saveDraft(page)
+    const { data: row } = await service().from('invoices').select('intro_text').eq('id', id).single()
+    expect((row as { intro_text: { attrs: unknown } }).intro_text.attrs).toEqual({ fontFamily: 'tinos', fontSize: 12, textAlign: 'justify' })
+
+    await page.goto(`/rechnungen/${id}/bearbeiten`)
+    await ready(page)
+    const box = intro(page).getByRole('textbox', { name: 'Text für diese Rechnung', exact: true })
+    await expect(box).toHaveCSS('font-family', /Tinos/)
+    await expect(box).toHaveCSS('text-align', 'justify')
+    await expect(intro(page).getByRole('textbox', { name: 'Schriftgröße in pt' })).toHaveValue('12')
+    await page.getByRole('button', { name: 'Vorschau' }).click()
+    const shown = page.getByRole('article', { name: 'Rechnungsvorschau' }).locator('div.break-words').filter({ hasText: 'danke' })
+    await expect(shown).toHaveCSS('font-family', /Tinos/)
+    await expect(shown).toHaveCSS('text-align', 'justify')
   })
 })

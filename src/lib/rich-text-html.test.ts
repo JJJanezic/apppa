@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { docFromText, normalizeDoc, type RichDoc } from '@/lib/rich-text'
+import { docFromText, isRichDoc, normalizeDoc, type RichBlock, type RichDoc, type RichInline } from '@/lib/rich-text'
 import { docToHtml, htmlToDoc } from '@/lib/rich-text-html'
 
 const text = (t: string) => ({ type: 'text' as const, text: t })
@@ -118,5 +118,115 @@ describe('docToHtml und htmlToDoc', () => {
   it('leerer Code ergibt einen leeren Text', () => {
     expect(htmlToDoc('').doc).toEqual({ type: 'doc', content: [{ type: 'paragraph' }] })
     expect(htmlToDoc('<p> </p>').removed).toEqual([])
+  })
+})
+
+describe('htmlToDoc gegen Angriffe und kaputtes HTML (QA)', () => {
+  const payloads = [
+    '<script>alert(1)</script>',
+    '<img src=x onerror=alert(1)>',
+    '<svg onload=alert(1)><script>alert(1)</script></svg>',
+    '<math><mi xlink:href="javascript:alert(1)">x</mi></math>',
+    '<iframe src="javascript:alert(1)"></iframe>',
+    '<a href="javascript:alert(1)">x</a>',
+    '<p onclick="alert(1)" style="background:url(javascript:alert(1))">x</p>',
+    '<div style="font-family: \'x\'; background: url(https://evil.example/a.png)"><p>x</p></div>',
+    '<div style="font-family: Arimo;}body{display:none"><p>x</p></div>',
+    '<div style="font-size: 12pt !important"><p>x</p></div>',
+    '<div style="font-size: expression(alert(1))"><p>x</p></div>',
+    '<div style="font-family: Arimo; font-family: Tinos"><p>x</p></div>',
+    '<meta http-equiv="refresh" content="0;url=https://evil.example">',
+    '<link rel="stylesheet" href="https://evil.example/a.css">',
+    '<base href="https://evil.example/">',
+    '<style>@import url(https://evil.example/a.css)</style>',
+    '<html><body onload="alert(1)"><p>x</p></body></html>',
+    '<html><frameset><frame src="https://evil.example"></frameset></html>',
+    '<!-- <script>alert(1)</script> --><p>x</p>',
+    '<template><script>alert(1)</script></template>',
+    '<noscript><p>x</p></noscript>',
+    '<table><tr><td><ul><li>x</table>',
+    '<ul>lose<li><ol><li><ul><li>tief</li></ul></li></ol></li></ul>',
+    '<li>ohne Liste</li>',
+    '<p><p><p>',
+    '</p></div></ul>',
+    '<div><div><div><div>tief</div></div></div></div>',
+    '<strong><em><strong><em>x</em></strong></em></strong>',
+    '<strong><p>a</p><ul><li>b</li></ul></strong>',
+    '<',
+    '<<<>>>',
+    '&amp;lt;script&amp;gt;',
+    '\u0000\u0000',
+    '<p>\u0000</p>',
+    '<p>' + '<strong>'.repeat(2000) + 'x',
+  ]
+
+  it.each(payloads)('ergibt immer eine gültige Struktur ohne Aktive Inhalte: %s', (html) => {
+    const { doc } = htmlToDoc(html)
+    expect(isRichDoc(doc)).toBe(true)
+    const json = JSON.stringify(doc)
+    expect(json).not.toContain('"href"')
+    expect(json).not.toContain('"src"')
+    expect(json).not.toContain('onerror')
+    // Was beim nächsten Öffnen als Code erscheint, enthält nur erlaubte Tags
+    expect(docToHtml(doc).match(/<\/?([a-z]+)/g)?.every((t) => /^<\/?(p|br|strong|em|ul|ol|li|div)$/.test(t)) ?? true).toBe(true)
+  })
+
+  it('Aktives wird in der Hinweisliste genannt und sein Inhalt nicht zu Text', () => {
+    for (const html of ['<script>alert(1)</script>', '<style>a{}</style>', '<template>geheim</template>', '<iframe>geheim</iframe>']) {
+      const { doc, removed } = htmlToDoc(html)
+      expect(removed.length, html).toBeGreaterThan(0)
+      expect(JSON.stringify(doc), html).not.toMatch(/alert|geheim|a\{/)
+    }
+  })
+
+  // BUG-1 (QA 2026-11-04): Soll grün werden; it.fails meldet, sobald es behoben ist
+  it.fails('BUG-1: Listenpunkt nur aus Leerzeichen bleibt beim Wechsel erhalten', () => {
+    const doc = normalizeDoc({ type: 'doc', content: [{ type: 'bulletList', content: [{ type: 'listItem', content: [{ type: 'paragraph', content: [text(' ')] }] }] }] })
+    expect(htmlToDoc(docToHtml(doc)).doc).toEqual(doc)
+  })
+
+  // BUG-5 (QA 2026-11-04): Spec: „Nicht Erlaubtes wird entfernt, sein Text bleibt erhalten“
+  it.fails.each(['<button>Text</button>', '<select><option>Text</option></select>', '<textarea>Text</textarea>'])('BUG-5: Text bleibt bei %s', (html) => {
+    expect(JSON.stringify(htmlToDoc(html).doc)).toContain('Text')
+  })
+
+  // BUG-6 (QA 2026-11-04): fett um eine Liste geht ohne Hinweis verloren
+  it.fails('BUG-6: <strong> um eine Liste bleibt erhalten oder wird genannt', () => {
+    const { doc, removed } = htmlToDoc('<strong><ul><li>x</li></ul></strong>')
+    expect(JSON.stringify(doc).includes('bold') || removed.length > 0).toBe(true)
+  })
+
+  it('Hin und zurück ändert zufällige Dokumente nicht', () => {
+    const isBlank = (p: { content?: RichInline[] }) => (p.content ?? []).every((n) => n.type === 'text' && n.text.trim() === '')
+    let seed = 42
+    const rnd = (n: number) => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) % n
+    const words = ['a', ' ', '  ', 'b c', '<', '>', '&', '&amp;', '{Gast}', '\u00a0', 'ä€', '"', "'", ' x ', '<p>', '</li>', '&nbsp;']
+    const inline = (): RichInline[] =>
+      Array.from({ length: rnd(5) }, (): RichInline => {
+        if (rnd(5) === 0) return { type: 'hardBreak' }
+        const marks = [{ type: 'bold' as const }, { type: 'italic' as const }].filter(() => rnd(2) === 0)
+        const text = words[rnd(words.length)]
+        return marks.length ? { type: 'text', text, marks } : { type: 'text', text }
+      })
+    const para = () => {
+      const content = inline()
+      return content.length ? { type: 'paragraph' as const, content } : { type: 'paragraph' as const }
+    }
+    // Nur aus Leerzeichen bestehende Listenpunkte: siehe BUG-1
+    const item = () => ({ type: 'listItem' as const, content: Array.from({ length: 1 + rnd(2) }, para).map((p, _, all) => (all.length === 1 && isBlank(p) ? { type: 'paragraph' as const } : p)) })
+    const block = (): RichBlock =>
+      rnd(3) === 0
+        ? {
+            type: rnd(2) ? 'bulletList' : 'orderedList',
+            content: Array.from({ length: 1 + rnd(3) }, item),
+          }
+        : para()
+    const failures: string[] = []
+    for (let i = 0; i < 500; i++) {
+      const doc = normalizeDoc({ type: 'doc', attrs: rnd(2) ? { fontSize: 10.5, textAlign: 'center' } : undefined, content: Array.from({ length: 1 + rnd(4) }, block) })
+      const back = htmlToDoc(docToHtml(doc))
+      if (JSON.stringify(back.doc) !== JSON.stringify(doc) || back.removed.length) failures.push(`${JSON.stringify(doc)}\n => ${JSON.stringify(back.doc)} ${back.removed}`)
+    }
+    expect(failures.length, failures.slice(0, 4).join('\n\n')).toBe(0)
   })
 })

@@ -1,6 +1,6 @@
 # PROJ-39: Einstellungen → Rechnungen
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-10-31
 **Last Updated:** 2026-11-04
 
@@ -350,7 +350,7 @@ Dazu: Kleinunternehmer-Hinweis mit Gesetzestext, Fußzeile leer, Nummernkreis JJ
 - [x] Wie entsteht das Fälligkeitsdatum, wenn im Entwurf kein Zahlungsbaustein gewählt ist, und was gilt, wenn „vor Anreise“ vor dem Rechnungsdatum liegt? → Fällig am Rechnungsdatum; frühere Fristen werden auf das Rechnungsdatum gesetzt, mit Hinweis (PROJ-40, 2026-10-31)
 - [x] Erscheinen auch die Datumsangaben in Block 2a/2b ohne Wochentag? → Ja, alle Datumsangaben auf der Rechnung ohne Wochentag (PROJ-40, 2026-10-31)
 - [x] Wie lautet {Anrede} bei Firmen als Empfänger (z. B. „Sehr geehrte Damen und Herren“)? → Im Entwurf wählbar, vorausgewählt „Sehr geehrte Damen und Herren“, alternativ Anrede des Hauptgasts (PROJ-40, 2026-10-31)
-- [ ] Eingabe im Entwurf vor dem Aktivwerden des Formulars geht verloren (Rechnungsdatum, siehe Implementation Notes „Für /qa“); vor PROJ-42 klären
+- [ ] Eingabe im Entwurf vor dem Aktivwerden des Formulars geht verloren (BUG-4 aus QA Editor-Erweiterung); vor PROJ-42 klären
 - [ ] PROJ-41: Schriften als TTF- oder WOFF-Dateien samt Lizenztexten ablegen und prüfen, dass Vorschau und PDF gleich umbrechen
 
 ## Decision Log
@@ -1128,6 +1128,120 @@ Migration `20261031135815_invoice_settings_qa_fixes.sql`, in Dev eingespielt; Ty
 - **Security:** bestanden, keine Schwachstelle
 - **Production Ready:** YES (keine Critical/High)
 - **Recommendation:** Deploy möglich; BUG-7 vorher per `/frontend` beheben oder als bekannter Low-Bug mitnehmen
+
+### QA Editor-Erweiterung (2026-11-04)
+
+**Getestet:** 2026-11-04, http://localhost:3000, QA Engineer (AI). Gebauter Server; Safari gegen `npm run dev`; Supabase „apppa-dev“ (`.env.local` geprüft, keine Staging- oder Produktions-Kennung).
+
+**Automatisierte Tests**
+- Vitest komplett, nacheinander: 62 Dateien, 827 Tests grün, 1 erwarteter Fehlschlag (BUG-1), kein `57014`. Dieser Lauf war vor den Tests zu BUG-5 und BUG-6; danach nur noch Unit-Lauf: 609 grün, 5 erwartete Fehlschläge (BUG-1, BUG-5 dreimal, BUG-6). Lint und Typprüfung sauber, Build läuft durch.
+- E2E Chrome Desktop: `PROJ-39` und `PROJ-40` vollständig grün. `PROJ-40` lief in zwei Paketen, weil die Hilfsfunktion `openCreate` im ersten Lauf bei Seiten ohne Formular wartete (Testfehler, korrigiert).
+- E2E Handy (375 px) und Tablet (768 px): Editor mit Touch-Bedienung, 24 pt und langem Wort, keine seitliche Verschiebung; Bildschirmfotos angesehen.
+- E2E Firefox: Editor-Erweiterung grün (2 übersprungen: künstliches Einfügen, Handy-Test).
+- E2E Safari gegen `npm run dev`: Editor-Erweiterung und Entwurf grün. Einmal öffnete sich beim ersten Kompilieren das Panel nicht; in 2 weiteren Läufen nicht wiederholt, als Eigenheit des Entwicklungsservers eingestuft.
+- Neu: Angriffs-Liste und 500 Zufallsdokumente für die HTML-Übersetzung; QA-Block in beiden E2E-Dateien.
+
+**Nicht geprüft**
+- E2E der übrigen Features: Die Änderung betrifft nur Rechnungstexte; die übrigen Features wurden nur über Vitest abgedeckt.
+- PROJ-40 komplett in Firefox und Safari (nur die Editor-Abläufe).
+- Echtes iPhone und echter Safari von Hand.
+- Größe der Schriftdateien und Ladezeit auf einem langsamen Handy.
+
+#### Acceptance Criteria Status: Schriftart, Schriftgröße und Ausrichtung (13/13)
+- [x] Auswahl in Baustein, Kleinunternehmer-Hinweis, Fußzeile und Entwurf
+- [x] Schriftenliste vollständig
+- [x] 10,5 gilt für den ganzen Text; leer = Standard
+- [x] 5, 25 und 10,3: Hinweis, nichts gespeichert
+- [x] Teilmarkierung: Wahl gilt trotzdem für den ganzen Text
+- [x] Speichern und neu öffnen: Werkzeugleiste, Schreibfläche, Vorschau
+- [x] Zentrierter Text: Absatz zentriert, Liste linksbündig in derselben Schrift und Größe
+- [x] Alte Texte: Standard, linksbündig
+- [x] Reine Formatänderung zählt für Konfliktschutz, Bausteinstand und Protokoll (ohne Textinhalt)
+- [x] Entwurf übernimmt die Werte als Kopie; Baustein bleibt unverändert
+- [x] Nur Größe geändert: Rückfrage bei anderem Baustein
+- [x] Entwurfsvorschau zeigt die Einstellungen
+- [x] Am Editor vorbei: unbekannte Schrift, Größe außerhalb von Grenzen oder Schritten, unbekannte Ausrichtung abgelehnt, auch direkt in der Tabelle (`23514`)
+
+#### Acceptance Criteria Status: HTML-Code (12/12)
+- [x] Code zeigt HTML samt Einstellungen; ohne Bearbeitung unverändert zurück
+- [x] Änderungen an Liste, Größe und Ausrichtung kommen zurück
+- [x] `<a>`, `<table>`, `<span style>`: Text bleibt, Tags entfernt und genannt
+- [x] `<script>`, `onerror`: läuft nicht (kein Dialog im Browser), genannt, Inhalt wird nicht zu Text
+- [x] `font-size: 40pt`, unbekannte Schrift: Standard, genannt
+- [x] Speichern im Code-Modus ohne Unzulässiges speichert
+- [x] Speichern mit Unzulässigem: nichts gespeichert, Schreibfläche mit bereinigtem Text und Hinweis
+- [x] `{Gastname}` im Code: gleiche Meldung wie im Editor
+- [x] Vorschau folgt beim Tippen im Code
+- [x] `<`, `>`, `&` bleiben erhalten
+- [x] Im Code-Modus nur Umschalter und Hinweis aktiv
+- [x] Deaktivierter Kunde: keine Werkzeugleiste, kein Code, keine Formatauswahl
+
+#### Edge Cases
+- [x] Nur Tags ohne Text gilt als leer; leere Fußzeile wird `null`, Pflichttext abgelehnt
+- [x] Mehrere `<div>`, Text außerhalb eines Absatzes
+- [x] Zeichengrenze zählt Text ohne Tags
+- [x] 24 pt am Handy ohne seitliches Scrollen
+- [x] Bestehende Entwürfe und Bausteine unverändert
+- [ ] BUG-2: Obergrenze des Code-Felds
+- [ ] Schrift lädt nicht (Ersatzschrift): nicht getestet; `display: swap` ist gesetzt
+
+#### Security Audit
+- [x] XSS: 35 Angriffsmuster (Skripte, `onerror`, `javascript:`, SVG, MathML, `meta`, `base`, `template`, `frameset`) ergeben immer eine gültige Struktur ohne aktive Inhalte. Nichts wird als HTML ausgegeben, kein `dangerouslySetInnerHTML`.
+- [x] CSS-Einschleusung: Schrift, Größe und Ausrichtung sind feste Werte; `}body{…}`, `url(…)`, `expression(…)`, `!important` werden abgelehnt
+- [x] Am Formular vorbei: Speicherfunktion und Tabellenprüfung lehnen ab, auch mit Service-Schlüssel; App und Datenbank waren bei allen geprüften Werten einig
+- [x] Rechte: keine neuen Schreibfunktionen, keine RLS-Änderung; bestehende Rechte-Tests grün
+- [x] Fremdverbindungen: keine Anfrage an Google, Schriften kommen vom eigenen Server; vor der Auswahl ist nur die App-Schrift geladen (Chrome, Safari)
+- [x] Barrierefreiheit (axe): Panel mit Fehler, Code-Feld und Hinweis ohne Verstöße. axe sieht BUG-3 nicht.
+
+#### Bugs Found
+
+**BUG-1: Listenpunkt nur aus Leerzeichen wird geleert**
+- **Severity:** Low
+- **Steps:** Listenpunkt mit einem Leerzeichen anlegen, Code öffnen, etwas ändern, zurückschalten
+- **Expected:** Leerzeichen bleibt. **Actual:** Punkt ist leer.
+- **Test:** `it.fails` in `rich-text-html.test.ts`
+
+**BUG-2: Zu langer Code wird stillschweigend abgeschnitten**
+- **Severity:** Medium
+- **Steps:** Im Code-Feld mehr als 20.000 Zeichen einfügen, z. B. HTML aus Word
+- **Expected:** Hinweis oder vollständiger Text. **Actual:** Der Rest fehlt ohne jeden Hinweis. Beim Zurückschalten entsteht ein gekürzter Text; das gekürzte HTML meldet nichts als entfernt.
+- **Test:** `BUG-2` mit `test.fail` in `PROJ-39-einstellungen-rechnungen.spec.ts`
+
+**BUG-3: Aktiver Knopf in der Werkzeugleiste ist nicht erkennbar**
+- **Severity:** Medium
+- **Steps:** Baustein öffnen, „Blocksatz“ oder „Fett“ wählen, Knopf ansehen
+- **Expected:** Der aktive Zustand ist deutlich sichtbar. **Actual:** Aktiver Knopf `#eae7e7` auf Hintergrund `#eae9e9`, Kontrast praktisch 1:1 (WCAG 1.4.11 verlangt 3:1). Screenreader bekommen den Zustand über `aria-pressed`.
+- **Hinweis:** Schon im Grundumfang vorhanden, wiegt aber schwerer, weil bei der Ausrichtung immer genau ein Knopf aktiv sein soll. Betrifft den gemeinsamen Baustein `Toggle`; andere Stellen vor der Änderung prüfen.
+
+**BUG-4: Eingabe vor dem Aktivwerden des Entwurfs geht verloren**
+- **Severity:** Medium
+- **Steps:** Entwurf öffnen, Rechnungsdatum sofort nach dem Erscheinen ausfüllen
+- **Expected:** Das Datum gilt. **Actual:** Das Feld zeigt das neue Datum, Vorschau und Formular nehmen das heutige. Speichern wurde in diesem Zustand nicht geprüft.
+- **Messung:** Lokal 207 bis 296 ms (6 Ladevorgänge) zwischen Erscheinen und Aktivwerden, Editor 15 bis 40 ms danach. Für einen Menschen am Desktop kaum erreichbar; langsame Handys nicht gemessen.
+- **Hinweis:** Schon vor der Erweiterung vorhanden (1 von 6 Läufen). Im selben Test mit der Erweiterung 4 von 5, kleine Stichprobe; das Zeitfenster vor der Erweiterung wurde nicht gemessen. Betrifft vermutlich alle Felder des Formulars. Die Tests überbrücken es in `openCreate`. Vor PROJ-42 klären.
+
+**BUG-5: Text in `<button>`, `<select>`, `<textarea>` geht verloren**
+- **Severity:** Low
+- **Steps:** `<button>Text</button>` im Code, zurückschalten
+- **Expected:** Text bleibt (Spec). **Actual:** Tag genannt, Text weg.
+- **Test:** `it.fails` in `rich-text-html.test.ts`
+
+**BUG-6: Fett um eine Liste geht ohne Hinweis verloren**
+- **Severity:** Low
+- **Steps:** `<strong><ul><li>x</li></ul></strong>` im Code, zurückschalten
+- **Expected:** Liste fett oder Hinweis. **Actual:** Liste nicht fett, kein Hinweis.
+- **Test:** `it.fails` in `rich-text-html.test.ts`
+
+#### Beobachtungen ohne Fehler
+- Auf schmalen Bildschirmen bricht die Gruppe der Ausrichtungsknöpfe über zwei Zeilen um.
+- Das Öffnen der Schriftauswahl lädt in Chrome alle sechs Schriften, weil jeder Eintrag in seiner Schrift erscheint.
+- Der Build lädt jetzt sechs weitere Schriften von Google; in QA Runde 2 scheiterte ein Build einmal an einem solchen Download. Beim Deploy darauf achten.
+
+#### Summary
+- **Acceptance Criteria:** 25/25 bestanden
+- **Bugs:** 6 (0 Critical, 0 High, 3 Medium, 3 Low)
+- **Security:** keine Befunde
+- **Production Ready:** JA nach den Regeln (keine Critical oder High). Empfehlung: BUG-2 und BUG-3 vor dem Deploy beheben.
 
 ## Deployment
 - **Datum:** 2026-10-31, Version v1.17.0
