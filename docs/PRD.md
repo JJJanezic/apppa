@@ -40,7 +40,7 @@ Die App wird als Mehrmandanten-SaaS betrieben: Jeder Kunde (Vermieter) hat ein e
 | P0 (Pilot) | Umsatzsteuersatz je Position | Deployed (PROJ-35) |
 | P0 (Pilot) | Rechnungen nacherfassen (Altrechnungen mit PDF, Positionen, Buchung/Gast optional; Rechnungen in der Buchungsübersicht; Kleinunternehmer-Schalter je Rechnung) | Deployed (PROJ-37) |
 | P0 (Pilot) | Stammdaten: Umbenennung und Logo-Upload | Deployed (PROJ-38) |
-| P0 (Pilot) | Einstellungen → Rechnungen (Nummernkreis, Textbausteine, Fußzeile, Kleinunternehmer-Hinweis) | Deployed (PROJ-39); Editor-Erweiterung (Schrift, Größe, Ausrichtung, HTML-Code) Planned |
+| P0 (Pilot) | Einstellungen → Rechnungen (Nummernkreis, Textbausteine, Fußzeile, Kleinunternehmer-Hinweis) | Deployed (PROJ-39); Editor-Erweiterung (Schrift, Größe, Ausrichtung, HTML-Code) Architected |
 | P0 (Pilot) | Rechnungsdaten sammeln: Entwurf ohne Nummer aus der Buchung (Teilung, Empfänger, Pflichtangaben, Vorschau) | Deployed (PROJ-40) |
 | P0 (Pilot) | Gästeblatt (Meldewesen) | Roadmap (PROJ-26) |
 | P0 (Pilot) | Kalender-Abo-Link für Outlook/M365 und Google Calendar | Roadmap |

@@ -1,10 +1,10 @@
 # PROJ-39: Einstellungen → Rechnungen
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-10-31
 **Last Updated:** 2026-11-04
 
-> Der Grundumfang ist seit v1.17.0 in Produktion. Der Status „Planned“ gilt für die Editor-Erweiterung vom 2026-11-04 (Abschnitt „Editor: Erweiterung“).
+> Der Grundumfang ist seit v1.17.0 in Produktion. Der Status gilt für die Editor-Erweiterung vom 2026-11-04 (Abschnitt „Editor: Erweiterung“).
 
 ## Dependencies
 - Requires: PROJ-4 (Kundenkonten & Rollen): Einstellungen nur für Inhaber, Mandantentrennung
@@ -337,7 +337,7 @@ Dazu: Kleinunternehmer-Hinweis mit Gesetzestext, Fußzeile leer, Nummernkreis JJ
 - Rechte serverseitig durchgesetzt (Inhaber nur eigener Kunde, Betreiber alle aktiven Kunden schreibend, Mitarbeiter keine Rechte)
 - Formatierter Text wird serverseitig auf die erlaubten Formatierungen geprüft bzw. bereinigt; kein freies HTML
 - HTML aus dem Code-Feld wird nie als HTML gespeichert oder ausgegeben, nur in die geprüfte Struktur übersetzt; beim Lesen darf nichts daraus ausgeführt oder nachgeladen werden
-- Schriften frei lizenziert und im PDF einbettbar, je Schrift mit normal, fett, kursiv und fett-kursiv; vor dem Einbau bei `/architecture` prüfen; nur auf den Seiten mit Editor oder Entwurfsvorschau laden
+- Schriften frei lizenziert und im PDF einbettbar, je Schrift mit normal, fett, kursiv und fett-kursiv (geprüft, siehe Tech Design I); nur auf den Seiten mit Editor oder Entwurfsvorschau laden
 - PROJ-41 nutzt für die Grundschrift dieselbe Schriftenliste
 - Prüfregeln (Grenzen, Platzhalter, Nummernformat) gleich in Oberfläche und Server
 - Regel „nächste Nummer“ an einer Stelle, nutzbar von der Vorschau hier und vom Ausstellen in PROJ-41
@@ -350,6 +350,7 @@ Dazu: Kleinunternehmer-Hinweis mit Gesetzestext, Fußzeile leer, Nummernkreis JJ
 - [x] Wie entsteht das Fälligkeitsdatum, wenn im Entwurf kein Zahlungsbaustein gewählt ist, und was gilt, wenn „vor Anreise“ vor dem Rechnungsdatum liegt? → Fällig am Rechnungsdatum; frühere Fristen werden auf das Rechnungsdatum gesetzt, mit Hinweis (PROJ-40, 2026-10-31)
 - [x] Erscheinen auch die Datumsangaben in Block 2a/2b ohne Wochentag? → Ja, alle Datumsangaben auf der Rechnung ohne Wochentag (PROJ-40, 2026-10-31)
 - [x] Wie lautet {Anrede} bei Firmen als Empfänger (z. B. „Sehr geehrte Damen und Herren“)? → Im Entwurf wählbar, vorausgewählt „Sehr geehrte Damen und Herren“, alternativ Anrede des Hauptgasts (PROJ-40, 2026-10-31)
+- [ ] PROJ-41: Schriften als TTF- oder WOFF-Dateien samt Lizenztexten ablegen und prüfen, dass Vorschau und PDF gleich umbrechen
 
 ## Decision Log
 
@@ -395,6 +396,10 @@ Dazu: Kleinunternehmer-Hinweis mit Gesetzestext, Fußzeile leer, Nummernkreis JJ
 | „Jährlich neu“ vergleicht die Jahreszahl **in der Nummer** mit dem Jahr des Rechnungsdatums; Jahr der Startnummer wird gespeichert | Altnummern mit abweichendem Rechnungsdatum (z. B. Jänner-Rechnung fürs Vorjahr) stören die Folge nicht; Startnummer gilt nur im Eintragungsjahr | 2026-10-31 |
 | Vorbelegung per Migration für bestehende Kunden und automatisch beim Anlegen neuer Kunden (unabhängig vom Anlageweg) | Jeder Kunde hat sofort eine eigene, änderbare Kopie | 2026-10-31 |
 | Betreiber-Protokoll mit neuen Aktionsarten und Bausteinbezeichnung, ohne Textinhalt | Nachvollziehbar wer was geändert hat; Rechnungstexte können Bankdaten enthalten und gehören nicht ins Protokoll | 2026-10-31 |
+| Einstellungen als optionaler Teil des gespeicherten Texts, keine neuen Spalten | Eine Prüfregel deckt Bausteine, feste Texte und Entwürfe ab; Konfliktschutz, Protokoll und Kopie in den Entwurf funktionieren ohne eigenen Bau; alte Texte bleiben gültig | 2026-11-04 |
+| Code-Feld wird bei jeder Eingabe im Browser in die Struktur übersetzt, mit dem eingebauten Lesewerkzeug | HTML erreicht den Server nie; Vorschau und Prüfungen laufen ohne Sonderweg; keine neuen Pakete | 2026-11-04 |
+| Formulare fragen vor dem Speichern offene Code-Felder ab | Nur so kann das Speichern abbrechen, wenn etwas entfernt wurde; die Formularprüfung kennt das Entfernte nicht | 2026-11-04 |
+| Schriften im Browser beim Bauen mitgeliefert (`next/font`), ohne Vorladen; PDF-Dateien erst mit PROJ-41 | Keine Verbindung zu Google, DSGVO-freundlich, übrige App nicht langsamer; React-PDF braucht ohnehin andere Dateien (TTF/WOFF, nicht variabel) | 2026-11-04 |
 | Gespeichert bleibt die strukturierte Beschreibung, ergänzt um die drei Einstellungen je Text; Datenbank und App prüfen die erlaubten Werte; HTML ist nur eine Bearbeitungsansicht | Freies HTML bleibt nicht speicherbar, PDF kann weiter direkt aus der Struktur setzen; alte Texte bleiben gültig | 2026-11-04 |
 
 ---
@@ -584,6 +589,68 @@ Alles andere ist vorhanden (shadcn/ui, react-hook-form, Zod, next-intl).
   - feste Texte, Schalter am neuen Ort
   - Betreiber-Abschnitt
   - Handy 375 px mit 44-px-Bedienelementen
+
+### I) Editor-Erweiterung: Schrift, Größe, Ausrichtung, HTML-Code (2026-11-04)
+
+**Ausgangslage:** Alle Rechnungstexte (Bausteine, Kleinunternehmer-Hinweis, Fußzeile, Entwurfstexte) laufen über denselben Editor, dieselbe Anzeige und dieselbe Datenbankprüfung. Die Erweiterung wird deshalb an diesen drei Stellen gebaut und wirkt überall.
+
+**Oberfläche**
+```
+Text-Editor (gemeinsamer Baustein, erweitert)
++-- Werkzeugleiste (bricht am Handy um, Bedienelemente mindestens 44 px)
+|   +-- Fett · Kursiv · Aufzählung · Nummerierte Liste
+|   +-- Schriftart (Auswahl: Standard + 6 Schriften, jede in ihrer eigenen Gestalt)   NEU
+|   +-- Schriftgröße (Zahlenfeld mit „pt“, leer = Standard)                            NEU
+|   +-- Ausrichtung (vier Umschalter, immer genau einer aktiv)                         NEU
+|   +-- Code (Umschalter)                                                              NEU
+|   +-- Platzhalter einfügen
++-- Schreibfläche ODER Code-Feld (mehrzeiliges Textfeld in Festbreitenschrift)         NEU
++-- Hinweis „Entfernt: …“ (nach dem Bereinigen, bis zur nächsten Bearbeitung)          NEU
++-- Zeichenzähler
+```
+Vorschau im Editor und Entwurfsvorschau zeigen die Einstellungen über die vorhandene Textanzeige. Neue shadcn-Bausteine sind nicht nötig (Select, Input, Textarea und Toggle sind vorhanden).
+
+**Datenmodell (in Worten)**
+Keine neuen Spalten und keine Datenumstellung. Der gespeicherte Text bekommt einen optionalen Teil „Einstellungen“ mit bis zu drei Angaben:
+- Schriftart: feste Kennung aus der Liste; fehlt = Standard
+- Schriftgröße: Zahl von 6 bis 24 in 0,5er-Schritten; fehlt = Standard
+- Ausrichtung: zentriert, rechtsbündig oder Blocksatz; fehlt = linksbündig
+
+Alte Texte haben diesen Teil nicht und bleiben damit gültig und unverändert. Bausteine, feste Texte und Entwürfe nutzen dieselbe Prüfung, darum genügt eine Änderung an der Prüfregel in der Datenbank. Die Migration muss vor dem neuen Code in jede Umgebung; die laufende App kommt mit der erweiterten Prüfung zurecht.
+
+Weil die Einstellungen Teil des Texts sind, greifen ohne eigenen Bau: Konfliktschutz und Bausteinstand, Protokoll ohne Textinhalt, Kopie in den Entwurf und die Rückfrage bei geändertem Text. Das setzt voraus, dass die App die Einstellungen beim Vergleich immer in derselben Reihenfolge führt, weil die Datenbank die Reihenfolge nicht garantiert; Tests sichern das ab.
+
+**HTML-Code**
+Das HTML existiert nur im Browser, während das Code-Feld offen ist. Zwei Übersetzungen an einer Stelle in der App:
+- **Text → HTML** beim Einschalten
+- **HTML → Text** bei jeder Eingabe, zusammen mit der Liste des Entfernten
+
+Der Server bekommt wie bisher nur die geprüfte Struktur und nie HTML. Gelesen wird mit dem eingebauten Lesewerkzeug des Browsers, das bereits beim Einfügen aus Word verwendet wird. Es führt keine Skripte aus und lädt keine Bilder nach. Der Inhalt von `<script>` und `<style>` wird verworfen.
+
+Weil jede Eingabe sofort übersetzt wird, funktionieren Vorschau, Zeichenzähler, Platzhalterprüfung und „ungespeicherte Änderungen“ auch im Code-Modus ohne Sonderweg. Wer nur umschaltet und nichts ändert, ändert den Text nicht.
+
+**Speichern im Code-Modus:** Das Formular fragt vor dem Speichern alle offenen Code-Felder ab. Hat eines davon etwas entfernt, wechselt es zur Schreibfläche mit Hinweis, und das Speichern unterbleibt. Das Formular erfährt das über eine kleine gemeinsame Abfrage, die in drei Formulare eingebaut wird: Baustein, feste Texte und Entwurf.
+
+**Schriften**
+| Schrift | Lizenz | Normal, fett, kursiv, fett-kursiv | Zeichen für Mitteleuropa |
+|---|---|---|---|
+| Arimo | Apache 2.0 | ja | ja |
+| Tinos | Apache 2.0 | ja | ja |
+| Carlito | SIL OFL | ja | ja |
+| Source Sans 3 | SIL OFL | ja | ja |
+| Source Serif 4 | SIL OFL | ja | ja |
+| Open Sans | SIL OFL | ja | ja |
+
+- **Im Browser** kommen die Schriften über denselben Weg wie die App-Schrift: Sie werden beim Bauen mitgeliefert. Beim Seitenaufruf gibt es keine Verbindung zu Google, das ist auch für die DSGVO wichtig.
+- **Geladen** wird nur auf Seiten mit Editor oder Entwurfsvorschau und nur die Schrift, die tatsächlich angezeigt wird. Die übrige App wird nicht langsamer.
+- **Im PDF (PROJ-41):** React-PDF kann die Browser-Dateien nicht verwenden, es braucht einzelne TTF- oder WOFF-Dateien statt variabler Schriften. PROJ-41 legt dafür dieselben Schriften als solche Dateien samt Lizenztexten ab und prüft, dass Vorschau und PDF gleich umbrechen.
+
+**Tests (Plan)**
+- Unit: Hin- und Rückübersetzung ohne Änderung, Entferntes samt Liste, ungültige Werte, Sonderzeichen `<`, `>`, `&`, kaputtes HTML, Skripte; Normalisierung und strenge Prüfung mit Einstellungen
+- Integration: Datenbank nimmt gültige Werte an und lehnt ungültige ab; alte Texte bleiben gültig; Bausteinstand ändert sich bei reiner Formatänderung
+- E2E: Auswahl, Speichern und erneutes Öffnen; Code-Modus mit und ohne Entferntes; Entwurf übernimmt Einstellungen; Handy 375 px
+
+**Pakete:** keine neuen.
 
 ## Implementation Notes (Frontend)
 **Stand 2026-10-31.**
