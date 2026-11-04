@@ -36,5 +36,5 @@ export default defineConfig([
     files: ['tests/**'],
     rules: { 'react-hooks/rules-of-hooks': 'off' },
   },
-  globalIgnores(['.next/**', 'out/**', 'build/**', 'next-env.d.ts', 'playwright-report/**', 'test-results/**']),
+  globalIgnores(['.next/**', 'pdf-worker-build/**', 'out/**', 'build/**', 'next-env.d.ts', 'playwright-report/**', 'test-results/**']),
 ])

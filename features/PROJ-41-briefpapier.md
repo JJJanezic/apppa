@@ -1,6 +1,6 @@
 # PROJ-41: Briefpapier
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-11-04
 **Last Updated:** 2026-11-04
 
@@ -207,8 +207,8 @@ Ist der Aussteller-Block abgeschaltet, erscheint im Formular dauerhaft der Hinwe
 
 ## Open Questions
 - [ ] Drucktest vor dem Deploy: Passt das Adressfeld (45 mm von oben, 20 mm von links, 85 × 45 mm) ins tatsächlich verwendete Fensterkuvert? Die Maße aus ÖNORM A 1080 konnten nicht belegt werden; öffentlich auffindbar war nur die zurückgezogene Ausgabe von 1999 ohne Maßangaben
-- [ ] Gastnamen in nicht lateinischer Schrift (z. B. Chinesisch): Die sechs Schriften decken sie teils nicht ab. Wie soll sich das spätestens beim Ausstellen (PROJ-42) zeigen?
-- [ ] Soll die Rechnung den Leistungszeitraum in einer eigenen Zeile nennen, oder genügt die bisherige Zeile mit dem Zeitraum? (offen aus PROJ-40, Empfehlung: bisherige Zeile)
+- [x] Gastnamen in nicht lateinischer Schrift? Kommen laut Nutzer nicht vor, keine eigene Behandlung nötig (2026-11-04)
+- [x] Leistungszeitraum in einer eigenen Zeile? Nein, es bleibt bei der bisherigen Zeile (Nutzer, 2026-11-04)
 - [x] Dürfen Name, Anschrift und UID nach § 11 UStG auch nur in der Fußzeile stehen? Ja, vom Nutzer am 2026-11-04 bestätigt
 - [x] Reichen etwa 1.000 Pixel für den Druck, und ab wann erscheint „unscharf“? Siehe Technical Decisions
 - [x] Wie erscheint die Vorschau auf Handys? Einheitlich als gezeichnete Seiten, siehe Technical Decisions
@@ -233,6 +233,7 @@ Ist der Aussteller-Block abgeschaltet, erscheint im Formular dauerhaft der Hinwe
 | Vorschau automatisch nach etwa einer Sekunde, auch ungespeichert | Freies Ausprobieren, ohne dass offene Entwürfe sich sofort ändern | 2026-11-04 |
 | Logo mittig: Aussteller-Block zweizeilig | Im 35 mm hohen Kopf ließe ein sechszeiliger Block dem Logo nur etwa 11 mm; zweizeilig passt der Standard von 25 mm (Nutzerentscheidung bei der Architektur) | 2026-11-04 |
 | Rechnungsmerkmale dürfen in der Fußzeile stehen | Vom Nutzer als § 11 UStG entsprechend bestätigt | 2026-11-04 |
+| Keine eigene Behandlung nicht lateinischer Gastnamen; Leistungszeitraum in der bisherigen Zeile | Nutzerentscheidung | 2026-11-04 |
 | Keine Absenderzeile über dem Adressfeld | Passt zu Ausstellerdaten in der Fußzeile; später ergänzbar | 2026-11-04 |
 | „Auf Standard zurücksetzen“, wirksam erst mit „Speichern“ | Sicherer Ausstieg beim Ausprobieren (von Claude ergänzt, Freigabe mit dieser Spec) | 2026-11-04 |
 | Hinweis, wenn die Fußzeile mehr als ein Drittel der Seite belegt; keine Sperre | Fußzeile steht auf jeder Seite und kann bis 2.000 Zeichen haben (von Claude ergänzt, Freigabe mit dieser Spec) | 2026-11-04 |
@@ -358,6 +359,28 @@ Mit der genannten Version wurde außerhalb des Projekts ein Wegwerf-Versuch gema
 - **Bestätigt:** Fußzeile mit wechselnder Höhe auf jeder Seite, ohne Überlappung; „Seite x von y“; Zeilen werden nicht getrennt; Blocksatz; „Š“, „ő“, „ž“, „€“ in Carlito. Etwa 20 Millisekunden je Dokument ohne Serverstart.
 - **Fehler gefunden:** Wurde im selben Serverprozess zuvor ein anderes Dokument erzeugt, fehlte in einem Testaufbau der erste Buchstabe aller Zeilen („osition“ statt „Position“). Andere Abfolgen zeigten das nicht. Die genaue Ursache ist nicht geklärt, der Fehler folgt aber dem gemeinsam genutzten Schriftzustand: Frisch geladene Schriften je Erzeugung beseitigten ihn in allen geprüften Fällen.
 - **Folge:** Frische Schriften je Erzeugung ließen den Speicher im selben Prozess wachsen (etwa 3,5 MB je Dokument). Darum läuft jede Erzeugung abgeschirmt in einem eigenen, kurzlebigen Arbeitsprozess. Das ist noch nicht praktisch nachgewiesen und Teil des ersten Nachweises unter /frontend.
+
+### Umsetzung Frontend (2026-11-04)
+
+**Gebaut:** Reiter und Betreiber-Abschnitt mit Formular und Vorschau, PDF-Vorlage, Arbeitsprozess, Schnittstellen für Muster und Entwurf, Anzeige, gestaltete Entwurfsvorschau, 24 Schriftdateien samt Lizenztexten. Die alte HTML-Vorschau ist entfernt.
+
+**Nachweis:** Im gebauten Next-Server läuft die Erzeugung in einem frischen Arbeitsprozess, in etwa 120 ms bei einer einfachen Seite und 200 bis 260 ms bei einer vollen Rechnung. Die Dateien stehen in der Ablaufliste der Serverfunktion. **Auf Vercel ist das noch nicht geprüft; das geht erst mit dem Staging-Deploy.**
+
+**Abweichungen vom Design:**
+- Turbopack bündelt den Arbeitsprozess nicht. Darum baut `scripts/build-pdf-worker.mjs` (esbuild) ihn vor `dev`, `build` und `test` nach `pdf-worker-build/` (nicht im Git). Dadurch bindet die App React-PDF selbst nie ein.
+- Eine Baustein-Vorschau gibt es in Einstellungen → Rechnungen nicht. Dort ändert sich nichts; „Standard“ folgt dem Briefpapier im PDF.
+- Ist `bottom` an einem Text mit `render` gesetzt, setzt React-PDF 4.9.0 ihn gar nicht. Die Seitenzeile steht darum mit `top`, und mit einer leeren Rückgabe verschwindet ein ganzes wiederholtes Element. Tests sichern das ab.
+- Hinweise zu Logo und Fußzeile kommen aus der Antwort der Vorschau, nicht aus dem Formular: so stimmen sie immer mit dem PDF überein.
+
+**Offen für /backend:**
+- Spalten in `invoice_settings`: `letterhead_font`, `letterhead_font_size`, `letterhead_line_spacing`, `letterhead_paragraph_spacing`, `letterhead_logo_position`, `letterhead_logo_height_mm`, `letterhead_show_issuer`, `letterhead_updated_at`, mit den Standardwerten und Prüfungen aus `src/lib/letterhead.ts`
+- Funktion `save_invoice_letterhead(p_tenant_id, p_expected_updated_at, p_data)` mit den Schlüsseln `font`, `font_size`, `line_spacing`, `paragraph_spacing`, `logo_position`, `logo_height_mm`, `show_issuer`; Fehlercodes P0910, P0914, P0011, P0016, 42501; Protokolleintrag „letterhead“ ohne Werte. Bis dahin meldet Speichern „Diese Funktion wird gerade eingerichtet“.
+- `invoice_preview_data` liefert zusätzlich `letterhead` mit denselben Schlüsseln. Bis dahin sehen Entwürfe die Standardwerte.
+- `.select(... as 'footer')` in `letterhead-data.ts` und `rpc(... as never)` nach `npm run db:types` bereinigen.
+
+**Für /qa:** Erste E2E in `tests/PROJ-41-briefpapier.spec.ts`; Speichern, Konflikt, Protokoll, Logo-Fälle, Mitarbeiter-Logo und Safari fehlen noch. PROJ-40-Tests sind auf die PDF-Vorschau umgestellt, nur mit Filter „Vorschau“ geprüft.
+
+**Bekanntes Risiko außerhalb dieses Features:** `next build` scheitert zeitweise mit „next/font/google queries have exactly one entry“. Laut Build-Log betrifft es Source Serif 4 und eine Antwort von Google mit `gstatic.com/l/font?kit=…`-Adressen. Der Code dazu stammt aus PROJ-2 und PROJ-39; ohne die Änderungen dieses Features trat es in 3 Läufen nicht auf, mit ihnen in etwa 4 von 10, was bei so wenigen Läufen keine Aussage über die Ursache erlaubt. Kann auch auf Vercel einen Build abbrechen.
 
 ## QA Test Results
 _To be added by /qa_

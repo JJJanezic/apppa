@@ -30,6 +30,7 @@ import { emptyDoc, isRichDoc, normalizeDoc, type RichDoc } from '@/lib/rich-text
 import { createClient } from '@/lib/supabase/server'
 import { getTenantContext } from '@/lib/tenant'
 import { VAT_DEFAULTS, vatRateFromDb } from '@/lib/vat'
+import { letterheadFromDb } from '@/lib/letterhead'
 import { vatStatusForBooking, vatStatusFromRows } from '@/lib/vat-status'
 
 // Lesefunktionen des Rechnungsentwurfs (PROJ-40) für alle Mitglieder des gewählten Kunden. Preise der Buchung und
@@ -229,6 +230,8 @@ type PreviewDb = {
   footer: unknown
   small_business_note: unknown
   vat_status: { valid_from: string; small_business: boolean }[] | null
+  // Briefpapier (PROJ-41); bis zur Migration fehlt es, dann gelten die Standardwerte
+  letterhead?: Parameters<typeof letterheadFromDb>[0]
 }
 
 // Für Inhaber und Mitarbeiter (Mitarbeiter lesen Stammdaten und Rechnungseinstellungen sonst nicht)
@@ -255,6 +258,7 @@ export const getDraftPreviewData = cache(async (): Promise<DraftPreviewData> => 
     footer: docFromDb(r?.footer),
     smallBusinessNote: docFromDb(r?.small_business_note) ?? emptyDoc(),
     vatStatus: vatStatusFromRows(r?.vat_status ?? []),
+    letterhead: letterheadFromDb(r?.letterhead),
   }
 })
 

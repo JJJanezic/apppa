@@ -9,6 +9,7 @@ import { addDays, nightsBetween } from '@/lib/bookings'
 import type { RichDoc } from '@/lib/rich-text'
 import { VAT_DEFAULTS, VAT_BP_MAX, vatBreakdown, type VatLine, type VatShare } from '@/lib/vat'
 import type { VatStatusChange } from '@/lib/vat-status'
+import type { LetterheadValues } from '@/lib/letterhead'
 
 // ---- Arten und Auswahlen ------------------------------------------------------------------------
 
@@ -485,6 +486,8 @@ export type DraftPreviewData = {
   footer: RichDoc | null
   smallBusinessNote: RichDoc
   vatStatus: VatStatusChange[]
+  // Briefpapier (PROJ-41); auch Mitarbeiter sehen Entwürfe in dieser Gestaltung
+  letterhead: LetterheadValues
 }
 
 const filled = (v: string | null | undefined) => Boolean(v?.trim())

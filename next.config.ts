@@ -15,6 +15,8 @@ export const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // PROJ-41: Der PDF-Arbeitsprozess liegt außerhalb des Next-Builds; Datei und Schriften müssen mit in die Serverfunktionen
+  outputFileTracingIncludes: { "/api/**": ["./src/lib/invoice-pdf/fonts/**", "./pdf-worker-build/**"] },
   // PROJ-38: Reiter „Kunde“ heißt jetzt „Stammdaten“; alte Lesezeichen (auch mit Zusätzen in der Adresse) leiten weiter
   async redirects() {
     return [{ source: "/einstellungen/kunde", destination: "/einstellungen/stammdaten", permanent: true }];

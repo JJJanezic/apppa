@@ -17,9 +17,9 @@ import { ConfirmDialog } from '@/components/confirm-dialog'
 import { CountryPicker } from '@/components/guests/country-picker'
 import { DraftLines } from '@/components/invoice-drafts/draft-lines'
 import { DraftTextBlock } from '@/components/invoice-drafts/draft-text-block'
-import { InvoicePreview } from '@/components/invoice-drafts/invoice-preview'
 import { RequiredChecks } from '@/components/invoice-drafts/required-checks'
 import { useAdoptEarlyInput } from '@/components/invoice-drafts/use-adopt-early-input'
+import { DraftPdfPreview } from '@/components/invoice-pdf/draft-pdf-preview'
 import { useUnsavedGuard } from '@/components/invoice-drafts/use-unsaved-guard'
 import { RichTextGuardProvider, useRichTextGuard } from '@/components/invoice-settings/rich-text-guard'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -64,7 +64,6 @@ import {
   requiredChecks,
   splitByVat,
 } from '@/lib/invoice-drafts'
-import { buildPreviewModel } from '@/lib/invoice-preview'
 import { DUE_BASES, INVOICE_TEXT_LIMITS as TL, type PaymentRules, type TextBlock, type TextBlockKind, textDate } from '@/lib/invoice-texts'
 import { emptyDoc } from '@/lib/rich-text'
 import { formatVatRate, parseVatRate, vatRateInput } from '@/lib/vat'
@@ -256,22 +255,21 @@ export function DraftForm({ booking, others, preview, smallBusiness, textBlocks,
     totalCents: totals.totalCents,
     recipient,
   })
-  const model = previewing
-    ? buildPreviewModel({
+  // Ungespeicherter Stand für die Vorschau; Buchung und Stammdaten lädt der Server selbst
+  const previewBody = previewing
+    ? JSON.stringify({
+        bookingId: booking.id,
+        draftId: draft?.id ?? null,
         kind,
         invoiceDate,
         recipientKind: v.recipientKind,
         recipient,
         companySalutation: v.companySalutation,
-        guestNameMode: v.guestNames,
-        lines: effectiveLines,
+        guestNames: v.guestNames,
+        lines: effectiveLines.map((l) => ({ label: l.label, amountCents: l.amountCents, vatBp: l.vatBp })),
         deductionIds: v.deductionIds ?? [],
         texts: { intro: v.intro?.body ?? null, payment: v.payment?.body ?? null, closing: v.closing?.body ?? null },
         payment,
-        booking,
-        others,
-        preview,
-        smallBusiness,
         deductionRemoved: draft?.deductionRemoved,
       })
     : null
@@ -361,13 +359,13 @@ export function DraftForm({ booking, others, preview, smallBusiness, textBlocks,
 
   return (
     <>
-      {previewing && model && (
+      {previewing && previewBody && (
         <div className="flex flex-col gap-6">
           <Button type="button" variant="outline" className="min-h-11 self-start" onClick={() => setPreviewing(false)}>
             <ArrowLeft size={18} aria-hidden="true" />
             {t('form.backToDraft')}
           </Button>
-          <InvoicePreview model={model} />
+          <DraftPdfPreview body={previewBody} />
           <RequiredChecks checks={checks} onJump={jump} settingsLink />
           <Button type="button" variant="outline" className="min-h-11 self-start" onClick={() => setPreviewing(false)}>
             <ArrowLeft size={18} aria-hidden="true" />

@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { getTranslations } from 'next-intl/server'
 
 import { InvoiceSettings } from '@/components/invoice-settings/invoice-settings'
+import { LetterheadSettings } from '@/components/letterhead/letterhead-settings'
 import { OperatorInvitations } from '@/components/operator/operator-invitations'
 import { OperatorLog } from '@/components/operator/operator-log'
 import { OperatorMembers } from '@/components/operator/operator-members'
@@ -15,6 +16,7 @@ import { TenantMasterDataForm } from '@/components/tenant/tenant-master-data-for
 import { requireArea } from '@/lib/areas'
 import { formatDate } from '@/lib/format'
 import { loadInvoiceSettings } from '@/lib/invoice-settings-data'
+import { loadLetterhead } from '@/lib/letterhead-data'
 import { getTenantDetail } from '@/lib/operator-data'
 
 type Params = Promise<{ id: string }>
@@ -29,7 +31,7 @@ export default async function TenantDetailPage({ params }: { params: Params }) {
   await requireArea('operator')
   const { id } = await params
   const t = await getTranslations('operator')
-  const [tenant, invoiceSettings] = await Promise.all([getTenantDetail(id), loadInvoiceSettings(id)])
+  const [tenant, invoiceSettings, letterhead] = await Promise.all([getTenantDetail(id), loadInvoiceSettings(id), loadLetterhead(id)])
   const deactivated = tenant.status === 'deactivated'
 
   return (
@@ -53,6 +55,8 @@ export default async function TenantDetailPage({ params }: { params: Params }) {
         <h2 className="text-2xl">{t('masterDataTitle')}</h2>
         <TenantMasterDataForm key={tenant.masterData.updatedAt} data={tenant.masterData} mode="operator" readOnly={deactivated} />
       </section>
+
+      <LetterheadSettings key={letterhead.updatedAt} data={letterhead} readOnly={deactivated} />
 
       <section className="flex flex-col gap-4">
         <h2 className="text-2xl">{t('invoiceSettingsTitle')}</h2>

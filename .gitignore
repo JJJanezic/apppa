@@ -11,6 +11,8 @@
 
 # next.js
 /.next/
+# PDF-Arbeitsprozess (PROJ-41), gebaut vor dev/build/test
+/pdf-worker-build/
 /out/
 
 # production

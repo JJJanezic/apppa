@@ -672,9 +672,11 @@ test.describe('Empfänger, Texte, Zahlungsregeln', () => {
     await expect(box).toHaveCSS('font-family', /Tinos/)
     await expect(box).toHaveCSS('font-size', '16px')
 
+    // Die Vorschau ist ein PDF (PROJ-41): Die Schrift des Textes steckt in der Datei
+    const pdfResponse = page.waitForResponse('**/api/rechnungen/vorschau')
     await page.getByRole('button', { name: 'Vorschau' }).click()
-    const shown = page.getByRole('article', { name: 'Rechnungsvorschau' }).locator('div.break-words').filter({ hasText: 'Formatierter Dank' })
-    await expect(shown).toHaveCSS('font-family', /Tinos/)
+    expect((await (await pdfResponse).body()).toString('latin1')).toMatch(/Tinos/)
+    await expect(page.getByRole('article', { name: 'Rechnungsvorschau' })).toContainText('Formatierter Dank')
     await page.getByRole('button', { name: 'Zurück zum Entwurf' }).first().click()
 
     // Nur die Größe geändert: Ein anderer Baustein ersetzt den Text erst nach Rückfrage
@@ -790,6 +792,7 @@ test.describe('Pflichtangaben und Vorschau', () => {
 
     await page.getByRole('button', { name: 'Vorschau' }).click()
     const preview = page.getByRole('article', { name: 'Rechnungsvorschau' })
+    await expect(preview).toContainText('Rechnungsnummer: Entwurf')
     const content = text(await preview.innerText())
     const order = ['Seeweg 12', 'Mag. Maria Huber', 'St. Gilgen, 20.10.2026', 'Rechnungsnummer: Entwurf', 'vom 14.10.2026 bis 17.10.2026', 'Gäste: Mag. Maria Huber, Paul Huber', 'vielen Dank', 'Rechnungsbetrag', 'Bitte überweisen', 'Nummer Entwurf.', 'IBAN AT12 3456']
     let at = -1
@@ -798,7 +801,8 @@ test.describe('Pflichtangaben und Vorschau', () => {
       expect(i, part).toBeGreaterThan(at)
       at = i
     }
-    await expect(preview.getByText('Entwurf', { exact: true })).toBeVisible()
+    // Aufdruck „Entwurf“ steht im PDF vor dem übrigen Text
+    expect(content.trimStart().startsWith('Entwurf')).toBe(true)
     expect(content).not.toMatch(/\b(Mo|Di|Mi|Do|Fr|Sa|So), \d/)
 
     await page.getByRole('button', { name: 'Zurück zum Entwurf' }).first().click()

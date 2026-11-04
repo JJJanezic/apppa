@@ -1,6 +1,6 @@
 // Vorschau eines Rechnungsentwurfs (PROJ-40): alle Inhalte der Rechnung in der Reihenfolge aus PROJ-39, berechnet aus
 // Entwurf (gespeichert oder ungespeicherter Formularstand), Buchung und Vorschau-Daten. Reine Regel für Server und
-// Browser; PROJ-41 kann sie als Vorlage fürs PDF nehmen.
+// Browser; das PDF (PROJ-41) baut darauf auf.
 
 import {
   type BookingInvoiceSummary,
@@ -64,7 +64,7 @@ export type PreviewInput = {
   payment: PaymentRules
   booking: DraftBooking
   others: BookingInvoiceSummary[]
-  preview: DraftPreviewData
+  preview: Omit<DraftPreviewData, 'letterhead'>
   smallBusiness: boolean
   // Gespeicherter Entwurf: eine abgezogene Rechnung wurde gelöscht bzw. ist keine Teilrechnung mehr (deduction_removed)
   deductionRemoved?: boolean

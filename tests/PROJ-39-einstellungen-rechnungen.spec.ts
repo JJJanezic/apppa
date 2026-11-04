@@ -41,7 +41,7 @@ const ready = (page: Page) =>
 test.describe('Reiter und Zugang', () => {
   test.skip(!hasSupabaseEnv, 'keine .env.local')
 
-  test('AC: vierter Reiter „Rechnungen“ mit eigener Adresse, Titel und vier Abschnitten', async ({ page, users }) => {
+  test('AC: Reiter „Rechnungen“ mit eigener Adresse, Titel und vier Abschnitten', async ({ page, users }) => {
     desktopOnly()
     const owner = await users()
     await createTenant('QA39 Reiter', [{ user: owner, role: 'owner' }])
@@ -49,7 +49,7 @@ test.describe('Reiter und Zugang', () => {
     await page.goto('/einstellungen/stammdaten')
     await ready(page)
     const tabs = page.getByRole('navigation', { name: 'Einstellungsbereiche' }).getByRole('link')
-    await expect(tabs).toHaveText(['Stammdaten', 'Team', 'Wohnungen', 'Rechnungen'])
+    await expect(tabs).toHaveText(['Stammdaten', 'Team', 'Wohnungen', 'Briefpapier', 'Rechnungen'])
     await tabs.last().click()
     await expect(page).toHaveURL(/\/einstellungen\/rechnungen$/)
     await expect(tabs.last()).toHaveAttribute('aria-current', 'page')

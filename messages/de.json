@@ -196,12 +196,13 @@
   },
   "settings": {
     "title": "Einstellungen",
-    "lead": "Stammdaten, Team, Wohnungen und Rechnungen verwalten.",
+    "lead": "Stammdaten, Team, Wohnungen, Briefpapier und Rechnungen verwalten.",
     "tabsLabel": "Einstellungsbereiche",
     "team": "Team",
     "tenant": "Stammdaten",
     "apartments": "Wohnungen",
-    "invoices": "Rechnungen"
+    "invoices": "Rechnungen",
+    "letterhead": "Briefpapier"
   },
   "team": {
     "title": "Team",
@@ -1825,7 +1826,8 @@
       "name": "Name",
       "body": "Text",
       "paymentRules": "Zahlungsregeln",
-      "isDefault": "Standard"
+      "isDefault": "Standard",
+      "letterhead": "Briefpapier"
     },
     "validation": {
       "prefixTooLong": "Das Präfix darf höchstens {max} Zeichen haben.",
@@ -2193,6 +2195,80 @@
         "notHere": "Der Platzhalter {token} ist in diesem Block nicht erlaubt.",
         "depositOnly": "Dieser Platzhalter ist nur mit Anzahlung möglich: {token}"
       }
+    }
+  },
+  "letterhead": {
+    "title": "Briefpapier",
+    "lead": "So sehen deine Rechnungen aus. Die Vorschau zeigt das Ergebnis schon vor dem Speichern.",
+    "readOnlyHint": "Der Kunde ist deaktiviert. Die Einstellungen lassen sich nur ansehen.",
+    "groupFont": "Schrift",
+    "groupSpacing": "Abstände",
+    "groupLogo": "Logo",
+    "groupIssuer": "Aussteller-Block",
+    "fontFamily": "Grundschrift",
+    "fontSize": "Grundschriftgröße in pt",
+    "fontSizeHint": "{min} bis {max} pt in Schritten von 0,5 pt. Texte mit eigener Schrift oder Größe behalten diese.",
+    "lineSpacing": "Zeilenabstand",
+    "paragraphSpacing": "Absatzabstand",
+    "spacing": {
+      "tight": "Eng",
+      "normal": "Normal",
+      "wide": "Weit"
+    },
+    "noLogo": "Noch kein Logo hinterlegt. Position und Höhe gelten, sobald ein Logo vorhanden ist.",
+    "noLogoLink": "Zu den Stammdaten",
+    "logoPosition": "Position",
+    "position": {
+      "left": "Links",
+      "center": "Mittig",
+      "right": "Rechts"
+    },
+    "logoHeight": "Höhe in mm",
+    "logoHeightHint": "{min} bis {max} mm. Das Seitenverhältnis bleibt erhalten.",
+    "logoReduced": "Das Logo passt in dieser Höhe nicht in den Kopf und erscheint deshalb kleiner.",
+    "logoBlurry": "Das Logo könnte in dieser Größe unscharf wirken. Ein größeres Bild ergibt ein besseres Druckbild.",
+    "logoFailed": "Das Logo konnte nicht geladen werden. Die Vorschau erscheint ohne Logo.",
+    "showIssuer": "Aussteller-Block im Kopf anzeigen",
+    "issuerOff": "Name, Anschrift und ab € 400 die UID müssen dann im Fußzeilentext stehen. Die App ergänzt und prüft dort nichts.",
+    "issuerOffEmpty": "Die Fußzeile ist derzeit leer.",
+    "issuerOffLink": "Zur Fußzeile",
+    "footerLong": "Die Fußzeile belegt mehr als ein Drittel der Seite und steht auf jeder Seite. Für die Leistungen bleibt dadurch wenig Platz.",
+    "save": "Speichern",
+    "saved": "Briefpapier gespeichert.",
+    "reset": "Auf Standard zurücksetzen",
+    "leave": {
+      "title": "Änderungen verwerfen?",
+      "text": "Deine Änderungen am Briefpapier sind noch nicht gespeichert.",
+      "confirm": "Verwerfen",
+      "stay": "Weiter bearbeiten"
+    },
+    "preview": {
+      "label": "Vorschau der Rechnung",
+      "updating": "Vorschau wird aktualisiert …",
+      "open": "PDF öffnen",
+      "failed": "Die Vorschau konnte nicht erstellt werden.",
+      "retry": "Erneut versuchen"
+    },
+    "pdf": {
+      "pageOf": "Seite {page} von {pages}",
+      "sampleMark": "Muster"
+    },
+    "validation": {
+      "fontSizeRange": "Bitte {min} bis {max} pt in Schritten von 0,5 pt angeben.",
+      "logoHeightRange": "Bitte {min} bis {max} mm in ganzen Millimetern angeben."
+    },
+    "sample": {
+      "apartment": "Apartment Seeblick",
+      "guestFirst": "Maria",
+      "guestLast": "Muster",
+      "street": "Musterstraße 1",
+      "postalCode": "1010",
+      "city": "Wien",
+      "nights": "Übernachtung",
+      "cleaning": "Reinigung",
+      "textIntro": "Vielen Dank für Ihren Aufenthalt. Wir erlauben uns, folgende Leistungen zu verrechnen.",
+      "textPayment": "Bitte überweisen Sie den Rechnungsbetrag innerhalb von 14 Tagen.",
+      "textClosing": "Mit freundlichen Grüßen"
     }
   }
 }

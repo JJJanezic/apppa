@@ -11,11 +11,12 @@ const TABS = [
   { href: '/einstellungen/stammdaten', key: 'tenant' },
   { href: '/einstellungen/team', key: 'team' },
   { href: '/einstellungen/wohnungen', key: 'apartments' },
+  { href: '/einstellungen/briefpapier', key: 'letterhead' },
   { href: '/einstellungen/rechnungen', key: 'invoices' },
 ] as const
 
 // Reiter der Einstellungen als Links (eigene Adressen, Zurück-Taste funktioniert).
-// Am Handy passen vier Reiter nicht nebeneinander (PROJ-39): Die Leiste lässt sich seitlich wischen, die Seite selbst
+// Am Handy passen die Reiter nicht nebeneinander (PROJ-39): Die Leiste lässt sich seitlich wischen, die Seite selbst
 // scrollt nicht, und der aktive Reiter wird ins Bild geholt.
 export function SettingsTabs() {
   const t = useTranslations('settings')

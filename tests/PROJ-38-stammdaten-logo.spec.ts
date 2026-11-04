@@ -53,7 +53,7 @@ test.describe('Einstellungen → Stammdaten', () => {
     await ready(page)
     await expect(page).toHaveURL(/\/einstellungen\/stammdaten$/)
     const tabs = page.getByRole('navigation', { name: 'Einstellungsbereiche' }).getByRole('link')
-    await expect(tabs).toHaveText(['Stammdaten', 'Team', 'Wohnungen', 'Rechnungen'])
+    await expect(tabs).toHaveText(['Stammdaten', 'Team', 'Wohnungen', 'Briefpapier', 'Rechnungen'])
     await expect(tabs.first()).toHaveAttribute('aria-current', 'page')
     await expect(page).toHaveTitle(/Stammdaten/)
     await expect(page.getByRole('link', { name: 'Kunde', exact: true })).toHaveCount(0)
