@@ -179,25 +179,25 @@ describe('htmlToDoc gegen Angriffe und kaputtes HTML (QA)', () => {
     }
   })
 
-  // BUG-1 (QA 2026-11-04): Soll grün werden; it.fails meldet, sobald es behoben ist
-  it.fails('BUG-1: Listenpunkt nur aus Leerzeichen bleibt beim Wechsel erhalten', () => {
+  it('BUG-1: Listenpunkt nur aus Leerzeichen bleibt beim Wechsel erhalten', () => {
     const doc = normalizeDoc({ type: 'doc', content: [{ type: 'bulletList', content: [{ type: 'listItem', content: [{ type: 'paragraph', content: [text(' ')] }] }] }] })
     expect(htmlToDoc(docToHtml(doc)).doc).toEqual(doc)
   })
 
-  // BUG-5 (QA 2026-11-04): Spec: „Nicht Erlaubtes wird entfernt, sein Text bleibt erhalten“
-  it.fails.each(['<button>Text</button>', '<select><option>Text</option></select>', '<textarea>Text</textarea>'])('BUG-5: Text bleibt bei %s', (html) => {
-    expect(JSON.stringify(htmlToDoc(html).doc)).toContain('Text')
+  // Spec: „Nicht Erlaubtes wird entfernt, sein Text bleibt erhalten“
+  it.each(['<button>Text</button>', '<select><option>Text</option></select>', '<textarea>Text</textarea>'])('BUG-5: Text bleibt bei %s', (html) => {
+    const { doc, removed } = htmlToDoc(html)
+    expect(JSON.stringify(doc)).toContain('Text')
+    expect(removed.length).toBeGreaterThan(0)
   })
 
-  // BUG-6 (QA 2026-11-04): fett um eine Liste geht ohne Hinweis verloren
-  it.fails('BUG-6: <strong> um eine Liste bleibt erhalten oder wird genannt', () => {
+  it('BUG-6: <strong> um eine Liste bleibt erhalten', () => {
     const { doc, removed } = htmlToDoc('<strong><ul><li>x</li></ul></strong>')
-    expect(JSON.stringify(doc).includes('bold') || removed.length > 0).toBe(true)
+    expect(doc.content).toEqual([{ type: 'bulletList', content: [{ type: 'listItem', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'x', marks: [{ type: 'bold' }] }] }] }] }])
+    expect(removed).toEqual([])
   })
 
   it('Hin und zurück ändert zufällige Dokumente nicht', () => {
-    const isBlank = (p: { content?: RichInline[] }) => (p.content ?? []).every((n) => n.type === 'text' && n.text.trim() === '')
     let seed = 42
     const rnd = (n: number) => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) % n
     const words = ['a', ' ', '  ', 'b c', '<', '>', '&', '&amp;', '{Gast}', '\u00a0', 'ä€', '"', "'", ' x ', '<p>', '</li>', '&nbsp;']
@@ -212,8 +212,7 @@ describe('htmlToDoc gegen Angriffe und kaputtes HTML (QA)', () => {
       const content = inline()
       return content.length ? { type: 'paragraph' as const, content } : { type: 'paragraph' as const }
     }
-    // Nur aus Leerzeichen bestehende Listenpunkte: siehe BUG-1
-    const item = () => ({ type: 'listItem' as const, content: Array.from({ length: 1 + rnd(2) }, para).map((p, _, all) => (all.length === 1 && isBlank(p) ? { type: 'paragraph' as const } : p)) })
+    const item = () => ({ type: 'listItem' as const, content: Array.from({ length: 1 + rnd(2) }, para) })
     const block = (): RichBlock =>
       rnd(3) === 0
         ? {

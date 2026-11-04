@@ -1101,23 +1101,59 @@ test.describe('QA Editor-Erweiterung', () => {
   const sizeField = (scope: ReturnType<Page['getByRole']>) => scope.getByRole('textbox', { name: 'Schriftgröße in pt' })
   const codeToggle = (scope: ReturnType<Page['getByRole']>) => scope.getByRole('button', { name: 'HTML-Code bearbeiten' })
 
-  // BUG-2 (QA 2026-11-04): test.fail meldet, sobald es behoben ist
-  test('BUG-2: Code über der Obergrenze wird nicht stillschweigend abgeschnitten', async ({ page, users }) => {
+  test('BUG-2: Code wird nie abgeschnitten: lang bleibt vollständig, zu lang wird mit Hinweis abgewiesen', async ({ page, users }) => {
     desktopOnly()
-    test.fail()
     const { owner } = await ownerWithTenant(users, 'Lang')
     await signInAs(page, owner)
     await openSettings(page)
     await openNewBlock(page, 'closing')
     const p = panel(page)
-    await p.getByRole('button', { name: 'HTML-Code bearbeiten' }).click()
-    const area = p.locator('textarea')
-    await area.focus()
-    await page.evaluate(() => document.execCommand('insertText', false, '<p>' + 'x'.repeat(19_990) + 'ENDE-DES-TEXTS</p>'))
-    // Entweder ist alles da, oder ein Hinweis sagt, dass gekürzt wurde
-    const complete = (await area.inputValue()).includes('ENDE-DES-TEXTS')
-    const notice = await p.getByRole('alert').filter({ hasText: /gekürzt|zu lang/ }).count()
-    expect(complete || notice > 0).toBe(true)
+    await codeToggle(p).click()
+    const area = code(p)
+    const insert = (text: string) => area.evaluate((el: HTMLTextAreaElement, t) => {
+      el.focus()
+      el.select()
+      document.execCommand('insertText', false, t)
+    }, text)
+
+    // HTML wie aus Word: viel Beiwerk, wenig Text, weit über der früheren Grenze
+    const span = '<span style="mso-fareast-font-family:Calibri;color:red" class="MsoNormal">x</span>'
+    const longHtml = `<p>${span.repeat(500)}ENDE</p>`
+    expect(longHtml.length).toBeGreaterThan(20_000)
+    await insert(longHtml)
+    expect(await area.inputValue()).toContain('ENDE')
+    await expect(p.getByRole('alert').filter({ hasText: 'nicht übernommen' })).toHaveCount(0)
+
+    await insert(`<p>${'y'.repeat(200_001)}</p>`)
+    await expect(p.getByRole('alert').filter({ hasText: 'nicht übernommen' })).toContainText('200.000')
+    // Der bisherige Stand bleibt vollständig erhalten
+    await expect(p.getByText(/^[0-9.]+ \/ 2\.000 Zeichen$/)).toContainText('504 /')
+  })
+
+  test('BUG-3: aktiver Knopf ist deutlich erkennbar (mindestens 3:1 zum Hintergrund)', async ({ page, users }) => {
+    desktopOnly()
+    const { owner } = await ownerWithTenant(users, 'Knopf')
+    await signInAs(page, owner)
+    await openSettings(page)
+    await openNewBlock(page, 'closing')
+    const p = panel(page)
+    const left = p.getByRole('button', { name: 'Linksbündig' })
+    await expect(left).toHaveAttribute('aria-pressed', 'true')
+    await p.getByLabel('Name').hover() // Maus nicht über dem Knopf
+    const ratio = await left.evaluate((el) => {
+      const rgb = (c: string) => (c.match(/[\d.]+/g) ?? []).slice(0, 3).map(Number)
+      const lum = ([r, g, b]: number[]) => {
+        const f = (v: number) => (v / 255 <= 0.03928 ? v / 255 / 12.92 : ((v / 255 + 0.055) / 1.055) ** 2.4)
+        return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b)
+      }
+      const a = lum(rgb(getComputedStyle(el).backgroundColor))
+      const b = lum(rgb(getComputedStyle(el.closest('[role="toolbar"]')!.parentElement!).backgroundColor))
+      return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05)
+    })
+    expect(ratio).toBeGreaterThanOrEqual(3)
+    await p.getByRole('button', { name: 'Zentriert' }).click()
+    await expect(left).toHaveAttribute('aria-pressed', 'false')
+    await expect(left).not.toHaveCSS('background-color', await p.getByRole('button', { name: 'Zentriert' }).evaluate((el) => getComputedStyle(el).backgroundColor))
   })
 
   test('AC: Einstellungen bleiben beim Weiterschreiben; Markierung ändert nichts daran; Einfügen übernimmt keine Schrift', async ({ page, users }) => {
@@ -1231,12 +1267,17 @@ test.describe('QA Editor-Erweiterung', () => {
     expect(result.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target).join(' ')}`)).toEqual([])
     await codeToggle(p).click()
     await code(p).fill('<p><u>x</u></p>')
+    // Farb-Überblendung des Knopfs abwarten: axe misst sonst den Zwischenstand
+    await expect(codeToggle(p)).toHaveCSS('color', 'rgb(255, 255, 255)')
     result = await new AxeBuilder({ page }).include('[role="dialog"]').analyze()
     expect(result.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target).join(' ')}`)).toEqual([])
     await codeToggle(p).click()
     await expect(p.getByText('Entfernt: <u>')).toBeVisible()
-    result = await new AxeBuilder({ page }).include('[role="dialog"]').analyze()
-    expect(result.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target).join(' ')}`)).toEqual([])
+    // Auch beim Zurückschalten läuft eine Farb-Überblendung; ein bleibender Verstoß schlägt trotzdem fehl
+    await expect(async () => {
+      result = await new AxeBuilder({ page }).include('[role="dialog"]').analyze()
+      expect(result.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target).join(' ')}`)).toEqual([])
+    }).toPass({ timeout: 5000 })
   })
 
   test('AC: feste Texte: Einstellungen und Code je Feld, kein Platzhalter-Knopf, zwei Felder getrennt', async ({ page, users }) => {

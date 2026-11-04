@@ -1048,6 +1048,62 @@ test.describe('Layout', () => {
 test.describe('QA Editor-Erweiterung (PROJ-39)', () => {
   const intro = (page: Page) => page.getByRole('region', { name: 'Einleitung' })
 
+  test('BUG-4: Datum, sofort beim Erscheinen eingegeben, gilt in Vorschau und beim Speichern', async ({ page, users }) => {
+    desktopOnly()
+    const { owner, tenantId } = await setup(users)
+    const apt = await addApartment(tenantId)
+    const guest = await addGuest(tenantId)
+    const booking = await addBooking(tenantId, apt, { guestId: guest })
+    await signInAs(page, owner)
+    // JavaScript zurückhalten (wie am langsamen Handy): Die Eingabe liegt sicher vor dem Aktivwerden des Formulars
+    let release = () => {}
+    const held = new Promise<void>((resolve) => (release = resolve))
+    await page.route('**/_next/static/chunks/**/*.js*', async (route) => {
+      await held
+      await route.continue()
+    })
+    await page.goto(`/rechnungen/neu?buchung=${booking.id}`, { waitUntil: 'commit' })
+    await page.getByLabel('Rechnungsdatum').fill('2026-10-20')
+    await page.getByLabel('Adresszeile 1').fill('Früh getippt 1')
+    expect(await page.getByLabel('Rechnungsdatum').evaluate((el) => Object.keys(el).some((k) => k.startsWith('__reactProps')))).toBe(false)
+    release()
+    await expect(page.locator('.ProseMirror').first()).toBeVisible()
+    await expect(page.getByLabel('Rechnungsdatum')).toHaveValue('2026-10-20')
+    await page.getByRole('button', { name: 'Vorschau' }).click()
+    const preview = page.getByRole('article', { name: 'Rechnungsvorschau' })
+    await expect(preview).toContainText('St. Gilgen, 20.10.2026')
+    await expect(preview).toContainText('Früh getippt 1')
+    await page.getByRole('button', { name: 'Zurück zum Entwurf' }).first().click()
+    const id = await saveDraft(page)
+    const { data: row } = await service().from('invoices').select('invoice_date').eq('id', id).single()
+    expect((row as { invoice_date: string }).invoice_date).toBe('2026-10-20')
+  })
+
+  test('BUG-7: Hinweise zu {Anrede} erscheinen als Text, nicht als Fehlerschlüssel', async ({ page, users }) => {
+    desktopOnly()
+    const { owner, tenantId } = await setup(users)
+    const apt = await addApartment(tenantId)
+    const guest = await addGuest(tenantId)
+    const booking = await addBooking(tenantId, apt, { guestId: guest })
+    await signInAs(page, owner)
+    await openCreate(page, booking.id)
+    await expect(page.getByText('{Anrede} richtet sich nach dem Hauptgast (Geschlecht und Titel).')).toBeVisible()
+    await expect(page.getByText(/invoiceDrafts\./)).toHaveCount(0)
+  })
+
+  test('BUG-4: ohne frühe Eingabe gilt der Entwurf nicht als geändert', async ({ page, users }) => {
+    desktopOnly()
+    const { owner, tenantId } = await setup(users)
+    const apt = await addApartment(tenantId)
+    const guest = await addGuest(tenantId)
+    const booking = await addBooking(tenantId, apt, { guestId: guest })
+    await signInAs(page, owner)
+    await openCreate(page, booking.id)
+    await page.getByRole('link', { name: /^Buchung/ }).first().click()
+    await expect(page).toHaveURL(/\/buchungen/)
+    await expect(page.getByRole('alertdialog')).toHaveCount(0)
+  })
+
   test('AC: Einstellungen und Code im Entwurf: speichern, Detail, erneut öffnen, Rückfrage, Unerlaubtes bricht ab', async ({ page, users }) => {
     desktopOnly()
     const { owner, tenantId } = await setup(users)

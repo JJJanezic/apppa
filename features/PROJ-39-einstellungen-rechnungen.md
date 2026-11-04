@@ -329,7 +329,7 @@ Dazu: Kleinunternehmer-Hinweis mit Gesetzestext, Fußzeile leer, Nummernkreis JJ
 - **Schrift lädt nicht** (langsame Verbindung): Schreibfläche und Vorschau zeigen eine Ersatzschrift, die gespeicherte Wahl bleibt erhalten.
 - **Code nur mit Tags und ohne Text:** gilt als leer (Pflichtfeld-Meldung bzw. leere Fußzeile).
 - **Text außerhalb eines Absatzes oder mehrere `<div>` im Code:** Der Text wird zu Absätzen; nur das äußere `<div>` zählt, weitere werden entfernt und im Hinweis genannt.
-- **Zeichengrenze im Code:** Es zählt der Text ohne Tags wie im Editor. Sehr langer Code wird durch eine eigene Obergrenze des Felds begrenzt.
+- **Zeichengrenze im Code:** Es zählt der Text ohne Tags wie im Editor. Code über 200.000 Zeichen wird mit Hinweis abgewiesen und nie gekürzt; der bisherige Stand bleibt.
 - **Sehr große Schrift am Handy:** Die Schreibfläche bricht um, kein seitliches Scrollen.
 - **Bereits gespeicherte Entwürfe:** behalten ihren Text und stehen auf „Standard“ und linksbündig.
 
@@ -350,7 +350,8 @@ Dazu: Kleinunternehmer-Hinweis mit Gesetzestext, Fußzeile leer, Nummernkreis JJ
 - [x] Wie entsteht das Fälligkeitsdatum, wenn im Entwurf kein Zahlungsbaustein gewählt ist, und was gilt, wenn „vor Anreise“ vor dem Rechnungsdatum liegt? → Fällig am Rechnungsdatum; frühere Fristen werden auf das Rechnungsdatum gesetzt, mit Hinweis (PROJ-40, 2026-10-31)
 - [x] Erscheinen auch die Datumsangaben in Block 2a/2b ohne Wochentag? → Ja, alle Datumsangaben auf der Rechnung ohne Wochentag (PROJ-40, 2026-10-31)
 - [x] Wie lautet {Anrede} bei Firmen als Empfänger (z. B. „Sehr geehrte Damen und Herren“)? → Im Entwurf wählbar, vorausgewählt „Sehr geehrte Damen und Herren“, alternativ Anrede des Hauptgasts (PROJ-40, 2026-10-31)
-- [ ] Eingabe im Entwurf vor dem Aktivwerden des Formulars geht verloren (BUG-4 aus QA Editor-Erweiterung); vor PROJ-42 klären
+- [x] Eingabe im Entwurf vor dem Aktivwerden des Formulars geht verloren → behoben im Entwurf (BUG-4, 2026-11-04)
+- [ ] Haben andere vom Server gelieferte Formulare dieselbe Lücke wie der Entwurf (BUG-4), z. B. Buchung, Gast, Einstellungen? Nicht geprüft; `useAdoptEarlyInput` ist wiederverwendbar
 - [ ] PROJ-41: Schriften als TTF- oder WOFF-Dateien samt Lizenztexten ablegen und prüfen, dass Vorschau und PDF gleich umbrechen
 
 ## Decision Log
@@ -400,6 +401,8 @@ Dazu: Kleinunternehmer-Hinweis mit Gesetzestext, Fußzeile leer, Nummernkreis JJ
 | Einstellungen als optionaler Teil des gespeicherten Texts, keine neuen Spalten | Eine Prüfregel deckt Bausteine, feste Texte und Entwürfe ab; Konfliktschutz, Protokoll und Kopie in den Entwurf funktionieren ohne eigenen Bau; alte Texte bleiben gültig | 2026-11-04 |
 | Code-Feld wird bei jeder Eingabe im Browser in die Struktur übersetzt, mit dem eingebauten Lesewerkzeug | HTML erreicht den Server nie; Vorschau und Prüfungen laufen ohne Sonderweg; keine neuen Pakete | 2026-11-04 |
 | Formulare fragen vor dem Speichern offene Code-Felder ab | Nur so kann das Speichern abbrechen, wenn etwas entfernt wurde; die Formularprüfung kennt das Entfernte nicht | 2026-11-04 |
+| Zu langer Code wird abgewiesen statt gekürzt, Grenze 200.000 Zeichen statt 20.000 | HTML aus Word ist groß, das meiste fällt beim Lesen weg; ein Kürzen zerstörte den Text ohne Hinweis (BUG-2) | 2026-11-04 |
+| Früh Eingegebenes wird beim Aktivwerden des Entwurfs übernommen (`useAdoptEarlyInput`), nicht die Eingabe gesperrt | Nichts geht verloren und die Felder flackern nicht ausgegraut (BUG-4) | 2026-11-04 |
 | Schriften im Browser beim Bauen mitgeliefert (`next/font`), ohne Vorladen; PDF-Dateien erst mit PROJ-41 | Keine Verbindung zu Google, DSGVO-freundlich, übrige App nicht langsamer; React-PDF braucht ohnehin andere Dateien (TTF/WOFF, nicht variabel) | 2026-11-04 |
 | Gespeichert bleibt die strukturierte Beschreibung, ergänzt um die drei Einstellungen je Text; Datenbank und App prüfen die erlaubten Werte; HTML ist nur eine Bearbeitungsansicht | Freies HTML bleibt nicht speicherbar, PDF kann weiter direkt aus der Struktur setzen; alte Texte bleiben gültig | 2026-11-04 |
 
@@ -788,7 +791,7 @@ Weil jede Eingabe sofort übersetzt wird, funktionieren Vorschau, Zeichenzähler
 - `src/lib/rich-text.ts`: optionale Einstellungen `attrs` am Dokument (Schriftart, Größe, Ausrichtung). `normalizeDoc` behält nur gültige Werte in fester Reihenfolge, `isRichDoc` prüft streng, `parseFontSize` liest die Eingabe (Komma oder Punkt). Linksbündig wird nicht gespeichert.
 - `src/lib/rich-text-html.ts` (neu, nur im Browser): `docToHtml` und `htmlToDoc`; `htmlToDoc` liefert zusätzlich die Liste des Entfernten. Liest mit `DOMParser`, der nichts ausführt und nichts nachlädt.
 - `rich-text-fonts.ts` (neu): sechs Schriften über `next/font/google`, ohne Vorladen; `richTextStyle` setzt die Darstellung in Schreibfläche und `RichTextView`. Die Werte sind dynamisch, darum hier Inline-Stile statt Tailwind.
-- `rich-text-editor.tsx`: Werkzeugleiste mit Schriftart, Schriftgröße, Ausrichtung und Code; Code-Feld (`Textarea`, höchstens 20.000 Zeichen). Tiptap kennt die Einstellungen nicht, sie werden beim Speichern des Inhalts wieder angehängt.
+- `rich-text-editor.tsx`: Werkzeugleiste mit Schriftart, Schriftgröße, Ausrichtung und Code; Code-Feld (`Textarea`, höchstens 200.000 Zeichen, siehe QA BUG-2). Tiptap kennt die Einstellungen nicht, sie werden beim Speichern des Inhalts wieder angehängt.
 - `rich-text-guard.tsx` (neu): Formulare fragen vor dem Speichern ihre Editoren ab; eingebaut in Baustein, feste Texte und Entwurf.
 - Abweichung vom Spec: `<b>` und `<i>` im Code werden still als fett und kursiv übernommen statt entfernt, weil sie dasselbe bedeuten und sonst Formatierung verloren ginge.
 - Ergänzung zum Spec: Die Schriftauswahl zeigt jeden Eintrag in seiner eigenen Schrift; die Schrift lädt erst beim Öffnen der Liste.
@@ -1242,6 +1245,35 @@ Migration `20261031135815_invoice_settings_qa_fixes.sql`, in Dev eingespielt; Ty
 - **Bugs:** 6 (0 Critical, 0 High, 3 Medium, 3 Low)
 - **Security:** keine Befunde
 - **Production Ready:** JA nach den Regeln (keine Critical oder High). Empfehlung: BUG-2 und BUG-3 vor dem Deploy beheben.
+
+### Korrekturen und QA Runde 2 Editor-Erweiterung (2026-11-04)
+
+Auf Wunsch des Nutzers alle Fehler behoben.
+
+- **BUG-1:** Ein Listenpunkt nur aus Leerzeichen bleibt erhalten.
+- **BUG-2:** `maxLength` entfernt. Code über 200.000 Zeichen wird mit Hinweis abgewiesen, der bisherige Stand bleibt; nichts wird gekürzt.
+- **BUG-3:** Aktiver `Toggle` jetzt `accent-700` mit weißem Symbol (5,3:1 zum Hintergrund, 6,4:1 zum Symbol); nur der Editor verwendet `Toggle`.
+- **BUG-4:** `useAdoptEarlyInput` übernimmt beim Aktivwerden, was schon in den Feldern steht. Korrektur der ersten Beschreibung: Ohne die Korrektur springt das Feld beim Aktivwerden sichtbar auf den alten Wert zurück. Neue Prüfung hält das JavaScript zurück, bis die Eingabe erfolgt ist: ohne Korrektur 3 von 3 rot, mit Korrektur 3 von 3 grün, inklusive Speichern. Erste Proben mit Zufallszeitpunkt waren dafür zu schwach (ohne Korrektur nur 1 von 3 rot).
+- **BUG-5:** Text in `<button>`, `<select>`, `<textarea>` bleibt, das Tag wird genannt.
+- **BUG-6:** Fett bzw. kursiv um eine Liste bleibt erhalten.
+- **BUG-7 (neu, Medium, seit PROJ-40 in Produktion):** Die Texte „{Anrede} richtet sich nach dem Hauptgast…“ und „Anrede im Text ({Anrede})“ lösten bei jedem Anzeigen einen `FORMATTING_ERROR` aus, weil `{Anrede}` als Variable galt. Klammern in `messages/de.json` maskiert; Test `BUG-7`. Nur zufällig entdeckt, weil ein Lauf gegen den Entwicklungsserver ging. Was Nutzer in Produktion dort sahen, wurde nicht geprüft. Alle übrigen Texte mit Großbuchstaben in Klammern durchgesehen: keine weiteren.
+
+**Ergebnisse**
+- Vitest komplett, nacheinander: 62 Dateien, 832 Tests grün, keine erwarteten Fehlschläge mehr. Lint und Typprüfung sauber, Build läuft durch.
+- E2E Chrome Desktop: `PROJ-39` und `PROJ-40` vollständig grün, Server-Log ohne `FORMATTING_ERROR`.
+- E2E Handy und Tablet: Editor grün, aktiver Knopf auf dem Bildschirmfoto klar erkennbar.
+- E2E Firefox: BUG-2, BUG-3 und QA-Block grün. BUG-4 und PROJ-40 nicht in Firefox gelaufen.
+- E2E Safari gegen `npm run dev`: BUG-2, BUG-3, BUG-4, BUG-7 grün.
+
+**Unklar geblieben**
+- Safari: Zweimal öffnete sich das Panel im ersten Test nach dem Start des Entwicklungsservers nicht; danach 5 von 5 grün. Vermutlich ein Klick vor dem Aktivwerden auf dem noch kompilierenden Server, nicht belegt. Am gebauten Server nicht beobachtet.
+- Ein Build schlug einmal ohne erkennbaren Zusammenhang fehl; das Log wurde überschrieben, die Ursache ist unbekannt. Vermutung: Schriften-Download von Google. Beim Deploy darauf achten.
+- BUG-4 ist nur im Entwurf behoben; andere Formulare siehe Open Questions.
+
+**Summary Runde 2**
+- **Acceptance Criteria:** 25/25 bestanden
+- **Bugs:** alle 7 behoben, keine neuen offen
+- **Production Ready:** JA
 
 ## Deployment
 - **Datum:** 2026-10-31, Version v1.17.0
