@@ -1,8 +1,10 @@
 # PROJ-39: Einstellungen → Rechnungen
 
-## Status: Deployed
+## Status: Planned
 **Created:** 2026-10-31
-**Last Updated:** 2026-10-31
+**Last Updated:** 2026-11-04
+
+> Der Grundumfang ist seit v1.17.0 in Produktion. Der Status „Planned“ gilt für die Editor-Erweiterung vom 2026-11-04 (Abschnitt „Editor: Erweiterung“).
 
 ## Dependencies
 - Requires: PROJ-4 (Kundenkonten & Rollen): Einstellungen nur für Inhaber, Mandantentrennung
@@ -17,7 +19,7 @@
 ## Überblick
 Zweites Paket der Gliederung des Rechnungsmoduls (PROJ-38 bis PROJ-42). Die Einstellungen bekommen einen neuen Reiter **„Rechnungen“** (`/einstellungen/rechnungen`), Reihenfolge: **Stammdaten, Team, Wohnungen, Rechnungen**. Der Betreiber bekommt auf der Kunden-Detailseite einen gleichwertigen Abschnitt **„Rechnungen“**.
 
-Hier wird nur **eingestellt**. Rechnungen entstehen erst mit PROJ-40 (Entwurf) und PROJ-41 (Ausstellen, PDF). Anordnung, Schriftart und Schriftgröße folgen mit PROJ-41.
+Hier wird nur **eingestellt**. Rechnungen entstehen erst mit PROJ-40 (Entwurf) und PROJ-41 (Ausstellen, PDF). Anordnung sowie Grundschrift und Grundgröße aller Rechnungen folgen mit PROJ-41. Je Text lassen sich Schriftart, Schriftgröße und Ausrichtung seit der Erweiterung vom 2026-11-04 hier abweichend festlegen.
 
 ### Aufbau einer Rechnung (Übersicht)
 Die Übersicht zeigt alle Bereiche einer Rechnung und was davon in PROJ-39 eingestellt wird. Reihenfolge von oben nach unten.
@@ -81,10 +83,36 @@ Die Anzahlung ist eine Zahlungsbedingung innerhalb **einer** Rechnung, keine eig
 ### Editor
 Ein kleiner, beschränkter Editor für Bausteine, Kleinunternehmer-Hinweis und Fußzeile:
 - **Erlaubt:** fett, kursiv, Absätze, Zeilenumbruch, Aufzählung (Punkte) und nummerierte Liste
-- **Nicht erlaubt:** freies HTML, Links, Farben, Schriftarten, Schriftgrößen, Bilder, Tabellen
+- **Zusätzlich je Text:** Schriftart, Schriftgröße und Ausrichtung, HTML-Code eingeschränkt bearbeitbar (siehe „Editor: Erweiterung“)
+- **Nicht erlaubt:** freies HTML, Links, Farben, Bilder, Tabellen; Schriftart, Schriftgröße oder Ausrichtung nur für einen Teil des Texts
 - **Einfügen aus Word, E-Mail oder Webseite:** übrig bleiben nur die erlaubten Formatierungen
 - **Platzhalter** werden über eine Auswahl „Platzhalter einfügen“ eingesetzt und im Editor als Markierung angezeigt. Von Hand getippte Platzhalter in richtiger Schreibweise werden ebenfalls erkannt; unbekannte (z. B. „{Gastname}“) führen zum Hinweis „Unbekannter Platzhalter: {Gastname}“ und verhindern das Speichern.
 - **Vorschau** unter dem Editor: der Text so, wie er auf der Rechnung erscheinen würde, mit Platzhaltern gefüllt durch Beispieldaten (z. B. „Sehr geehrte Frau Mag. Muster“, „Top 1“, „14.10.2026“, „€ 450,00“).
+
+### Editor: Erweiterung (2026-11-04)
+Gilt für alle Texte mit diesem Editor: Bausteine, Kleinunternehmer-Hinweis, Fußzeile und die Textblöcke im Rechnungsentwurf (PROJ-40).
+
+**Schriftart, Schriftgröße und Ausrichtung gelten immer für den ganzen Text**, nicht für Markierungen oder einzelne Absätze.
+
+| Einstellung | Auswahl | Ohne Auswahl |
+|---|---|---|
+| Schriftart | Arimo (wie Arial), Tinos (wie Times), Carlito (wie Calibri), Source Sans 3, Source Serif 4, Open Sans | „Standard“ |
+| Schriftgröße | 6 bis 24 pt in Schritten von 0,5 pt, freie Eingabe (Komma oder Punkt) | „Standard“ (leeres Feld) |
+| Ausrichtung | linksbündig, zentriert, rechtsbündig, Blocksatz | linksbündig |
+
+- **„Standard“** folgt ab PROJ-41 der Grundschrift und Grundgröße aus dem Briefpapier. Bis dahin bleibt es bei der bisherigen Darstellung der Vorschau. Bestehende Texte stehen auf „Standard“ und linksbündig und sehen unverändert aus.
+- **Listen** bleiben bei jeder Ausrichtung linksbündig. Schriftart und Schriftgröße gelten auch für sie.
+- **Schreibfläche und Vorschau** zeigen Schriftart, Schriftgröße und Ausrichtung so, wie sie gewählt sind.
+- **Einfügen aus Word, E-Mail oder Webseite** übernimmt weder Schriftart noch Schriftgröße noch Ausrichtung.
+- **Entwurf (PROJ-40):** Die Wahl eines Bausteins übernimmt seinen Text samt diesen Einstellungen als Kopie. Sie sind je Rechnung änderbar.
+
+**HTML-Code:** Ein Umschalter „Code“ in der Werkzeugleiste zeigt statt der Schreibfläche ein Textfeld mit dem HTML des Texts. Das HTML wird nur für die Bearbeitung erzeugt; gespeichert wird weiter die geprüfte Struktur.
+- **Erlaubte Tags:** `<p>`, `<br>`, `<strong>`, `<em>`, `<ul>`, `<ol>`, `<li>`, dazu ein äußeres `<div>` nur für die drei Einstellungen. Es erscheint nur, wenn etwas abweichend eingestellt ist, z. B. `<div style="font-family: Arimo; font-size: 10.5pt; text-align: justify">…</div>`.
+- **Nicht Erlaubtes** wird beim Zurückschalten und beim Speichern entfernt, sein Text bleibt erhalten. Das gilt auch für andere Stilangaben, Attribute und ungültige Werte (z. B. `font-size: 40pt`, unbekannte Schrift). Ein Hinweis nennt, was entfernt wurde, z. B. „Entfernt: <a>, style an <p>“.
+- **Speichern im Code-Modus:** Wurde nichts entfernt, wird gespeichert. Wurde etwas entfernt, wird nicht gespeichert: Die Schreibfläche erscheint mit dem bereinigten Text und dem Hinweis, damit der Nutzer das Ergebnis prüfen kann.
+- **Fehlerhaftes HTML** (z. B. nicht geschlossene Tags) wird so gut wie möglich gelesen; das Ergebnis ist in der Vorschau sichtbar.
+- **Platzhalter** sind im Code normaler Text und werden wie bisher geprüft.
+- **Im Code-Modus** sind die übrigen Werkzeuge und „Platzhalter einfügen“ gesperrt. Die Vorschau zeigt den aktuellen Stand.
 
 ### Platzhalter
 Datumsangaben in Platzhaltern stehen **ohne Wochentag** (bewusste Ausnahme von PROJ-31). Beträge wie PROJ-31 („€ 450,00“). Ersetzt werden die Platzhalter erst im Entwurf (PROJ-40).
@@ -142,11 +170,18 @@ Dazu: Kleinunternehmer-Hinweis mit Gesetzestext, Fußzeile leer, Nummernkreis JJ
 - Als **Inhaber mit Kleinunternehmer-Status** möchte ich, dass der gesetzliche Hinweis automatisch auf der Rechnung steht und nicht vergessen werden kann.
 - Als **Betreiber** möchte ich beim Onboarding Nummernkreis und Bausteine mit dem Kunden einrichten, damit seine erste Rechnung richtig nummeriert ist.
 - Als **Inhaber** möchte ich alle Rechnungseinstellungen an einer Stelle finden, auch den Schalter „Rechnungen nacherfassen“.
+- Als **Inhaber** möchte ich je Text Schriftart, Schriftgröße und Ausrichtung wählen, damit z. B. die Fußzeile klein und zentriert und der Einleitungstext im Blocksatz steht.
+- Als **Inhaber** möchte ich den HTML-Code eines Texts direkt bearbeiten, damit ich vorhandenes HTML übernehmen und die Struktur gezielt korrigieren kann, ohne dass die Rechnung dadurch beschädigt werden kann.
 
 ## Out of Scope
 - Rechnungsentwurf, Ersetzen der Platzhalter, Wahl der Bausteine je Rechnung, Block 3 (Gastnamen ja/nein, mit Mitreisenden), Empfänger Gast/Firma (PROJ-40)
 - Nummer vergeben, überschreiben, Lückenhinweis, Fußzeile/Hinweis auf der Rechnung, PDF (PROJ-41)
-- Anordnung der Blöcke, Schriftart, Schriftgröße, Position und Größe des Logos (PROJ-41, „Einstellungen → Rechnungen Teil 2“)
+- Anordnung der Blöcke, Grundschrift und Grundgröße aller Rechnungen, Position und Größe des Logos (PROJ-41, Briefpapier)
+- Umsetzung von Schriftart, Schriftgröße und Ausrichtung im PDF (mit dem PDF-Erzeuger, PROJ-41/PROJ-42)
+- Schriftart, Schriftgröße oder Ausrichtung für einzelne Markierungen oder Absätze
+- Freies HTML und weitere Tags (Tabellen, Links, Farben, Bilder)
+- Eigene hochgeladene Schriften; echte Arial, Times New Roman oder Calibri (nicht frei einbettbar)
+- Syntax-Hervorhebung oder Autovervollständigung im Code-Feld
 - Zahlungen erfassen, Überwachung der Anzahlungsfrist, automatisches Verfallen einer Option (PROJ-13 bzw. später)
 - Eigene Anzahlungsrechnung bzw. Teilung nach Betrag (PROJ-40)
 - Bankverbindung, Telefon, E-Mail, Webseite als eigene Stammdatenfelder (bewusst als freier Fußzeilen-Text)
@@ -212,8 +247,8 @@ Dazu: Kleinunternehmer-Hinweis mit Gesetzestext, Fußzeile leer, Nummernkreis JJ
 - [ ] Angenommen „Anzahlung: nein“ wird nach dem Ausfüllen von Prozent und Frist gewählt, wenn gespeichert wird, dann werden Prozent und Frist nicht gespeichert
 
 ### Editor, Platzhalter und Vorschau
-- [ ] Angenommen der Inhaber schreibt einen Baustein, wenn er Text markiert, dann kann er ihn fett oder kursiv setzen und Aufzählungen bzw. nummerierte Listen anlegen; weitere Formatierungen gibt es nicht
-- [ ] Angenommen der Inhaber fügt formatierten Text aus Word oder einer Webseite ein, wenn der Text im Editor steht, dann sind nur fett, kursiv, Absätze und Listen erhalten; Links, Farben, Schriftarten, Bilder und Tabellen sind entfernt
+- [ ] Angenommen der Inhaber schreibt einen Baustein, wenn er Text markiert, dann kann er ihn fett oder kursiv setzen und Aufzählungen bzw. nummerierte Listen anlegen; weitere Formatierungen für markierten Text gibt es nicht
+- [ ] Angenommen der Inhaber fügt formatierten Text aus Word oder einer Webseite ein, wenn der Text im Editor steht, dann sind nur fett, kursiv, Absätze und Listen erhalten; Links, Farben, Schriftarten, Schriftgrößen, Ausrichtung, Bilder und Tabellen sind entfernt; die Einstellungen des Texts bleiben unverändert
 - [ ] Angenommen der Inhaber wählt „Platzhalter einfügen“ in einem Baustein von Block 4 oder 7, wenn die Auswahl erscheint, dann enthält sie {Anrede}, {Gast}, {Wohnung}, {Anreise}, {Abreise}, {Nächte}, {Rechnungsnummer}, {Rechnungsdatum}, {Betrag}
 - [ ] Angenommen der Inhaber wählt „Platzhalter einfügen“ in einem Baustein von Block 6, wenn die Auswahl erscheint, dann enthält sie zusätzlich {Fälligkeitsdatum} und, nur bei Anzahlung, {Anzahlung}, {Anzahlung fällig} und {Restbetrag}
 - [ ] Angenommen der Inhaber tippt „{Wohnung}“ von Hand, wenn der Text im Editor steht, dann wird der Platzhalter wie ein eingefügter erkannt
@@ -221,6 +256,35 @@ Dazu: Kleinunternehmer-Hinweis mit Gesetzestext, Fußzeile leer, Nummernkreis JJ
 - [ ] Angenommen der Inhaber bearbeitet einen Baustein, wenn er tippt, dann zeigt die Vorschau darunter den Text mit Beispieldaten, z. B. „Sehr geehrte Frau Mag. Muster“ für {Anrede} und „14.10.2026“ (ohne Wochentag) für {Anreise}
 - [ ] Angenommen ein Zahlungsbaustein mit 20 % Anzahlung binnen 3 Tagen und Fälligkeit 1 Tag vor Anreise, wenn die Vorschau erscheint, dann sind {Anzahlung}, {Anzahlung fällig}, {Restbetrag} und {Fälligkeitsdatum} mit den daraus berechneten Beispielwerten gefüllt
 - [ ] Angenommen jemand sendet am Editor vorbei HTML mit Skripten, Links oder Stilangaben, wenn die Anfrage beim Server ankommt, dann wird sie abgelehnt oder auf die erlaubten Formatierungen bereinigt; gespeichert wird nie etwas anderes
+
+### Schriftart, Schriftgröße und Ausrichtung
+- [ ] Angenommen der Inhaber bearbeitet einen Baustein, den Kleinunternehmer-Hinweis, die Fußzeile oder einen Textblock im Entwurf, wenn die Werkzeugleiste erscheint, dann kann er Schriftart, Schriftgröße und Ausrichtung wählen
+- [ ] Angenommen der Inhaber öffnet die Schriftauswahl, wenn die Liste erscheint, dann enthält sie „Standard“, Arimo (wie Arial), Tinos (wie Times), Carlito (wie Calibri), Source Sans 3, Source Serif 4 und Open Sans
+- [ ] Angenommen der Inhaber gibt 10,5 ein, wenn er das Feld verlässt, dann gilt für den ganzen Text 10,5 pt; ein leeres Feld bedeutet „Standard“
+- [ ] Angenommen der Inhaber gibt 5, 25 oder 10,3 ein, wenn die Eingabe geprüft wird, dann erscheint ein Hinweis auf 6 bis 24 pt in Schritten von 0,5 pt, und nichts wird gespeichert
+- [ ] Angenommen der Inhaber wählt Schriftart, Schriftgröße oder Ausrichtung, wenn nur ein Teil des Texts markiert ist, dann gilt die Wahl trotzdem für den ganzen Text
+- [ ] Angenommen der Inhaber wählt Arimo, 11 pt und Blocksatz, wenn er speichert und den Text neu öffnet, dann zeigen Werkzeugleiste, Schreibfläche und Vorschau diese Werte
+- [ ] Angenommen ein Text enthält einen Absatz und eine Liste und ist zentriert, wenn er angezeigt wird, dann ist der Absatz zentriert und die Liste linksbündig in derselben Schriftart und Größe
+- [ ] Angenommen ein Text von vor der Erweiterung, wenn er geöffnet wird, dann stehen Schriftart und Größe auf „Standard“, die Ausrichtung auf linksbündig, und er sieht aus wie zuvor
+- [ ] Angenommen der Inhaber ändert nur die Schriftart eines Bausteins, wenn er speichert, dann zählt das wie eine Textänderung für Konfliktschutz, Bausteinstand und Protokoll (ohne Textinhalt)
+- [ ] Angenommen im Entwurf wird ein Baustein mit Tinos, 12 pt gewählt, wenn der Text übernommen wird, dann hat die Kopie diese Werte; eine Änderung im Entwurf ändert den Baustein nicht
+- [ ] Angenommen im Entwurf wurde nur die Schriftgröße eines übernommenen Texts geändert, wenn ein anderer Baustein gewählt wird, dann erscheint dieselbe Rückfrage wie bei einem geänderten Text
+- [ ] Angenommen die Entwurfsvorschau (PROJ-40) wird geöffnet, wenn Texte eigene Einstellungen haben, dann erscheinen sie darin mit Schriftart, Schriftgröße und Ausrichtung
+- [ ] Angenommen jemand sendet am Editor vorbei eine unbekannte Schrift, eine Größe außerhalb von 6 bis 24 pt, eine Größe außerhalb der 0,5-pt-Schritte oder eine unbekannte Ausrichtung, wenn die Anfrage beim Server ankommt, dann wird sie abgelehnt; auch die Datenbank lehnt solche Werte ab
+
+### HTML-Code
+- [ ] Angenommen der Inhaber schaltet auf „Code“, wenn das Feld erscheint, dann zeigt es den Text als HTML samt aktueller Einstellungen; zurückgeschaltet ist der Text unverändert, wenn nichts bearbeitet wurde
+- [ ] Angenommen der Inhaber ändert im Code `<p>` in `<ul><li>`, `font-size` auf 9pt und `text-align` auf right, wenn er zurückschaltet, dann zeigen Schreibfläche und Werkzeugleiste Liste, 9 pt und rechtsbündig
+- [ ] Angenommen der Code enthält `<a href="…">Link</a>`, `<table>` oder `<span style="color:red">`, wenn zurückgeschaltet wird, dann bleibt der Text, die Tags sind entfernt, und ein Hinweis nennt sie
+- [ ] Angenommen der Code enthält `<script>` oder `onerror`, wenn er verarbeitet wird, dann läuft nichts davon und der Hinweis nennt die Entfernung; der Inhalt von `<script>` wird nicht zu Text
+- [ ] Angenommen der Code enthält `font-size: 40pt` oder eine unbekannte Schrift, wenn zurückgeschaltet wird, dann steht der betroffene Wert auf „Standard“, und der Hinweis nennt ihn
+- [ ] Angenommen im Code-Modus wurde nichts Unzulässiges geschrieben, wenn „Speichern“ gewählt wird, dann wird gespeichert
+- [ ] Angenommen im Code-Modus wurde Unzulässiges geschrieben, wenn „Speichern“ gewählt wird, dann wird nicht gespeichert, und der Nutzer sieht die Schreibfläche mit bereinigtem Text und Hinweis
+- [ ] Angenommen der Code enthält `{Gastname}`, wenn gespeichert wird, dann erscheint wie im Editor „Unbekannter Platzhalter: {Gastname}“
+- [ ] Angenommen der Inhaber tippt im Code, wenn die Vorschau sichtbar ist, dann zeigt sie den aktuellen Stand
+- [ ] Angenommen ein Text enthält `<`, `>` oder `&` als normale Zeichen, wenn zwischen Editor und Code gewechselt wird, dann bleiben die Zeichen unverändert (im Code als `&lt;`, `&gt;`, `&amp;`)
+- [ ] Angenommen der Code-Modus ist aktiv, wenn die Werkzeugleiste erscheint, dann sind nur der Umschalter und ein Hinweis auf die erlaubten Tags aktiv
+- [ ] Angenommen ein deaktivierter Kunde oder eine sonstige Nur-Lesen-Ansicht, wenn der Text erscheint, dann gibt es keinen Code-Umschalter und keine Formatauswahl
 
 ### Feste Texte
 - [ ] Angenommen ein bestehender oder neuer Kunde, wenn der Inhaber die festen Texte öffnet, dann steht im Kleinunternehmer-Hinweis „Umsatzsteuerfrei aufgrund der Kleinunternehmerregelung gemäß § 6 Abs. 1 Z 27 UStG“ und die Fußzeile ist leer
@@ -262,10 +326,19 @@ Dazu: Kleinunternehmer-Hinweis mit Gesetzestext, Fußzeile leer, Nummernkreis JJ
 - **Bausteine ändern, während ein Entwurf offen ist** (ab PROJ-40): Der Entwurf hat bereits eine Kopie; Änderungen wirken nur auf neue Entwürfe.
 - **Leerer Text nach Entfernen aller Zeichen, nur Formatierung oder Leerzeilen:** gilt als leer (Pflichtfeld-Meldung bzw. leere Fußzeile).
 - **Sehr lange Wörter oder IBAN in der Fußzeile am Handy:** werden umgebrochen, kein seitliches Scrollen.
+- **Schrift lädt nicht** (langsame Verbindung): Schreibfläche und Vorschau zeigen eine Ersatzschrift, die gespeicherte Wahl bleibt erhalten.
+- **Code nur mit Tags und ohne Text:** gilt als leer (Pflichtfeld-Meldung bzw. leere Fußzeile).
+- **Text außerhalb eines Absatzes oder mehrere `<div>` im Code:** Der Text wird zu Absätzen; nur das äußere `<div>` zählt, weitere werden entfernt und im Hinweis genannt.
+- **Zeichengrenze im Code:** Es zählt der Text ohne Tags wie im Editor. Sehr langer Code wird durch eine eigene Obergrenze des Felds begrenzt.
+- **Sehr große Schrift am Handy:** Die Schreibfläche bricht um, kein seitliches Scrollen.
+- **Bereits gespeicherte Entwürfe:** behalten ihren Text und stehen auf „Standard“ und linksbündig.
 
 ## Technical Requirements
 - Rechte serverseitig durchgesetzt (Inhaber nur eigener Kunde, Betreiber alle aktiven Kunden schreibend, Mitarbeiter keine Rechte)
 - Formatierter Text wird serverseitig auf die erlaubten Formatierungen geprüft bzw. bereinigt; kein freies HTML
+- HTML aus dem Code-Feld wird nie als HTML gespeichert oder ausgegeben, nur in die geprüfte Struktur übersetzt; beim Lesen darf nichts daraus ausgeführt oder nachgeladen werden
+- Schriften frei lizenziert und im PDF einbettbar, je Schrift mit normal, fett, kursiv und fett-kursiv; vor dem Einbau bei `/architecture` prüfen; nur auf den Seiten mit Editor oder Entwurfsvorschau laden
+- PROJ-41 nutzt für die Grundschrift dieselbe Schriftenliste
 - Prüfregeln (Grenzen, Platzhalter, Nummernformat) gleich in Oberfläche und Server
 - Regel „nächste Nummer“ an einer Stelle, nutzbar von der Vorschau hier und vom Ausstellen in PROJ-41
 - Deutsche Texte über die bestehende i18n-Struktur
@@ -301,6 +374,11 @@ Dazu: Kleinunternehmer-Hinweis mit Gesetzestext, Fußzeile leer, Nummernkreis JJ
 | Vorbelegung mit Beispiel-Bausteinen als eigene, änderbare Kopie je Kunde | Zeigt sofort, wie Platzhalter und Zahlungsregeln wirken; erste Rechnung ohne Vorarbeit; Nutzer: kundenspezifisch überarbeitbar | 2026-10-31 |
 | Vorschau mit Beispieldaten im Editor | Satzbau von {Anrede} und berechnete Fristen sofort prüfbar | 2026-10-31 |
 | Beschränkter Editor (fett, kursiv, Absätze, Listen), kein HTML | Sicher und druckbar; reicht für Rechnungstexte | 2026-10-31 |
+| Schriftart, Schriftgröße und Ausrichtung je ganzem Text, nicht je Markierung oder Absatz; „Standard“ folgt dem Briefpapier (PROJ-41) | Wunsch des Nutzers; ergibt ein einheitliches Rechnungsbild und ergänzt die Grundschrift, statt sie zu ersetzen | 2026-11-04 |
+| Sechs freie Schriften: Arimo, Tinos, Carlito, Source Sans 3, Source Serif 4, Open Sans | Arial, Times und Calibri sind nicht frei einbettbar; Arimo, Tinos und Carlito haben dieselben Zeichenbreiten | 2026-11-04 |
+| Schriftgröße frei von 6 bis 24 pt in 0,5-pt-Schritten | Wunsch des Nutzers statt fester Liste | 2026-11-04 |
+| HTML-Code nur mit erlaubten Tags plus den drei Einstellungen; Unzulässiges wird entfernt und benannt; ändert die Entscheidung „kein HTML“ nur für die Bearbeitung | Direkte Bearbeitung ohne die Sicherheit und PDF-Fähigkeit aufzugeben; freies HTML hätte einen Browser auf dem Server für das PDF verlangt | 2026-11-04 |
+| Speichern im Code-Modus bricht ab, wenn etwas entfernt wurde | Der Nutzer soll das bereinigte Ergebnis sehen, bevor es gespeichert wird; so geht nichts unbemerkt verloren | 2026-11-04 |
 | Grenzen: 20 Bausteine je Block, Name 60, Text 2.000, Hinweis 500 Zeichen, Anzahlung 1–100 %, Fristen 0–365 Tage | Großzügig für die Praxis, schützt vor Missbrauch und unlesbaren Rechnungen | 2026-10-31 |
 
 ### Technical Decisions
@@ -317,6 +395,7 @@ Dazu: Kleinunternehmer-Hinweis mit Gesetzestext, Fußzeile leer, Nummernkreis JJ
 | „Jährlich neu“ vergleicht die Jahreszahl **in der Nummer** mit dem Jahr des Rechnungsdatums; Jahr der Startnummer wird gespeichert | Altnummern mit abweichendem Rechnungsdatum (z. B. Jänner-Rechnung fürs Vorjahr) stören die Folge nicht; Startnummer gilt nur im Eintragungsjahr | 2026-10-31 |
 | Vorbelegung per Migration für bestehende Kunden und automatisch beim Anlegen neuer Kunden (unabhängig vom Anlageweg) | Jeder Kunde hat sofort eine eigene, änderbare Kopie | 2026-10-31 |
 | Betreiber-Protokoll mit neuen Aktionsarten und Bausteinbezeichnung, ohne Textinhalt | Nachvollziehbar wer was geändert hat; Rechnungstexte können Bankdaten enthalten und gehören nicht ins Protokoll | 2026-10-31 |
+| Gespeichert bleibt die strukturierte Beschreibung, ergänzt um die drei Einstellungen je Text; Datenbank und App prüfen die erlaubten Werte; HTML ist nur eine Bearbeitungsansicht | Freies HTML bleibt nicht speicherbar, PDF kann weiter direkt aus der Struktur setzen; alte Texte bleiben gültig | 2026-11-04 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
