@@ -943,6 +943,14 @@ export type Database = {
           created_by: string | null
           footer: Json | null
           id: string
+          letterhead_font: string
+          letterhead_font_size: number
+          letterhead_line_spacing: string
+          letterhead_logo_height_mm: number
+          letterhead_logo_position: string
+          letterhead_paragraph_spacing: string
+          letterhead_show_issuer: boolean
+          letterhead_updated_at: string
           number_digits: number
           number_prefix: string
           number_separator: string
@@ -964,6 +972,14 @@ export type Database = {
           created_by?: string | null
           footer?: Json | null
           id?: string
+          letterhead_font?: string
+          letterhead_font_size?: number
+          letterhead_line_spacing?: string
+          letterhead_logo_height_mm?: number
+          letterhead_logo_position?: string
+          letterhead_paragraph_spacing?: string
+          letterhead_show_issuer?: boolean
+          letterhead_updated_at?: string
           number_digits?: number
           number_prefix?: string
           number_separator?: string
@@ -985,6 +1001,14 @@ export type Database = {
           created_by?: string | null
           footer?: Json | null
           id?: string
+          letterhead_font?: string
+          letterhead_font_size?: number
+          letterhead_line_spacing?: string
+          letterhead_logo_height_mm?: number
+          letterhead_logo_position?: string
+          letterhead_paragraph_spacing?: string
+          letterhead_show_issuer?: boolean
+          letterhead_updated_at?: string
           number_digits?: number
           number_prefix?: string
           number_separator?: string
@@ -1829,6 +1853,14 @@ export type Database = {
       }
       save_invoice_draft: { Args: { p_input: Json }; Returns: string }
       save_invoice_fixed_texts: {
+        Args: {
+          p_data: Json
+          p_expected_updated_at: string
+          p_tenant_id: string
+        }
+        Returns: undefined
+      }
+      save_invoice_letterhead: {
         Args: {
           p_data: Json
           p_expected_updated_at: string

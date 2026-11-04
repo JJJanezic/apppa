@@ -20,8 +20,6 @@ const DB_ERRORS: Record<string, InvoiceSettingsErrorCode | CommonErrorCode> = {
   P0016: 'tenantDeactivated',
   P0910: 'staleSettings',
   P0914: 'contentInvalid',
-  // Funktion noch nicht eingerichtet (Migration aus /backend)
-  PGRST202: 'notImplemented',
 }
 
 // Briefpapier speichern (PROJ-41), Inhaber und Betreiber. Rolle, 2FA, Aktiv-Status und Stand prüft die Datenbank-Funktion.
@@ -32,7 +30,7 @@ export async function saveLetterhead(values: { tenantId: string; updatedAt: stri
   if (!access) return fail((await belongsToDeactivatedTenant()) ? 'tenantDeactivated' : 'sessionExpired')
   const v = parsed.data
   const supabase = await createClient()
-  const { error } = await supabase.rpc('save_invoice_letterhead' as never, {
+  const { error } = await supabase.rpc('save_invoice_letterhead', {
     p_tenant_id: access.tenantId,
     p_expected_updated_at: values.updatedAt,
     p_data: {
@@ -44,7 +42,7 @@ export async function saveLetterhead(values: { tenantId: string; updatedAt: stri
       logo_height_mm: v.logoHeightMm,
       show_issuer: v.showIssuer,
     },
-  } as never)
+  })
   if (error) {
     const mapped = error.code ? DB_ERRORS[error.code] : undefined
     if (!mapped) console.error('[briefpapier] nicht gespeichert', error.code, error.message)

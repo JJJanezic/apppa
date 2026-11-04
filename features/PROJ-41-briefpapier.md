@@ -372,13 +372,13 @@ Mit der genannten Version wurde außerhalb des Projekts ein Wegwerf-Versuch gema
 - Ist `bottom` an einem Text mit `render` gesetzt, setzt React-PDF 4.9.0 ihn gar nicht. Die Seitenzeile steht darum mit `top`, und mit einer leeren Rückgabe verschwindet ein ganzes wiederholtes Element. Tests sichern das ab.
 - Hinweise zu Logo und Fußzeile kommen aus der Antwort der Vorschau, nicht aus dem Formular: so stimmen sie immer mit dem PDF überein.
 
-**Offen für /backend:**
-- Spalten in `invoice_settings`: `letterhead_font`, `letterhead_font_size`, `letterhead_line_spacing`, `letterhead_paragraph_spacing`, `letterhead_logo_position`, `letterhead_logo_height_mm`, `letterhead_show_issuer`, `letterhead_updated_at`, mit den Standardwerten und Prüfungen aus `src/lib/letterhead.ts`
-- Funktion `save_invoice_letterhead(p_tenant_id, p_expected_updated_at, p_data)` mit den Schlüsseln `font`, `font_size`, `line_spacing`, `paragraph_spacing`, `logo_position`, `logo_height_mm`, `show_issuer`; Fehlercodes P0910, P0914, P0011, P0016, 42501; Protokolleintrag „letterhead“ ohne Werte. Bis dahin meldet Speichern „Diese Funktion wird gerade eingerichtet“.
-- `invoice_preview_data` liefert zusätzlich `letterhead` mit denselben Schlüsseln. Bis dahin sehen Entwürfe die Standardwerte.
-- `.select(... as 'footer')` in `letterhead-data.ts` und `rpc(... as never)` nach `npm run db:types` bereinigen.
+### Umsetzung Backend (2026-11-04)
 
-**Für /qa:** Erste E2E in `tests/PROJ-41-briefpapier.spec.ts`; Speichern, Konflikt, Protokoll, Logo-Fälle, Mitarbeiter-Logo und Safari fehlen noch. PROJ-40-Tests sind auf die PDF-Vorschau umgestellt, nur mit Filter „Vorschau“ geprüft.
+**Gebaut:** Migration `20261104212659_letterhead.sql`, nur in Dev: Abschnitt „Briefpapier“ in `invoice_settings` mit Standardwerten und Prüfungen, Funktion `save_invoice_letterhead` (Inhaber, Betreiber; Stand, Grenzen, Protokoll `letterhead` ohne Werte), `invoice_preview_data` mit Briefpapier auch für Mitarbeiter. Keine neue Tabelle, RLS unverändert. Das Logo liest der Server mit dem geheimen Schlüssel erst nach geprüftem Zugriff.
+
+**Geprüft:** Integrationstests einzeln nacheinander 311 grün, davon 9 neu in `supabase/tests/letterhead.integration.test.ts`; parallel laufen sie in Dev wie bekannt in Zeitüberschreitungen. E2E `tests/PROJ-41-briefpapier.spec.ts` in Chrome grün: Speichern, Konflikt, Logo im PDF, Mitarbeiter sieht Logo ohne Dateizugriff. Die Hinweise der Datenbank-Prüfung (`db advisors`) nennen nur zwei Auth-Einstellungen, die nichts mit dieser Migration zu tun haben.
+
+**Für /qa:** Noch offen sind die übrigen Kriterien, Safari und Firefox, der Rest der PROJ-38/39/40-E2E nach dem Umbau und die Vorschau für Betreiber mit Logo. Vor dem Deploy: Drucktest Adressfeld, Lauf auf Vercel (Staging).
 
 **Bekanntes Risiko außerhalb dieses Features:** `next build` scheitert zeitweise mit „next/font/google queries have exactly one entry“. Laut Build-Log betrifft es Source Serif 4 und eine Antwort von Google mit `gstatic.com/l/font?kit=…`-Adressen. Der Code dazu stammt aus PROJ-2 und PROJ-39; ohne die Änderungen dieses Features trat es in 3 Läufen nicht auf, mit ihnen in etwa 4 von 10, was bei so wenigen Läufen keine Aussage über die Ursache erlaubt. Kann auch auf Vercel einen Build abbrechen.
 

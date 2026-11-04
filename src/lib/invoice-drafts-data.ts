@@ -230,7 +230,7 @@ type PreviewDb = {
   footer: unknown
   small_business_note: unknown
   vat_status: { valid_from: string; small_business: boolean }[] | null
-  // Briefpapier (PROJ-41); bis zur Migration fehlt es, dann gelten die Standardwerte
+  // Briefpapier (PROJ-41)
   letterhead?: Parameters<typeof letterheadFromDb>[0]
 }
 

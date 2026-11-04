@@ -20,27 +20,16 @@ export type LetterheadData = {
 const LETTERHEAD_COLUMNS =
   'letterhead_font, letterhead_font_size, letterhead_line_spacing, letterhead_paragraph_spacing, letterhead_logo_position, letterhead_logo_height_mm, letterhead_show_issuer, letterhead_updated_at, footer'
 
-type LetterheadRow = {
-  letterhead_font: unknown
-  letterhead_font_size: unknown
-  letterhead_line_spacing: unknown
-  letterhead_paragraph_spacing: unknown
-  letterhead_logo_position: unknown
-  letterhead_logo_height_mm: unknown
-  letterhead_show_issuer: unknown
-  letterhead_updated_at: string
-  footer: unknown
-}
-
-// Lesen dürfen Inhaber und Betreiber (RLS). Fehlen die Spalten noch (Migration aus /backend), gelten die Standardwerte.
+// Lesen dürfen Inhaber und Betreiber (RLS). Ist die Zeile nicht lesbar, gelten die Standardwerte; Speichern scheitert dann
+// am Stand und meldet das.
 export async function loadLetterhead(tenantId: string): Promise<LetterheadData> {
   const supabase = await createClient()
   const [settings, tenant] = await Promise.all([
-    supabase.from('invoice_settings').select(LETTERHEAD_COLUMNS as 'footer').eq('tenant_id', tenantId).maybeSingle(),
+    supabase.from('invoice_settings').select(LETTERHEAD_COLUMNS).eq('tenant_id', tenantId).maybeSingle(),
     supabase.from('tenants').select('logo_path').eq('id', tenantId).maybeSingle(),
   ])
   if (settings.error) console.error('[briefpapier] Einstellungen nicht lesbar', settings.error.message)
-  const r = settings.data as unknown as LetterheadRow | null
+  const r = settings.data
   return {
     tenantId,
     values: r
