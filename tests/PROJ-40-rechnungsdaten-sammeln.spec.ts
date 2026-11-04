@@ -648,6 +648,52 @@ test.describe('Empfänger, Texte, Zahlungsregeln', () => {
     await expect(intro.getByRole('textbox', { name: 'Text für diese Rechnung', exact: true })).toContainText('vielen Dank für Ihren Aufenthalt')
   })
 
+  test('AC: Baustein mit Schrift und Größe: Kopie im Entwurf, Vorschau, Änderung fragt nach und ändert den Baustein nicht', async ({ page, users }) => {
+    desktopOnly()
+    const { owner, tenantId } = await setup(users)
+    const apt = await addApartment(tenantId)
+    const guest = await addGuest(tenantId)
+    const booking = await addBooking(tenantId, apt, { guestId: guest })
+    const attrs = { fontFamily: 'tinos', fontSize: 12 }
+    const body = { type: 'doc', attrs, content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Formatierter Dank' }] }] }
+    const { data: block } = await service()
+      .from('invoice_text_blocks')
+      .insert({ tenant_id: tenantId, block: 'intro', name: 'Mit Format', body } as never)
+      .select('id, body')
+      .single()
+    await signInAs(page, owner)
+    await openCreate(page, booking.id)
+    const intro = page.getByRole('region', { name: 'Einleitung' })
+    await intro.getByRole('combobox', { name: 'Baustein' }).click()
+    await page.getByRole('option', { name: 'Mit Format' }).click()
+    const box = intro.getByRole('textbox', { name: 'Text für diese Rechnung', exact: true })
+    await expect(box).toHaveText('Formatierter Dank')
+    await expect(box).toHaveCSS('font-family', /Tinos/)
+    await expect(box).toHaveCSS('font-size', '16px')
+
+    await page.getByRole('button', { name: 'Vorschau' }).click()
+    const shown = page.getByRole('article', { name: 'Rechnungsvorschau' }).locator('div.break-words').filter({ hasText: 'Formatierter Dank' })
+    await expect(shown).toHaveCSS('font-family', /Tinos/)
+    await page.getByRole('button', { name: 'Zurück zum Entwurf' }).first().click()
+
+    // Nur die Größe geändert: Ein anderer Baustein ersetzt den Text erst nach Rückfrage
+    const size = intro.getByRole('textbox', { name: 'Schriftgröße in pt' })
+    await size.fill('9')
+    await size.blur()
+    await expect(box).toHaveCSS('font-size', '12px')
+    await intro.getByRole('combobox', { name: 'Baustein' }).click()
+    await page.getByRole('option', { name: 'Kein Text' }).click()
+    await expect(page.getByRole('alertdialog')).toBeVisible()
+    await page.getByRole('alertdialog').getByRole('button').first().press('Escape')
+    await expect(box).toHaveCSS('font-size', '12px')
+
+    await saveDraft(page)
+    const { data: row } = await service().from('invoices').select('intro_text').eq('tenant_id', tenantId).single()
+    expect((row as { intro_text: { attrs: unknown } }).intro_text.attrs).toEqual({ fontFamily: 'tinos', fontSize: 9 })
+    const { data: unchanged } = await service().from('invoice_text_blocks').select('body').eq('id', (block as { id: string }).id).single()
+    expect((unchanged as { body: { attrs: unknown } }).body.attrs).toEqual(attrs)
+  })
+
   test('AC: Baustein „Anzahlung 20 %, Rest vor Anreise“ – € 90,00 fällig 04.10., Rest € 360,00 fällig 13.10.; 30 % je Rechnung lässt den Baustein unverändert', async ({ page, users }) => {
     desktopOnly()
     const { owner, tenantId } = await setup(users)

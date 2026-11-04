@@ -1022,6 +1022,48 @@ test.describe('Editor-Erweiterung: Schrift, Größe, Ausrichtung, Code', () => {
     await expect.poll(async () => (await blockRows(tenantId)).find((r) => r.name === 'Aus Code')?.name).toBe('Aus Code')
   })
 
+  test('AC: Einstellungen werden gespeichert und beim erneuten Öffnen gezeigt; alte Texte bleiben Standard', async ({ page, users }) => {
+    desktopOnly()
+    const { owner, tenantId } = await ownerWithTenant(users, 'Speichern')
+    await signInAs(page, owner)
+    await openSettings(page)
+    await openNewBlock(page, 'closing')
+    let p = panel(page)
+    await p.getByLabel('Name').fill('Formatiert')
+    await typeInto(page, editor(p, 'Text'), 'Mit Format', { clear: true })
+    await p.getByRole('combobox', { name: 'Schriftart' }).click()
+    await page.getByRole('option', { name: 'Carlito (wie Calibri)' }).click()
+    const size = p.getByRole('textbox', { name: 'Schriftgröße in pt' })
+    await size.fill('10,5')
+    await size.blur()
+    await p.getByRole('button', { name: 'Zentriert' }).click()
+    await p.getByRole('button', { name: 'Speichern' }).click()
+    await expect(p).toBeHidden()
+    await expect
+      .poll(async () => (await blockRows(tenantId)).find((r) => r.name === 'Formatiert')?.body)
+      .toMatchObject({ attrs: { fontFamily: 'carlito', fontSize: 10.5, textAlign: 'center' } })
+
+    await page.reload()
+    await ready(page)
+    await blockMenu(page, 'Formatiert', 'Bearbeiten')
+    p = panel(page)
+    await expect(p.getByRole('combobox', { name: 'Schriftart' })).toHaveText('Carlito (wie Calibri)')
+    await expect(p.getByRole('textbox', { name: 'Schriftgröße in pt' })).toHaveValue('10,5')
+    await expect(p.getByRole('button', { name: 'Zentriert' })).toHaveAttribute('aria-pressed', 'true')
+    await expect(editor(p, 'Text')).toHaveCSS('font-family', /Carlito/)
+    await expect(editor(p, 'Text')).toHaveCSS('text-align', 'center')
+    await p.getByRole('button', { name: 'HTML-Code bearbeiten' }).click()
+    await expect(p.locator('textarea')).toHaveValue('<div style="font-family: Carlito; font-size: 10.5pt; text-align: center">\n<p>Mit Format</p>\n</div>')
+    await p.getByRole('button', { name: 'Abbrechen' }).click()
+
+    // Vorbelegter Baustein von vor der Erweiterung
+    await blockMenu(page, 'Nächster Besuch', 'Bearbeiten')
+    p = panel(page)
+    await expect(p.getByRole('combobox', { name: 'Schriftart' })).toHaveText('Standard')
+    await expect(p.getByRole('textbox', { name: 'Schriftgröße in pt' })).toHaveValue('')
+    await expect(p.getByRole('button', { name: 'Linksbündig' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
   test('Handy: Werkzeugleiste und Code-Feld ohne seitliches Scrollen', async ({ page, users }) => {
     test.skip(test.info().project.name !== 'mobile', 'Nur im Handy-Projekt')
     const { owner } = await ownerWithTenant(users, 'CodeHandy')

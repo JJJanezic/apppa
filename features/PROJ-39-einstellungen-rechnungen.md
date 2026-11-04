@@ -795,7 +795,7 @@ Weil jede Eingabe sofort übersetzt wird, funktionieren Vorschau, Zeichenzähler
 - Tests: 572 Unit-Tests grün. E2E grün: neuer Block „Editor-Erweiterung“ (Desktop, Handy), PROJ-39 Editor, feste Texte, Barrierefreiheit, PROJ-40 Texte und Vorschau. Firefox und Safari sind noch nicht geprüft.
 - Bestehende Tests angepasst: Knopfzahl der Werkzeugleiste; PROJ-40 sucht das Textfeld jetzt mit Namen, weil die Schriftgröße ebenfalls ein Textfeld ist; `openCreate` wartet auf den Editor.
 
-**Offen für /backend:** `private.rich_doc_ok` muss `attrs` annehmen, mit denselben Regeln wie `isRichDoc`: nur die drei Schlüssel, nicht leer, Schriftkennung aus `RICH_FONTS`, Größe 6 bis 24 in 0,5er-Schritten, Ausrichtung `center`, `right` oder `justify`. Bis dahin lehnt die Datenbank Texte mit Einstellungen ab; Texte ohne Einstellungen, auch aus dem Code-Modus, lassen sich speichern. Das Speichern mit Einstellungen, das erneute Öffnen und die Übernahme in den Entwurf sind deshalb noch nicht End-to-End getestet.
+**Backend (2026-11-04):** erledigt, siehe „Editor-Erweiterung (Backend)“.
 
 **Für /qa:** Eingabe direkt nach dem Laden des Entwurfs. Füllt ein Test das Rechnungsdatum aus, bevor das Formular aktiv ist, zeigt das Feld den neuen Wert, das Formular rechnet aber mit dem heutigen Datum. Das bestand schon vor dieser Erweiterung (1 von 6 Läufen), mit ihr trat es im selben Test öfter auf (4 von 5 Läufen, kleine Stichprobe). Ursache und Größe des Zeitfensters sind nicht gemessen. In den Tests überbrückt `openCreate` die Lücke; behoben ist sie damit nicht. Vor PROJ-42 klären, weil das Datum dort festgeschrieben wird.
 
@@ -883,6 +883,16 @@ Migration `20261031135815_invoice_settings_qa_fixes.sql`, in Dev eingespielt; Ty
   - Firefox: 24 grün, 1 übersprungen, 1 einzelner Ausreißer im Konflikt-Test des Nummernkreises. „Aktuelle Fassung laden“ zeigte den alten Wert, danach 8 von 8 grün. Passt zum bekannten sporadischen Verhalten von Next 16 bei `router.refresh()` nach Server-Aktionen; der Code dort ist unverändert.
 
 **Für `/qa`:** Abläufe in der Oberfläche als E2E ergänzen: Nummernkreis-Vorschau mit nacherfassten Nummern, Baustein anlegen/Standard/Löschen, Einfügen aus Word bzw. Webseite, Konfliktanzeige, Betreiber-Abschnitt (aktiv/deaktiviert), Handy 375 px im Rechnungs-Reiter, Firefox/Safari.
+
+### Editor-Erweiterung (Backend, 2026-11-04)
+- Migration `20261104172140_rich_text_attrs.sql`: neue Prüfung `private.rich_attrs_ok`; `private.rich_doc_ok` nimmt `attrs` an. Keine neuen Spalten, keine Datenumstellung, keine RLS-Änderung, keine neuen Schreibfunktionen. Vorhandene Zeilen werden nicht neu geprüft.
+- Migration `20261104172539_rich_text_attrs_grant.sql`: Ausführungsrecht für `authenticated` und `service_role`. Ohne dieses Recht schlugen direkte Schreibzugriffe auf die Tabellen fehl, auch bei Texten ohne Einstellungen (von den Integrationstests gefunden). Beide Migrationen gehören zusammen und müssen in dieser Reihenfolge und vor dem neuen Code in Staging und Produktion.
+- Beide nur in Dev eingespielt. Typen unverändert. Advisors: nur die zwei bekannten Auth-Warnungen (`auth_otp_long_expiry`, `auth_leaked_password_protection`), nichts zu dieser Änderung.
+- Tests, alle gegen Dev grün:
+  - `invoice-settings.integration.test.ts` (17): gültige und ungültige Werte über die Speicherfunktion und direkt in der Tabelle, Abgleich mit `isRichDoc`, Schriftliste aus `RICH_FONTS`, reine Formatänderung für Stand, Konflikt und Protokoll, gleiche Einstellungen in anderer Schlüsselreihenfolge sind keine Änderung
+  - `invoice-drafts.integration.test.ts` (22): Einstellungen im Entwurf gespeichert, ungültige abgelehnt
+  - E2E Desktop: speichern und neu öffnen, Code-Ansicht danach, alter Baustein bleibt Standard; Entwurf übernimmt die Einstellungen als Kopie, Vorschau, Rückfrage bei reiner Größenänderung, Baustein bleibt unverändert
+- Nicht gelaufen: der gesamte `npm test`-Lauf und alle E2E-Dateien; das gehört zu `/qa`.
 
 ## QA Test Results
 

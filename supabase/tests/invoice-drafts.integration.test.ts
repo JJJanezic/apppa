@@ -393,6 +393,15 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-40 Rechnungsentwurf', () => {
       expect(await invoice(p.id!)).toMatchObject({ kind: 'partial', partial_mode: 'amount', partial_amount_cents: 20000, total_cents: 20000 })
     })
 
+    it('speichert Schriftart, Schriftgröße und Ausrichtung im Entwurf, lehnt ungültige ab', async () => {
+      const booking = await newBooking()
+      const body = { ...(doc('Guten Tag') as object), attrs: { fontFamily: 'carlito', fontSize: 10.5, textAlign: 'justify' } } as Json
+      const id = savedId(await save(ownerA, booking, { texts: { intro: { block_id: null, body } } }))
+      expect((await invoice(id)).intro_text).toEqual(body)
+      const bad = { ...(doc('Guten Tag') as object), attrs: { fontFamily: 'comic' } } as Json
+      expect((await save(ownerA, booking, { texts: { intro: { block_id: null, body: bad } } })).error?.code).toBe('P0922')
+    })
+
     it('übernimmt nur Bausteine des eigenen Kunden und Blocks als Verweis', async () => {
       const booking = await newBooking()
       const { data: own } = await service.from('invoice_text_blocks').select('id').eq('tenant_id', tenantA).eq('block', 'intro').limit(1).single()

@@ -7,6 +7,7 @@ import { randomUUID } from 'node:crypto'
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
+import { isRichDoc, RICH_ALIGNS, RICH_FONTS } from '@/lib/rich-text'
 import type { Json } from '@/types/database'
 import { anonClient, type Client, hasSupabaseEnv, serviceClient, type TestUser } from './helpers'
 import { sharedClient } from './shared-sessions'
@@ -236,6 +237,89 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-39 Rechnungseinstellungen', () => {
     expect(last?.changed_fields).toEqual(['small_business_note', 'footer'])
     // Protokoll ohne Text
     expect(JSON.stringify(await log(tenantA))).not.toContain('IBAN')
+  })
+
+  it('Schriftart, Schriftgröße, Ausrichtung: gültige Werte gespeichert, ungültige abgelehnt, auch direkt in der Datenbank', async () => {
+    const note = (await settings(tenantA)).small_business_note
+    const styled = (attrs: unknown): Json => ({ ...(doc('Text') as object), attrs }) as Json
+
+    // jede Schrift der App, alle Ausrichtungen, Grenzen und halbe Punkte
+    const valid: Record<string, unknown>[] = [
+      ...RICH_FONTS.map((fontFamily) => ({ fontFamily })),
+      ...RICH_ALIGNS.map((textAlign) => ({ textAlign })),
+      { fontSize: 6 },
+      { fontSize: 24 },
+      { fontSize: 10.5 },
+      { fontFamily: 'arimo', fontSize: 10.5, textAlign: 'justify' },
+    ]
+    for (const attrs of valid) {
+      const { error } = await saveTexts(ownerA, tenantA, { small_business_note: note, footer: styled(attrs) })
+      expect(error, JSON.stringify(attrs)).toBeNull()
+      expect((await settings(tenantA)).footer, JSON.stringify(attrs)).toEqual(styled(attrs))
+      expect(isRichDoc(styled(attrs)), JSON.stringify(attrs)).toBe(true)
+    }
+
+    const invalid: unknown[] = [
+      {},
+      null,
+      'arimo',
+      [],
+      { fontFamily: 'comic' },
+      { fontFamily: 1 },
+      { fontFamily: null },
+      { fontSize: 5.5 },
+      { fontSize: 24.5 },
+      { fontSize: 10.3 },
+      { fontSize: '10' },
+      { fontSize: null },
+      { textAlign: 'left' },
+      { textAlign: 'middle' },
+      { textAlign: null },
+      { color: 'red' },
+      { fontSize: 10, style: 'color:red' },
+    ]
+    for (const attrs of invalid) {
+      expect((await saveTexts(ownerA, tenantA, { small_business_note: note, footer: styled(attrs) })).error?.code, JSON.stringify(attrs)).toBe('P0914')
+      expect(isRichDoc(styled(attrs)), JSON.stringify(attrs)).toBe(false)
+      // Prüfregel der Tabelle: auch mit dem Service-Schlüssel nicht speicherbar
+      const direct = await service.from('invoice_settings').update({ footer: styled(attrs) } as never).eq('tenant_id', tenantA)
+      expect(direct.error?.code, JSON.stringify(attrs)).toBe('23514')
+    }
+    // Einstellungen an einem Absatz bleiben verboten
+    const onParagraph = { type: 'doc', content: [{ type: 'paragraph', attrs: { textAlign: 'center' } }] } as Json
+    expect((await saveTexts(ownerA, tenantA, { small_business_note: note, footer: onParagraph })).error?.code).toBe('P0914')
+
+    // nur Einstellungen ohne Text zählen als leer: leere Fußzeile, Pflichttext abgelehnt
+    const empty = { type: 'doc', attrs: { fontSize: 9 }, content: [{ type: 'paragraph' }] } as Json
+    expect((await saveTexts(ownerA, tenantA, { small_business_note: note, footer: empty })).error).toBeNull()
+    expect((await settings(tenantA)).footer).toBeNull()
+    expect((await saveTexts(ownerA, tenantA, { small_business_note: empty, footer: null })).error?.code).toBe('P0914')
+    expect((await saveTexts(ownerA, tenantA, { small_business_note: note, footer: null })).error).toBeNull()
+  })
+
+  it('Baustein: reine Formatänderung zählt als Textänderung für Stand, Konflikt und Protokoll, ohne Textinhalt', async () => {
+    const body = doc('Formatierter Text')
+    const name = `Format ${randomUUID().slice(0, 6)}`
+    expect((await saveBlock(ownerA, { name, body })).error).toBeNull()
+    const before = (await blocks(tenantA)).find((b) => b.name === name)!
+
+    const styled = { ...(body as object), attrs: { fontFamily: 'tinos', fontSize: 12, textAlign: 'center' } } as Json
+    expect((await saveBlock(ownerA, { id: before.id, updated_at: before.content_updated_at, name, body: styled })).error).toBeNull()
+    const after = (await blocks(tenantA)).find((b) => b.id === before.id)!
+    expect(after.body).toEqual(styled)
+    expect(after.content_updated_at).not.toBe(before.content_updated_at)
+    expect((await log(tenantA)).at(-1)).toEqual({ action: 'text_block_updated', changed_fields: ['body'], target_block: 'intro', target_label: name })
+
+    // alter Stand: Konflikt
+    expect((await saveBlock(ownerA, { id: before.id, updated_at: before.content_updated_at, name, body })).error?.code).toBe('P0910')
+    // Reihenfolge der Schlüssel ist egal: gleiche Einstellungen sind keine Änderung
+    const reordered = { content: (body as { content: unknown }).content, attrs: { textAlign: 'center', fontSize: 12, fontFamily: 'tinos' }, type: 'doc' } as Json
+    const logBefore = (await log(tenantA)).length
+    expect((await saveBlock(ownerA, { id: before.id, updated_at: after.content_updated_at, name, body: reordered })).error).toBeNull()
+    expect((await log(tenantA)).length).toBe(logBefore)
+
+    const invalid = { ...(body as object), attrs: { fontSize: 40 } } as Json
+    expect((await saveBlock(ownerA, { name: `${name} 2`, body: invalid })).error?.code).toBe('P0914')
   })
 
   it('Schalter: speichern, Konflikt, Rechnung nacherfassen danach abgelehnt (P0905)', async () => {
