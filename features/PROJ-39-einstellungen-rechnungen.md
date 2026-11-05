@@ -1,10 +1,10 @@
 # PROJ-39: Einstellungen → Rechnungen
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-10-31
 **Last Updated:** 2026-11-05
 
-> Grundumfang seit v1.17.0 in Produktion, Editor-Erweiterung (Abschnitt „Editor: Erweiterung“) seit v1.20.0. Zeilenhöhe im HTML-Code (Abschnitt „Editor: Zeilenhöhe“, refine 2026-11-05) geplant.
+> Grundumfang seit v1.17.0 in Produktion, Editor-Erweiterung (Abschnitt „Editor: Erweiterung“) seit v1.20.0. Zeilenhöhe im HTML-Code (Abschnitt „Editor: Zeilenhöhe“, refine 2026-11-05) seit v1.23.0.
 
 ## Dependencies
 - Requires: PROJ-4 (Kundenkonten & Rollen): Einstellungen nur für Inhaber, Mandantentrennung
@@ -1454,3 +1454,15 @@ Auf Wunsch des Nutzers alle Fehler behoben.
 - **Mit ausgeliefert:** Buchhaltungs-Commit PROJ-15 (`6d8a60c`); BUG-7 (Hinweise zu `{Anrede}`, seit PROJ-40 in Produktion) und BUG-4 im Rechnungsentwurf
 - **Vorabprüfung:** Der erste Vitest-Lauf war rot (RLS-Test, 67.141 Zeilen im Dev-`audit_log`). Nach der Bereinigung durch den Nutzer 832/832 grün.
 - **Tag:** `v1.20.0-PROJ-39` auf `269e293`
+
+### Zeilenhöhe (2026-11-05)
+- **Datum:** 2026-11-05, Version v1.23.0
+- **Commit:** `668423d` (Branches `staging` und `production`); Staging vom Nutzer geprüft und für Production freigegeben, Production-Build „Ready“ vom Nutzer bestätigt
+- **Staging:** https://staging.apppa.at
+- **Production:** https://app.apppa.at
+- **Migrationen:** `20261105200349_rich_text_line_height.sql` (Staging und Produktion; Advisors je nur `auth_otp_long_expiry`, bekannt)
+- **Neue Pakete, neue Umgebungsvariablen, `config push`:** keine
+- **Mit ausgeliefert:** Buchhaltungs-Commit Schrift-Fix (`ed10d7b`)
+- **Vorabprüfung:** Lint sauber, Secret-Scan ohne Treffer, Unit 688/688, alle 16 Integrationsdateien gegen Dev grün
+- **Tag:** `v1.23.0-PROJ-39` auf `668423d`
+

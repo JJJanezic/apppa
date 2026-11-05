@@ -25,7 +25,7 @@ Die App wird als Mehrmandanten-SaaS betrieben: Jeder Kunde (Vermieter) hat ein e
 | P0 (Pilot) | Supabase-Infrastruktur, App-Shell & Design-System, Authentifizierung | Deployed (PROJ-1, PROJ-2, PROJ-3) |
 | P0 (Pilot) | Kundenkonten mit Rollen (Inhaber/Mitarbeiter), Betreiber-Admin | Deployed (PROJ-4, PROJ-5) |
 | P0 (Pilot) | Kundenstammdaten (Adresse, UID, Steuer- und Registernummer) | Deployed (PROJ-28) |
-| P0 (Pilot) | Wohnungsverwaltung, Gäste-Datenbank, manuelle Buchungen, Belegungskalender | Deployed (PROJ-6, PROJ-7, PROJ-8, PROJ-9, PROJ-27) |
+| P0 (Pilot) | Wohnungsverwaltung, Gäste-Datenbank, manuelle Buchungen, Belegungskalender | Deployed (PROJ-6, PROJ-7, PROJ-8, PROJ-9, PROJ-27); „Endreinigung“ statt „Reinigung“ geplant (PROJ-8) |
 | P0 (Pilot) | Channex-Anbindung: Buchungsimport von booking.com/Airbnb und Verfügbarkeitssperren | Roadmap |
 | P0 (Pilot) | Zahlungserfassung je Buchung, Dashboard | Roadmap |
 | P0 (Pilot) | Ortstaxe je Wohnung: Tarife mit Stichtag, Altersbefreiung, persönliche Befreiung, automatische Position in der Buchung | Deployed (PROJ-15) |
@@ -40,7 +40,7 @@ Die App wird als Mehrmandanten-SaaS betrieben: Jeder Kunde (Vermieter) hat ein e
 | P0 (Pilot) | Umsatzsteuersatz je Position | Deployed (PROJ-35) |
 | P0 (Pilot) | Rechnungen nacherfassen (Altrechnungen mit PDF, Positionen, Buchung/Gast optional; Rechnungen in der Buchungsübersicht; Kleinunternehmer-Schalter je Rechnung) | Deployed (PROJ-37) |
 | P0 (Pilot) | Stammdaten: Umbenennung und Logo-Upload | Deployed (PROJ-38) |
-| P0 (Pilot) | Einstellungen → Rechnungen (Nummernkreis, Textbausteine, Fußzeile, Kleinunternehmer-Hinweis) | Deployed (PROJ-39, inkl. Editor-Erweiterung: Schrift, Größe, Ausrichtung, HTML-Code); Zeilenhöhe im HTML-Code geplant |
+| P0 (Pilot) | Einstellungen → Rechnungen (Nummernkreis, Textbausteine, Fußzeile, Kleinunternehmer-Hinweis) | Deployed (PROJ-39, inkl. Editor-Erweiterung: Schrift, Größe, Ausrichtung, HTML-Code, Zeilenhöhe) |
 | P0 (Pilot) | Rechnungsdaten sammeln: Entwurf ohne Nummer aus der Buchung (Teilung, Empfänger, Pflichtangaben, Vorschau) | Deployed (PROJ-40) |
 | P0 (Pilot) | Briefpapier: Gestaltung der Rechnung (Schrift, Abstände, Logo, Aussteller-Block) mit Vorschau | Deployed (PROJ-41) |
 | P0 (Pilot) | Rechnung ausstellen mit PDF, Rechnungsübersicht ausbauen, Rechnungsstorno | Deployed (PROJ-42); Roadmap (PROJ-43, PROJ-44) |
