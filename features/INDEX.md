@@ -56,12 +56,15 @@
 | PROJ-39 | Einstellungen → Rechnungen | Neuer Einstellungen-Reiter „Rechnungen“: Nummernkreis aus Bausteinen mit Vorschau; mehrere Textbausteine je Block (Einleitung, Zahlungsmodalitäten mit Anzahlung/Fälligkeit, Abschlusstext) mit Standard, beschränktem Editor, Platzhaltern und Vorschau; Kleinunternehmer-Hinweis und Fußzeile; Schalter „Rechnungen nacherfassen“ hierher; Betreiber-Abschnitt. Erweiterung (refine 2026-11-04, Grundumfang live): Schriftart, Schriftgröße und Ausrichtung je Text, HTML-Code mit erlaubten Tags, auch im Entwurf (PROJ-40) | P0 | PROJ-4, PROJ-5, PROJ-28, PROJ-29, PROJ-36, PROJ-37, PROJ-38, PROJ-40 | Deployed | [Spec](PROJ-39-einstellungen-rechnungen.md) | 2026-10-31 |
 | PROJ-40 | Rechnungsdaten sammeln (Entwurf) | Rechnungsentwurf ohne Nummer aus der Buchung (Knopf „Rechnung“): Arten Rechnung/Teilrechnung/Schlussrechnung, Teilung nach Positionen und Betrag mit Abzug, Empfänger Gast/Firma, Rechnungsdatum, Gastnamen, Bausteine und Zahlungsregeln je Rechnung, Kleinunternehmer nach Buchung, Pflichtangaben-Prüfung, Vorschau | P0 | PROJ-4, PROJ-7, PROJ-8, PROJ-28, PROJ-35, PROJ-36, PROJ-37, PROJ-39 | Deployed | [Spec](PROJ-40-rechnungsdaten-sammeln.md) | 2026-10-31 |
 | PROJ-41 | Briefpapier | Neuer Einstellungen-Reiter „Briefpapier“ zwischen „Wohnungen“ und „Rechnungen“: einheitliche Gestaltung der Rechnung bei fester Anordnung (Grundschrift, Größe, Abstände, Logo-Position und -Höhe, Aussteller-Block abschaltbar); Vorschau mit Musterrechnung und gestaltete Entwurfsvorschau | P0 | PROJ-4, PROJ-5, PROJ-28, PROJ-38, PROJ-39, PROJ-40 | Deployed | [Spec](PROJ-41-briefpapier.md) | 2026-11-04 |
+| PROJ-42 | Ausstellen mit PDF | Entwurf ausstellen: Nummer vergeben (Überschreiben, Lücke, Duplikat), Prüfungen, Festschreiben, PDF erzeugen und privat ablegen, in einem Schritt | P0 | PROJ-37, PROJ-39, PROJ-40, PROJ-41 | Planned | [Spec](PROJ-42-ausstellen-mit-pdf.md) | 2026-11-05 |
+| PROJ-43 | Rechnungsübersicht ausbauen | Jahres- und Betragsfilter, „Rechnung erstellen“ aus der Übersicht | P0 | PROJ-37, PROJ-40, PROJ-42 | Roadmap | – | 2026-11-05 |
+| PROJ-44 | Rechnungsstorno | Stornorechnung bzw. Gutschrift zu einer ausgestellten Rechnung in der App; löst die Übergangslösung aus PROJ-42 ab (Gutschrift außerhalb erstellen und nacherfassen) | P0 | PROJ-37, PROJ-42 | Roadmap | – | 2026-11-05 |
 
 <!-- Add features above this line -->
 
 ## Build Order
-1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 29 → 30 → 31 → 32 → 33 → 34 → 36 → 35 → 37 → 38 → 39 → 40 → 15 → 39 (Editor-Erweiterung) → 41 → 42 → 43 (Rechnungsmodul: Briefpapier/Gestaltung, Ausstellen mit PDF, Übersicht; IDs werden mit /write-spec vergeben) → 10 → 11 → 12 → 13 → 14 → 16 → 26 → 17 (**Pilotstand**, ca. 3 Monate) → 18 → 19 (**MVP komplett**, ca. 4–5 Monate) → P2 nach Bedarf.
+1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 29 → 30 → 31 → 32 → 33 → 34 → 36 → 35 → 37 → 38 → 39 → 40 → 15 → 39 (Editor-Erweiterung) → 41 → 42 → 43 → 44 (Rechnungsmodul: Briefpapier/Gestaltung, Ausstellen mit PDF, Übersicht, Storno) → 10 → 11 → 12 → 13 → 14 → 16 → 26 → 17 (**Pilotstand**, ca. 3 Monate) → 18 → 19 (**MVP komplett**, ca. 4–5 Monate) → P2 nach Bedarf.
 
 Den Channex-Block (PROJ-10 bis PROJ-12) früh angehen: Er ist das größte Risiko (Testzugang, Webhooks, Abläufe mit den Plattformen).
 
-## Next Available ID: PROJ-42
+## Next Available ID: PROJ-45
