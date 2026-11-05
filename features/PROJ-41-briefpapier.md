@@ -376,7 +376,7 @@ Mit der genannten Version wurde außerhalb des Projekts ein Wegwerf-Versuch gema
 
 **Gebaut:** Migration `20261104212659_letterhead.sql`, nur in Dev: Abschnitt „Briefpapier“ in `invoice_settings` mit Standardwerten und Prüfungen, Funktion `save_invoice_letterhead` (Inhaber, Betreiber; Stand, Grenzen, Protokoll `letterhead` ohne Werte), `invoice_preview_data` mit Briefpapier auch für Mitarbeiter. Keine neue Tabelle, RLS unverändert. Das Logo liest der Server mit dem geheimen Schlüssel erst nach geprüftem Zugriff.
 
-**Geprüft:** Integrationstests einzeln nacheinander 311 grün, davon 9 neu in `supabase/tests/letterhead.integration.test.ts`; parallel laufen sie in Dev wie bekannt in Zeitüberschreitungen. E2E `tests/PROJ-41-briefpapier.spec.ts` in Chrome grün: Speichern, Konflikt, Logo im PDF, Mitarbeiter sieht Logo ohne Dateizugriff. Die Hinweise der Datenbank-Prüfung (`db advisors`) nennen nur zwei Auth-Einstellungen, die nichts mit dieser Migration zu tun haben.
+**Geprüft:** Integrationstests einzeln nacheinander 227 grün (zunächst irrtümlich als 311 notiert, zwei Läufe waren doppelt gezählt), davon 9 neu in `supabase/tests/letterhead.integration.test.ts`; parallel laufen sie in Dev wie bekannt in Zeitüberschreitungen. E2E `tests/PROJ-41-briefpapier.spec.ts` in Chrome grün: Speichern, Konflikt, Logo im PDF, Mitarbeiter sieht Logo ohne Dateizugriff. Die Hinweise der Datenbank-Prüfung (`db advisors`) nennen nur zwei Auth-Einstellungen, die nichts mit dieser Migration zu tun haben.
 
 **Für /qa:** Noch offen sind die übrigen Kriterien, Safari und Firefox, der Rest der PROJ-38/39/40-E2E nach dem Umbau und die Vorschau für Betreiber mit Logo. Vor dem Deploy: Drucktest Adressfeld, Lauf auf Vercel (Staging).
 
@@ -402,7 +402,7 @@ Mit der genannten Version wurde außerhalb des Projekts ein Wegwerf-Versuch gema
 | Arbeitsprozess in einem Ordner ohne `node_modules` (Annäherung an Vercel), Dateien in der Ablaufliste beider Schnittstellen | läuft |
 | Breiten 1440 und 375 px, WCAG 2.1 AA (axe), Bedienelemente ≥ 44 px | grün |
 | Firefox und Safari: Reiter, Speichern, Größenänderung; Firefox auch Mitarbeiter-Entwurf | grün |
-| Unit 635 grün, Integration 311 grün (einzeln nacheinander, Stand /backend) | grün |
+| Unit 635 grün, Integration 227 grün (einzeln nacheinander, Stand /backend) | grün |
 
 **Nicht geprüft:** Lauf auf Vercel, echter Druck und Fensterkuvert, Breite 768 px im Browser, gesamter E2E-Lauf aller Features (nur PROJ-28, 36, 38, 39, 40 und PROJ-5 je betroffene Blöcke).
 
