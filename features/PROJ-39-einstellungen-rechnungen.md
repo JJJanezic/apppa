@@ -1,10 +1,10 @@
 # PROJ-39: Einstellungen → Rechnungen
 
-## Status: Deployed
+## Status: Planned
 **Created:** 2026-10-31
-**Last Updated:** 2026-11-04
+**Last Updated:** 2026-11-05
 
-> Grundumfang seit v1.17.0 in Produktion, Editor-Erweiterung (Abschnitt „Editor: Erweiterung“) seit v1.20.0.
+> Grundumfang seit v1.17.0 in Produktion, Editor-Erweiterung (Abschnitt „Editor: Erweiterung“) seit v1.20.0. Zeilenhöhe im HTML-Code (Abschnitt „Editor: Zeilenhöhe“, refine 2026-11-05) geplant.
 
 ## Dependencies
 - Requires: PROJ-4 (Kundenkonten & Rollen): Einstellungen nur für Inhaber, Mandantentrennung
@@ -107,12 +107,26 @@ Gilt für alle Texte mit diesem Editor: Bausteine, Kleinunternehmer-Hinweis, Fu�
 - **Entwurf (PROJ-40):** Die Wahl eines Bausteins übernimmt seinen Text samt diesen Einstellungen als Kopie. Sie sind je Rechnung änderbar.
 
 **HTML-Code:** Ein Umschalter „Code“ in der Werkzeugleiste zeigt statt der Schreibfläche ein Textfeld mit dem HTML des Texts. Das HTML wird nur für die Bearbeitung erzeugt; gespeichert wird weiter die geprüfte Struktur.
-- **Erlaubte Tags:** `<p>`, `<br>`, `<strong>`, `<em>`, `<ul>`, `<ol>`, `<li>`, dazu ein äußeres `<div>` nur für die drei Einstellungen. Es erscheint nur, wenn etwas abweichend eingestellt ist, z. B. `<div style="font-family: Arimo; font-size: 10.5pt; text-align: justify">…</div>`.
+- **Erlaubte Tags:** `<p>`, `<br>`, `<strong>`, `<em>`, `<ul>`, `<ol>`, `<li>`, dazu ein äußeres `<div>` nur für die drei Einstellungen und die Zeilenhöhe (siehe „Editor: Zeilenhöhe“). Es erscheint nur, wenn etwas abweichend eingestellt ist, z. B. `<div style="font-family: Arimo; font-size: 10.5pt; text-align: justify">…</div>`.
 - **Nicht Erlaubtes** wird beim Zurückschalten und beim Speichern entfernt, sein Text bleibt erhalten. Das gilt auch für andere Stilangaben, Attribute und ungültige Werte (z. B. `font-size: 40pt`, unbekannte Schrift). Ein Hinweis nennt, was entfernt wurde, z. B. „Entfernt: <a>, style an <p>“.
 - **Speichern im Code-Modus:** Wurde nichts entfernt, wird gespeichert. Wurde etwas entfernt, wird nicht gespeichert: Die Schreibfläche erscheint mit dem bereinigten Text und dem Hinweis, damit der Nutzer das Ergebnis prüfen kann.
 - **Fehlerhaftes HTML** (z. B. nicht geschlossene Tags) wird so gut wie möglich gelesen; das Ergebnis ist in der Vorschau sichtbar.
 - **Platzhalter** sind im Code normaler Text und werden wie bisher geprüft.
 - **Im Code-Modus** sind die übrigen Werkzeuge und „Platzhalter einfügen“ gesperrt. Die Vorschau zeigt den aktuellen Stand.
+
+### Editor: Zeilenhöhe (2026-11-05)
+Gilt für dieselben Texte wie die Erweiterung: Bausteine, Kleinunternehmer-Hinweis, Fußzeile und Textblöcke im Entwurf (PROJ-40).
+
+- **Nur im HTML-Code einstellbar**, kein eigenes Bedienelement in der Werkzeugleiste: `line-height` auf dem äußeren `<div style>`, neben `font-family`, `font-size` und `text-align`, z. B. `<div style="line-height: 1.25">…</div>`.
+- **Gilt für den ganzen Text**, auch für Listen; nicht für einzelne Absätze oder Markierungen.
+- **Erlaubt:** Zahl ohne Einheit von 0,80 bis 3,00, höchstens zwei Nachkommastellen (Punkt wie in CSS üblich, z. B. `1`, `1.2`, `1.25`). Andere Werte (z. B. `4`, `0.5`, `1.255`, `18pt`, `120%`, `normal`) werden wie andere ungültige Werte entfernt und im bestehenden Hinweis genannt, z. B. „Entfernt: line-height: 4“.
+- **Ohne Angabe** wie heute: Die Zeilenhöhe folgt dem Zeilenabstand des Briefpapiers (PROJ-41: eng, normal, weit). Bestehende Texte haben keine Angabe und sehen unverändert aus.
+- **Der Absatzabstand** folgt weiter dem Briefpapier; die Zeilenhöhe ändert nur den Abstand der Zeilen.
+- **Der visuelle Editor behält den Wert:** Zurückschalten, Weiterschreiben oder Ändern von Schriftart, Größe oder Ausrichtung lassen die Zeilenhöhe unverändert. Schreibfläche, Vorschau, Entwurfsvorschau und PDF zeigen den Text mit dieser Zeilenhöhe.
+- **Im Code** erscheint `line-height` nur, wenn ein Wert gesetzt ist, und genau so, wie er gespeichert ist (z. B. `1.25`, nicht `1.250`).
+- **Einfügen aus Word, E-Mail oder Webseite** übernimmt keine Zeilenhöhe.
+- **Entwurf (PROJ-40):** Die Kopie eines Bausteins übernimmt die Zeilenhöhe; im Entwurf über den Code änderbar.
+- **Empfänger (Adressfeld) und Aussteller-Block** bleiben fest bei Zeilenhöhe 1,2; eine Zeilenhöhe in den Texten wirkt dort nicht.
 
 ### Platzhalter
 Datumsangaben in Platzhaltern stehen **ohne Wochentag** (bewusste Ausnahme von PROJ-31). Beträge wie PROJ-31 („€ 450,00“). Ersetzt werden die Platzhalter erst im Entwurf (PROJ-40).
@@ -179,6 +193,8 @@ Dazu: Kleinunternehmer-Hinweis mit Gesetzestext, Fußzeile leer, Nummernkreis JJ
 - Anordnung der Blöcke, Grundschrift und Grundgröße aller Rechnungen, Position und Größe des Logos (PROJ-41, Briefpapier)
 - Umsetzung von Schriftart, Schriftgröße und Ausrichtung im PDF (mit dem PDF-Erzeuger, PROJ-41/PROJ-42)
 - Schriftart, Schriftgröße oder Ausrichtung für einzelne Markierungen oder Absätze
+- Zeilenhöhe als Bedienelement in der Werkzeugleiste; Zeilenhöhe je Absatz; Zeilenhöhe für Empfänger und Aussteller-Block (fest 1,2)
+- Absatzabstand je Text (bleibt beim Briefpapier)
 - Freies HTML und weitere Tags (Tabellen, Links, Farben, Bilder)
 - Eigene hochgeladene Schriften; echte Arial, Times New Roman oder Calibri (nicht frei einbettbar)
 - Syntax-Hervorhebung oder Autovervollständigung im Code-Feld
@@ -286,6 +302,20 @@ Dazu: Kleinunternehmer-Hinweis mit Gesetzestext, Fußzeile leer, Nummernkreis JJ
 - [ ] Angenommen der Code-Modus ist aktiv, wenn die Werkzeugleiste erscheint, dann sind nur der Umschalter und ein Hinweis auf die erlaubten Tags aktiv
 - [ ] Angenommen ein deaktivierter Kunde oder eine sonstige Nur-Lesen-Ansicht, wenn der Text erscheint, dann gibt es keinen Code-Umschalter und keine Formatauswahl
 
+### Zeilenhöhe
+- [ ] Angenommen der Inhaber schreibt im Code `<div style="line-height: 1.25">`, wenn er zurückschaltet und speichert, dann ist der Text nach dem Neuladen mit Zeilenhöhe 1,25 gespeichert, und der Code zeigt wieder `line-height: 1.25`
+- [ ] Angenommen ein Text mit Zeilenhöhe 1,25, wenn Schreibfläche, Vorschau, Entwurfsvorschau oder PDF ihn zeigen, dann haben Absätze und Listen diese Zeilenhöhe
+- [ ] Angenommen ein Text mit Zeilenhöhe 1,25, wenn der Inhaber im visuellen Editor weiterschreibt, fett setzt oder Schriftart, Größe oder Ausrichtung ändert, dann bleibt die Zeilenhöhe erhalten
+- [ ] Angenommen der Code enthält `line-height: 0.8` oder `line-height: 3`, wenn zurückgeschaltet wird, dann wird der Wert übernommen
+- [ ] Angenommen der Code enthält `line-height: 4`, `0.79`, `1.255`, `18pt`, `120%` oder `normal`, wenn zurückgeschaltet wird, dann ist die Zeilenhöhe entfernt, der Text bleibt, und der Hinweis nennt die Entfernung; im Code-Modus wird nicht gespeichert
+- [ ] Angenommen ein Text ohne Zeilenhöhe, wenn er angezeigt oder als PDF gesetzt wird, dann folgt die Zeilenhöhe dem Zeilenabstand des Briefpapiers wie bisher
+- [ ] Angenommen der Inhaber entfernt `line-height` aus dem Code, wenn er speichert, dann gilt wieder die Zeilenhöhe aus dem Briefpapier
+- [ ] Angenommen nur die Zeilenhöhe eines Bausteins wurde geändert, wenn gespeichert wird, dann zählt das wie eine Textänderung für Konfliktschutz, Bausteinstand und Protokoll (ohne Textinhalt)
+- [ ] Angenommen im Entwurf wird ein Baustein mit Zeilenhöhe 1,5 gewählt, wenn der Text übernommen wird, dann hat die Kopie diese Zeilenhöhe; eine Änderung im Entwurf ändert den Baustein nicht
+- [ ] Angenommen ein Text mit Zeilenhöhe 2, wenn das PDF erzeugt wird, dann stehen Empfänger und Aussteller-Block weiter mit Zeilenhöhe 1,2
+- [ ] Angenommen aus Word wird Text mit Zeilenabstand eingefügt, wenn er im Editor ankommt, dann hat er keine Zeilenhöhe
+- [ ] Angenommen jemand sendet am Editor vorbei eine Zeilenhöhe außerhalb von 0,80 bis 3,00 oder mit mehr als zwei Nachkommastellen, wenn die Anfrage beim Server ankommt, dann wird sie abgelehnt; auch die Datenbank lehnt solche Werte ab
+
 ### Feste Texte
 - [ ] Angenommen ein bestehender oder neuer Kunde, wenn der Inhaber die festen Texte öffnet, dann steht im Kleinunternehmer-Hinweis „Umsatzsteuerfrei aufgrund der Kleinunternehmerregelung gemäß § 6 Abs. 1 Z 27 UStG“ und die Fußzeile ist leer
 - [ ] Angenommen der Inhaber leert den Kleinunternehmer-Hinweis, wenn er speichert, dann erscheint „Der Kleinunternehmer-Hinweis darf nicht leer sein“ und nichts wird gespeichert
@@ -332,6 +362,12 @@ Dazu: Kleinunternehmer-Hinweis mit Gesetzestext, Fußzeile leer, Nummernkreis JJ
 - **Zeichengrenze im Code:** Es zählt der Text ohne Tags wie im Editor. Code über 200.000 Zeichen wird mit Hinweis abgewiesen und nie gekürzt; der bisherige Stand bleibt.
 - **Sehr große Schrift am Handy:** Die Schreibfläche bricht um, kein seitliches Scrollen.
 - **Bereits gespeicherte Entwürfe:** behalten ihren Text und stehen auf „Standard“ und linksbündig.
+- **Zeilenhöhe mit Komma im Code** (`line-height: 1,25`): ist in CSS ungültig, wird entfernt und im Hinweis genannt.
+- **Zeilenhöhe unter 1 bei großer Schrift:** zulässig ab 0,80; Zeilen dürfen sich in Schreibfläche, Vorschau und PDF berühren, das ist gewollt.
+- **Mehrere `line-height` im selben `style`:** wie im Browser gilt die letzte Angabe.
+- **Zeilenhöhe an `<p>` oder `<li>`:** wird wie andere Stilangaben an inneren Tags entfernt und genannt.
+- **Hohe Zeilenhöhe in der Fußzeile:** die Fußzeile wird wie bisher gekürzt bzw. verkleinert, wenn sie nicht passt (PROJ-41/42).
+- **Ausgestellte Rechnungen (PROJ-42):** bleiben unverändert; die Zeilenhöhe wirkt nur auf Texte, die danach gespeichert bzw. ausgestellt werden.
 
 ## Technical Requirements
 - Rechte serverseitig durchgesetzt (Inhaber nur eigener Kunde, Betreiber alle aktiven Kunden schreibend, Mitarbeiter keine Rechte)
@@ -382,6 +418,8 @@ Dazu: Kleinunternehmer-Hinweis mit Gesetzestext, Fußzeile leer, Nummernkreis JJ
 | Schriftgröße frei von 6 bis 24 pt in 0,5-pt-Schritten | Wunsch des Nutzers statt fester Liste | 2026-11-04 |
 | HTML-Code nur mit erlaubten Tags plus den drei Einstellungen; Unzulässiges wird entfernt und benannt; ändert die Entscheidung „kein HTML“ nur für die Bearbeitung | Direkte Bearbeitung ohne die Sicherheit und PDF-Fähigkeit aufzugeben; freies HTML hätte einen Browser auf dem Server für das PDF verlangt | 2026-11-04 |
 | Speichern im Code-Modus bricht ab, wenn etwas entfernt wurde | Der Nutzer soll das bereinigte Ergebnis sehen, bevor es gespeichert wird; so geht nichts unbemerkt verloren | 2026-11-04 |
+| Zeilenhöhe je ganzem Text nur über den HTML-Code (`line-height` am äußeren `<div>`), 0,80–3,00 mit höchstens zwei Nachkommastellen; ohne Angabe folgt sie dem Briefpapier | Wunsch des Nutzers; selten gebraucht, darum kein eigenes Bedienelement; Grenzen halten Rechnungen lesbar; bestehende Texte bleiben unverändert | 2026-11-05 |
+| Empfänger (Adressfeld) und Aussteller-Block bleiben fest bei Zeilenhöhe 1,2 | Nutzer 2026-11-05; das Adressfeld muss ins Kuvertfenster passen, beide nutzen schon dieselbe feste Darstellung | 2026-11-05 |
 | Grenzen: 20 Bausteine je Block, Name 60, Text 2.000, Hinweis 500 Zeichen, Anzahlung 1–100 %, Fristen 0–365 Tage | Großzügig für die Praxis, schützt vor Missbrauch und unlesbaren Rechnungen | 2026-10-31 |
 
 ### Technical Decisions
@@ -404,6 +442,7 @@ Dazu: Kleinunternehmer-Hinweis mit Gesetzestext, Fußzeile leer, Nummernkreis JJ
 | Zu langer Code wird abgewiesen statt gekürzt, Grenze 200.000 Zeichen statt 20.000 | HTML aus Word ist groß, das meiste fällt beim Lesen weg; ein Kürzen zerstörte den Text ohne Hinweis (BUG-2) | 2026-11-04 |
 | Früh Eingegebenes wird beim Aktivwerden des Entwurfs übernommen (`useAdoptEarlyInput`), nicht die Eingabe gesperrt | Nichts geht verloren und die Felder flackern nicht ausgegraut (BUG-4) | 2026-11-04 |
 | Schriften im Browser beim Bauen mitgeliefert (`next/font`), ohne Vorladen; PDF-Dateien erst mit PROJ-41 | Keine Verbindung zu Google, DSGVO-freundlich, übrige App nicht langsamer; React-PDF braucht ohnehin andere Dateien (TTF/WOFF, nicht variabel) | 2026-11-04 |
+| Zeilenhöhe als vierte optionale Einstellung im gespeicherten Text (Schlüssel `lineHeight`), gleiche Prüfung in App und Datenbank (`private.rich_attrs_ok`), keine neuen Spalten | Wie die drei Einstellungen: Konfliktschutz, Protokoll, Kopie in den Entwurf und PDF ohne Sonderweg; alte Texte bleiben gültig | 2026-11-05 |
 | Gespeichert bleibt die strukturierte Beschreibung, ergänzt um die drei Einstellungen je Text; Datenbank und App prüfen die erlaubten Werte; HTML ist nur eine Bearbeitungsansicht | Freies HTML bleibt nicht speicherbar, PDF kann weiter direkt aus der Struktur setzen; alte Texte bleiben gültig | 2026-11-04 |
 
 ---
