@@ -155,4 +155,55 @@ describe('PDF-Arbeitsprozess', () => {
     expect(r.missingChars).not.toContain('Š')
     expect((await render(view())).missingChars).toEqual([])
   })
+
+  async function yOf(pdf: Uint8Array, needle: string): Promise<number> {
+    const page = await (await getDocument({ data: pdf.slice() }).promise).getPage(1)
+    const content = await page.getTextContent()
+    const item = content.items.find((i) => 'str' in i && i.str.includes(needle))
+    if (!item || !('transform' in item)) throw new Error(`nicht gefunden: ${needle}`)
+    return item.transform[5]
+  }
+  type Spacing = 'tight' | 'normal' | 'wide'
+
+  it('Zeilen- und Absatzabstand: eng < normal < weit', async () => {
+    const line = async (s: Spacing) => {
+      const r = await render(view({ letterhead: { ...DEFAULT_LETTERHEAD, lineSpacing: s } }))
+      return (await yOf(r.pdf, 'Rechnungsnummer')) - (await yOf(r.pdf, 'Rechnung für Seeblick'))
+    }
+    const [tl, nl, wl] = [await line('tight'), await line('normal'), await line('wide')]
+    expect(tl).toBeLessThan(nl)
+    expect(nl).toBeLessThan(wl)
+    const para = async (s: Spacing) => {
+      const r = await render(view({ letterhead: { ...DEFAULT_LETTERHEAD, paragraphSpacing: s }, intro: docFromText('Absatz eins\n\nAbsatz zwei') }))
+      return (await yOf(r.pdf, 'Absatz eins')) - (await yOf(r.pdf, 'Absatz zwei'))
+    }
+    const [tp, np, wp] = [await para('tight'), await para('normal'), await para('wide')]
+    expect(tp).toBeLessThan(np)
+    expect(np).toBeLessThan(wp)
+  })
+
+  it('Übliche Zeichen deutscher Texte gelten in allen sechs Schriften nicht als fehlend', async () => {
+    const text = 'äöüÄÖÜß „Zitat“ ‚a‘ » « – — … • · € § % ° ² × ’ & @ ÁČŠŽŁőń x'
+    for (const font of ['arimo', 'tinos', 'carlito', 'source-sans', 'source-serif', 'open-sans'] as const) {
+      const r = await render(view({ letterhead: { ...DEFAULT_LETTERHEAD, fontFamily: font }, intro: docFromText(text) }))
+      expect(r.missingChars, font).toEqual([])
+    }
+  })
+
+  it.fails('BUG-7: Weiches Trennzeichen aus eingefügten Texten löst keinen unlesbaren Hinweis aus', async () => {
+    const r = await render(view({ intro: docFromText('Rech­nung Null​breite') }))
+    expect(r.missingChars).toEqual([])
+  })
+
+  it('Wort über 30 Zeichen, das in die Zeile passt, bleibt ganz und ohne Trennstrich', async () => {
+    const word = 'Donaudampfschifffahrtsgesellschaft'
+    const r = await render(view({ intro: docFromText(word) }))
+    expect((await pageTexts(r.pdf))[0].replace(/\s/g, '')).toContain(word)
+  })
+
+  it('IBAN ohne Leerzeichen bleibt ganz', async () => {
+    const iban = 'MT84MALT011000012345MTLCAST001S'
+    const r = await render(view({ footer: docFromText(`IBAN ${iban}`) }))
+    expect((await pageTexts(r.pdf))[0].replace(/\s/g, '')).toContain(iban)
+  })
 })

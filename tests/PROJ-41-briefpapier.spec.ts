@@ -449,6 +449,39 @@ test.describe('QA: Logo und frühe Eingabe', () => {
     await expect(page.getByText('Das Logo konnte nicht geladen werden.')).toBeVisible()
   })
 
+  test('AC: Logo später hochgeladen: gespeicherte Position und Höhe gelten; langer Name bleibt lesbar', async ({ page, users }) => {
+    const owner = await users()
+    const name = 'Sehr lange Firma mit ausführlichem Namen und noch mehr Worten Gesellschaft mit beschränkter Haftung'
+    const tenantId = await createTenant(name, [{ user: owner, role: 'owner' }])
+    await service().from('invoice_settings').update({ letterhead_logo_position: 'right', letterhead_logo_height_mm: 30 } as never).eq('tenant_id', tenantId)
+    await signInAs(page, owner)
+    await page.goto('/einstellungen/briefpapier')
+    await ready(page)
+    await expect(page.getByLabel('Höhe in mm')).toBeDisabled()
+    await expect(page.getByLabel('Höhe in mm')).toHaveValue('30')
+    const path = await addLogo(tenantId)
+    await page.reload()
+    await ready(page)
+    await expect(page.getByLabel('Höhe in mm')).toBeEnabled()
+    await expect(page.getByLabel('Höhe in mm')).toHaveValue('30')
+    await expect(previewText(page)).toContainText('Gesellschaft', { timeout: 15_000 })
+    await expect(page.getByText('passt auch in der kleinsten Schrift')).toHaveCount(0)
+    await service().storage.from(BUCKET).remove([path])
+  })
+
+  test('Unbekannte Zeichen: Hinweis im Reiter und im Entwurf', async ({ page, users }) => {
+    const owner = await users()
+    const tenantId = await createTenant('QA41 Zeichen', [{ user: owner, role: 'owner' }])
+    await service().from('invoice_settings').update({ footer: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Geprüft ✓' }] }] } } as never).eq('tenant_id', tenantId)
+    const draftId = await addDraft(owner, tenantId)
+    await signInAs(page, owner)
+    await page.goto('/einstellungen/briefpapier')
+    await ready(page)
+    await expect(page.getByText('Diese Zeichen kann die Schrift nicht darstellen: ✓')).toBeVisible({ timeout: 15_000 })
+    await page.goto(`/rechnungen/${draftId}/vorschau`)
+    await expect(page.getByText('Diese Zeichen kann die Schrift nicht darstellen: ✓')).toBeVisible({ timeout: 15_000 })
+  })
+
   test('Lange Fußzeile: Hinweis, Rechnung bleibt erzeugbar', async ({ page, users }) => {
     const owner = await users()
     const tenantId = await createTenant('QA41 Fuß', [{ user: owner, role: 'owner' }])

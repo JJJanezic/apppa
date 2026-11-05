@@ -1,6 +1,6 @@
 # PROJ-41: Briefpapier
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-11-04
 **Last Updated:** 2026-11-04
 
@@ -467,6 +467,36 @@ Alle sechs Fehler sind behoben, QA Runde 2 steht aus.
 
 ### Tests an den Umbau angepasst
 PROJ-28, 36, 38: mehrere „Speichern“ auf der Betreiber-Seite. PROJ-39: Reiterliste. PROJ-40: Vorschau ist jetzt ein PDF (Schrift aus der Datei statt CSS; Ausrichtung im Blocksatz nur noch im Vorab-Versuch und am Bild für zentriert geprüft).
+
+### QA Runde 2 (2026-11-05)
+
+**Ergebnis:** BUG-1 bis BUG-6 sind bestätigt behoben. Alle 55 Abnahmekriterien erfüllt, jetzt auch die Abstände und das später hochgeladene Logo mit eigenem Test. 1 neuer Fehler (Low). **Keine Critical/High, Status Approved.**
+
+| Prüfung | Ergebnis |
+|---|---|
+| PROJ-41 E2E Chrome Desktop (alle Tests) | grün; 1 Lauf vom eigenen Zeitlimit gekappt, die betroffenen Tests einzeln grün |
+| Tablet 768 px und Handy 375 px (Kernabläufe, axe, 44 px, BUG-3, Zeichen) | 12 grün |
+| Firefox (Kernabläufe, Mitarbeiter, BUG-3, fehlendes Logo) | grün |
+| Safari gegen `npm run dev` (Kernabläufe, fehlendes Logo) | grün |
+| PROJ-40 vollständig | 37 grün |
+| PROJ-38 und PROJ-39 vollständig | 53 grün, 1 sporadisch rot (siehe unten) |
+| PROJ-5, PROJ-28, PROJ-36 vollständig | 41 grün |
+| Unit | 644 grün, dazu 1 erwarteter Fehler (BUG-7) |
+| Integration PROJ-41 und Rechnungsentwürfe | 31 grün; die übrigen seit Runde 1 nicht wiederholt, keine Änderung an der Datenbank |
+| Sicherheit: fremde Daten, Rollen, ungültige Eingaben, Last | unverändert grün |
+| Falscher Alarm: übliche Zeichen in allen sechs Schriften; IBAN und Wort über 30 Zeichen | geprüft, kein Fehler |
+
+**Nicht geprüft:** Lauf auf Vercel, echter Druck und Fensterkuvert, übrige Features ohne Bezug zum Umbau.
+
+#### BUG-7: Weiches Trennzeichen löst einen unlesbaren Hinweis aus
+- **Severity:** Low
+- **Schritte:** Text mit weichem Trennzeichen (U+00AD, oft aus Word oder Webseiten eingefügt) in einem Baustein, Schrift Carlito
+- **Tatsächlich:** Der Hinweis „Diese Zeichen kann die Schrift nicht darstellen“ nennt ein unsichtbares Zeichen; der Kunde kann es nicht finden
+- **Erwartet:** Unsichtbare Steuerzeichen gelten nicht als fehlend
+- **Test:** `it.fails` in `render.integration.test.ts`
+
+#### Beobachtung: PROJ-38 einmal sporadisch rot
+„SVG, PDF, zu große und beschädigte Dateien“ fand einmal nach dem Hochladen keine Logo-Vorschau; danach 4 von 4 grün. Der Test läuft auf den Stammdaten, die PROJ-41 nicht geändert hat; die Ursache ist nicht geklärt.
 
 ## Deployment
 _To be added by /deploy_
