@@ -156,7 +156,19 @@ async function measure(view: PdfView): Promise<Measured> {
   }
 }
 
-async function render(view: PdfView): Promise<PdfResult> {
+// Unsichtbare Steuerzeichen aus eingefügten Texten (weiches Trennzeichen, Nullbreite) fallen weg: Die Schriften kennen sie
+// teils nicht, und ein Hinweis auf ein unsichtbares Zeichen hilft niemandem (QA BUG-7)
+function withoutInvisible<T>(value: T): T {
+  if (typeof value === 'string') return value.replace(/\p{Cf}/gu, '') as T
+  if (Array.isArray(value)) return value.map(withoutInvisible) as T
+  if (value && typeof value === 'object' && !ArrayBuffer.isView(value)) {
+    return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, withoutInvisible(v)])) as T
+  }
+  return value
+}
+
+async function render(input: PdfView): Promise<PdfResult> {
+  const view = withoutInvisible(input)
   // Keine Silbentrennung. Nur sehr lange Wörter dürfen an jeder Stelle umbrechen, React-PDF setzt dort einen Trennstrich
   Font.registerHyphenationCallback((word) => (word.length > LONG_WORD ? Array.from(word) : [word]))
   const m = await measure(view)

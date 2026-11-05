@@ -190,9 +190,11 @@ describe('PDF-Arbeitsprozess', () => {
     }
   })
 
-  it.fails('BUG-7: Weiches Trennzeichen aus eingefügten Texten löst keinen unlesbaren Hinweis aus', async () => {
+  it('BUG-7: Unsichtbare Zeichen aus eingefügten Texten fallen weg und lösen keinen Hinweis aus', async () => {
     const r = await render(view({ intro: docFromText('Rech­nung Null​breite') }))
     expect(r.missingChars).toEqual([])
+    const [text] = await pageTexts(r.pdf)
+    expect(text).toContain('Rechnung Nullbreite')
   })
 
   it('Wort über 30 Zeichen, das in die Zeile passt, bleibt ganz und ohne Trennstrich', async () => {

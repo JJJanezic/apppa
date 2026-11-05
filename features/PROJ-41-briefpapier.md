@@ -493,7 +493,8 @@ PROJ-28, 36, 38: mehrere „Speichern“ auf der Betreiber-Seite. PROJ-39: Reite
 - **Schritte:** Text mit weichem Trennzeichen (U+00AD, oft aus Word oder Webseiten eingefügt) in einem Baustein, Schrift Carlito
 - **Tatsächlich:** Der Hinweis „Diese Zeichen kann die Schrift nicht darstellen“ nennt ein unsichtbares Zeichen; der Kunde kann es nicht finden
 - **Erwartet:** Unsichtbare Steuerzeichen gelten nicht als fehlend
-- **Test:** `it.fails` in `render.integration.test.ts`
+- **Test:** in `render.integration.test.ts`
+- **Behoben (2026-11-05):** Unsichtbare Steuerzeichen fallen vor dem Setzen weg. Status bleibt Approved, nur dieser Punkt nachgetestet.
 
 #### Beobachtung: PROJ-38 einmal sporadisch rot
 „SVG, PDF, zu große und beschädigte Dateien“ fand einmal nach dem Hochladen keine Logo-Vorschau; danach 4 von 4 grün. Der Test läuft auf den Stammdaten, die PROJ-41 nicht geändert hat; die Ursache ist nicht geklärt.
