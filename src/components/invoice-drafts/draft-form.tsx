@@ -180,6 +180,7 @@ export function DraftForm({ booking, others, preview, smallBusiness, textBlocks,
   const base = billableCents(booking.lines)
   const [error, setError] = useState<string | null>(null)
   const [stale, setStale] = useState(false)
+  const [saved, setSaved] = useState(false)
   const [previewing, setPreviewing] = useState(false)
   const [changedNote, setChangedNote] = useState(bookingChanged)
   const [confirm, setConfirm] = useState<
@@ -349,7 +350,8 @@ export function DraftForm({ booking, others, preview, smallBusiness, textBlocks,
       else if (result.error !== 'sessionExpired') setError(result.error)
       return
     }
-    // Die Aktion leitet selbst zur Detailseite des Entwurfs weiter
+    // Die Aktion leitet selbst zur Detailseite des Entwurfs weiter; bis dahin kein zweites Speichern (zweiter Entwurf)
+    setSaved(true)
     toast.success(draft ? t('done.saved') : t('done.created'))
   }
 
@@ -704,7 +706,7 @@ export function DraftForm({ booking, others, preview, smallBusiness, textBlocks,
             <RequiredChecks checks={checks} onJump={jump} settingsLink />
 
             <div className="flex flex-wrap gap-3 border-t pt-6">
-              <Button type="submit" disabled={submitting} aria-busy={submitting} className="min-h-11">
+              <Button type="submit" disabled={submitting || saved} aria-busy={submitting} className="min-h-11">
                 {t('form.save')}
               </Button>
               <Button

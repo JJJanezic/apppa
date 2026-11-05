@@ -322,6 +322,48 @@ test.describe('Knopf „Rechnung“', () => {
   })
 })
 
+test.describe('Weiterleitung nach dem Speichern (BUG-5 aus PROJ-15)', () => {
+  // Eine Fremd-Änderung am Verlauf ist für den Router eine Navigation: Sie verwirft die laufende Server-Aktion samt Weiterleitung.
+  // Die Antwort wird verzögert, damit sie sicher dazwischenkommt.
+  async function saveWithDiscardedAction(page: Page) {
+    await page.route('**/rechnungen/neu**', async (route) => {
+      if (route.request().method() === 'POST') await new Promise((r) => setTimeout(r, 1000))
+      await route.continue()
+    })
+    const button = page.getByRole('button', { name: 'Entwurf speichern', exact: true })
+    await button.scrollIntoViewIfNeeded()
+    await button.click()
+    await page.evaluate(() => window.history.pushState(null, '', window.location.href))
+    await expect(page.getByText('Entwurf gespeichert.')).toBeVisible({ timeout: 10_000 })
+    return button
+  }
+
+  test('Verworfene Weiterleitung: die Seite wechselt trotzdem zur Detailseite, nur ein Entwurf', async ({ page, users }) => {
+    desktopOnly()
+    const { owner, tenantId } = await setup(users)
+    const booking = await addBooking(tenantId, await addApartment(tenantId), { guestId: await addGuest(tenantId) })
+    await signInAs(page, owner)
+    await openCreate(page, booking.id)
+    await saveWithDiscardedAction(page)
+    await expect(page).toHaveURL(/\/rechnungen\/[0-9a-f-]{36}$/, { timeout: 8000 })
+    await expect(page.getByRole('link', { name: 'Ausstellen', exact: true })).toBeVisible()
+    expect((await service().from('invoices').select('id').eq('booking_id', booking.id)).data).toHaveLength(1)
+  })
+
+  test('Teil der Buchung: Formular bleibt kurz stehen, „Entwurf speichern“ ist gesperrt, kein zweiter Entwurf', async ({ page, users }) => {
+    desktopOnly()
+    const { owner, tenantId } = await setup(users)
+    const booking = await addBooking(tenantId, await addApartment(tenantId), { guestId: await addGuest(tenantId), charges: [{ label: 'Reinigung', cents: 10000, rate: 20 }] })
+    await signInAs(page, owner)
+    await openCreate(page, booking.id)
+    await lineBox(page, 'Reinigung').uncheck()
+    const button = await saveWithDiscardedAction(page)
+    await expect(button).toBeDisabled()
+    await expect(page).toHaveURL(/\/rechnungen\/[0-9a-f-]{36}$/, { timeout: 8000 })
+    expect((await service().from('invoices').select('id').eq('booking_id', booking.id)).data).toHaveLength(1)
+  })
+})
+
 test.describe('Rechnung erstellen', () => {
   test('AC: Vorbelegung, Reihenfolge der Positionen, Speichern → Detailseite ohne Nummer; eigene Werte gespeichert, Buchung unverändert', async ({ page, users }) => {
     desktopOnly()

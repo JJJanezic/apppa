@@ -552,6 +552,7 @@ Buchungsdetail (bestehend)
 - **Folge, falls die Weiterleitung wirklich ausbleibt:** Ein zweiter Klick auf „Entwurf speichern“ legt vermutlich einen zweiten Entwurf an (nicht geprüft). Entwürfe haben keine Nummer und lassen sich löschen
 - **Bezug zu PROJ-15:** Formular und Aktion des Entwurfs wurden in PROJ-15 nicht geändert. Dass der Fehler schon vorher bestand, ist damit naheliegend, aber nicht belegt
 - **Priority:** Eigene Klärung (per Trace) vor dem Ausstellen in PROJ-42, kein Hindernis für PROJ-15
+- **Stand 2026-11-05:** Rückfall eingebaut, natürliche Ursache weiter offen. Details in `features/PROJ-42-ausstellen-mit-pdf.md`, QA Test Results
 
 **Summary Runde 2:** 53/53 · offene Bugs: 1 Medium (BUG-5, PROJ-40) · Security: Pass (Änderungen berühren keine Rechte) · **Production Ready: YES**
 
