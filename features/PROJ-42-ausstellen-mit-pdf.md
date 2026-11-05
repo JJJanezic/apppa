@@ -1,6 +1,6 @@
 # PROJ-42: Ausstellen mit PDF
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-11-05
 **Last Updated:** 2026-11-05
 
@@ -410,6 +410,52 @@ Die Löschfunktion prüft die Frist in der Datenbank und lehnt ab, wenn eine aus
 
 ### Abhängigkeiten
 Keine neuen Pakete.
+
+## Implementation Notes (Frontend)
+
+**Gebaut:** Seite `/rechnungen/[id]/ausstellen` mit Datum, Nummer, Prüfliste, Häkchen und PDF-Vorschau; Knopf „Ausstellen“ auf dem Entwurf; Prüfregel und Nummerneinordnung; Vorschau mit Datum, Nummer und Prüfliste; Schnittstelle zum Ausstellen mit allen Prüfungen bis zum endgültigen PDF; Meldung „gekürzt“ der PDF-Erzeugung; Bestätigung und Korrekturhinweis auf der Detailseite; Löschsperre im Betreiber-Bereich.
+
+**Regeln und Dateien**
+- `src/lib/invoice-issue.ts`: `classifyInvoiceNumber`, `dateConflict`, `issueChecks`, `issueAllowed`, `retentionCutoff` (Tests: `invoice-issue.test.ts`)
+- `src/lib/invoice-issue-data.ts`: `loadIssueState`, `checksFor`, `getNumberedInvoices`
+- `src/app/api/rechnungen/vorschau/route.ts`: Anfrage `{ draftId, issue: { invoiceDate, number } }`, nur Inhaber; Prüfliste steht in den PDF-Meldungen
+- `src/app/api/rechnungen/[id]/ausstellen/route.ts`: nimmt Datum, Nummer, Stand des Entwurfs und gesetzte Häkchen an
+- `src/components/invoice-issue/`: `issue-form.tsx`, `issued-notes.tsx`
+- `src/lib/invoice-pdf/respond.ts`: `renderInvoice` liefert PDF und Meldungen; `pdfResponse` baut darauf auf
+
+**Abweichungen vom Tech Design**
+- Nummern samt Datum liest die App seitenweise aus der Tabelle, bis eine leere Antwort kommt, statt über eine neue Datenbankfunktion. Die Grenze von PostgREST spielt so keine Rolle, und es braucht nichts Neues in der Datenbank.
+- Die Häkchen tragen eine Kennung je Fall (bei der Nummer samt Nummer). Ändert sich der Fall, ist das Häkchen leer, und der Server verlangt die neue Kennung.
+- „Datum auf heute setzen“ erscheint immer, wenn das Datum nicht heute ist, nicht nur bei Hinweisen.
+
+**PROJ-40 BUG-5 (Seite bleibt nach „Entwurf speichern“ auf dem Formular, Befund aus PROJ-15 QA):** Nicht geklärt. Der betroffene Test lief 6 von 6 Mal grün, der Fehler ließ sich nicht nachstellen. Das Ausstellen ist nicht betroffen: Es läuft nicht über eine Server-Aktion, und danach folgt ein vollständiger Seitenaufruf. Der Befund bleibt bei PROJ-40 offen.
+
+**Geprüft**
+- `npm run lint`: ohne Fehler; Unit-Tests 676 grün; `render.integration.test.ts` 16 grün
+- E2E `tests/PROJ-42-ausstellen-mit-pdf.spec.ts` im Desktop-Projekt grün; Layout auch im Handy-Projekt grün, im Tablet-Projekt nicht gelaufen
+- Am Bild geprüft: Desktop und Handy
+- Nicht geprüft: Firefox und Safari; Ablage und echtes Ausstellen (Backend fehlt); Darstellung ausgestellter Rechnungen und Löschsperre im Betreiber-Bereich mit echten Daten
+
+## Offen für /backend
+
+**Bis dahin:** Das Ausstellen führt alle Prüfungen aus, erzeugt das PDF und antwortet dann `notReady` („wird gerade eingerichtet“). Nichts wird gespeichert.
+
+**Schreibschritt** an der Stelle `notReady` in `src/app/api/rechnungen/[id]/ausstellen/route.ts`:
+1. PDF ablegen, Prüfsumme bilden (`renderInvoice` liefert die Bytes; Ablage unter `<Kunde>/<zufällig>.pdf`)
+2. Datenbankfunktion nur für den Server: Person, Entwurf, `updated_at`, Buchungsstand, Nummer, Datum, PDF-Ort, Prüfsumme, Fassung (`state.model`), „ohne Logo“; prüft Stand, Nummer und Abzüge noch einmal
+3. Bei Fehlern Datei entfernen; `numberTaken` mit `takenNumber` und `conflict` wie heute beantworten
+
+**Datenmodell:** ausgestellt am, ausgestellt von, festgeschriebene Fassung, Prüfsumme, ohne Logo. Spalte `small_business` wird gesetzt.
+
+**Unveränderlichkeit in der Datenbank:** Rechnung, Positionen, Abzüge; Ausnahmen Gastverknüpfung und Kunde löschen nach Fristablauf. `refresh_deducting_totals` und `detach_deductions` dürfen ausgestellte Rechnungen nicht ändern.
+
+**Abgezogene nacherfasste Rechnungen:** Sperre in `save_invoice` und `delete_invoice`; eigener Fehlercode mit Schlussrechnung, Text in `invoices.errors`, Anzeige im Formular.
+
+**Kunde löschen:** Prüfung in `admin_delete_tenant` mit eigenem Fehlercode, Text in `operator.errors`. Die Oberfläche blendet das Löschen über `countRetainedInvoices` schon aus.
+
+**Detailseite:** Die Fassung in `getInvoice` lesen und auf `/rechnungen/[id]` anzeigen: Art, Datum und Person des Ausstellens, Abzüge, USt je Satz der Fassung, Fristen. Heute zeigt die Seite nur Positionen, Gesamtbetrag aus `total_cents` und eine USt-Aufteilung aus den Positionen, die Abzüge nicht berücksichtigt.
+
+**Danach E2E ergänzen:** Ausstellen bis zur Detailseite, `tests/PROJ-42-ausstellen-mit-pdf.spec.ts` erwartet noch „wird gerade eingerichtet“.
 
 ## QA Test Results
 _To be added by /qa_

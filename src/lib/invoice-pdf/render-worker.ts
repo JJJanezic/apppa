@@ -75,7 +75,7 @@ function sizesFrom(start: number, min: number): number[] {
 
 const withFontSize = (doc: RichDoc, fontSize: number): RichDoc => ({ ...doc, attrs: { ...doc.attrs, fontSize } })
 
-type Measured = { footer: RichDoc | null; footerHeightPt: number; footerReduced: boolean; issuerSize: number; issuerOverflow: boolean; missingChars: string[] }
+type Measured = { footer: RichDoc | null; footerHeightPt: number; footerReduced: boolean; footerCut: boolean; issuerSize: number; issuerOverflow: boolean; missingChars: string[] }
 
 function textsByFont(view: PdfView): Map<RichFont, string> {
   const base = view.letterhead.fontFamily
@@ -150,6 +150,7 @@ async function measure(view: PdfView): Promise<Measured> {
     footer: footer && footerSize !== undefined && footerReduced ? withFontSize(footer, footerSize) : footer,
     footerHeightPt: footerSize !== undefined ? Math.min(height(`footer-${footerSize}`), maxFooter) : 0,
     footerReduced: footerReduced || (footerSize !== undefined && height(`footer-${footerSize}`) > maxFooter),
+    footerCut: footerSize !== undefined && height(`footer-${footerSize}`) > maxFooter,
     issuerSize,
     issuerOverflow,
     missingChars: findMissingChars(view, familyOf),
@@ -189,6 +190,7 @@ async function render(input: PdfView): Promise<PdfResult> {
     pages,
     footerShare: m.footerHeightPt / PAGE_HEIGHT_PT,
     footerReduced: m.footerReduced,
+    footerCut: m.footerCut,
     issuerOverflow: m.issuerOverflow,
     missingChars: m.missingChars,
   }

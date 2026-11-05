@@ -1,6 +1,7 @@
 // Rechnung als fertige Daten für den PDF-Arbeitsprozess (PROJ-41): Alle Texte sind übersetzt und formatiert, Platzhalter
 // ersetzt. Die Vorlage legt nur noch aus; so kommt der Arbeitsprozess ohne Datenbank, Sitzung und Übersetzungen aus.
 
+import type { IssueChecks } from '@/lib/invoice-issue'
 import type { LetterheadValues } from '@/lib/letterhead'
 import type { RichDoc } from '@/lib/rich-text'
 
@@ -43,6 +44,7 @@ export type PdfResult = {
   pages: number
   footerShare: number
   footerReduced: boolean
+  footerCut: boolean
   issuerOverflow: boolean
   // Zeichen, die die gewählte Schrift nicht darstellen kann
   missingChars: string[]
@@ -57,9 +59,13 @@ export type PdfMeta = {
   logoFailed: boolean
   // Fußzeile verkleinert, damit Platz für den Inhalt bleibt
   footerReduced: boolean
+  // Fußzeile passt auch in der kleinsten Größe nicht und wurde gekürzt (sperrt das Ausstellen, PROJ-42)
+  footerCut: boolean
   // Aussteller-Block passt auch in der kleinsten Größe nicht ganz in den Kopf
   issuerOverflow: boolean
   missingChars: string[]
+  // Prüfliste der Seite „Rechnung ausstellen“ (PROJ-42)
+  issue?: IssueChecks
 }
 
 export const PDF_META_HEADER = 'x-pdf-meta'

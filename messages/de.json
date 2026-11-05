@@ -490,7 +490,8 @@
       "title": "Kundenkonto",
       "activeText": "Deaktivieren sperrt den Zugang für alle Mitglieder, ohne Daten zu löschen.",
       "deactivatedText": "Der Kunde ist deaktiviert. Seine Mitglieder haben keinen Zugriff.",
-      "deleteHint": "Endgültig löschen ist erst möglich, wenn der Kunde deaktiviert ist."
+      "deleteHint": "Endgültig löschen ist erst möglich, wenn der Kunde deaktiviert ist.",
+      "retained": "{count, plural, =1 {Endgültig löschen ist nicht möglich: 1 ausgestellte Rechnung fällt noch unter die Aufbewahrungspflicht. Der Kunde kann deaktiviert bleiben.} other {Endgültig löschen ist nicht möglich: # ausgestellte Rechnungen fallen noch unter die Aufbewahrungspflicht. Der Kunde kann deaktiviert bleiben.}}"
     },
     "logTitle": "Protokoll",
     "noLog": "Noch keine Betreiber-Aktionen.",
@@ -2160,7 +2161,8 @@
       "due": "Fällig",
       "depositDue": "Anzahlung fällig am {date}:",
       "noLines": "Keine Positionen",
-      "copyNote": "Die Positionen sind eine Kopie aus der Buchung. Zeitraum, Wohnung und Gastnamen kommen immer aktuell aus der Buchung."
+      "copyNote": "Die Positionen sind eine Kopie aus der Buchung. Zeitraum, Wohnung und Gastnamen kommen immer aktuell aus der Buchung.",
+      "issue": "Ausstellen"
     },
     "done": {
       "created": "Entwurf gespeichert.",
@@ -2195,6 +2197,86 @@
         "notHere": "Der Platzhalter {token} ist in diesem Block nicht erlaubt.",
         "depositOnly": "Dieser Platzhalter ist nur mit Anzahlung möglich: {token}"
       }
+    }
+  },
+  "invoiceIssue": {
+    "metaTitle": "Rechnung ausstellen",
+    "eyebrow": "Rechnungsentwurf",
+    "title": "Rechnung ausstellen",
+    "back": "Zurück zum Entwurf",
+    "dataTitle": "Datum, Nummer und Prüfungen",
+    "submitTitle": "Ausstellen",
+    "previewLabel": "Vorschau der Rechnung",
+    "date": {
+      "label": "Rechnungsdatum",
+      "invalid": "Bitte gib ein gültiges Datum ab 01.01.1990 ein.",
+      "today": "Datum auf heute setzen"
+    },
+    "number": {
+      "label": "Rechnungsnummer",
+      "useProposal": "Vorschlag übernehmen ({number})"
+    },
+    "allOk": "Alle Prüfungen sind in Ordnung.",
+    "final": "Nach dem Ausstellen lässt sich die Rechnung nicht mehr ändern oder löschen.",
+    "submit": "Rechnung ausstellen",
+    "submitting": "Rechnung wird ausgestellt …",
+    "blocks": {
+      "futureDate": "Das Rechnungsdatum liegt in der Zukunft. Stelle die Rechnung an diesem Tag aus oder ändere das Datum.",
+      "numberInvalid": "Bitte gib eine Rechnungsnummer mit höchstens 30 Zeichen ein.",
+      "numberTaken": "Die Nummer {number} ist schon vergeben.",
+      "deductionDraft": "Die abgezogene Teilrechnung ist noch ein Entwurf. Stelle zuerst die Teilrechnung aus.",
+      "deductionRemoved": "Eine abgezogene Rechnung existiert nicht mehr. Speichere den Entwurf neu, damit der Abzug stimmt.",
+      "bookingCancelled": "Die Buchung wurde storniert, nachdem der Entwurf zuletzt gespeichert wurde. Passe den Entwurf an und speichere ihn.",
+      "missingChars": "Diese Zeichen kann die Schrift nicht darstellen: {chars}. Ändere den Text oder wähle eine andere Schrift.",
+      "issuerOverflow": "Der Aussteller-Block passt auch in der kleinsten Schrift nicht in den Kopf der Rechnung.",
+      "footerCut": "Die Fußzeile ist zu lang und würde gekürzt. Kürze sie, damit alle Angaben auf der Rechnung stehen.",
+      "toToday": "Datum auf heute setzen",
+      "toDraft": "Zum Entwurf",
+      "toPartial": "Zur Teilrechnung",
+      "toMasterData": "Zu den Stammdaten",
+      "toLetterhead": "Zum Briefpapier",
+      "toFooter": "Zur Fußzeile"
+    },
+    "acks": {
+      "title": "Bitte bestätigen",
+      "bookingChanged": "Die Buchung wurde seit dem Entwurf geändert. Entwurf trotzdem unverändert ausstellen",
+      "option": "Buchung ist noch eine Option, trotzdem ausstellen",
+      "logo": "Das Logo lässt sich nicht laden. Ohne Logo ausstellen",
+      "numberConfirm": "Diese Nummer trotzdem verwenden",
+      "numberAbove": "Die Nummer liegt über dem Vorschlag. Die nächste Nummer wäre danach {next}.",
+      "numberOtherFormat": "Die Nummer passt nicht zum Nummernkreis und zählt nicht zur Folge.",
+      "numberOtherYear": "Die Nummer trägt das Jahr {year}, das Rechnungsdatum ein anderes."
+    },
+    "notes": {
+      "gap": "Füllt eine Lücke in der Nummernfolge.",
+      "dateLater": "Die Rechnung {number} trägt ein späteres Datum ({date}).",
+      "dateEarlier": "Die Rechnung {number} trägt ein früheres Datum ({date}), obwohl ihre Nummer höher ist.",
+      "footerReduced": "Die Fußzeile wurde verkleinert, damit sie auf die Seite passt.",
+      "overBilled": "Mit dieser Rechnung liegt die verrechnete Summe über dem Gesamtpreis der Buchung.",
+      "totalNotPositive": "Der Rechnungsbetrag ist 0 oder negativ.",
+      "logoBlurry": "Das Logo könnte im Druck unscharf wirken.",
+      "smallBusinessDiffers": "Der Kleinunternehmer-Status der abgezogenen Rechnung weicht von dieser Rechnung ab. Kläre das im Zweifel mit der Steuerberatung.",
+      "toToday": "Datum auf heute setzen"
+    },
+    "errors": {
+      "forbidden": "Nur Inhaber können Rechnungen ausstellen.",
+      "invalid": "Die Eingaben sind nicht gültig. Bitte prüfe Datum und Nummer.",
+      "conflict": "Der Entwurf wurde inzwischen geändert. Lade die Seite neu und prüfe den neuen Stand.",
+      "reload": "Seite neu laden",
+      "blocked": "Der Stand hat sich geändert. Bitte prüfe die Angaben oben und versuche es dann noch einmal.",
+      "numberTaken": "Die Nummer ist inzwischen vergeben. Die nächste freie Nummer ist eingetragen, bitte prüfe sie und stelle dann erneut aus.",
+      "pdfFailed": "Das PDF konnte nicht erzeugt werden. Die Rechnung wurde nicht ausgestellt, bitte versuche es noch einmal.",
+      "notReady": "Das Ausstellen wird gerade eingerichtet. Die Rechnung wurde nicht ausgestellt.",
+      "unknown": "Das hat nicht geklappt. Die Rechnung wurde nicht ausgestellt, bitte versuche es noch einmal.",
+      "network": "Keine Verbindung. Bitte versuche es noch einmal und prüfe danach, ob die Rechnung schon ausgestellt ist.",
+      "sessionExpired": "Deine Sitzung ist abgelaufen."
+    },
+    "detail": {
+      "issuedDone": "Die Rechnung wurde ausgestellt.",
+      "correctionTitle": "Rechnung falsch?",
+      "correction": "Eine ausgestellte Rechnung lässt sich nicht ändern. Erstelle außerhalb der App eine Gutschrift, erfasse sie mit negativen Beträgen nach und stelle danach eine neue Rechnung aus.",
+      "correctionSwitch": "Dafür muss der Schalter „Rechnungen nacherfassen“ in den Einstellungen eingeschaltet sein.",
+      "toSettings": "Zu den Rechnungseinstellungen"
     }
   },
   "letterhead": {

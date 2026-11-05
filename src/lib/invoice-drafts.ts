@@ -56,6 +56,7 @@ export const DRAFT_LIMITS = {
 export const invoiceNewHref = (bookingId: string) => `/rechnungen/neu?buchung=${bookingId}`
 export const invoiceEditHref = (id: string) => `/rechnungen/${id}/bearbeiten`
 export const invoicePreviewHref = (id: string) => `/rechnungen/${id}/vorschau`
+export const invoiceIssueHref = (id: string) => `/rechnungen/${id}/ausstellen`
 
 // ---- Herkunft der Positionen --------------------------------------------------------------------
 
@@ -138,6 +139,8 @@ export type BookingInvoiceSummary = {
   kind: InvoiceKind | null
   invoiceDate: string
   totalCents: number
+  // Ohne Umsatzsteuer ausgestellt bzw. nacherfasst (PROJ-42: Hinweis, wenn Abzug und Schlussrechnung abweichen)
+  smallBusiness?: boolean
   lines: (VatLine & { source: LineSource | null })[]
 }
 

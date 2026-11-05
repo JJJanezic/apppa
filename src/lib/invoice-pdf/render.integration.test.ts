@@ -146,6 +146,15 @@ describe('PDF-Arbeitsprozess', () => {
     expect((await pageTexts(r.pdf)).join(' ')).toContain('Rechnungsbetrag')
     const normal = await render(view())
     expect(normal.footerReduced).toBe(false)
+    expect(normal.footerCut).toBe(false)
+  })
+
+  it('PROJ-42: Fußzeile, die auch verkleinert nicht passt, wird als gekürzt gemeldet; nur verkleinert nicht', async () => {
+    const reduced = await render(view({ footer: { ...docFromText('Bankverbindung IBAN AT12 3456 '.repeat(66)), attrs: { fontSize: 24 } } }))
+    expect(reduced.footerCut).toBe(false)
+    const cut = await render(view({ footer: docFromText('Bankverbindung IBAN AT12 3456 '.repeat(1200)) }))
+    expect(cut.footerReduced).toBe(true)
+    expect(cut.footerCut).toBe(true)
   })
 
   it('BUG-6: meldet Zeichen, die die Schrift nicht kennt; übliche Zeichen nicht', async () => {

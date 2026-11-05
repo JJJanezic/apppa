@@ -27,10 +27,12 @@ interface TenantDangerZoneProps {
   tenantId: string
   tenantName: string
   deactivated: boolean
+  // Ausgestellte Rechnungen innerhalb der Aufbewahrungsfrist (PROJ-42): Solange es sie gibt, ist Löschen gesperrt
+  retainedInvoices: number
 }
 
 // Deaktivieren / Reaktivieren und – nur bei deaktivierten Kunden – endgültig löschen
-export function TenantDangerZone({ tenantId, tenantName, deactivated }: TenantDangerZoneProps) {
+export function TenantDangerZone({ tenantId, tenantName, deactivated, retainedInvoices }: TenantDangerZoneProps) {
   const t = useTranslations('operator')
   const { run, pending } = useTeamAction('operator.errors')
   const [confirming, setConfirming] = useState(false)
@@ -50,13 +52,14 @@ export function TenantDangerZone({ tenantId, tenantName, deactivated }: TenantDa
         <Button variant="outline" className="min-h-11" disabled={pending} onClick={() => setConfirming(true)}>
           {t(`actions.${action}`)}
         </Button>
-        {deactivated && (
+        {deactivated && retainedInvoices === 0 && (
           <Button variant="destructive" className="min-h-11" disabled={pending} onClick={() => setDeleting(true)}>
             {t('actions.delete')}
           </Button>
         )}
       </div>
-      {!deactivated && <p className="text-[13px] text-ds-neutral-700">{t('danger.deleteHint')}</p>}
+      {!deactivated && retainedInvoices === 0 && <p className="text-[13px] text-ds-neutral-700">{t('danger.deleteHint')}</p>}
+      {retainedInvoices > 0 && <p className="text-[13px] text-ds-neutral-700">{t('danger.retained', { count: retainedInvoices })}</p>}
 
       {confirming && (
         <ConfirmDialog

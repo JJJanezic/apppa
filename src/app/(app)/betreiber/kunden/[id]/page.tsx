@@ -16,6 +16,7 @@ import { TenantMasterDataForm } from '@/components/tenant/tenant-master-data-for
 import { requireArea } from '@/lib/areas'
 import { formatDate } from '@/lib/format'
 import { loadInvoiceSettings } from '@/lib/invoice-settings-data'
+import { countRetainedInvoices } from '@/lib/invoices-data'
 import { loadLetterhead } from '@/lib/letterhead-data'
 import { getTenantDetail } from '@/lib/operator-data'
 
@@ -82,7 +83,7 @@ export default async function TenantDetailPage({ params }: { params: Params }) {
         <OperatorLog entries={tenant.log} />
       </section>
 
-      <TenantDangerZone tenantId={tenant.id} tenantName={tenant.name} deactivated={deactivated} />
+      <TenantDangerZone tenantId={tenant.id} tenantName={tenant.name} deactivated={deactivated} retainedInvoices={await countRetainedInvoices(tenant.id)} />
     </>
   )
 }

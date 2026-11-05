@@ -10,6 +10,8 @@ import {
   getDraftPreviewData,
   getInvoiceDraftView,
 } from '@/lib/invoice-drafts-data'
+import { isIssueDate } from '@/lib/invoice-issue'
+import { checksFor, IssueDataError, loadIssueState } from '@/lib/invoice-issue-data'
 import { pdfResponse } from '@/lib/invoice-pdf/respond'
 import { buildPreviewModel } from '@/lib/invoice-preview'
 import { normalizeDoc, type RichDoc } from '@/lib/rich-text'
@@ -40,6 +42,11 @@ const unsavedSchema = z.object({
   deductionRemoved: z.boolean().optional(),
 })
 
+const issueSchema = z.object({
+  draftId: z.string().uuid(),
+  issue: z.object({ invoiceDate: z.string().refine(isIssueDate), number: z.string().max(200) }),
+})
+
 // Gestaltete Entwurfsvorschau (PROJ-41). Gespeichert ({ draftId }): Inhaber und Mitarbeiter. Ungespeichert: nur Inhaber.
 // getInvoiceDraftView und getDraftBooking antworten bei fremden Daten mit „nicht gefunden“. Der Betreiber hat keine
 // aktive Mitgliedschaft und damit keinen Zugriff auf Entwürfe.
@@ -52,7 +59,26 @@ export async function POST(request: Request) {
   const t = await getTranslations('invoiceDrafts.preview')
   const mark = t('draftMark')
 
-  if (typeof body?.draftId === 'string' && !('bookingId' in body)) {
+  // Seite „Rechnung ausstellen“ (PROJ-42): gespeicherter Entwurf mit vorgesehenem Datum und vorgesehener Nummer, samt Prüfliste.
+  // Nur Inhaber, nichts wird gespeichert.
+  const issue = issueSchema.safeParse(body)
+  if (issue.success) {
+    if (active.role !== 'owner') return new Response(null, { status: 403 })
+    const { draftId, issue: v } = issue.data
+    const number = v.number.trim()
+    const state = await loadIssueState(active.id, draftId, v).catch((e: unknown) => {
+      if (!(e instanceof IssueDataError)) throw e
+      console.error('[rechnung-pdf] Stand nicht lesbar', e.message)
+      return null
+    })
+    if (!state) return new Response(null, { status: 500 })
+    return pdfResponse({ tenantId: active.id, model: state.model, letterhead: state.view.preview.letterhead, number: number || DRAFT_NUMBER_TEXT, mark }, (meta) => ({
+      ...meta,
+      issue: checksFor(state, state.model, number, meta),
+    }))
+  }
+
+  if (typeof body?.draftId === 'string' && !('bookingId' in body) && !('issue' in body)) {
     const { draft, booking, others, preview, smallBusiness } = await getInvoiceDraftView(body.draftId)
     const model = buildPreviewModel({
       kind: draft.kind,

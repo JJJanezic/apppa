@@ -68,6 +68,8 @@ export type PreviewInput = {
   smallBusiness: boolean
   // Gespeicherter Entwurf: eine abgezogene Rechnung wurde gelöscht bzw. ist keine Teilrechnung mehr (deduction_removed)
   deductionRemoved?: boolean
+  // Vorgesehene Nummer auf der Seite „Rechnung ausstellen“ (PROJ-42); sonst ergibt {Rechnungsnummer} „Entwurf“
+  invoiceNumber?: string
 }
 
 export function buildPreviewModel(p: PreviewInput): InvoicePreviewModel {
@@ -104,6 +106,7 @@ export function buildPreviewModel(p: PreviewInput): InvoicePreviewModel {
       invoiceDate: p.invoiceDate,
       totalCents: totals.totalCents,
       payment: p.payment,
+      invoiceNumber: p.invoiceNumber,
     }),
     payment: p.payment,
     schedule: paymentSchedule(p.payment, totals.totalCents, p.invoiceDate, p.booking.arrival),

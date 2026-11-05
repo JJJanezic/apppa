@@ -185,6 +185,7 @@ type SummaryDb = {
   kind: string | null
   invoice_date: string
   total_cents: number
+  small_business: boolean
   lines: { position: number; amount_cents: number; vat_rate: number | string; source_kind: string | null; source_charge_id: string | null }[]
 }
 
@@ -195,7 +196,7 @@ export const getBookingInvoiceSummaries = cache(async (bookingId: string): Promi
   const supabase = await createClient()
   const { data, error } = await supabase
     .from('invoices')
-    .select('id, number, origin, kind, invoice_date, total_cents, lines:invoice_lines(position, amount_cents, vat_rate, source_kind, source_charge_id)')
+    .select('id, number, origin, kind, invoice_date, total_cents, small_business, lines:invoice_lines(position, amount_cents, vat_rate, source_kind, source_charge_id)')
     .eq('tenant_id', tenantId)
     .eq('booking_id', bookingId)
     .order('invoice_date')
@@ -208,6 +209,7 @@ export const getBookingInvoiceSummaries = cache(async (bookingId: string): Promi
     kind: invoiceKindFromDb(r.kind),
     invoiceDate: r.invoice_date,
     totalCents: r.total_cents,
+    smallBusiness: r.small_business,
     lines: [...r.lines]
       .sort((x, y) => x.position - y.position)
       .map((l) => ({ amountCents: l.amount_cents, vatBp: vatRateFromDb(l.vat_rate), source: lineSourceFromDb(l.source_kind, l.source_charge_id) })),

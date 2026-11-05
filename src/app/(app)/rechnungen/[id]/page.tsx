@@ -7,6 +7,7 @@ import { Amount } from '@/components/amount'
 import { DraftDetail } from '@/components/invoice-drafts/draft-detail'
 import { InvoiceActions } from '@/components/invoices/invoice-buttons'
 import { InvoiceStatus } from '@/components/invoices/invoice-status'
+import { IssuedNotes } from '@/components/invoice-issue/issued-notes'
 import { PageHeader } from '@/components/page-header'
 import { Button } from '@/components/ui/button'
 import { requireArea } from '@/lib/areas'
@@ -31,7 +32,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
 // Rechnungsdetail (PROJ-37) für alle Mitglieder; Bearbeiten und Löschen nur für Inhaber.
 // Positionen sind eine Kopie: spätere Änderungen an der Buchung wirken nicht auf die Rechnung.
 // Entwürfe (PROJ-40) haben eine eigene Darstellung.
-export default async function InvoiceDetailPage({ params }: { params: Params }) {
+export default async function InvoiceDetailPage({ params, searchParams }: { params: Params; searchParams: Promise<{ ausgestellt?: string }> }) {
   await requireArea('invoices')
   const { id } = await params
   if ((await getInvoiceOrigin(id)) === 'draft') return <DraftDetailPage id={id} />
@@ -53,7 +54,9 @@ export default async function InvoiceDetailPage({ params }: { params: Params }) 
 
       <div className="-mt-4 flex flex-col gap-4">
         <InvoiceStatus origin={invoice.origin} hasPdf={invoice.pdfPath !== null} />
-        {owner && <InvoiceActions invoice={invoice} today={todayIso()} />}
+        {/* Ausgestellte Rechnungen sind unveränderlich (PROJ-42) */}
+        {owner && invoice.origin === 'backfilled' && <InvoiceActions invoice={invoice} today={todayIso()} />}
+        {invoice.origin === 'issued' && <IssuedNotes done={(await searchParams).ausgestellt === '1'} owner={owner} />}
       </div>
 
       <div className="grid gap-8 lg:grid-cols-2">
@@ -129,8 +132,9 @@ export default async function InvoiceDetailPage({ params }: { params: Params }) 
             <div className="flex items-baseline justify-between gap-4 py-3 font-semibold">
               <dt>{t('detail.total')}</dt>
               <dd>
-                {/* Gesamtbetrag bildet die Datenbank; entspricht der Summe der Positionen */}
-                <Amount cents={invoice.lines.length ? linesTotal(invoice.lines) : invoice.totalCents} />
+                {/* Gesamtbetrag bildet die Datenbank; entspricht bei nacherfassten Rechnungen der Summe der Positionen,
+                    bei ausgestellten Schlussrechnungen enthält er die Abzüge */}
+                <Amount cents={invoice.lines.length && invoice.origin === 'backfilled' ? linesTotal(invoice.lines) : invoice.totalCents} />
               </dd>
             </div>
           </dl>

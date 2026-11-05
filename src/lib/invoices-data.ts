@@ -5,6 +5,8 @@ import { getTranslations } from 'next-intl/server'
 import { cache } from 'react'
 
 import { apartmentLabel } from '@/lib/apartments'
+import { todayIso } from '@/lib/bookings'
+import { retentionCutoff } from '@/lib/invoice-issue'
 import {
   type BookingInvoices,
   type Invoice,
@@ -106,6 +108,20 @@ export const getInvoiceBackfillEnabled = cache(async (): Promise<boolean> => {
   if (error) console.error('[rechnungen] Schalter nicht lesbar', error.message)
   return data?.backfill_enabled ?? true
 })
+
+// Ausgestellte Rechnungen innerhalb der Aufbewahrungsfrist (PROJ-42), für den Betreiber: Sie sperren „Kunde löschen“.
+// Die Datenbank prüft das beim Löschen zusätzlich.
+export async function countRetainedInvoices(tenantId: string): Promise<number> {
+  const supabase = await createClient()
+  const { count, error } = await supabase
+    .from('invoices')
+    .select('id', { count: 'exact', head: true })
+    .eq('tenant_id', tenantId)
+    .eq('origin', 'issued')
+    .gte('invoice_date', retentionCutoff(todayIso()))
+  if (error) console.error('[rechnungen] Aufbewahrte Rechnungen nicht zählbar', error.message)
+  return count ?? 0
+}
 
 // Dateiname zum Herunterladen, z. B. „Rechnung-2025-0042.pdf“
 const pdfFileName = (label: string, number: string) =>
