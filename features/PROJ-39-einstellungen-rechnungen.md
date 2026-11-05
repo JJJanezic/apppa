@@ -1,6 +1,6 @@
 # PROJ-39: Einstellungen → Rechnungen
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-10-31
 **Last Updated:** 2026-11-05
 
@@ -442,6 +442,8 @@ Dazu: Kleinunternehmer-Hinweis mit Gesetzestext, Fußzeile leer, Nummernkreis JJ
 | Zu langer Code wird abgewiesen statt gekürzt, Grenze 200.000 Zeichen statt 20.000 | HTML aus Word ist groß, das meiste fällt beim Lesen weg; ein Kürzen zerstörte den Text ohne Hinweis (BUG-2) | 2026-11-04 |
 | Früh Eingegebenes wird beim Aktivwerden des Entwurfs übernommen (`useAdoptEarlyInput`), nicht die Eingabe gesperrt | Nichts geht verloren und die Felder flackern nicht ausgegraut (BUG-4) | 2026-11-04 |
 | Schriften im Browser beim Bauen mitgeliefert (`next/font`), ohne Vorladen; PDF-Dateien erst mit PROJ-41 | Keine Verbindung zu Google, DSGVO-freundlich, übrige App nicht langsamer; React-PDF braucht ohnehin andere Dateien (TTF/WOFF, nicht variabel) | 2026-11-04 |
+| Zeilenhöhe als Faktor ohne Einheit statt in pt | Bleibt bei jeder Schriftgröße und beim Verkleinern der Fußzeile stimmig; entspricht dem Briefpapier-Zeilenabstand und dem PDF-Erzeuger | 2026-11-05 |
+| Migration erweitert nur die Einstellungsprüfung, vor dem Code einspielen; ausgestellte Rechnungen unberührt | Laufende App sendet die Angabe nie; ältere Daten bleiben gültig | 2026-11-05 |
 | Zeilenhöhe als vierte optionale Einstellung im gespeicherten Text (Schlüssel `lineHeight`), gleiche Prüfung in App und Datenbank (`private.rich_attrs_ok`), keine neuen Spalten | Wie die drei Einstellungen: Konfliktschutz, Protokoll, Kopie in den Entwurf und PDF ohne Sonderweg; alte Texte bleiben gültig | 2026-11-05 |
 | Gespeichert bleibt die strukturierte Beschreibung, ergänzt um die drei Einstellungen je Text; Datenbank und App prüfen die erlaubten Werte; HTML ist nur eine Bearbeitungsansicht | Freies HTML bleibt nicht speicherbar, PDF kann weiter direkt aus der Struktur setzen; alte Texte bleiben gültig | 2026-11-04 |
 
@@ -692,6 +694,47 @@ Weil jede Eingabe sofort übersetzt wird, funktionieren Vorschau, Zeichenzähler
 - Unit: Hin- und Rückübersetzung ohne Änderung, Entferntes samt Liste, ungültige Werte, Sonderzeichen `<`, `>`, `&`, kaputtes HTML, Skripte; Normalisierung und strenge Prüfung mit Einstellungen
 - Integration: Datenbank nimmt gültige Werte an und lehnt ungültige ab; alte Texte bleiben gültig; Bausteinstand ändert sich bei reiner Formatänderung
 - E2E: Auswahl, Speichern und erneutes Öffnen; Code-Modus mit und ohne Entferntes; Entwurf übernimmt Einstellungen; Handy 375 px
+
+**Pakete:** keine neuen.
+
+### J) Zeilenhöhe im HTML-Code (2026-11-05)
+
+**Ausgangslage:** Schriftart, Schriftgröße und Ausrichtung laufen heute durch fünf Stellen, die alle die gemeinsame Einstellungsliste eines Texts lesen: die Prüfregel in der App, die Übersetzung zwischen Text und HTML, die Anzeige im Browser (Schreibfläche, Vorschau, Entwurfsvorschau), das PDF und die Prüfung in der Datenbank. Die Zeilenhöhe wird an genau diesen Stellen als **vierte Angabe** ergänzt. Alles andere bleibt unverändert und funktioniert ohne eigenen Bau weiter: Konfliktschutz, Bausteinstand, Protokoll, Kopie in den Entwurf, Rückfrage bei geändertem Text, Speichern im Code-Modus und Hinweis „Entfernt: …“.
+
+**Oberfläche**
+```
+Text-Editor (gemeinsamer Baustein, unverändert im Aufbau)
++-- Werkzeugleiste: keine neue Schaltfläche
+|   +-- Hinweis auf erlaubte Tags im Code-Modus nennt zusätzlich line-height (0.80–3.00)   GEÄNDERT
++-- Schreibfläche: zeigt den Text mit der gespeicherten Zeilenhöhe                         GEÄNDERT
++-- Code-Feld: line-height im äußeren <div style>, nur wenn gesetzt                        GEÄNDERT
++-- Hinweis „Entfernt: …“: nennt auch ungültige Zeilenhöhen                                 (vorhanden)
+```
+Vorschau, Entwurfsvorschau und PDF übernehmen die Zeilenhöhe über die vorhandene Textanzeige. Keine neuen shadcn-Bausteine.
+
+**Datenmodell (in Worten)**
+Keine neuen Spalten und keine Datenumstellung. Die Einstellungen eines Texts bekommen eine optionale vierte Angabe:
+- Zeilenhöhe: Zahl von 0,80 bis 3,00 mit höchstens zwei Nachkommastellen, als Faktor der Schriftgröße; fehlt = Zeilenabstand des Briefpapiers
+
+Alte Texte haben die Angabe nicht und bleiben gültig. Die Datenbankprüfung für Einstellungen (dieselbe für Bausteine, feste Texte und Entwürfe) kennt die neue Angabe; eine Migration erweitert sie. Sie muss **vor dem neuen Code** in jede Umgebung. Die laufende App kommt mit der erweiterten Prüfung zurecht, weil sie die neue Angabe nie sendet. Bereits ausgestellte Rechnungen werden nicht neu geprüft und nicht verändert.
+
+Wie bei den übrigen Angaben führt die App die Einstellungen immer in derselben Reihenfolge. Zahlen werden einheitlich geführt (1.25, nicht 1.250), damit ein unveränderter Text nach Umschalten in den Code nicht als geändert gilt.
+
+**Übersetzung Text ↔ HTML**
+- **Text → HTML:** `line-height` erscheint im äußeren `<div style>` hinter den bisherigen Angaben, nur wenn gesetzt.
+- **HTML → Text:** Ein gültiger Wert (reine Zahl, Punkt als Dezimalzeichen, 0,80–3,00, höchstens zwei Nachkommastellen) wird übernommen. Alles andere (Einheit, Prozent, `normal`, Komma, zu viele Stellen, außerhalb der Grenzen) wird entfernt und im Hinweis genannt, z. B. „Entfernt: line-height: 4“. Bei mehreren Angaben gilt die letzte, wie im Browser. `line-height` an inneren Tags wird wie andere Stilangaben dort entfernt.
+- **Einfügen aus Word** liest nur die erlaubten Formate und übernimmt deshalb weiterhin keine Zeilenhöhe.
+
+**Anzeige im Browser**
+Schreibfläche und Textanzeige setzen die Zeilenhöhe für den ganzen Text, also auch für Listen. Ohne Angabe bleibt es bei der heutigen Darstellung. Die Abstände zwischen Absätzen und Listenpunkten bleiben wie bisher.
+
+**PDF**
+Der Textblock setzt die Zeilenhöhe zusätzlich zu Schriftart, Größe und Ausrichtung. Ohne Angabe gilt wie bisher die Zeilenhöhe aus dem Briefpapier. Weil die Zeilenhöhe ein Faktor ist, bleibt sie beim Verkleinern der Fußzeile passend. Die Höhe der Fußzeile wird wie bisher aus dem gesetzten Text gemessen, eine hohe Zeilenhöhe führt also wie heute zu „verkleinert“ bzw. „gekürzt“. Empfänger und Aussteller-Block nutzen weiter ihre eigene, feste Darstellung mit 1,2 und lesen die Einstellungen der Texte nicht.
+
+**Tests (Plan)**
+- Unit: Hin- und Rückübersetzung mit Zeilenhöhe ohne Änderung; Grenzwerte 0.8 und 3; ungültige Werte (4, 0.79, 1.255, 18pt, 120%, normal, 1,25) entfernt und genannt; letzte Angabe gilt; Zeilenhöhe an `<p>` entfernt; strenge Prüfung und Bereinigung mit Zeilenhöhe; einheitliche Zahlenform
+- Integration: Datenbank nimmt 0.8, 1.25 und 3 an und lehnt 0.79, 3.01, 1.255, Text statt Zahl ab; alte Texte bleiben gültig; Bausteinstand ändert sich bei reiner Änderung der Zeilenhöhe; PDF mit Zeilenhöhe erzeugt (Text höher als ohne), Empfänger unverändert
+- E2E: Zeilenhöhe im Code setzen, speichern, neu öffnen; ungültiger Wert bricht das Speichern mit Hinweis ab; Entwurf übernimmt die Zeilenhöhe eines Bausteins
 
 **Pakete:** keine neuen.
 
