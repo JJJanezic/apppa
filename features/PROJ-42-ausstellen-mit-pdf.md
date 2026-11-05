@@ -1,6 +1,6 @@
 # PROJ-42: Ausstellen mit PDF
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-11-05
 **Last Updated:** 2026-11-05
 
@@ -181,7 +181,7 @@ Hat der Kunde eine ausgestellte Rechnung innerhalb der Aufbewahrungsfrist, läss
 
 ### Ausstellen
 - [x] Angenommen keine Sperre und alle Häkchen gesetzt, wenn der Inhaber „Rechnung ausstellen“ wählt, dann hat die Rechnung Nummer, Status „ausgestellt“ und ein abgelegtes PDF ohne Aufdruck
-- [ ] Angenommen die PDF-Erzeugung oder Ablage scheitert, wenn ausgestellt wird, dann bleibt es ein Entwurf ohne Nummer, die Nummer bleibt frei, eine Meldung erscheint und ein neuer Versuch ist möglich
+- [x] Angenommen die PDF-Erzeugung oder Ablage scheitert, wenn ausgestellt wird, dann bleibt es ein Entwurf ohne Nummer, die Nummer bleibt frei, eine Meldung erscheint und ein neuer Versuch ist möglich
 - [x] Angenommen ein Doppelklick auf den Knopf, wenn ausgestellt wird, dann entsteht genau eine Rechnung
 - [x] Angenommen die Antwort geht unterwegs verloren, wenn der Inhaber es erneut versucht, dann entsteht keine zweite Rechnung und er landet bei der ausgestellten
 - [x] Angenommen der Entwurf wurde in einem anderen Fenster geändert, wenn ausgestellt wird, dann wird nicht ausgestellt und die Seite zeigt den neuen Stand
@@ -189,7 +189,7 @@ Hat der Kunde eine ausgestellte Rechnung innerhalb der Aufbewahrungsfrist, läss
 - [x] Angenommen eine Rechnung wurde ausgestellt, wenn das Protokoll angesehen wird, dann stehen Person und Zeitpunkt darin
 
 ### Festschreiben
-- [ ] Angenommen eine ausgestellte Rechnung, wenn Buchung, Gast, Stammdaten, Logo, Briefpapier oder Bausteine geändert werden, dann bleiben ihr PDF und ihre Angaben unverändert
+- [x] Angenommen eine ausgestellte Rechnung, wenn Buchung, Gast, Stammdaten, Logo, Briefpapier oder Bausteine geändert werden, dann bleiben ihr PDF und ihre Angaben unverändert
 - [x] Angenommen eine ausgestellte Rechnung, wenn der Gast anonymisiert wird, dann bleiben PDF und Empfänger unverändert
 - [x] Angenommen eine ausgestellte Rechnung, wenn jemand sie am Formular vorbei ändern oder löschen will, dann lehnt der Server ab, auch beim Inhaber
 - [x] Angenommen eine ausgestellte Rechnung, wenn jemand PDF oder Buchungsverknüpfung ersetzen oder entfernen will, dann lehnt der Server ab
@@ -555,6 +555,39 @@ Migration `20261105165825_invoice_issue_qa_fixes.sql`, nur in Dev. QA Runde 2 st
 - **Bugs:** 0 Critical, 1 High, 2 Medium, 3 Low
 - **Security:** bestanden bis auf die fehlende Mengenbegrenzung (Low)
 - **Production Ready:** NEIN, BUG-1 zuerst beheben
+
+### QA Runde 2 (2026-11-05)
+
+**Ergebnis:** 70 von 70 Abnahmekriterien erfüllt. BUG-1, BUG-2, BUG-4 und BUG-5 bestätigt behoben; BUG-3 und BUG-6 nur teilweise, wie unter „Behebung“ beschrieben. Keine neuen Fehler. 0 Critical, 0 High. **Produktionsreif nach den Regeln, Status Approved.**
+
+**Neu geprüft**
+- **BUG-1 in der Oberfläche:** Position im Buchungsformular entfernt, gespeichert; Betrag, Prüfsumme und Fassung der Rechnung unverändert, Position bleibt auf der Rechnung
+- **BUG-2 in der Oberfläche:** Sperre mit Meldung, Aufruf am Knopf vorbei abgelehnt
+- **PDF-Erzeugung scheitert** (Arbeitsprozess-Datei vorübergehend entfernt): Meldung, Entwurf ohne Nummer und PDF, keine Datei im Speicher, neuer Versuch gelingt
+- **Nach dem Ausstellen geändert:** Stammdaten, Fußzeile, Kleinunternehmer-Verlauf, Gast anonymisiert: Spalten, Fassung und Datei gleich; Detailseite zeigt die alte Anschrift; Kleinunternehmer festgehalten
+- **Pflichtangaben:** Sperren mit Link zu Stammdaten und Entwurf, Aufruf am Knopf vorbei abgelehnt; deaktivierter Kunde 403
+- **Last:** 30 gleichzeitige Vorschauen: 24 fertig, 6 abgelehnt (Antwort 500), danach normal weiter
+
+**Nur im Code, nicht ausgeführt**
+- Datei wird entfernt, wenn der Datenbankschritt nach dem Hochladen scheitert (der Fall lässt sich nur mit genauem Timing erzwingen)
+- Sperre „Aussteller-Block passt nicht“ auf der Seite (Regel und PDF-Meldung sind einzeln getestet)
+- „Keine Verbindung“; Nummernkreis ändert sich, während die Seite offen ist
+
+**Tests**
+- **Vitest (in Paketen, nacheinander):** 678 Unit und 256 Integration grün
+- **E2E Desktop:** `PROJ-42` komplett, `PROJ-37`, `PROJ-41` komplett, `PROJ-40` Auswahl (Erstellen, Teil- und Schlussrechnung, Empfänger, Weiterleitung), `PROJ-5` Löschen und `PROJ-8` Auswahl aus Runde 1
+- **Handy und Tablet:** Layout und automatische WCAG-Prüfung grün
+- **Firefox und Safari:** Ablauf bis zur Detailseite, BUG-1 bis BUG-5 in Teilen grün; Safari gegen `npm run dev`
+- **Lange Antwortzeiten (BUG-3) traten wieder auf:** Ein Layout-Test aus `PROJ-37` lief einmal in die Zeitgrenze von 30 s, eine Anmeldung im Testaufbau scheiterte einmal; beide danach grün (2 von 2 in 24 s). Ursache weiter unbekannt
+
+**Vor dem Deploy offen**
+- PDF und Ablage auf Vercel, Antwortzeiten auf Staging beobachten (BUG-3)
+- Drucktest des Adressfelds
+- Fragen an den Steuerberater (Open Questions)
+- Migrationen in dieser Reihenfolge: `20261105093618`, `20261105093734`, `20261105165825`
+
+**Hinweis zur Prüfung der Umgebung:** Die Prüfung von `.env.local` wurde in dieser Runde abgelehnt und nicht wiederholt. Stattdessen: Datei seit dem 2026-10-26 unverändert, in Runde 1 als Dev bestätigt; Serverprotokoll und CLI nennen die Dev-Kennung.
+
 
 ## Deployment
 _To be added by /deploy_

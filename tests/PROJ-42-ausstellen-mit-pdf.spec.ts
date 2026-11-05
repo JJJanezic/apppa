@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto'
+import { renameSync } from 'node:fs'
 
 import AxeBuilder from '@axe-core/playwright'
 import { expect, type Page, test as base } from '@playwright/test'
@@ -616,6 +617,147 @@ test.describe('Seite „Rechnung ausstellen“', () => {
     await expect(page).toHaveURL(/ausgestellt=1/, { timeout: 30_000 })
     await expect(page.getByText('Rechnung falsch?')).toBeVisible({ timeout: 20_000 })
     await expect(page.getByRole('alert').filter({ hasText: 'Rechnung falsch?' })).toHaveCount(0)
+  })
+
+  test('Runde 2: BUG-1 in der Oberfläche: Zusatzkosten aus der Buchung entfernen; Rechnung bleibt unverändert', async ({ page, users }) => {
+    desktopOnly()
+    const s = await setup(users)
+    const { data: charge, error } = await service().from('booking_charges').insert({ booking_id: s.bookingId, tenant_id: s.tenantId, label: 'Reinigung', amount_cents: 10000, position: 1, vat_rate: 20 } as never).select('id').single()
+    if (error) throw error
+    const id = await addDraft(s.owner, s.tenantId, s.bookingId, {
+      lines: [
+        { label: 'Übernachtung', amount_cents: 90000, vat_rate: '10.00', source_kind: 'nights', source_charge_id: null },
+        { label: 'Reinigung', amount_cents: 10000, vat_rate: '20.00', source_kind: 'charge', source_charge_id: (charge as { id: string }).id },
+      ],
+    })
+    await signInAs(page, s.owner)
+    await open(page, id)
+    await submit(page).click()
+    await expect(page).toHaveURL(/ausgestellt=1/, { timeout: 30_000 })
+    const { data: before } = await service().from('invoices').select('total_cents, pdf_sha256, issued_snapshot').eq('id', id).single()
+
+    await page.goto(`/buchungen/${s.bookingId}`)
+    await ready(page)
+    await page.getByRole('button', { name: 'Bearbeiten', exact: true }).click()
+    const panel = page.getByRole('dialog')
+    await panel.getByRole('button', { name: 'Position 1 entfernen' }).click()
+    await panel.getByRole('button', { name: 'Änderungen speichern', exact: true }).click()
+    await expect(panel).toHaveCount(0, { timeout: 20_000 })
+    expect((await service().from('booking_charges').select('id').eq('booking_id', s.bookingId)).data).toHaveLength(0)
+
+    const { data: after } = await service().from('invoices').select('total_cents, pdf_sha256, issued_snapshot').eq('id', id).single()
+    expect(after).toEqual(before)
+    await page.goto(`/rechnungen/${id}`)
+    await expect(page.getByText(/^Reinigung/)).toBeVisible({ timeout: 20_000 })
+  })
+
+  test('Runde 2: BUG-2 in der Oberfläche: unsichtbares Zeichen sperrt, auch am Knopf vorbei', async ({ page, users }) => {
+    desktopOnly()
+    const s = await setup(users)
+    const id = await addDraft(s.owner, s.tenantId, s.bookingId)
+    await signInAs(page, s.owner)
+    await open(page, id)
+    await page.getByLabel('Rechnungsnummer').fill('2026-0001​')
+    await expect(page.getByText(/ohne unsichtbare Zeichen/)).toBeVisible()
+    await expect(submit(page)).toBeDisabled()
+    const { data: row } = await service().from('invoices').select('updated_at').eq('id', id).single()
+    const post = await page.request.post(`/api/rechnungen/${id}/ausstellen`, { data: { invoiceDate: '2026-10-20', number: '2026-0001​', updatedAt: row!.updated_at, acks: [] } })
+    expect(await post.json()).toMatchObject({ ok: false, error: 'blocked' })
+  })
+
+  test('Runde 2: PDF-Erzeugung scheitert: Meldung, Entwurf ohne Nummer, neuer Versuch gelingt', async ({ page, users }) => {
+    desktopOnly()
+    test.skip(test.info().project.name === 'safari', 'gebauter Server nötig')
+    const s = await setup(users)
+    const id = await addDraft(s.owner, s.tenantId, s.bookingId)
+    await signInAs(page, s.owner)
+    await open(page, id)
+    await expect(submit(page)).toBeEnabled()
+    const worker = 'pdf-worker-build/render-worker.mjs'
+    renameSync(worker, `${worker}.weg`)
+    try {
+      await submit(page).click()
+      await expect(page.getByRole('alert').filter({ hasText: 'Das PDF konnte nicht erzeugt werden' })).toBeVisible({ timeout: 30_000 })
+    } finally {
+      renameSync(`${worker}.weg`, worker)
+    }
+    const { data: draft } = await service().from('invoices').select('origin, number, pdf_path').eq('id', id).single()
+    expect(draft).toEqual({ origin: 'draft', number: null, pdf_path: null })
+    const { data: files } = await service().storage.from('invoices').list(s.tenantId)
+    expect(files ?? []).toHaveLength(0)
+    await expect(submit(page)).toBeEnabled()
+    await submit(page).click()
+    await expect(page).toHaveURL(/ausgestellt=1/, { timeout: 30_000 })
+  })
+
+  test('Runde 2: Nach dem Ausstellen ändern sich Stammdaten, Fußzeile, Briefpapier und Gast: Fassung und PDF bleiben; Kleinunternehmer festgehalten', async ({ page, users }) => {
+    desktopOnly()
+    const s = await setup(users)
+    await service().from('vat_status_changes').insert({ tenant_id: s.tenantId, valid_from: '2020-01-01', small_business: true } as never)
+    const id = await addDraft(s.owner, s.tenantId, s.bookingId)
+    await signInAs(page, s.owner)
+    await open(page, id)
+    await expect(previewText(page)).not.toContainText('Darin enthaltene')
+    await submit(page).click()
+    await expect(page).toHaveURL(/ausgestellt=1/, { timeout: 30_000 })
+    const read = async () => (await service().from('invoices').select('small_business, recipient, recipient_name, pdf_path, pdf_sha256, issued_snapshot, invoice_date, total_cents').eq('id', id).single()).data!
+    const before = await read()
+    expect(before.small_business).toBe(true)
+    const file = async () => createHash('sha256').update(Buffer.from(await (await service().storage.from('invoices').download(before.pdf_path as string)).data!.arrayBuffer())).digest('hex')
+    expect(await file()).toBe(before.pdf_sha256)
+
+    const { data: invoice } = await service().from('invoices').select('guest_id').eq('id', id).single()
+    await service().from('tenants').update({ address_line1: 'Andere Gasse 1', city: 'Wien' } as never).eq('id', s.tenantId)
+    await service().from('invoice_settings').update({ footer: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Neue Fußzeile' }] }] } } as never).eq('tenant_id', s.tenantId)
+    await service().from('vat_status_changes').insert({ tenant_id: s.tenantId, valid_from: '2021-01-01', small_business: false } as never)
+    const { data: booking } = await service().from('bookings').select('guest_id').eq('id', s.bookingId).single()
+    const client = anon()
+    await client.auth.signInWithPassword({ email: s.owner.email, password: s.owner.password })
+    expect((await client.rpc('delete_guest', { p_guest_id: (booking as { guest_id: string }).guest_id })).error).toBeNull()
+    expect(invoice).toBeTruthy()
+
+    expect(await read()).toEqual(before)
+    expect(await file()).toBe(before.pdf_sha256)
+    await page.goto(`/rechnungen/${id}`)
+    await expect(page.getByText('Seeweg 12')).toBeVisible({ timeout: 20_000 })
+    await expect(page.getByText('Andere Gasse 1')).toHaveCount(0)
+    await expect(page.getByText('Maria Huber').first()).toBeVisible()
+    await expect(page.getByText(/Darin enthaltene/)).toHaveCount(0)
+  })
+
+  test('Runde 2: Pflichtangaben sperren mit Link zur Abhilfe, auch am Knopf vorbei; deaktivierter Kunde', async ({ page, users }) => {
+    desktopOnly()
+    const s = await setup(users)
+    const id = await addDraft(s.owner, s.tenantId, s.bookingId, { recipient: { name: '', line1: '', line2: '', postal_code: '', city: '', country: '', vat_id: '' } })
+    await service().from('tenants').update({ address_line1: null } as never).eq('id', s.tenantId)
+    await signInAs(page, s.owner)
+    await open(page, id)
+    await expect(page.getByRole('link', { name: 'Zu den Stammdaten' })).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Zum Entwurf', exact: true }).first()).toHaveAttribute('href', new RegExp(`/rechnungen/${id}/bearbeiten#rechnung-empfaenger`))
+    await expect(submit(page)).toBeDisabled()
+    const { data: row } = await service().from('invoices').select('updated_at').eq('id', id).single()
+    const body = { invoiceDate: '2026-10-20', number: '2026-0001', updatedAt: row!.updated_at, acks: [] }
+    expect(await (await page.request.post(`/api/rechnungen/${id}/ausstellen`, { data: body })).json()).toMatchObject({ ok: false, error: 'blocked' })
+    await service().from('tenants').update({ status: 'deactivated' } as never).eq('id', s.tenantId)
+    expect((await page.request.post(`/api/rechnungen/${id}/ausstellen`, { data: body })).status()).toBe(403)
+    await service().from('tenants').update({ status: 'active' } as never).eq('id', s.tenantId)
+  })
+
+  test('Runde 2: Viele gleichzeitige Vorschauen: Server bleibt erreichbar, danach geht es normal weiter', async ({ page, users }) => {
+    desktopOnly()
+    const s = await setup(users)
+    const id = await addDraft(s.owner, s.tenantId, s.bookingId)
+    await signInAs(page, s.owner)
+    await open(page, id)
+    const results = await Promise.all(
+      Array.from({ length: 30 }, (_, i) => page.request.post('/api/rechnungen/vorschau', { data: { draftId: id, issue: { invoiceDate: '2026-10-20', number: `L-${i}` } }, timeout: 60_000 }))
+    )
+    const statuses = results.map((r) => r.status())
+    console.log('STATUS', JSON.stringify(statuses.reduce<Record<number, number>>((a, c) => ({ ...a, [c]: (a[c] ?? 0) + 1 }), {})))
+    expect(statuses.filter((c) => c === 200).length).toBeGreaterThan(0)
+    expect(statuses.every((c) => c === 200 || c === 500)).toBe(true)
+    await open(page, id)
+    await expect(submit(page)).toBeEnabled()
   })
 
   test('Layout: Ausstellen mit Sperren und Häkchen, Detailseite: ohne seitliches Scrollen, keine WCAG-2.1-AA-Verstöße', async ({ page, users }) => {
