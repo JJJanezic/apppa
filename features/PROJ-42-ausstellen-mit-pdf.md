@@ -1,6 +1,6 @@
 # PROJ-42: Ausstellen mit PDF
 
-## Status: In Progress
+## Status: In Review
 **Created:** 2026-11-05
 **Last Updated:** 2026-11-05
 
@@ -130,94 +130,94 @@ Hat der Kunde eine ausgestellte Rechnung innerhalb der Aufbewahrungsfrist, läss
 **Format:** Angenommen [Vorbedingung] / Wenn [Aktion] / Dann [Ergebnis]
 
 ### Einstieg und Seite
-- [ ] Angenommen ein Inhaber öffnet die Detailseite eines Entwurfs, wenn die Seite lädt, dann gibt es den Knopf „Ausstellen“
-- [ ] Angenommen ein Mitarbeiter öffnet einen Entwurf, wenn die Seite lädt, dann gibt es keinen Knopf „Ausstellen“, und ein direkter Aufruf der Seite oder des Ausstellens wird abgelehnt
-- [ ] Angenommen ein Betreiber ohne Mitgliedschaft, wenn er das Ausstellen direkt aufruft, dann wird es abgelehnt
-- [ ] Angenommen ein deaktivierter Kunde, wenn der Inhaber einen Entwurf öffnet, dann ist Ausstellen nicht möglich
-- [ ] Angenommen ein Entwurf mit offenen Pflichtangaben, wenn der Inhaber „Ausstellen“ wählt, dann öffnet sich die Seite und nennt jede offene Angabe mit Link zur Abhilfe
-- [ ] Angenommen die Seite „Rechnung ausstellen“, wenn sie lädt, dann zeigt sie Datum, vorgeschlagene Nummer, Prüfungen und die PDF-Vorschau mit Aufdruck „Entwurf“
-- [ ] Angenommen die Seite ist am Handy (375 px) geöffnet, wenn der Inhaber sie bedient, dann stehen die Bereiche untereinander, ohne seitliches Scrollen und mit Bedienelementen von mindestens 44 px
-- [ ] Angenommen Datum oder Nummer wurden geändert, wenn die Vorschau aktualisiert ist, dann zeigt sie beide samt ersetztem Platzhalter {Rechnungsnummer} und neu berechneten Fristen
-- [ ] Angenommen Datum oder Nummer wurden geändert, wenn der Inhaber die Seite ohne Ausstellen verlässt, dann ist der Entwurf unverändert
-- [ ] Angenommen ein bestehender Entwurf aus PROJ-40, wenn keine Sperre besteht, dann lässt er sich ohne Nacharbeit ausstellen
+- [x] Angenommen ein Inhaber öffnet die Detailseite eines Entwurfs, wenn die Seite lädt, dann gibt es den Knopf „Ausstellen“
+- [x] Angenommen ein Mitarbeiter öffnet einen Entwurf, wenn die Seite lädt, dann gibt es keinen Knopf „Ausstellen“, und ein direkter Aufruf der Seite oder des Ausstellens wird abgelehnt
+- [x] Angenommen ein Betreiber ohne Mitgliedschaft, wenn er das Ausstellen direkt aufruft, dann wird es abgelehnt
+- [x] Angenommen ein deaktivierter Kunde, wenn der Inhaber einen Entwurf öffnet, dann ist Ausstellen nicht möglich
+- [x] Angenommen ein Entwurf mit offenen Pflichtangaben, wenn der Inhaber „Ausstellen“ wählt, dann öffnet sich die Seite und nennt jede offene Angabe mit Link zur Abhilfe
+- [x] Angenommen die Seite „Rechnung ausstellen“, wenn sie lädt, dann zeigt sie Datum, vorgeschlagene Nummer, Prüfungen und die PDF-Vorschau mit Aufdruck „Entwurf“
+- [x] Angenommen die Seite ist am Handy (375 px) geöffnet, wenn der Inhaber sie bedient, dann stehen die Bereiche untereinander, ohne seitliches Scrollen und mit Bedienelementen von mindestens 44 px
+- [x] Angenommen Datum oder Nummer wurden geändert, wenn die Vorschau aktualisiert ist, dann zeigt sie beide samt ersetztem Platzhalter {Rechnungsnummer} und neu berechneten Fristen
+- [x] Angenommen Datum oder Nummer wurden geändert, wenn der Inhaber die Seite ohne Ausstellen verlässt, dann ist der Entwurf unverändert
+- [x] Angenommen ein bestehender Entwurf aus PROJ-40, wenn keine Sperre besteht, dann lässt er sich ohne Nacharbeit ausstellen
 
 ### Rechnungsdatum
-- [ ] Angenommen ein Datum in der Zukunft, wenn die Seite es prüft, dann ist „Rechnung ausstellen“ gesperrt und „Datum auf heute setzen“ wird angeboten
-- [ ] Angenommen ein Entwurf mit künftigem Datum, wenn der Inhaber ihn speichert, dann bleibt das wie bisher möglich
-- [ ] Angenommen die höchste Nummer 2026-0050 trägt den 20.10.2026 und das Datum ist der 14.10.2026, wenn die Seite lädt, dann erscheint ein Hinweis mit dieser Rechnung und Ausstellen bleibt möglich
-- [ ] Angenommen dieser Hinweis, wenn der Inhaber „Datum auf heute setzen“ wählt, dann ändern sich Datum, Fristen und Vorschau und der Hinweis verschwindet
-- [ ] Angenommen „jährlich neu“ und das Datum wechselt ins Vorjahr, wenn die Seite neu rechnet, dann schlägt sie die nächste Nummer dieses Jahres vor
-- [ ] Angenommen der Inhaber hat die Nummer von Hand geändert, wenn das Datum danach geändert wird, dann bleibt seine Nummer stehen und wird neu geprüft
+- [x] Angenommen ein Datum in der Zukunft, wenn die Seite es prüft, dann ist „Rechnung ausstellen“ gesperrt und „Datum auf heute setzen“ wird angeboten
+- [x] Angenommen ein Entwurf mit künftigem Datum, wenn der Inhaber ihn speichert, dann bleibt das wie bisher möglich
+- [x] Angenommen die höchste Nummer 2026-0050 trägt den 20.10.2026 und das Datum ist der 14.10.2026, wenn die Seite lädt, dann erscheint ein Hinweis mit dieser Rechnung und Ausstellen bleibt möglich
+- [x] Angenommen dieser Hinweis, wenn der Inhaber „Datum auf heute setzen“ wählt, dann ändern sich Datum, Fristen und Vorschau und der Hinweis verschwindet
+- [x] Angenommen „jährlich neu“ und das Datum wechselt ins Vorjahr, wenn die Seite neu rechnet, dann schlägt sie die nächste Nummer dieses Jahres vor
+- [x] Angenommen der Inhaber hat die Nummer von Hand geändert, wenn das Datum danach geändert wird, dann bleibt seine Nummer stehen und wird neu geprüft
 
 ### Rechnungsnummer
-- [ ] Angenommen Rechnungen bis 2026-0041, wenn die Seite lädt, dann ist 2026-0042 vorgeschlagen und braucht keine Bestätigung
-- [ ] Angenommen eine freie Nummer unter dem Vorschlag, wenn sie eingegeben wird, dann erscheint „Füllt eine Lücke“ ohne Häkchen
-- [ ] Angenommen eine Nummer über dem Vorschlag, wenn sie eingegeben wird, dann nennt die Seite die danach folgende Nummer und verlangt das Häkchen
-- [ ] Angenommen eine Nummer in anderem Format oder mit anderem Jahr als dem des Datums, wenn sie eingegeben wird, dann verlangt die Seite das Häkchen
-- [ ] Angenommen eine vergebene Nummer, auch nacherfasst oder in anderer Schreibung, wenn sie eingegeben wird, dann ist Ausstellen gesperrt
-- [ ] Angenommen zwei Personen stellen gleichzeitig mit derselben Nummer aus, wenn beide absenden, dann gelingt es genau einer, die andere erhält die Meldung und einen neuen Vorschlag und ihr Entwurf bleibt unverändert
-- [ ] Angenommen eine eingegebene Nummer, wenn der Knopf „Vorschlag übernehmen“ gewählt wird, dann steht wieder die vorgeschlagene Nummer im Feld
+- [x] Angenommen Rechnungen bis 2026-0041, wenn die Seite lädt, dann ist 2026-0042 vorgeschlagen und braucht keine Bestätigung
+- [x] Angenommen eine freie Nummer unter dem Vorschlag, wenn sie eingegeben wird, dann erscheint „Füllt eine Lücke“ ohne Häkchen
+- [x] Angenommen eine Nummer über dem Vorschlag, wenn sie eingegeben wird, dann nennt die Seite die danach folgende Nummer und verlangt das Häkchen
+- [x] Angenommen eine Nummer in anderem Format oder mit anderem Jahr als dem des Datums, wenn sie eingegeben wird, dann verlangt die Seite das Häkchen
+- [x] Angenommen eine vergebene Nummer, auch nacherfasst oder in anderer Schreibung, wenn sie eingegeben wird, dann ist Ausstellen gesperrt
+- [x] Angenommen zwei Personen stellen gleichzeitig mit derselben Nummer aus, wenn beide absenden, dann gelingt es genau einer, die andere erhält die Meldung und einen neuen Vorschlag und ihr Entwurf bleibt unverändert
+- [x] Angenommen eine eingegebene Nummer, wenn der Knopf „Vorschlag übernehmen“ gewählt wird, dann steht wieder die vorgeschlagene Nummer im Feld
 
 ### Sperren
-- [ ] Angenommen eine fehlende Pflichtangabe, wenn jemand am Formular vorbei ausstellt, dann lehnt der Server ab
-- [ ] Angenommen eine Schlussrechnung zieht einen Teilrechnungs-Entwurf ab, wenn die Seite lädt, dann ist Ausstellen gesperrt und ein Link führt zur Teilrechnung
-- [ ] Angenommen diese Teilrechnung wurde ausgestellt, wenn die Seite neu lädt, dann ist die Sperre weg und der Abzug nennt die Nummer
-- [ ] Angenommen eine abgezogene Rechnung existiert nicht mehr, wenn die Seite lädt, dann ist Ausstellen gesperrt, bis der Entwurf neu gespeichert ist
-- [ ] Angenommen die Buchung wurde seit dem letzten Speichern storniert, wenn die Seite lädt, dann ist Ausstellen gesperrt, bis der Entwurf angepasst und gespeichert ist
-- [ ] Angenommen der Entwurf wurde nach dem Storno gespeichert, wenn die Seite lädt, dann besteht diese Sperre nicht mehr
-- [ ] Angenommen ein Text enthält ein Zeichen, das die Schrift nicht kennt, wenn die Seite lädt, dann ist Ausstellen gesperrt und das Zeichen wird genannt
-- [ ] Angenommen der Aussteller-Block passt auch bei 6 pt nicht, wenn die Seite lädt, dann ist Ausstellen gesperrt, mit Link zu Stammdaten und Briefpapier
-- [ ] Angenommen die Fußzeile wird gekürzt, wenn die Seite lädt, dann ist Ausstellen gesperrt, mit Link zur Fußzeile
-- [ ] Angenommen die Fußzeile wird nur verkleinert, wenn die Seite lädt, dann erscheint nur ein Hinweis
+- [x] Angenommen eine fehlende Pflichtangabe, wenn jemand am Formular vorbei ausstellt, dann lehnt der Server ab
+- [x] Angenommen eine Schlussrechnung zieht einen Teilrechnungs-Entwurf ab, wenn die Seite lädt, dann ist Ausstellen gesperrt und ein Link führt zur Teilrechnung
+- [x] Angenommen diese Teilrechnung wurde ausgestellt, wenn die Seite neu lädt, dann ist die Sperre weg und der Abzug nennt die Nummer
+- [x] Angenommen eine abgezogene Rechnung existiert nicht mehr, wenn die Seite lädt, dann ist Ausstellen gesperrt, bis der Entwurf neu gespeichert ist
+- [x] Angenommen die Buchung wurde seit dem letzten Speichern storniert, wenn die Seite lädt, dann ist Ausstellen gesperrt, bis der Entwurf angepasst und gespeichert ist
+- [x] Angenommen der Entwurf wurde nach dem Storno gespeichert, wenn die Seite lädt, dann besteht diese Sperre nicht mehr
+- [x] Angenommen ein Text enthält ein Zeichen, das die Schrift nicht kennt, wenn die Seite lädt, dann ist Ausstellen gesperrt und das Zeichen wird genannt
+- [x] Angenommen der Aussteller-Block passt auch bei 6 pt nicht, wenn die Seite lädt, dann ist Ausstellen gesperrt, mit Link zu Stammdaten und Briefpapier
+- [x] Angenommen die Fußzeile wird gekürzt, wenn die Seite lädt, dann ist Ausstellen gesperrt, mit Link zur Fußzeile
+- [x] Angenommen die Fußzeile wird nur verkleinert, wenn die Seite lädt, dann erscheint nur ein Hinweis
 
 ### Häkchen
-- [ ] Angenommen die Buchung wurde seit dem Entwurf geändert, aber nicht storniert, wenn die Seite lädt, dann erscheint das Häkchen mit Link zum Entwurf und der Knopf ist bis zur Bestätigung inaktiv
-- [ ] Angenommen das Häkchen ist gesetzt, wenn ausgestellt wird, dann entspricht die Rechnung genau dem Entwurf
-- [ ] Angenommen die Buchung ist eine Option, wenn die Seite lädt, dann erscheint das zugehörige Häkchen
-- [ ] Angenommen eine Option, wenn ihre Rechnung ausgestellt ist, dann ist der Status der Buchung unverändert
-- [ ] Angenommen das Logo lässt sich nicht laden, wenn die Seite lädt, dann erscheint das Häkchen „Ohne Logo ausstellen“ und das PDF enthält kein Logo
-- [ ] Angenommen mehrere Fälle treffen zu, wenn ein Häkchen fehlt, dann bleibt der Knopf inaktiv
-- [ ] Angenommen ein Häkchen ist gesetzt und der Fall ändert sich (etwa andere Nummer), wenn die Seite neu prüft, dann ist das Häkchen wieder leer
+- [x] Angenommen die Buchung wurde seit dem Entwurf geändert, aber nicht storniert, wenn die Seite lädt, dann erscheint das Häkchen mit Link zum Entwurf und der Knopf ist bis zur Bestätigung inaktiv
+- [x] Angenommen das Häkchen ist gesetzt, wenn ausgestellt wird, dann entspricht die Rechnung genau dem Entwurf
+- [x] Angenommen die Buchung ist eine Option, wenn die Seite lädt, dann erscheint das zugehörige Häkchen
+- [x] Angenommen eine Option, wenn ihre Rechnung ausgestellt ist, dann ist der Status der Buchung unverändert
+- [x] Angenommen das Logo lässt sich nicht laden, wenn die Seite lädt, dann erscheint das Häkchen „Ohne Logo ausstellen“ und das PDF enthält kein Logo
+- [x] Angenommen mehrere Fälle treffen zu, wenn ein Häkchen fehlt, dann bleibt der Knopf inaktiv
+- [x] Angenommen ein Häkchen ist gesetzt und der Fall ändert sich (etwa andere Nummer), wenn die Seite neu prüft, dann ist das Häkchen wieder leer
 
 ### Ausstellen
-- [ ] Angenommen keine Sperre und alle Häkchen gesetzt, wenn der Inhaber „Rechnung ausstellen“ wählt, dann hat die Rechnung Nummer, Status „Ausgestellt“ und ein abgelegtes PDF ohne Aufdruck
+- [x] Angenommen keine Sperre und alle Häkchen gesetzt, wenn der Inhaber „Rechnung ausstellen“ wählt, dann hat die Rechnung Nummer, Status „Ausgestellt“ und ein abgelegtes PDF ohne Aufdruck
 - [ ] Angenommen die PDF-Erzeugung oder Ablage scheitert, wenn ausgestellt wird, dann bleibt es ein Entwurf ohne Nummer, die Nummer bleibt frei, eine Meldung erscheint und ein neuer Versuch ist möglich
-- [ ] Angenommen ein Doppelklick auf den Knopf, wenn ausgestellt wird, dann entsteht genau eine Rechnung
-- [ ] Angenommen die Antwort geht unterwegs verloren, wenn der Inhaber es erneut versucht, dann entsteht keine zweite Rechnung und er landet bei der ausgestellten
-- [ ] Angenommen der Entwurf wurde in einem anderen Fenster geändert, wenn ausgestellt wird, dann wird nicht ausgestellt und die Seite zeigt den neuen Stand
-- [ ] Angenommen die Seite ist offen und danach entsteht ein neuer Mangel, wenn ausgestellt wird, dann wird nicht ausgestellt und die Seite zeigt ihn
-- [ ] Angenommen eine Rechnung wurde ausgestellt, wenn das Protokoll angesehen wird, dann stehen Person und Zeitpunkt darin
+- [x] Angenommen ein Doppelklick auf den Knopf, wenn ausgestellt wird, dann entsteht genau eine Rechnung
+- [x] Angenommen die Antwort geht unterwegs verloren, wenn der Inhaber es erneut versucht, dann entsteht keine zweite Rechnung und er landet bei der ausgestellten
+- [x] Angenommen der Entwurf wurde in einem anderen Fenster geändert, wenn ausgestellt wird, dann wird nicht ausgestellt und die Seite zeigt den neuen Stand
+- [x] Angenommen die Seite ist offen und danach entsteht ein neuer Mangel, wenn ausgestellt wird, dann wird nicht ausgestellt und die Seite zeigt ihn
+- [x] Angenommen eine Rechnung wurde ausgestellt, wenn das Protokoll angesehen wird, dann stehen Person und Zeitpunkt darin
 
 ### Festschreiben
 - [ ] Angenommen eine ausgestellte Rechnung, wenn Buchung, Gast, Stammdaten, Logo, Briefpapier oder Bausteine geändert werden, dann bleiben ihr PDF und ihre Angaben unverändert
-- [ ] Angenommen eine ausgestellte Rechnung, wenn der Gast anonymisiert wird, dann bleiben PDF und Empfänger unverändert
-- [ ] Angenommen eine ausgestellte Rechnung, wenn jemand sie am Formular vorbei ändern oder löschen will, dann lehnt der Server ab, auch beim Inhaber
-- [ ] Angenommen eine ausgestellte Rechnung, wenn jemand PDF oder Buchungsverknüpfung ersetzen oder entfernen will, dann lehnt der Server ab
-- [ ] Angenommen ein Entwurf wird ausgestellt, wenn die Buchung Kleinunternehmer-Status hat, dann ist dieser an der Rechnung festgehalten, und ein späterer Statuswechsel ändert sie nicht
+- [x] Angenommen eine ausgestellte Rechnung, wenn der Gast anonymisiert wird, dann bleiben PDF und Empfänger unverändert
+- [x] Angenommen eine ausgestellte Rechnung, wenn jemand sie am Formular vorbei ändern oder löschen will, dann lehnt der Server ab, auch beim Inhaber
+- [x] Angenommen eine ausgestellte Rechnung, wenn jemand PDF oder Buchungsverknüpfung ersetzen oder entfernen will, dann lehnt der Server ab
+- [x] Angenommen ein Entwurf wird ausgestellt, wenn die Buchung Kleinunternehmer-Status hat, dann ist dieser an der Rechnung festgehalten, und ein späterer Statuswechsel ändert sie nicht
 
 ### Detailseite und Listen
-- [ ] Angenommen eine ausgestellte Rechnung, wenn der Inhaber sie öffnet, dann sieht er Status, Angaben, „PDF öffnen“ und den Korrekturhinweis, aber weder Bearbeiten noch Löschen
-- [ ] Angenommen „Rechnungen nacherfassen“ ist ausgeschaltet, wenn der Korrekturhinweis erscheint, dann nennt er den Schalter
-- [ ] Angenommen ein Mitarbeiter, wenn er die ausgestellte Rechnung öffnet, dann kann er das PDF öffnen und nichts ändern
-- [ ] Angenommen ein Nutzer eines anderen Kunden, wenn er Rechnung oder PDF direkt aufruft, dann wird es abgelehnt
-- [ ] Angenommen eine ausgestellte Rechnung, wenn die Rechnungsliste lädt, dann zeigt sie Nummer und Status „Ausgestellt“
-- [ ] Angenommen ein Entwurf über € 500, wenn er ausgestellt ist, dann steigt „Verrechnet“ um € 500 und „In Entwürfen“ sinkt um € 500
-- [ ] Angenommen eine Buchung mit ausgestellter Rechnung, wenn die Buchungsübersicht nach „mit Rechnung“ filtert, dann erscheint sie, mit Nummer als Link
-- [ ] Angenommen eine ausgestellte Rechnung enthält eine Position, wenn ein neuer Entwurf zur Buchung entsteht, dann ist die Position abgewählt mit „bereits in Rechnung …“
-- [ ] Angenommen eine Rechnung wurde ausgestellt, wenn der Inhaber den Nummernkreis ändert, dann erscheint die Warnung aus PROJ-39
-- [ ] Angenommen eine Rechnung 2026-0042 wurde ausgestellt, wenn die Nummernvorschau lädt, dann zeigt sie 2026-0043
+- [x] Angenommen eine ausgestellte Rechnung, wenn der Inhaber sie öffnet, dann sieht er Status, Angaben, „PDF öffnen“ und den Korrekturhinweis, aber weder Bearbeiten noch Löschen
+- [x] Angenommen „Rechnungen nacherfassen“ ist ausgeschaltet, wenn der Korrekturhinweis erscheint, dann nennt er den Schalter
+- [x] Angenommen ein Mitarbeiter, wenn er die ausgestellte Rechnung öffnet, dann kann er das PDF öffnen und nichts ändern
+- [x] Angenommen ein Nutzer eines anderen Kunden, wenn er Rechnung oder PDF direkt aufruft, dann wird es abgelehnt
+- [x] Angenommen eine ausgestellte Rechnung, wenn die Rechnungsliste lädt, dann zeigt sie Nummer und Status „Ausgestellt“
+- [x] Angenommen ein Entwurf über € 500, wenn er ausgestellt ist, dann steigt „Verrechnet“ um € 500 und „In Entwürfen“ sinkt um € 500
+- [x] Angenommen eine Buchung mit ausgestellter Rechnung, wenn die Buchungsübersicht nach „mit Rechnung“ filtert, dann erscheint sie, mit Nummer als Link
+- [x] Angenommen eine ausgestellte Rechnung enthält eine Position, wenn ein neuer Entwurf zur Buchung entsteht, dann ist die Position abgewählt mit „bereits in Rechnung …“
+- [x] Angenommen eine Rechnung wurde ausgestellt, wenn der Inhaber den Nummernkreis ändert, dann erscheint die Warnung aus PROJ-39
+- [x] Angenommen eine Rechnung 2026-0042 wurde ausgestellt, wenn die Nummernvorschau lädt, dann zeigt sie 2026-0043
 
 ### Abgezogene nacherfasste Rechnungen
-- [ ] Angenommen eine ausgestellte Schlussrechnung zieht eine nacherfasste Rechnung ab, wenn der Inhaber die nacherfasste Rechnung löschen will, dann wird es abgelehnt und die Meldung nennt die Schlussrechnung, auch am Formular vorbei
-- [ ] Angenommen dieselbe nacherfasste Rechnung, wenn der Inhaber Positionen, Beträge, Kleinunternehmer-Schalter oder Buchung ändern will, dann wird es abgelehnt und die Meldung nennt die Schlussrechnung
-- [ ] Angenommen dieselbe nacherfasste Rechnung, wenn der Inhaber Nummer, Datum, Empfänger, Gast oder PDF ändert, dann wird gespeichert, und PDF, festgeschriebene Fassung und Betrag der Schlussrechnung bleiben unverändert
-- [ ] Angenommen eine nacherfasste Rechnung wird nur von einem Schlussrechnungs-Entwurf abgezogen, wenn der Inhaber sie ändert oder löscht, dann geht das wie bisher und der Entwurf rechnet neu
+- [x] Angenommen eine ausgestellte Schlussrechnung zieht eine nacherfasste Rechnung ab, wenn der Inhaber die nacherfasste Rechnung löschen will, dann wird es abgelehnt und die Meldung nennt die Schlussrechnung, auch am Formular vorbei
+- [x] Angenommen dieselbe nacherfasste Rechnung, wenn der Inhaber Positionen, Beträge, Kleinunternehmer-Schalter oder Buchung ändern will, dann wird es abgelehnt und die Meldung nennt die Schlussrechnung
+- [x] Angenommen dieselbe nacherfasste Rechnung, wenn der Inhaber Nummer, Datum, Empfänger, Gast oder PDF ändert, dann wird gespeichert, und PDF, festgeschriebene Fassung und Betrag der Schlussrechnung bleiben unverändert
+- [x] Angenommen eine nacherfasste Rechnung wird nur von einem Schlussrechnungs-Entwurf abgezogen, wenn der Inhaber sie ändert oder löscht, dann geht das wie bisher und der Entwurf rechnet neu
 
 ### Kunde löschen
-- [ ] Angenommen ein Kunde mit einer ausgestellten Rechnung innerhalb der Frist, wenn der Betreiber ihn löschen will, dann ist es gesperrt, der Dialog nennt die Anzahl und verweist auf „Deaktivieren“
-- [ ] Angenommen derselbe Kunde, wenn das Löschen am Dialog vorbei aufgerufen wird, dann lehnt der Server ab
-- [ ] Angenommen ein Kunde nur mit nacherfassten Rechnungen und Entwürfen, wenn der Betreiber ihn löscht, dann geht es wie bisher
-- [ ] Angenommen ein Kunde mit ausgestellten Rechnungen, wenn der Betreiber ihn deaktiviert, dann geht das und die Rechnungen bleiben lesbar
+- [x] Angenommen ein Kunde mit einer ausgestellten Rechnung innerhalb der Frist, wenn der Betreiber ihn löschen will, dann ist es gesperrt, der Dialog nennt die Anzahl und verweist auf „Deaktivieren“
+- [x] Angenommen derselbe Kunde, wenn das Löschen am Dialog vorbei aufgerufen wird, dann lehnt der Server ab
+- [x] Angenommen ein Kunde nur mit nacherfassten Rechnungen und Entwürfen, wenn der Betreiber ihn löscht, dann geht es wie bisher
+- [x] Angenommen ein Kunde mit ausgestellten Rechnungen, wenn der Betreiber ihn deaktiviert, dann geht das und die Rechnungen bleiben lesbar
 
 ## Edge Cases
 - **Lücke auffüllen mit altem Datum:** Nummer und Datum sind gewollt älter; Lücken- und Datumshinweis erscheinen, ohne Bestätigung.
@@ -465,7 +465,87 @@ Keine neuen Pakete.
 - Nicht geprüft: PDF und Ablage auf Vercel; Firefox, Safari, Tablet; Handy nur das Layout der Seite; Ablauf mit Logo-Fehler; Detailseite am Bild
 
 ## QA Test Results
-_To be added by /qa_
+
+**Getestet:** 2026-11-05, Dev (localhost, Supabase „apppa-dev“), gebauter Server; Safari gegen `npm run dev`
+
+**Ergebnis:** 68 von 70 Abnahmekriterien erfüllt, 1 scheitert an BUG-1, 1 nicht ausgeführt. 1 High, 2 Medium, 3 Low. **Nicht produktionsreif (BUG-1), Status bleibt In Review.**
+
+### Abnahmekriterien
+- **Offen wegen BUG-1:** „Buchung … geändert, dann bleiben PDF und Angaben unverändert“: Das Ergebnis stimmt, aber die Änderung an der Buchung selbst wird teils abgelehnt.
+- **Nicht ausgeführt:** „PDF-Erzeugung oder Ablage scheitert“: nur im Code gelesen (Antwort `pdfFailed`, Datei wird entfernt). Der Fehlerfall wurde nicht erzwungen.
+- **Nur im Code, nicht einzeln ausgeführt:** Doppelklick (Knopf gesperrt, zweiter Aufruf der Schnittstelle getestet); „keine Verbindung“; „Sitzung abgelaufen“ nur als Antwort 401; Änderungen an Stammdaten, Logo und Briefpapier nach dem Ausstellen (PDF wird nie neu erzeugt).
+- **Alle übrigen** sind durch `tests/PROJ-42-ausstellen-mit-pdf.spec.ts`, `src/lib/invoice-issue.test.ts` oder `supabase/tests/invoice-issue.integration.test.ts` belegt.
+
+### Security Audit
+- [x] Ohne Anmeldung 401, Mitarbeiter 403, fremder Inhaber 404 (Schnittstellen und Seite)
+- [x] `issue_invoice` für Inhaber, Mitarbeiter und Betreiber nicht aufrufbar (42501); Mitarbeiter als handelnde Person abgelehnt
+- [x] Inhaber schreibt direkt in die Tabellen: keine Wirkung; auch mit Systemrechten lehnt der Schutz Änderungen ab
+- [x] PDF einer ausgestellten Rechnung: nicht überschreib- oder löschbar; Mitarbeiter liest, fremder Inhaber nicht
+- [x] Häkchen werden auf dem Server geprüft; eine stornierte Buchung lässt sich auch mit gefälschtem Häkchen nicht ausstellen
+- [x] HTML in Empfänger und Nummer wird nur als Text angezeigt
+- [x] Ungültige Eingaben: 400, nichts wird ausgestellt
+- [ ] Keine Mengenbegrenzung: Jede Vorschau startet einen Arbeitsprozess; nur für angemeldete Inhaber. Gilt schon seit PROJ-41 (BUG-6)
+- Betreiber darf ausgestellte Rechnungen und PDFs auf Datenbankebene lesen (seit PROJ-37/40, bewusst unverändert)
+
+### Bugs
+
+#### BUG-1: Zusatzkosten-Position lässt sich nach dem Ausstellen nicht mehr aus der Buchung entfernen
+- **Severity:** High
+- **Schritte:** Buchung mit Zusatzkosten, Rechnung mit dieser Position ausstellen, Position aus der Buchung entfernen und speichern
+- **Erwartet:** Buchung wird gespeichert, Rechnung bleibt unverändert
+- **Tatsächlich:** Speichern scheitert (P0932), der Nutzer sieht eine allgemeine Fehlermeldung. Beim Entfernen setzt die Datenbank `source_charge_id` an der Rechnungsposition zurück, und das lehnt der Schutz ausgestellter Rechnungen ab
+- **Hinweis zur Behebung:** `source_charge_id` beim Schutz freigeben oder beim Ausstellen leeren. Roter Test: `it.fails('BUG-1…')`
+- **Priorität:** vor dem Deploy
+
+#### BUG-2: Nummer mit unsichtbarem Zeichen gilt als neue Nummer
+- **Severity:** Medium
+- **Schritte:** `Z-1` ist vergeben, `Z-1` mit angehängtem Nullbreite-Zeichen (etwa aus einem kopierten Text) eingeben, Häkchen „anderes Format“ setzen, ausstellen
+- **Tatsächlich:** Wird angenommen. Das PDF entfernt das Zeichen, zwei Rechnungen zeigen also dieselbe Nummer
+- **Hinweis:** Roter Test `it.fails('BUG-2…')`
+- **Priorität:** vor dem Deploy
+
+#### BUG-3: Zeitweise sehr lange Antwortzeiten, ohne Meldung
+- **Severity:** Medium
+- **Beobachtet:** In den Läufen dieser Runde viermal, bei Wiederholung nicht: „Rechnung wird ausgestellt …“ über 30 s; „Entwurf speichern“ über 5 s gesperrt; Löschen einer nacherfassten Rechnung rund 20 s (normal 2 s); Detailseite über 5 s (normal rund 1,1 s)
+- **Ursache:** nicht geklärt. Betroffen sind verschiedene Aktionen; die App-Seite selbst antwortete in derselben Zeit in Millisekunden. Vermutung: Dev-Datenbank oder -Speicher, oder viele gleichzeitige Prefetch-Anfragen. Nicht belegt
+- **Folge:** Auf der Ausstellen-Seite gibt es keine eigene Zeitgrenze; der Nutzer sieht nur den gesperrten Knopf
+- **Priorität:** auf Staging beobachten
+
+#### BUG-4: Veralteter Nummernvorschlag ohne Ausweg
+- **Severity:** Low
+- **Schritte:** Seite offen, jemand anderes vergibt die vorgeschlagene Nummer, danach Datum ändern
+- **Tatsächlich:** „schon vergeben“ erscheint, aber der Vorschlag bleibt und „Vorschlag übernehmen“ fehlt, bis die Seite neu geladen ist. Beim Absenden ist der Fall gelöst. Nur im Code nachvollzogen, nicht ausgeführt
+
+#### BUG-5: Kleinigkeiten in der Oberfläche
+- **Severity:** Low
+- „Rechnung falsch?“ trägt `role="alert"`: Screenreader lesen den ruhigen Hinweis beim Laden sofort vor
+- Bei einem Datumshinweis stehen bis zu zwei gleich benannte Knöpfe „Datum auf heute setzen“
+- Status heißt „ausgestellt“ (klein, wie „nacherfasst“), die Spec schreibt „Ausgestellt“
+
+#### BUG-6: Keine Mengenbegrenzung für Vorschau und Ausstellen
+- **Severity:** Low
+- Siehe Security Audit
+
+### Offener Speichern-Fehler (BUG-5 aus PROJ-15), auf Wunsch des Nutzers bearbeitet
+- **Befund im Code:** Next.js meldet die Weiterleitung einer Server-Aktion dem Aufrufer, bevor es die neue Seite anwendet. Darum erscheint „Entwurf gespeichert.“ schon, während die Adresse noch die alte ist. Zwei Wege führen zum gemeldeten Bild: Die Router-Aktion wird verworfen, oder die Zielseite braucht lange (siehe BUG-3)
+- **Nachgestellt:** Kommt während des Speicherns eine andere Router-Navigation dazwischen, bleibt die Seite dauerhaft auf dem Formular, mit Erfolgsmeldung. Das ist jetzt ein fester Test
+- **Natürliche Ursache weiter offen:** 68 Runden Speichern, davon 32 unter Last, liefen ohne Fehler. Welcher der beiden Wege die Läufe in PROJ-15 traf, ist nicht belegt
+- **Behoben:** `callAction` wechselt selbst zum Ziel, wenn die Adresse nach 4 s unverändert ist (gilt für alle Aktionen mit Weiterleitung). „Entwurf speichern“ bleibt nach dem Erfolg gesperrt, damit kein zweiter Entwurf entsteht
+- **Tests:** `tests/PROJ-40-rechnungsdaten-sammeln.spec.ts`, „Weiterleitung nach dem Speichern“
+
+### Tests
+- **Vitest (in Paketen, nacheinander):** 676 Unit grün; Integration 256, davon 254 grün und 2 als bekannte Fehler markiert (BUG-1, BUG-2)
+- **E2E Desktop:** `PROJ-42` komplett, teils in mehreren Läufen, weil einzelne Tests wegen BUG-3 zunächst rot waren und bei Wiederholung grün wurden; einige Zeitgrenzen wurden deshalb auf 20 s erhöht. Regression: `PROJ-37` (vor der Änderung an `callAction`), `PROJ-5` Löschen, `PROJ-40` Auswahl, `PROJ-8` Anlegen, Bearbeiten, Stornieren
+- **Handy und Tablet:** Ausstellen-Seite und Detailseite ohne seitliches Scrollen und ohne automatisch erkennbare WCAG-Verstöße; Handy auch am Bild
+- **Firefox:** Ablauf bis zur Detailseite und Nummernprüfung grün
+- **Safari:** Ablauf bis zur Detailseite grün; der nachfolgende direkte Aufruf der Schnittstelle scheitert im Test mit „forbidden“, weil dieser Aufruf nicht aus dem Browser kommt. Der Rest des Tests lief darum dort nicht
+- **Nicht geprüft:** Vercel; vollständige E2E-Suite aller Features; Datumsfeld im echten Safari; Drucktest
+
+### Summary
+- **Abnahmekriterien:** 68/70
+- **Bugs:** 0 Critical, 1 High, 2 Medium, 3 Low
+- **Security:** bestanden bis auf die fehlende Mengenbegrenzung (Low)
+- **Production Ready:** NEIN, BUG-1 zuerst beheben
 
 ## Deployment
 _To be added by /deploy_

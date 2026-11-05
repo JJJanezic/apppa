@@ -373,6 +373,104 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-42 Rechnung ausstellen', () => {
     })
   })
 
+  describe('QA: Zusammenspiel mit anderen Funktionen', () => {
+    // BUG-1: Der Fremdschlüssel setzt source_charge_id zurück, das lehnt der Schutz ausgestellter Rechnungen ab (P0932)
+    it.fails('BUG-1: Buchung: eine Zusatzkosten-Position entfernen, die in einer ausgestellten Rechnung steht', async () => {
+      const booking = await newBooking()
+      const { data: b } = await service.from('bookings').select('*').eq('id', booking).single()
+      const save = (charges: unknown[], updatedAt: string) =>
+        owner.rpc('save_booking', {
+          p_input: {
+            id: booking,
+            updated_at: updatedAt,
+            tenant_id: tenant,
+            kind: 'booking',
+            apartment_id: apartment,
+            arrival: b!.arrival,
+            planned_departure: b!.planned_departure,
+            departure: b!.departure,
+            guest_id: guest,
+            adults: 1,
+            child_ages: [],
+            amounts: { nights_cents: 90000, nights_vat_rate: '10.00', charges },
+          } as Json,
+          p_confirm: true,
+        })
+      const added = await save([{ label: 'Reinigung', amount_cents: 10000, vat_rate: '20.00' }], b!.updated_at)
+      expect(added.error).toBeNull()
+      const { data: charge } = await service.from('booking_charges').select('id').eq('booking_id', booking).single()
+      const id = await newDraft(booking, {
+        lines: [...LINES, { label: 'Reinigung', amount_cents: 10000, vat_rate: '20.00', source_kind: 'charge', source_charge_id: charge!.id }],
+      })
+      expect((await issue(id)).error).toBeNull()
+      const { data: after } = await service.from('bookings').select('updated_at').eq('id', booking).single()
+      const removed = await save([], after!.updated_at)
+      expect(removed.error).toBeNull()
+      const { data: lines } = await service.from('invoice_lines').select('label, amount_cents').eq('invoice_id', id).order('position')
+      expect(lines).toEqual([{ label: 'Übernachtung', amount_cents: 90000 }, { label: 'Reinigung', amount_cents: 10000 }])
+    })
+
+    it('Textbaustein löschen, aus dem eine ausgestellte Rechnung stammt', async () => {
+      const { data: block, error: be } = await service
+        .from('invoice_text_blocks')
+        .insert({ tenant_id: tenant, block: 'closing', name: `QA ${randomUUID().slice(0, 6)}`, body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Danke' }] }] } } as never)
+        .select('id')
+        .single()
+      expect(be).toBeNull()
+      const blockId = (block as { id: string }).id
+      const id = await newDraft(await newBooking(), { texts: { intro: { block_id: null, body: null }, payment: { block_id: null, body: null }, closing: { block_id: blockId, body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Danke' }] }] } } } })
+      expect((await issue(id)).error).toBeNull()
+      expect((await service.from('invoice_text_blocks').delete().eq('id', blockId)).error).toBeNull()
+      expect((await row(id)).closing_block_id).toBeNull()
+    })
+
+    it('Gäste zusammenführen und anonymisieren: Rechnung bleibt, Verknüpfung folgt', async () => {
+      const newGuest = async () => (await service.from('guests').insert({ tenant_id: tenant, last_name: `M${randomUUID().slice(0, 6)}`, first_name: 'Q', country: 'AT' }).select('id').single()).data!.id
+      const [keep, remove] = [await newGuest(), await newGuest()]
+      const booking = await newBooking(tenant, apartment, remove)
+      const id = await issued(booking)
+      await service.from('invoices').update({ guest_id: remove }).eq('id', id)
+      const before = await row(id)
+      const { error } = await owner.rpc('merge_guests', { p_keep: keep, p_remove: remove, p_choice: {} as Json })
+      expect(error).toBeNull()
+      expect(await row(id)).toMatchObject({ guest_id: keep, recipient: before.recipient, number: before.number })
+    })
+
+    it('Inhaber schreibt direkt in die Tabellen: keine Wirkung', async () => {
+      const id = await issued()
+      const before = await row(id)
+      await owner.from('invoices').update({ total_cents: 1 }).eq('id', id)
+      await owner.from('invoices').delete().eq('id', id)
+      await owner.from('invoice_lines').delete().eq('invoice_id', id)
+      expect(await row(id)).toMatchObject({ total_cents: before.total_cents, origin: 'issued' })
+      expect((await service.from('invoice_lines').select('id').eq('invoice_id', id)).data?.length).toBe(1)
+    })
+
+    it('PDF einer ausgestellten Rechnung: nicht überschreib- oder löschbar; Mitarbeiter liest, fremder Inhaber nicht', async () => {
+      const id = await issued()
+      const path = (await row(id)).pdf_path as string
+      const original = await (await service.storage.from('invoices').download(path)).data!.text()
+      const fake = new Blob(['%PDF-fake'], { type: 'application/pdf' })
+      const upsert = await owner.storage.from('invoices').upload(path, fake, { upsert: true, contentType: 'application/pdf' })
+      expect(upsert.error).not.toBeNull()
+      await owner.storage.from('invoices').remove([path])
+      expect(await (await service.storage.from('invoices').download(path)).data!.text()).toBe(original)
+      expect((await staff.storage.from('invoices').createSignedUrl(path, 60)).error).toBeNull()
+      expect((await ownerB.storage.from('invoices').createSignedUrl(path, 60)).error).not.toBeNull()
+      expect((await ownerB.from('invoices').select('id').eq('id', id).maybeSingle()).data).toBeNull()
+    })
+
+    it.fails('BUG-2: Nummern mit unsichtbarem Zeichen oder Zeilenumbruch gelten nicht als andere Nummer', async () => {
+      const number = `Z-${runId}`
+      await issued(undefined, {}, { number })
+      const id = await newDraft(await newBooking())
+      const { error } = await issue(id, { number: `${number}\u200b` })
+      expect(error?.code).toBe('P0904')
+      const other = await newDraft(await newBooking())
+      expect((await issue(other, { number: `Z\n${runId}` })).error?.code).toBe('22023')
+    })
+  })
+
   describe('Kunde löschen', () => {
     const deletable = async (name: string) => {
       const id = await newTenant(name)

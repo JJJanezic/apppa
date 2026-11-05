@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto'
 
+import AxeBuilder from '@axe-core/playwright'
 import { expect, type Page, test as base } from '@playwright/test'
 
 import type { Json } from '../src/types/database'
@@ -32,6 +33,17 @@ const previewText = (page: Page) => page.getByTestId('pdf-text')
 const submit = (page: Page) => page.getByRole('button', { name: 'Rechnung ausstellen', exact: true })
 
 let seq = 7000
+
+async function pdfText(pdf: Uint8Array) {
+  const { getDocument } = await import('pdfjs-dist/legacy/build/pdf.mjs')
+  const doc = await getDocument({ data: pdf }).promise
+  const out: string[] = []
+  for (let n = 1; n <= doc.numPages; n++) {
+    const content = await (await doc.getPage(n)).getTextContent()
+    out.push(content.items.map((i) => ('str' in i ? i.str : '')).join(''))
+  }
+  return out.join(' ')
+}
 
 async function setup(users: Users, { kind = 'booking' as 'booking' | 'option', staff = false } = {}) {
   const owner = await users()
@@ -254,7 +266,7 @@ test.describe('Seite „Rechnung ausstellen“', () => {
     await expect(page).toHaveURL(new RegExp(`/rechnungen/${id}\\?ausgestellt=1$`), { timeout: 30_000 })
     await ready(page)
 
-    await expect(page.getByRole('heading', { name: number })).toBeVisible()
+    await expect(page.getByRole('heading', { name: number })).toBeVisible({ timeout: 20_000 })
     await expect(page.getByText('Die Rechnung wurde ausgestellt.')).toBeVisible()
     await expect(page.getByText('Rechnung falsch?')).toBeVisible()
     await expect(page.getByText('ausgestellt', { exact: true })).toBeVisible()
@@ -337,6 +349,246 @@ test.describe('Seite „Rechnung ausstellen“', () => {
     await ready(page)
     await expect(page.getByText(/1 ausgestellte Rechnung fällt noch unter die Aufbewahrungspflicht/)).toBeVisible()
     await expect(page.getByRole('button', { name: 'Endgültig löschen' })).toHaveCount(0)
+  })
+
+  test('QA: Abgelegtes PDF: ohne Aufdruck, mit Nummer und ersetztem Platzhalter, Vorschau mit Aufdruck', async ({ page, users }) => {
+    desktopOnly()
+    const s = await setup(users)
+    const doc = { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Nummer: ' }, { type: 'placeholder', attrs: { name: 'Rechnungsnummer' } }] }] }
+    const id = await addDraft(s.owner, s.tenantId, s.bookingId, { texts: { intro: { block_id: null, body: doc }, payment: { block_id: null, body: null }, closing: { block_id: null, body: null } } }).catch(async () =>
+      addDraft(s.owner, s.tenantId, s.bookingId, { texts: { intro: { block_id: null, body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Nummer: {Rechnungsnummer}' }] }] } }, payment: { block_id: null, body: null }, closing: { block_id: null, body: null } } })
+    )
+    await signInAs(page, s.owner)
+    await open(page, id)
+    await expect(previewText(page)).toContainText('Nummer: 2026-0001', { timeout: 20_000 })
+    await expect(previewText(page)).toContainText('Entwurf')
+    await submit(page).click()
+    await expect(page).toHaveURL(/ausgestellt=1/, { timeout: 30_000 })
+    const { data: row } = await service().from('invoices').select('pdf_path, issued_snapshot').eq('id', id).single()
+    const { data: file } = await service().storage.from('invoices').download(row!.pdf_path as string)
+    const text = await pdfText(new Uint8Array(await file!.arrayBuffer()))
+    expect(text).toContain('2026-0001')
+    expect(text).toContain('Nummer: 2026-0001')
+    expect(text).not.toContain('Entwurf')
+    expect(JSON.stringify(row!.issued_snapshot)).toContain('2026-0001')
+  })
+
+  test('QA: Summen, Buchungsübersicht, neuer Entwurf, Nummernkreis und Nummernvorschau nach dem Ausstellen', async ({ page, users }) => {
+    desktopOnly()
+    const s = await setup(users)
+    const part = await addDraft(s.owner, s.tenantId, s.bookingId, { kind: 'partial', partial: { mode: 'amount', percent: null, amount_cents: 50000 }, lines: [{ label: 'Anteil', amount_cents: 50000, vat_rate: '10.00' }] })
+    await signInAs(page, s.owner)
+    await page.goto(`/buchungen/${s.bookingId}`)
+    await expect(page.locator('main')).toContainText(/In Entwürfen\s*€\s*500,00/)
+    await open(page, part)
+    await submit(page).click()
+    await expect(page).toHaveURL(/ausgestellt=1/, { timeout: 30_000 })
+    await page.goto(`/buchungen/${s.bookingId}`)
+    await expect(page.locator('main')).toContainText(/Verrechnet\s*€\s*500,00/)
+    await expect(page.getByText(/In Entwürfen/)).toHaveCount(0)
+    await page.goto(`/buchungen?rechnung=mit&monat=alle`)
+    await expect(page.getByRole('link', { name: '2026-0001' }).first()).toBeVisible()
+    await page.goto('/einstellungen/rechnungen')
+    await ready(page)
+    await expect(page.getByText('2026-0002').first()).toBeVisible()
+    await page.getByRole('combobox', { name: 'Stellen' }).click()
+    await page.getByRole('option', { name: /^5 / }).click()
+    await page.getByRole('button', { name: 'Speichern' }).first().click()
+    await expect(page.getByText(/Es wurden bereits Rechnungen mit diesem Nummernkreis ausgestellt/)).toBeVisible()
+  })
+
+  test('QA: Neuer Entwurf zeigt verrechnete Position „bereits in Rechnung“, abgewählt', async ({ page, users }) => {
+    desktopOnly()
+    const s = await setup(users)
+    await service().from('booking_charges').insert({ booking_id: s.bookingId, tenant_id: s.tenantId, label: 'Reinigung', amount_cents: 10000, position: 1, vat_rate: 20 } as never)
+    const id = await addDraft(s.owner, s.tenantId, s.bookingId)
+    await signInAs(page, s.owner)
+    await open(page, id)
+    await submit(page).click()
+    await expect(page).toHaveURL(/ausgestellt=1/, { timeout: 30_000 })
+    await page.goto(`/rechnungen/neu?buchung=${s.bookingId}`)
+    await ready(page)
+    await expect(page.getByText(/bereits in Rechnung 2026-0001/)).toBeVisible()
+    await expect(page.getByRole('checkbox', { name: '„Übernachtung“ auf die Rechnung' })).not.toBeChecked()
+    await expect(page.getByRole('checkbox', { name: '„Reinigung“ auf die Rechnung' })).toBeChecked()
+  })
+
+  test('QA: Buchung geändert braucht Häkchen; storniert sperrt, bis der Entwurf gespeichert ist', async ({ page, users }) => {
+    desktopOnly()
+    const s = await setup(users)
+    await signInAs(page, s.owner)
+    await page.goto(`/rechnungen/neu?buchung=${s.bookingId}`)
+    await ready(page)
+    await expect(page.locator('.ProseMirror').first()).toBeVisible()
+    await page.getByRole('button', { name: 'Entwurf speichern', exact: true }).click()
+    await expect(page).toHaveURL(/\/rechnungen\/[0-9a-f-]{36}$/)
+    const id = page.url().split('/').pop()!
+    await open(page, id)
+    await expect(submit(page)).toBeEnabled()
+
+    const changed = await service().from('booking_amounts').update({ nights_cents: 80000, billed_nights_cents: 80000 } as never).eq('id', s.bookingId).select('nights_cents')
+    expect(changed.error).toBeNull()
+    expect(changed.data).toHaveLength(1)
+    await open(page, id)
+    const ack = page.getByRole('checkbox', { name: /Entwurf trotzdem unverändert ausstellen/ })
+    await expect(ack).toBeVisible()
+    await expect(submit(page)).toBeDisabled()
+    await ack.click()
+    await expect(submit(page)).toBeEnabled()
+
+    await service().from('bookings').update({ cancelled_at: new Date().toISOString() } as never).eq('id', s.bookingId)
+    await open(page, id)
+    await expect(page.getByText(/Die Buchung wurde storniert/)).toBeVisible()
+    await expect(page.getByRole('checkbox', { name: /Entwurf trotzdem/ })).toHaveCount(0)
+    await expect(submit(page)).toBeDisabled()
+    const post = await page.request.post(`/api/rechnungen/${id}/ausstellen`, { data: { invoiceDate: '2026-10-20', number: '2026-0001', updatedAt: (await service().from('invoices').select('updated_at').eq('id', id).single()).data!.updated_at, acks: ['bookingChanged'] } })
+    expect(await post.json()).toMatchObject({ ok: false, error: 'blocked' })
+  })
+
+  test('QA: Datum ins Vorjahr ändert den Vorschlag, eigene Nummer bleibt; Fristen folgen', async ({ page, users }) => {
+    desktopOnly()
+    const s = await setup(users)
+    await addBackfilled(s.owner, s.tenantId, '2025-0118', '2025-12-01')
+    const id = await addDraft(s.owner, s.tenantId, s.bookingId)
+    await signInAs(page, s.owner)
+    await open(page, id)
+    const number = page.getByLabel('Rechnungsnummer')
+    await page.getByLabel('Rechnungsdatum').fill('2025-12-30')
+    await expect(number).toHaveValue('2025-0119')
+    await expect(previewText(page)).toContainText('30.12.2025', { timeout: 20_000 })
+    await number.fill('2025-0120')
+    await page.getByLabel('Rechnungsdatum').fill('2025-12-31')
+    await expect(number).toHaveValue('2025-0120')
+    await page.getByLabel('Rechnungsdatum').fill('')
+    await expect(page.getByText('Bitte gib ein gültiges Datum')).toBeVisible()
+    await expect(submit(page)).toBeDisabled()
+  })
+
+  test('QA: Logo nicht ladbar braucht Häkchen und wird vermerkt; gekürzte Fußzeile sperrt', async ({ page, users }) => {
+    desktopOnly()
+    const s = await setup(users)
+    const id = await addDraft(s.owner, s.tenantId, s.bookingId, { kind: 'partial', partial: { mode: 'amount', percent: null, amount_cents: 20000 }, lines: [{ label: 'Anteil', amount_cents: 20000, vat_rate: '10.00' }] })
+    await service().from('tenants').update({ logo_path: `${s.tenantId}/${randomUUID()}.png` } as never).eq('id', s.tenantId)
+    await signInAs(page, s.owner)
+    await open(page, id)
+    await expect(submit(page)).toBeDisabled()
+    await page.getByRole('checkbox', { name: /Ohne Logo ausstellen/ }).click()
+    await expect(submit(page)).toBeEnabled()
+
+    const long = Array.from({ length: 900 }, () => ({ type: 'paragraph', content: [{ type: 'text', text: 'x' }] }))
+    const footer = await service().from('invoice_settings').update({ footer: { type: 'doc', content: long } } as never).eq('tenant_id', s.tenantId).select('tenant_id')
+    expect(footer.error).toBeNull()
+    await open(page, id)
+    await expect(page.getByText(/Die Fußzeile ist zu lang und würde gekürzt/)).toBeVisible({ timeout: 30_000 })
+    await expect(submit(page)).toBeDisabled()
+    await service().from('invoice_settings').update({ footer: null } as never).eq('tenant_id', s.tenantId)
+
+    await open(page, id)
+    await page.getByRole('checkbox', { name: /Ohne Logo ausstellen/ }).click()
+    await submit(page).click()
+    await expect(page).toHaveURL(/ausgestellt=1/, { timeout: 30_000 })
+    await expect(page.getByText('Ohne Logo ausgestellt')).toBeVisible()
+  })
+
+  test('QA: Schnittstellen: ohne Anmeldung, Mitarbeiter, fremder Inhaber, ungültige Eingaben, XSS', async ({ page, users, request }) => {
+    desktopOnly()
+    const s = await setup(users, { staff: true })
+    const xss = '<img src=x onerror="window.__xss=1">'
+    const id = await addDraft(s.owner, s.tenantId, s.bookingId, { recipient: { name: xss, line1: xss, line2: '', postal_code: '5020', city: 'Salzburg', country: 'AT', vat_id: '' } })
+    const body = { invoiceDate: '2026-10-20', number: 'X-1', updatedAt: 'x', acks: [] }
+    const anon = await request.post(`/api/rechnungen/${id}/ausstellen`, { data: body, headers: { cookie: '' } })
+    expect(anon.status()).toBe(401)
+    expect((await request.post('/api/rechnungen/vorschau', { data: { draftId: id, issue: { invoiceDate: '2026-10-20', number: 'X' } } })).status()).toBe(403)
+
+    await signInAs(page, s.staff!)
+    expect((await page.request.post('/api/rechnungen/vorschau', { data: { draftId: id, issue: { invoiceDate: '2026-10-20', number: 'X' } } })).status()).toBe(403)
+    await page.context().clearCookies()
+
+    const stranger = await users()
+    await createTenant(`QA42 Fremd ${randomUUID().slice(0, 8)}`, [{ user: stranger, role: 'owner' }])
+    await signInAs(page, stranger)
+    expect((await page.request.post(`/api/rechnungen/${id}/ausstellen`, { data: body })).status()).toBe(404)
+    expect((await page.request.post('/api/rechnungen/vorschau', { data: { draftId: id, issue: { invoiceDate: '2026-10-20', number: 'X' } } })).status()).toBe(404)
+    await page.goto(`/rechnungen/${id}/ausstellen`)
+    await expect(page.getByRole('heading', { name: /nicht gefunden/i })).toBeVisible()
+    await page.context().clearCookies()
+
+    await signInAs(page, s.owner)
+    for (const data of [{ ...body, invoiceDate: 'gestern' }, { ...body, invoiceDate: '1980-01-01' }, { ...body, number: 'x'.repeat(201) }, { ...body, acks: 'alle' }, {}]) {
+      expect((await page.request.post(`/api/rechnungen/${id}/ausstellen`, { data })).status(), JSON.stringify(data)).toBe(400)
+    }
+    const nonsense = await page.request.post(`/api/rechnungen/${id}/ausstellen`, { data: { ...body, invoiceDate: '2026-13-45' } })
+    expect(nonsense.ok()).toBe(false)
+    expect((await service().from('invoices').select('origin').eq('id', id).single()).data).toMatchObject({ origin: 'draft' })
+
+    await open(page, id)
+    const row = (await service().from('invoices').select('updated_at').eq('id', id).single()).data!
+    await page.getByLabel('Rechnungsnummer').fill('<b>7</b>')
+    await page.getByRole('checkbox', { name: 'Diese Nummer trotzdem verwenden' }).click()
+    await expect(submit(page)).toBeEnabled()
+    await submit(page).click()
+    await expect(page).toHaveURL(/ausgestellt=1/, { timeout: 30_000 })
+    await expect(page.getByRole('heading', { name: '<b>7</b>' })).toBeVisible()
+    expect(await page.evaluate(() => (window as unknown as { __xss?: number }).__xss)).toBeUndefined()
+    expect(row.updated_at).toBeTruthy()
+  })
+
+  test('QA: Schlussrechnung: Detail mit Abzug und Kleinunternehmer aus der Fassung; nacherfasste Abzüge gesperrt; Korrekturhinweis nennt den Schalter', async ({ page, users }) => {
+    desktopOnly()
+    const s = await setup(users)
+    const client = anon()
+    await client.auth.signInWithPassword({ email: s.owner.email, password: s.owner.password })
+    const { data: saved, error } = await client.rpc('save_invoice', {
+      p_input: { tenant_id: s.tenantId, number: 'AR-1', invoice_date: '2026-09-30', booking_id: s.bookingId, recipient: 'Huber Maria', small_business: false, lines: [{ label: 'Anzahlung', amount_cents: 20000, vat_rate: '10.00' }] } as unknown as Json,
+    })
+    if (error) throw error
+    const old = (saved as { id: string }).id
+    const final = await addDraft(s.owner, s.tenantId, s.bookingId, { kind: 'final', deduction_ids: [old] })
+    await signInAs(page, s.owner)
+    await open(page, final)
+    await submit(page).click()
+    await expect(page).toHaveURL(/ausgestellt=1/, { timeout: 30_000 })
+    await expect(page.getByText('abzüglich Rechnung AR-1')).toBeVisible({ timeout: 20_000 })
+    await expect(page.getByText('Schlussrechnung').first()).toBeVisible()
+    await expect(page.getByText(/€\s*700,00/).first()).toBeVisible()
+    await page.screenshot({ path: 'test-results/proj42-detail.png', fullPage: true })
+
+    await page.goto(`/rechnungen/${old}`)
+    await ready(page)
+    await page.getByRole('button', { name: 'Löschen' }).click()
+    await page.getByRole('alertdialog').getByRole('button', { name: /löschen/i }).click()
+    await expect(page.getByText(/Schlussrechnung 2026-0001 zieht diese Rechnung ab/)).toBeVisible({ timeout: 20_000 })
+
+    await service().from('invoice_settings').update({ backfill_enabled: false } as never).eq('tenant_id', s.tenantId)
+    await page.goto(`/rechnungen/${final}`)
+    await expect(page.getByText(/Schalter „Rechnungen nacherfassen“/)).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Zu den Rechnungseinstellungen' })).toBeVisible()
+  })
+
+  test('Layout: Ausstellen mit Sperren und Häkchen, Detailseite: ohne seitliches Scrollen, keine WCAG-2.1-AA-Verstöße', async ({ page, users }) => {
+    const s = await setup(users, { kind: 'option' })
+    await addBackfilled(s.owner, s.tenantId, '2026-0050', '2026-10-25')
+    const id = await addDraft(s.owner, s.tenantId, s.bookingId)
+    await signInAs(page, s.owner)
+    await open(page, id)
+    await page.getByLabel('Rechnungsnummer').fill('2026-9000')
+    await expect(page.getByText('Die nächste Nummer wäre danach 2026-9001.')).toBeVisible()
+    const check = async (where: string) => {
+      expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth), where).toBeLessThanOrEqual(0)
+      const a11y = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze()
+      expect(a11y.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target).join(', ')}`), where).toEqual([])
+    }
+    await check('Ausstellen')
+    for (const box of await page.getByRole('checkbox').all()) await box.click()
+    await expect(submit(page)).toBeEnabled({ timeout: 20_000 })
+    await submit(page).click()
+    await expect(page).toHaveURL(/ausgestellt=1/, { timeout: 30_000 })
+    await ready(page)
+    // Erst die fertige Seite prüfen, nicht die Ladeansicht
+    await expect(page.getByRole('heading', { name: '2026-9000' })).toBeVisible({ timeout: 20_000 })
+    await expect(page).toHaveTitle(/2026-9000/)
+    await check('Detail')
+    await page.screenshot({ path: `test-results/proj42-detail-${test.info().project.name}.png`, fullPage: true })
   })
 
   test('Layout: ohne seitliches Scrollen', async ({ page, users }) => {
