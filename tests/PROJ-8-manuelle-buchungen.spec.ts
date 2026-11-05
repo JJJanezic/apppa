@@ -247,6 +247,10 @@ test.describe('Buchung anlegen (Inhaber)', () => {
     await expect(page).toHaveURL(/\/buchungen\/[0-9a-f-]{36}$/)
     await expect(page.getByRole('heading', { name: 'Anna Huber' })).toBeVisible()
     await expect(page.getByText(`${FUTURE.slice(0, 4)}-0001 · Haus See · Top 3`)).toBeVisible()
+    // Endreinigung (refine 2026-11-05): gespeichert mit 10 %, im Detail mit Satz
+    await expect(page.getByText(/Endreinigung · 10\s?%/)).toBeVisible()
+    const id = page.url().split('/').pop()!
+    expect((await service().from('booking_charges').select('label, vat_rate').eq('booking_id', id).order('position')).data?.[0]).toMatchObject({ label: 'Endreinigung', vat_rate: 10 })
     await expect(page.getByText('3 (2 Erwachsene, 1 Kind)')).toBeVisible()
     await expect(page.getByText('4 Jahre')).toBeVisible()
     await expect(page.getByText(money('555,50'))).toBeVisible() // 480 + 60 + 15,50
@@ -336,7 +340,7 @@ test.describe('Mitarbeiter', () => {
     const { data: amounts } = await service().from('booking_amounts').select('nights_cents').eq('id', id).single()
     expect(amounts?.nights_cents).toBe(36000)
     const { data: charges } = await service().from('booking_charges').select('label, amount_cents').eq('booking_id', id)
-    expect(charges).toEqual([{ label: 'Reinigung', amount_cents: 6000 }])
+    expect(charges).toEqual([{ label: 'Endreinigung', amount_cents: 6000 }])
     const { count } = await service().from('guests').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('last_name', 'Berger')
     expect(count).toBe(2)
 

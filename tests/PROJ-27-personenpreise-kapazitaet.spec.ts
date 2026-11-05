@@ -329,7 +329,7 @@ test.describe('Mitarbeiter und bestehende Buchungen', () => {
     const { data: amounts } = await service().from('booking_amounts').select('nights_cents').eq('id', id).single()
     expect(amounts?.nights_cents).toBe(51000)
     const { data: charges } = await service().from('booking_charges').select('label, amount_cents').eq('booking_id', id)
-    expect(charges).toEqual([{ label: 'Reinigung', amount_cents: 6000 }])
+    expect(charges).toEqual([{ label: 'Endreinigung', amount_cents: 6000 }])
   })
 
   test('AC: Mitarbeiter ändert Erwachsene; Preis bleibt, Inhaber sieht „Preis prüfen“; Inhaber übersteuert die Erwachsenen-Warnung', async ({ page, users }) => {

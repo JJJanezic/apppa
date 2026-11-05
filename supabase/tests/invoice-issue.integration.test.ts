@@ -5,7 +5,7 @@ import { randomUUID } from 'node:crypto'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import type { Json } from '../../src/types/database'
-import { type Client, hasSupabaseEnv, serviceClient, type TestUser } from './helpers'
+import { anonClient, type Client, hasSupabaseEnv, serviceClient, type TestUser } from './helpers'
 import { sharedClient } from './shared-sessions'
 
 const SHA = 'a'.repeat(64)
@@ -537,6 +537,9 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-42 Rechnung ausstellen', () => {
       // Mitarbeiter und Inhaber dürfen die Regel nicht aufrufen
       expect((await owner.rpc('rename_cleaning_charges', { p_tenant_id: tenant })).error?.code).toBe('42501')
       expect((await staff.rpc('rename_cleaning_charges', { p_tenant_id: tenant })).error?.code).toBe('42501')
+      // QA: auch ohne Anmeldung nicht aufrufbar, und nicht für alle Kunden (null)
+      expect((await anonClient().rpc('rename_cleaning_charges', { p_tenant_id: tenant })).error?.code).toBe('42501')
+      expect((await owner.rpc('rename_cleaning_charges', { p_tenant_id: null as unknown as string })).error?.code).toBe('42501')
 
       const { data: count, error } = await service.rpc('rename_cleaning_charges', { p_tenant_id: tenant })
       expect(error).toBeNull()

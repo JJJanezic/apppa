@@ -1,6 +1,6 @@
 # PROJ-8: Manuelle Buchungen
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-10-26
 **Last Updated:** 2026-11-05
 
@@ -890,6 +890,54 @@ Keine neuen Tabellen oder Spalten, keine Änderung der Zugriffsregeln. Ausgestel
 - **Security:** Pass
 - **Production Ready:** YES
 - **Recommendation:** Deploy
+
+### QA Endreinigung (2026-11-05)
+
+**Tested:** 2026-11-05 · gebauter Server gegen Dev, Chrome (desktop), Firefox (Musterrechnung) · Safari nicht (nur gegen `npm run dev`); Handy/Tablet nicht eigens, die Änderung betrifft nur Texte (Feldname kürzer als vorher)
+
+#### Acceptance Criteria „Endreinigung“ (12/12)
+| # | Kriterium | Ergebnis | Nachweis |
+|---|---|---|---|
+| 1 | Inhaber: neue Buchung mit Position „Endreinigung“ € 60,00 / 10 % | ✅ | E2E PROJ-8 „Zeiten und Reinigung aus der Wohnung“ (Formular, Detail „Endreinigung · 10 %“, gespeichert mit 10) |
+| 2 | Mitarbeiter-Buchung mit „Endreinigung“ € 60,00 / 10 % | ✅ | Integration (6500/10), E2E PROJ-8/27/35 Mitarbeiter |
+| 3 | Auswahl enthält „Endreinigung“ und „Nächtigungsabgabe“, nicht „Reinigung“ | ✅ | E2E PROJ-32 |
+| 4 | „Endreinigung“ aus der Auswahl setzt 10 % (auch über Hand-Satz), danach änderbar | ✅ | E2E PROJ-35 (Tastatur und Klick) |
+| 5 | Wohnung: Feld „Endreinigung (€)“, Hinweis mit „Endreinigung“ | ✅ | E2E PROJ-8, PROJ-31 (Feld); Hinweis per Textdatei |
+| 6 | Musterrechnung mit „Endreinigung“ | ✅ | E2E PROJ-41 neu (Chrome, Firefox) |
+| 7 | Buchung ohne Rechnung: umbenannt, Betrag/Satz/Platz gleich | ✅ | Integration |
+| 8 | Nur nacherfasste Rechnung: umbenannt, Zeilen der nacherfassten Rechnung unverändert | ✅ | Integration |
+| 9 | Ausgestellte Rechnung: bleibt „Reinigung“, Rechnung samt PDF-Angaben unverändert | ✅ | Integration (Zeile der Rechnung inkl. `pdf_path`, `pdf_sha256` gleich) |
+| 10 | Offener Entwurf: bleibt „Reinigung“, kein Hinweis „Buchung geändert“ | ✅ | Integration (Positionen und Entwurf unverändert, damit gleicher Fingerabdruck) |
+| 11 | „reinigung“/„REINIGUNG“ umbenannt, „Reinigung Bettwäsche“ und „Zwischenreinigung“ bleiben | ✅ | Integration; „ Reinigung “ mit Rand-Leerzeichen kann es nicht geben (Prüfregel der Tabelle) |
+| 12 | Stornierte Buchung ohne Rechnung umbenannt | ✅ | Integration |
+
+#### Edge Cases
+- ✅ Zwei bzw. drei Positionen „Reinigung“ in einer Buchung: alle umbenannt (Integration)
+- ✅ Zweiter Lauf der Regel ändert nichts (Integration)
+- ✅ Protokoll: je umbenannter Position ein Eintrag „update“ ohne Person, Urheber „PROJ-8 Endreinigung“ (Integration)
+- ⚪ Formular während des Einspielens offen: nicht getestet (nur im Moment des Deploys möglich, in der Spec beschrieben)
+- ⚪ Entwurf nach der Umstellung gelöscht: Verhalten folgt aus der Regel (einmaliger Lauf), nicht eigens getestet
+
+#### Security Audit
+- ✅ `public.rename_cleaning_charges`: Inhaber, Mitarbeiter, ohne Anmeldung und mit `null` (alle Kunden) → 42501; nur Service-Schlüssel (Integration, neu)
+- ✅ `private.rename_cleaning_charges` nicht über die Schnittstelle erreichbar (Schema nicht freigegeben, Rechte entzogen)
+- ✅ Keine RLS-Änderung; RLS-Tests 19/19 (in /backend)
+- ✅ Advisors: nur `auth_otp_long_expiry`
+
+#### Automatisierte Tests
+- Integration (Dev): `invoice-issue` Endreinigung 2/2 (mit QA-Ergänzung), in /backend bookings + tourist-tax 50, invoice-issue 31, rls + drafts + invoices 68
+- Unit: 692/692 (in /frontend; seither nur Testdateien geändert)
+- E2E (desktop): PROJ-8 24 (22 + 2 Projekte setup/teardown; 1 veraltete Erwartung angepasst, danach grün), PROJ-27 + PROJ-34 24, PROJ-32 + PROJ-35 21, PROJ-37 29, PROJ-41 neu 1; Firefox: Musterrechnung grün
+
+#### Bugs Found
+- **BUG-1 (Low, Test):** Drei E2E-Erwartungen zu Mitarbeiter-Buchungen prüften noch „Reinigung“ (PROJ-8 „Mitarbeiter legt Buchung … an“, PROJ-27 „Mitarbeiter sieht keine Preise …“, PROJ-35 „Mitarbeiter: neue Buchung …“). Beim Bau übersehen; in der QA auf „Endreinigung“ angepasst, danach grün. Kein Fehler im Produkt.
+- Keine Fehler im Produkt.
+
+#### Summary
+- **Acceptance Criteria:** 12/12
+- **Bugs:** 0 Critical, 0 High, 0 Medium, 1 Low (Test, behoben)
+- **Production Ready:** YES
+- **Vor /deploy:** Migration `20261105213314_endreinigung.sql` vor dem Code; in Staging und Produktion vorher lesend zählen, wie viele Positionen umbenannt werden
 
 ## Deployment
 _Stand 2026-10-25 (/deploy, Tag `v1.2.0`)_

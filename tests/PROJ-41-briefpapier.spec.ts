@@ -672,3 +672,16 @@ test.describe('QA: Sicherheit', () => {
     expect((await page.request.get('/api/briefpapier/vorschau', { failOnStatusCode: false })).status()).toBe(405)
   })
 })
+
+test.describe('PROJ-8 Endreinigung (refine 2026-11-05)', () => {
+  test('AC: Musterrechnung zeigt die Position „Endreinigung“', async ({ page, users }) => {
+    const owner = await users()
+    await createTenant('QA8 Muster', [{ user: owner, role: 'owner' }])
+    await signInAs(page, owner)
+    await page.goto('/einstellungen/briefpapier')
+    await ready(page)
+    await expect(previewText(page)).toContainText('Endreinigung', { timeout: 15_000 })
+    await expect(previewText(page)).not.toContainText(/(^|[^d])Reinigung/)
+  })
+})
+

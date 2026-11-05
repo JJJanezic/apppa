@@ -200,7 +200,7 @@ test.describe('Speicherfunktionen (Datenbank)', () => {
     const created = await client.rpc('save_booking', await input(tenantId, b, undefined, { edit: false }))
     expect(created.error).toBeNull()
     const newId = (created.data as { id: string }).id
-    expect(await stored(newId)).toMatchObject({ amounts: { nights_vat_rate: 10 }, charges: [{ label: 'Reinigung', vat_rate: 10 }] })
+    expect(await stored(newId)).toMatchObject({ amounts: { nights_vat_rate: 10 }, charges: [{ label: 'Endreinigung', vat_rate: 10 }] })
 
     // Mitarbeiter schickt Beträge mit – sie werden ignoriert, die Sätze bleiben
     const edited = await client.rpc(
