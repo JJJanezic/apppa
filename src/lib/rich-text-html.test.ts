@@ -279,3 +279,32 @@ describe('Zeilenhöhe im Code (refine 2026-11-05)', () => {
     expect(doc.attrs).toBeUndefined()
   })
 })
+
+describe('QA Zeilenhöhe: Angriffe und Grenzfälle im Code (2026-11-05)', () => {
+  it('nur eine reine Zahl wird übernommen; alles andere wird entfernt und genannt', () => {
+    for (const value of ['1.5 !important', 'calc(1.5)', 'var(--x)', '1e0', '+1.5', '1.5px', 'inherit', 'expression(alert(1))', "'1.5'"]) {
+      const { doc, removed } = htmlToDoc(`<div style="line-height: ${value}"><p>x</p></div>`)
+      expect(doc.attrs, value).toBeUndefined()
+      expect(removed.length, value).toBe(1)
+    }
+  })
+
+  it('weitere Angaben nach einem Semikolon werden getrennt geprüft', () => {
+    const { doc, removed } = htmlToDoc('<div style="line-height: 1.5; color: red; background: url(javascript:alert(1))"><p>x</p></div>')
+    expect(doc.attrs).toEqual({ lineHeight: 1.5 })
+    expect(removed).toEqual(['color: red', 'background: url(javascript:alert(1))'])
+  })
+
+  it('führende Nullen und Punkt am Ende ergeben dieselbe Zahl, im Code einheitlich ausgegeben', () => {
+    expect(htmlToDoc('<div style="line-height: 01.50"><p>x</p></div>').doc.attrs).toEqual({ lineHeight: 1.5 })
+    expect(htmlToDoc('<div style="line-height: 2."><p>x</p></div>').doc.attrs).toEqual({ lineHeight: 2 })
+    expect(docToHtml(htmlToDoc('<div style="line-height: 01.50"><p>x</p></div>').doc)).toContain('style="line-height: 1.5"')
+  })
+
+  it('Zeilenhöhe allein ohne Text gilt als leer', () => {
+    const { doc } = htmlToDoc('<div style="line-height: 2"><p></p></div>')
+    expect(isRichDoc(doc)).toBe(true)
+    expect(doc.content).toEqual([{ type: 'paragraph' }])
+  })
+})
+

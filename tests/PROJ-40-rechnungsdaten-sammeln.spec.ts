@@ -1189,3 +1189,51 @@ test.describe('QA Editor-Erweiterung (PROJ-39)', () => {
     expect((await (await pdfResponse).body()).toString('latin1')).toMatch(/Tinos/)
   })
 })
+
+test.describe('Zeilenhöhe im Entwurf (PROJ-39, refine 2026-11-05)', () => {
+  test('AC: Baustein mit Zeilenhöhe 1,5: Kopie im Entwurf, PDF-Vorschau, gespeichert; Baustein unverändert; 3,5 im Code entfernt', async ({ page, users }) => {
+    desktopOnly()
+    const { owner, tenantId } = await setup(users)
+    const apt = await addApartment(tenantId)
+    const guest = await addGuest(tenantId)
+    const booking = await addBooking(tenantId, apt, { guestId: guest })
+    const attrs = { fontSize: 12, lineHeight: 1.5 }
+    const body = { type: 'doc', attrs, content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Zeile eins' }, { type: 'hardBreak' }, { type: 'text', text: 'Zeile zwei' }] }] }
+    const { data: block } = await service()
+      .from('invoice_text_blocks')
+      .insert({ tenant_id: tenantId, block: 'intro', name: 'Hohe Zeilen', body } as never)
+      .select('id')
+      .single()
+    await signInAs(page, owner)
+    await openCreate(page, booking.id)
+    const region = page.getByRole('region', { name: 'Einleitung' })
+    await region.getByRole('combobox', { name: 'Baustein' }).click()
+    await page.getByRole('option', { name: 'Hohe Zeilen' }).click()
+    const box = region.getByRole('textbox', { name: 'Text für diese Rechnung', exact: true })
+    await expect(box).toContainText('Zeile zwei')
+    expect(parseFloat(await box.evaluate((e) => getComputedStyle(e).lineHeight))).toBeCloseTo(16 * 1.5, 1)
+
+    // PDF-Vorschau wird erzeugt (früher: endlose Erzeugung bei Zeilenhöhe in pt)
+    const pdfResponse = page.waitForResponse('**/api/rechnungen/vorschau', { timeout: 30_000 })
+    await page.getByRole('button', { name: 'Vorschau' }).click()
+    const res = await pdfResponse
+    expect(res.status()).toBe(200)
+    await expect(page.getByRole('article', { name: 'Rechnungsvorschau' })).toContainText('Zeile zwei')
+    await page.getByRole('button', { name: 'Zurück zum Entwurf' }).first().click()
+
+    // ungültiger Wert im Code wird entfernt und genannt
+    await region.getByRole('button', { name: 'HTML-Code bearbeiten' }).click()
+    await region.locator('textarea').fill('<div style="font-size: 12pt; line-height: 3.5"><p>Zeile eins</p></div>')
+    await region.getByRole('button', { name: 'HTML-Code bearbeiten' }).click()
+    await expect(region.getByText('Entfernt: line-height: 3.5')).toBeVisible()
+    await region.getByRole('button', { name: 'HTML-Code bearbeiten' }).click()
+    await region.locator('textarea').fill('<div style="font-size: 12pt; line-height: 1.75"><p>Zeile eins</p></div>')
+    await region.getByRole('button', { name: 'HTML-Code bearbeiten' }).click()
+
+    await saveDraft(page)
+    const { data: row } = await service().from('invoices').select('intro_text').eq('tenant_id', tenantId).single()
+    expect((row as { intro_text: { attrs: unknown } }).intro_text.attrs).toEqual({ fontSize: 12, lineHeight: 1.75 })
+    const { data: unchanged } = await service().from('invoice_text_blocks').select('body').eq('id', (block as { id: string }).id).single()
+    expect((unchanged as { body: { attrs: unknown } }).body.attrs).toEqual(attrs)
+  })
+})

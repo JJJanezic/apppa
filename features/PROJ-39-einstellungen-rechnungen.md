@@ -1,6 +1,6 @@
 # PROJ-39: Einstellungen → Rechnungen
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-10-31
 **Last Updated:** 2026-11-05
 
@@ -1378,6 +1378,61 @@ Auf Wunsch des Nutzers alle Fehler behoben.
 - **Acceptance Criteria:** 25/25 bestanden
 - **Bugs:** alle 7 behoben, keine neuen offen
 - **Production Ready:** JA
+
+### QA Zeilenhöhe (2026-11-05)
+
+**Tested:** 2026-11-05 · gebauter Server (`npm run build` + `npm run start`) gegen Dev, Chrome (desktop, mobile 375 px, tablet), Firefox · Safari nicht (läuft nur gegen `npm run dev`)
+**Umgebung:** Die Prüfung von `.env.local` per grep wurde abgelehnt. Abgesichert über die CLI-Verknüpfung mit Dev (`nizgfmvjplhegoosanmu`) und die Sperre der Test-Hilfen gegen Staging/Produktion.
+
+#### Acceptance Criteria „Zeilenhöhe“ (12/12)
+| # | Kriterium | Ergebnis | Nachweis |
+|---|---|---|---|
+| 1 | `line-height: 1.25` im Code: gespeichert, nach Neuladen wieder im Code | ✅ | E2E „line-height 1.25 im Code …“ |
+| 2 | Schreibfläche, Vorschau, Entwurfsvorschau und PDF mit Zeilenhöhe (auch Listen) | ✅ | E2E (berechnete Zeilenhöhe in Schreibfläche, Liste, Vorschau; PDF-Vorschau im Entwurf 200 mit Text), Integration PDF (2 × 11 pt) |
+| 3 | Weiterschreiben, fett, Schriftart/Größe/Ausrichtung lassen Zeilenhöhe stehen | ✅ | E2E „bleibt beim Weiterschreiben …“, gespeichert mit allen vier Angaben |
+| 4 | 0.8 und 3 werden übernommen | ✅ | E2E, Unit, Integration |
+| 5 | 4, 0.79, 1.255, 18pt, 120%, normal (dazu 1,25) entfernt und genannt; Speichern im Code-Modus bricht ab | ✅ | E2E (je Wert Hinweis „Entfernt: line-height: …“, kein Baustein angelegt) |
+| 6 | Ohne Zeilenhöhe folgt sie dem Briefpapier | ✅ | Integration PDF (ohne Angabe 14,3 pt = 11 pt × 1,3), E2E (unveränderte Schreibfläche) |
+| 7 | `line-height` aus dem Code entfernt → wieder Briefpapier | ✅ | Unit (Code ohne Angabe ergibt keine Einstellung), Integration (Speichern ohne Angabe); nicht einzeln in E2E |
+| 8 | Reine Änderung der Zeilenhöhe: Konfliktschutz, Bausteinstand, Protokoll | ✅ | Integration |
+| 9 | Entwurf übernimmt Zeilenhöhe als Kopie, Baustein bleibt unverändert | ✅ | E2E PROJ-40 „Zeilenhöhe im Entwurf“ |
+| 10 | PDF: Empfänger (und Aussteller-Block) bleiben bei 1,2 | ✅ | Integration PDF (Abstand der Empfängerzeilen unverändert bei 0,8 und 2) |
+| 11 | Einfügen aus Word bringt keine Zeilenhöhe | ✅ | Unit (`<p style="line-height:150%">` ohne Einstellung); bestehender E2E-Einfügetest grün |
+| 12 | Server und Datenbank lehnen ungültige Werte ab | ✅ | Integration (Speicherfunktion P0914/P0922, direkt 23514) |
+
+#### Edge Cases
+- ✅ Komma (`1,25`) entfernt und genannt (E2E, Unit)
+- ✅ Zeilenhöhe unter 1 bei großer Schrift: PDF mit 0,8 bei 24 pt wird gesetzt (Integration Grenzwerte)
+- ✅ Mehrere `line-height`: letzte gültige gilt (Unit)
+- ✅ Zeilenhöhe an `<p>`/`<li>`: entfernt und genannt (Unit), in der Datenbank abgelehnt (Integration)
+- ✅ Hohe Zeilenhöhe in der Fußzeile: Fußzeile wächst, Messung greift (Integration)
+- ✅ Grenzwerte 0,8/3 mit Standard, 6 und 24 pt über Absätze, Umbrüche, Listen und Fußzeile ohne Endlos-Lauf (Integration; deckt den beim Bau gefundenen PDF-Fehler ab)
+- ✅ Ausgestellte Rechnungen: nicht neu geprüft (Migration ändert nur die Prüfung; PROJ-42-Tests grün)
+
+#### Security Audit
+- ✅ HTML-Code: nur reine Zahlen werden übernommen; `!important`, `calc()`, `var()`, `1e0`, `+1.5`, Einheiten, `inherit`, `expression(…)`, Anführungszeichen werden entfernt (Unit, neu)
+- ✅ Angehängte Angaben nach `;` (`color`, `background: url(javascript:…)`) werden getrennt entfernt und genannt (Unit, neu)
+- ✅ Ausgabe: Zeilenhöhe kommt immer als Zahl in Stil/Code, nie als Text aus der Eingabe; React setzt sie als Stil
+- ✅ Datenbank: nur JSON-Zahl 0,8–3 mit zwei Stellen; Text, `null`, `"1.2"` abgelehnt, auch mit Service-Schlüssel (Integration)
+- ✅ RLS unverändert, `rls.integration.test.ts` 19/19
+
+#### Automatisierte Tests
+- Vitest Unit: 688/688 (53 Dateien), danach `rich-text-html.test.ts` mit 4 neuen QA-Tests 66/66
+- Vitest Integration: `invoice-settings` 18, `invoice-drafts` 22, `invoice-issue` + `invoices` + `letterhead` 65, `rls` 19, alle grün; übrige Integrationsdateien nicht gelaufen (von der Änderung nicht berührt)
+- E2E neu: PROJ-39 „Zeilenhöhe im Code“ 4 Tests (Chrome und Firefox grün), PROJ-40 „Zeilenhöhe im Entwurf“ 1 Test
+- E2E Regression (desktop): PROJ-39 Editor-Erweiterung 14 grün; PROJ-39 Handy/Tablet Code-Feld grün; Barrierefreiheit Editor grün; PROJ-40 Editor/Schrift/Vorschau 15 grün, 1 wackelig (BUG-1); PROJ-41 28 grün; PROJ-42 alle grün, 1 wackelig (BUG-2)
+
+#### Bugs Found
+- **BUG-1 (Low, Test, schon vorher vorhanden):** E2E PROJ-40 „Kleinunternehmer-Buchung – Teilrechnung ohne USt“ ist wackelig (1 von 4 Läufen rot). Der Test liest den Text der PDF-Vorschau (`innerText`), bevor deren Textebene geladen ist (`indexOf` beider Wörter = −1). Einzeln 3/3 grün. Abhilfe im Test: auf den Text warten statt sofort zu lesen.
+- **BUG-2 (Low, Test, schon vorher vorhanden):** E2E PROJ-42 „Nummer inzwischen vergeben …“ ist wackelig (1 von 4 Läufen rot). Die Meldung kam nicht innerhalb der Standardwartezeit von 5 s. Das passt zu den noch ungeklärten langen Antwortzeiten beim Ausstellen (PROJ-42 BUG-3). Einzeln 3/3 grün.
+- Keine Fehler in der Zeilenhöhe selbst. Der beim Bau gefundene PDF-Fehler (endlose Erzeugung) ist behoben und mit Tests abgesichert (siehe „Zeilenhöhe (Backend)“).
+- Hinweis Umgebung: iCloud-Kopien „… 2.*“ in `.next/` (gelöscht, sie störten die Typprüfung) und in `tests/.auth/` (von Git ignoriert, liegen noch dort).
+
+#### Summary
+- **Acceptance Criteria:** 12/12
+- **Bugs:** 0 Critical, 0 High, 0 Medium, 2 Low (beide wackelige Tests aus früheren Features)
+- **Production Ready:** YES
+- **Offen vor /deploy:** Migration `20261105200349_rich_text_line_height.sql` vor dem Code; auf Staging einmal eine Vorschau mit Zeilenhöhe erzeugen (PDF unter Vercel)
 
 ## Deployment
 - **Datum:** 2026-10-31, Version v1.17.0
