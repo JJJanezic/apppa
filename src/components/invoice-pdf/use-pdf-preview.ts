@@ -34,7 +34,7 @@ export function usePdfPreview(url: string, body: string | null, debounceMs: numb
         const res = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body, signal: c.signal })
         if (!res.ok) throw new Error(String(res.status))
         const bytes = new Uint8Array(await res.arrayBuffer())
-        const meta = JSON.parse(res.headers.get(PDF_META_HEADER) ?? 'null') as PdfMeta | null
+        const meta = JSON.parse(decodeURIComponent(res.headers.get(PDF_META_HEADER) ?? 'null')) as PdfMeta | null
         if (!c.signal.aborted) setState({ bytes, meta, loading: false, failed: false })
       } catch {
         if (!c.signal.aborted) setState((s) => ({ ...s, loading: false, failed: true }))

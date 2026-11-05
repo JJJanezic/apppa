@@ -203,7 +203,7 @@ test.describe('Speichern und Logo', () => {
     const res = await response
     expect(res.status()).toBe(200)
     expect((await res.body()).toString('latin1')).toContain('/Subtype /Image')
-    expect(JSON.parse(res.headers()[META])).toMatchObject({ logoFailed: false, logoBlurry: true })
+    expect(JSON.parse(decodeURIComponent(res.headers()[META]))).toMatchObject({ logoFailed: false, logoBlurry: true })
     await expect(page.getByText('könnte in dieser Größe unscharf wirken')).toBeVisible()
 
     await page.getByRole('button', { name: 'Speichern', exact: true }).click()

@@ -12,6 +12,7 @@ import { toast } from 'sonner'
 import { saveLetterhead } from '@/app/(app)/einstellungen/briefpapier/actions'
 import { callAction, FormError } from '@/components/auth/form-error'
 import { ConfirmDialog } from '@/components/confirm-dialog'
+import { useAdoptEarlyInput } from '@/components/invoice-drafts/use-adopt-early-input'
 import { useUnsavedGuard } from '@/components/invoice-drafts/use-unsaved-guard'
 import { PdfPreview } from '@/components/invoice-pdf/pdf-preview'
 import { usePdfPreview } from '@/components/invoice-pdf/use-pdf-preview'
@@ -63,6 +64,7 @@ export function LetterheadSettings({
     mode: 'onChange',
     defaultValues: toInput(data.values),
   })
+  const formRef = useAdoptEarlyInput(form)
   const [error, setError] = useState<string | null>(null)
   const [stale, setStale] = useState(false)
   const guard = useUnsavedGuard(form.formState.isDirty && !readOnly)
@@ -128,7 +130,7 @@ export function LetterheadSettings({
 
       <div className="grid min-w-0 gap-8 lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)]">
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} noValidate className="flex min-w-0 flex-col gap-6">
+          <form ref={formRef} onSubmit={form.handleSubmit(onSubmit)} noValidate className="flex min-w-0 flex-col gap-6">
             <FormError error={error} namespace="invoiceSettings.errors" />
             {stale && <StaleAlert />}
 
@@ -249,6 +251,7 @@ export function LetterheadSettings({
                   </FormItem>
                 )}
               />
+              {meta?.issuerOverflow && showIssuer && <Hint warn>{t('issuerOverflow')}</Hint>}
               {!showIssuer && (
                 <Hint warn>
                   {t('issuerOff')} {data.footerEmpty && t('issuerOffEmpty')}{' '}
@@ -262,6 +265,8 @@ export function LetterheadSettings({
             </fieldset>
 
             {meta && meta.footerShare > LONG_FOOTER_SHARE && <Hint>{t('footerLong')}</Hint>}
+            {meta?.footerReduced && <Hint warn>{t('footerReduced')}</Hint>}
+            {meta && meta.missingChars.length > 0 && <Hint warn>{t('missingChars', { chars: meta.missingChars.join(' ') })}</Hint>}
 
             {!readOnly && (
               <div className="flex flex-wrap gap-3">

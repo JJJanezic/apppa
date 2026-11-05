@@ -1,6 +1,6 @@
 # PROJ-41: Briefpapier
 
-## Status: Approved
+## Status: In Progress
 **Created:** 2026-11-04
 **Last Updated:** 2026-11-04
 
@@ -451,6 +451,15 @@ Mit der genannten Version wurde außerhalb des Projekts ein Wegwerf-Versuch gema
 - **Severity:** Low
 - **Schritte:** „✓“ oder ein Emoji in einem Text
 - **Tatsächlich:** „✓“ fehlt, das Emoji erscheint als falsches Zeichen; „→“ und „€“ stimmen
+
+### Behebung (2026-11-05)
+Alle sechs Fehler sind behoben, QA Runde 2 steht aus.
+- **BUG-1:** Wörter über 30 Zeichen dürfen an jeder Stelle umbrechen. An der Bruchstelle setzt React-PDF einen Trennstrich.
+- **BUG-2:** Der Aussteller-Block bricht um. Passt er nicht in den Kopf, wird er stufenweise bis 6 pt kleiner; passt er auch dann nicht, erscheint im Formular und im Entwurf ein Hinweis.
+- **BUG-3:** Das Formular übernimmt frühe Eingaben (`useAdoptEarlyInput`). Auswahlfelder und Schalter sind davon ausgenommen.
+- **BUG-4:** Die Entwurfsvorschau zeigt die Hinweise zu Logo, Aussteller-Block, Fußzeile und Zeichen.
+- **BUG-5:** Eine Fußzeile über 40 % der Seite wird bis 6 pt verkleinert, mit Hinweis. Erst wenn das nicht reicht, wird sie gekürzt. Damit überdeckt sie den Inhalt nicht mehr.
+- **BUG-6:** Zeichen, die die Schrift nicht kennt, werden im Formular und im Entwurf genannt. Sie erscheinen im PDF weiterhin nicht richtig, der Kunde muss sie ersetzen. PROJ-42 sollte das beim Ausstellen berücksichtigen.
 
 ### Bekannt, nicht aus diesem Feature
 - PROJ-40 BUG-5: Nach „Entwurf speichern“ blieb die Seite in 1 von 4 Läufen eines Tests auf dem Formular (bei Wiederholung grün). Laut Notiz vor PROJ-42 zu klären

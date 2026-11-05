@@ -42,9 +42,12 @@ export async function pdfResponse(p: {
       logoReduced: box?.reduced ?? false,
       logoBlurry: box?.blurry ?? false,
       logoFailed: failed,
+      footerReduced: result.footerReduced,
+      issuerOverflow: result.issuerOverflow,
+      missingChars: result.missingChars,
     }
     return new Response(Buffer.from(result.pdf), {
-      headers: { 'content-type': 'application/pdf', 'cache-control': 'no-store', [PDF_META_HEADER]: JSON.stringify(meta) },
+      headers: { 'content-type': 'application/pdf', 'cache-control': 'no-store', [PDF_META_HEADER]: encodeURIComponent(JSON.stringify(meta)) },
     })
   } catch (e) {
     console.error('[rechnung-pdf] Erzeugung fehlgeschlagen', e instanceof Error ? e.message : e)

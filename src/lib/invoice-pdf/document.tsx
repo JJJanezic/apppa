@@ -9,6 +9,8 @@ import type { RichAttrs, RichDoc, RichFont, RichInline, RichParagraph } from '@/
 
 const mm = (v: number) => (v * 72) / 25.4
 export const PAGE_HEIGHT_PT = 841.89
+const HEAD_GAP_PT = 12
+const CENTER_GAP_PT = 3
 
 const s = StyleSheet.create({
   rowLine: { flexDirection: 'row', justifyContent: 'space-between', gap: 12, paddingVertical: 2.5, borderBottomWidth: 0.5, borderBottomColor: '#999999' },
@@ -86,8 +88,8 @@ export function RichDocPdf({ doc, gap, familyOf }: { doc: RichDoc; gap: number; 
   )
 }
 
-const Lines = ({ lines, size, align }: { lines: PdfLine[]; size: number; align?: 'center' | 'left' }) => (
-  <View style={{ fontSize: size, lineHeight: 1.2, textAlign: align }}>
+export const Lines = ({ lines, size, align, width, maxWidth }: { lines: PdfLine[]; size: number; align?: 'center' | 'left'; width?: number; maxWidth?: number }) => (
+  <View style={{ fontSize: size, lineHeight: 1.2, textAlign: align, width, maxWidth }}>
     {lines.map((l, i) => (
       <Text key={i} style={l.bold ? { fontWeight: 700 } : undefined}>
         {l.text}
@@ -96,24 +98,36 @@ const Lines = ({ lines, size, align }: { lines: PdfLine[]; size: number; align?:
   </View>
 )
 
-function Head({ view }: { view: PdfView }) {
+// Breite des Aussteller-Blocks: Ohne Grenze bricht React-PDF lange Zeilen nicht um, sondern schneidet sie ab (QA BUG-2)
+export function issuerWidthPt(view: PdfView): number {
+  if (view.letterhead.logoPosition === 'center' || !view.logo) return mm(P.textWidthMm)
+  return mm(P.textWidthMm - view.logo.widthMm) - HEAD_GAP_PT
+}
+
+// Platz für den Aussteller-Block im Kopf; unter einem mittigen Logo nur, was das Logo übrig lässt
+export function issuerMaxHeightPt(view: PdfView): number {
+  const logo = view.letterhead.logoPosition === 'center' && view.logo ? mm(view.logo.heightMm) + CENTER_GAP_PT : 0
+  return mm(P.headHeightMm) - logo
+}
+
+function Head({ view, issuerSize }: { view: PdfView; issuerSize: number }) {
   const v = view.letterhead
   const logo = view.logo && <PdfImage src={{ data: Buffer.from(view.logo.data), format: 'png' }} style={{ width: mm(view.logo.widthMm), height: mm(view.logo.heightMm) }} />
-  const size = Math.min(v.fontSize, P.issuerMaxPt)
   const box = { position: 'absolute' as const, top: mm(P.headTopMm), left: mm(P.marginXMm), right: mm(P.marginXMm), height: mm(P.headHeightMm), overflow: 'hidden' as const }
+  const width = issuerWidthPt(view)
   if (v.logoPosition === 'center') {
     return (
-      <View style={{ ...box, alignItems: 'center', gap: 3 }}>
+      <View style={{ ...box, alignItems: 'center', gap: CENTER_GAP_PT }}>
         {logo}
-        {view.issuer && <Lines lines={view.issuer} size={size} align="center" />}
+        {view.issuer && <Lines lines={view.issuer} size={issuerSize} align="center" width={width} />}
       </View>
     )
   }
-  const issuer = view.issuer ? <Lines lines={view.issuer} size={size} /> : <View />
+  const issuer = view.issuer ? <Lines lines={view.issuer} size={issuerSize} maxWidth={width} /> : <View />
   return (
-    <View style={{ ...box, flexDirection: 'row', justifyContent: 'space-between', gap: 12 }}>
-      {v.logoPosition === 'left' ? logo || <View /> : <View style={{ flexShrink: 1 }}>{issuer}</View>}
-      {v.logoPosition === 'left' ? <View style={{ flexShrink: 1 }}>{issuer}</View> : logo || <View />}
+    <View style={{ ...box, flexDirection: 'row', justifyContent: 'space-between', gap: HEAD_GAP_PT }}>
+      {v.logoPosition === 'left' ? logo || <View /> : issuer}
+      {v.logoPosition === 'left' ? issuer : logo || <View />}
     </View>
   )
 }
@@ -151,11 +165,13 @@ export function InvoiceDocument({
   view,
   familyOf,
   footerHeightPt,
+  issuerSize,
   onPages,
 }: {
   view: PdfView
   familyOf: FamilyOf
   footerHeightPt: number
+  issuerSize: number
   onPages: (pages: number) => void
 }) {
   const v = view.letterhead
@@ -190,7 +206,7 @@ export function InvoiceDocument({
           render={({ pageNumber }) => (pageNumber > 1 ? view.numberLine : ' ')}
         />
 
-        <Head view={view} />
+        <Head view={view} issuerSize={issuerSize} />
 
         {/* Bis zum Adressfeld; es steht damit immer an derselben Stelle */}
         <View style={{ height: mm(P.addressTopMm - P.pageTopMm) }} />
@@ -251,7 +267,7 @@ export function InvoiceDocument({
         )}
 
         {view.footer && (
-          <View fixed style={{ position: 'absolute', left: mm(P.marginXMm), right: mm(P.marginXMm), bottom: mm(P.footerBottomMm) + pageLinePt }}>
+          <View fixed style={{ position: 'absolute', left: mm(P.marginXMm), right: mm(P.marginXMm), bottom: mm(P.footerBottomMm) + pageLinePt, maxHeight: footerHeightPt, overflow: 'hidden' }}>
             <FooterPdf doc={view.footer} gap={footerGap(view)} familyOf={familyOf} />
           </View>
         )}

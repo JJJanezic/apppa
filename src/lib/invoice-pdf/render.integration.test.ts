@@ -108,7 +108,6 @@ describe('PDF-Arbeitsprozess', () => {
     expect(raw).toMatch(/Carlito/)
   })
 
-  // Bekannte Fehler aus der QA (BUG-1, BUG-2): it.fails kippt auf rot, sobald sie behoben sind; dann it daraus machen
   async function rightEdge(pdf: Uint8Array, needle: string): Promise<number> {
     const page = await (await getDocument({ data: pdf.slice() }).promise).getPage(1)
     const content = await page.getTextContent()
@@ -116,16 +115,44 @@ describe('PDF-Arbeitsprozess', () => {
   }
   const PAGE_RIGHT_PT = 595.28 - (20 * 72) / 25.4
 
-  it.fails('BUG-1: langes Wort ohne Leerzeichen bleibt innerhalb des Seitenrands', async () => {
+  it('BUG-1: langes Wort ohne Leerzeichen bleibt innerhalb des Seitenrands', async () => {
     const word = 'A'.repeat(180)
     const r = await render(view({ intro: docFromText(word) }))
     expect(await rightEdge(r.pdf, 'AAAA')).toBeLessThanOrEqual(PAGE_RIGHT_PT + 1)
   })
 
-  it.fails('BUG-2: langer Firmenname im Aussteller-Block wird umgebrochen statt abgeschnitten', async () => {
+  it('BUG-2: langer Firmenname im Aussteller-Block wird umgebrochen statt abgeschnitten', async () => {
     const name = 'Sehr lange Firma mit ausführlichem Namen und noch mehr Worten Gesellschaft mit beschränkter Haftung und Co KG'
     const logo = new Uint8Array(Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAEBgIApD5fRAAAAABJRU5ErkJggg==', 'base64'))
     const r = await render(view({ logo: { data: logo, widthMm: 25, heightMm: 25 }, issuer: [{ text: name, bold: true }] }))
     expect(await rightEdge(r.pdf, 'Sehr lange Firma')).toBeLessThanOrEqual(PAGE_RIGHT_PT + 1)
+  })
+
+  it('BUG-2: kurze Namen bleiben in voller Größe, ein Block über die Kopfhöhe wird kleiner und meldet nur echten Überlauf', async () => {
+    const short = await render(view())
+    expect(short.issuerOverflow).toBe(false)
+    const many = Array.from({ length: 7 }, (_, i) => ({ text: `Zeile ${i} mit einem längeren Text darin und mehr` }))
+    const logo = new Uint8Array(Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAEBgIApD5fRAAAAABJRU5ErkJggg==', 'base64'))
+    const r = await render(view({ logo: { data: logo, widthMm: 95, heightMm: 25 }, issuer: many }))
+    expect(r.issuerOverflow).toBe(false)
+    const huge = await render(view({ logo: { data: logo, widthMm: 95, heightMm: 25 }, issuer: Array.from({ length: 40 }, () => many[0]) }))
+    expect(huge.issuerOverflow).toBe(true)
+  })
+
+  it('BUG-5: überlange Fußzeile wird verkleinert und lässt Platz für den Inhalt', async () => {
+    const r = await render(view({ footer: { ...docFromText('Bankverbindung IBAN AT12 3456 '.repeat(66)), attrs: { fontSize: 24 } } }))
+    expect(r.footerReduced).toBe(true)
+    expect(r.footerShare).toBeLessThanOrEqual(0.4)
+    expect((await pageTexts(r.pdf)).join(' ')).toContain('Rechnungsbetrag')
+    const normal = await render(view())
+    expect(normal.footerReduced).toBe(false)
+  })
+
+  it('BUG-6: meldet Zeichen, die die Schrift nicht kennt; übliche Zeichen nicht', async () => {
+    const r = await render(view({ intro: docFromText('Haken ✓ Emoji 😀 Pfeil → Euro € Šőž') }))
+    expect(r.missingChars).toEqual(expect.arrayContaining(['✓', '😀']))
+    expect(r.missingChars).not.toContain('€')
+    expect(r.missingChars).not.toContain('Š')
+    expect((await render(view())).missingChars).toEqual([])
   })
 })

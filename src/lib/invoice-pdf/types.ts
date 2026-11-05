@@ -38,7 +38,15 @@ export type PdfView = {
   pageOf: string
 }
 
-export type PdfResult = { pdf: Uint8Array; pages: number; footerShare: number }
+export type PdfResult = {
+  pdf: Uint8Array
+  pages: number
+  footerShare: number
+  footerReduced: boolean
+  issuerOverflow: boolean
+  // Zeichen, die die gewählte Schrift nicht darstellen kann
+  missingChars: string[]
+}
 
 export type PdfMeta = {
   pages: number
@@ -47,6 +55,11 @@ export type PdfMeta = {
   logoReduced: boolean
   logoBlurry: boolean
   logoFailed: boolean
+  // Fußzeile verkleinert, damit Platz für den Inhalt bleibt
+  footerReduced: boolean
+  // Aussteller-Block passt auch in der kleinsten Größe nicht ganz in den Kopf
+  issuerOverflow: boolean
+  missingChars: string[]
 }
 
 export const PDF_META_HEADER = 'x-pdf-meta'

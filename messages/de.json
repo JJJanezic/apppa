@@ -2269,6 +2269,9 @@
       "textIntro": "Vielen Dank für Ihren Aufenthalt. Wir erlauben uns, folgende Leistungen zu verrechnen.",
       "textPayment": "Bitte überweisen Sie den Rechnungsbetrag innerhalb von 14 Tagen.",
       "textClosing": "Mit freundlichen Grüßen"
-    }
+    },
+    "footerReduced": "Die Fußzeile ist für die Seite zu lang und wurde verkleinert, bei sehr viel Text auch gekürzt.",
+    "issuerOverflow": "Der Aussteller-Block passt auch in der kleinsten Schrift nicht ganz in den Kopf. Bitte kürze die Stammdaten oder verkleinere das Logo.",
+    "missingChars": "Diese Zeichen kann die Schrift nicht darstellen: {chars}. Bitte ersetze sie im Text."
   }
 }
