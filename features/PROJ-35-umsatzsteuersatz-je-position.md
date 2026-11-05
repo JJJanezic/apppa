@@ -4,6 +4,8 @@
 **Created:** 2026-10-29
 **Last Updated:** 2026-10-29
 
+> Hinweis (2026-11-05): Der Vorschlag „Reinigung“ heißt seit PROJ-8 (refine 2026-11-05) „Endreinigung“ (10 %); „Reinigung“ von Hand erhält weiter 10 %.
+
 ## Dependencies
 - Requires: PROJ-8 (Manuelle Buchungen) — Übernachtungspreis, Zusatzkosten, Stornogebühr, Rollenregeln für Preise
 - Requires: PROJ-32 (Negative Beträge bei Zusatzkosten) — negative Positionen, Bezeichnungs-Vorschläge

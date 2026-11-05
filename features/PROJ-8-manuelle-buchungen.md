@@ -1,8 +1,10 @@
 # PROJ-8: Manuelle Buchungen
 
-## Status: Deployed
+## Status: Planned
 **Created:** 2026-10-26
-**Last Updated:** 2026-10-30
+**Last Updated:** 2026-11-05
+
+> Grundumfang in Produktion. Geplant (refine 2026-11-05): Bezeichnung „Endreinigung“ statt „Reinigung“ samt Umstellung bestehender Buchungen (Abschnitt „Endreinigung“).
 
 ## Dependencies
 - Requires: PROJ-1 (Supabase Infrastructure Setup): Mandanten-Abschottung, Änderungsprotokoll
@@ -58,7 +60,20 @@ Alle drei belegen den Zeitraum ihrer Wohnung und gehen in die Konfliktprüfung e
 Wohnung, von, bis, Grund (Eigennutzung, Renovierung, Sonstiges) und Notiz (bei „Sonstiges“ Pflicht).
 
 ### Ergänzung der Wohnung (PROJ-6)
-Neues optionales Feld **Reinigungsgebühr** (Euro) je Wohnung, nur vom Inhaber pflegbar. Sie wird bei neuen Buchungen als Zusatzkosten-Position „Reinigung“ eingetragen und kann dort geändert oder entfernt werden.
+Neues optionales Feld **Reinigungsgebühr** (Euro) je Wohnung, nur vom Inhaber pflegbar. Sie wird bei neuen Buchungen als Zusatzkosten-Position „Reinigung“ eingetragen und kann dort geändert oder entfernt werden. *Seit refine 2026-11-05: Feld „Endreinigung (€)“, Position „Endreinigung“ (siehe unten).*
+
+### Endreinigung (refine 2026-11-05)
+Die automatisch eingetragene Position heißt künftig **„Endreinigung“** statt „Reinigung“.
+
+- **Neue Buchungen:** Die Gebühr der Wohnung wird als „Endreinigung“ eingetragen, im Formular (Inhaber) wie im Preisvorschlag für Mitarbeiter.
+- **Auswahl der Zusatzkosten** (PROJ-35): „Endreinigung“ statt „Reinigung“, weiter mit 10 %. Eine von Hand getippte Bezeichnung „Reinigung“ erhält ebenfalls weiter 10 %.
+- **Wohnung:** Das Feld heißt „Endreinigung (€)“, der Hinweis nennt „Endreinigung“.
+- **Musterrechnung im Briefpapier** (PROJ-41): Position „Endreinigung“.
+- **Bestehende Buchungen werden einmalig umgestellt:** Positionen mit der Bezeichnung „Reinigung“ (ohne Rücksicht auf Groß-/Kleinschreibung und Rand-Leerzeichen) heißen danach „Endreinigung“. Betrag, Satz und Reihenfolge bleiben.
+  - **Ausgenommen** sind Buchungen mit einer **ausgestellten Rechnung** (PROJ-42) und Buchungen mit einem **offenen Rechnungsentwurf** (PROJ-40). Sie behalten „Reinigung“, damit Rechnung und Buchung übereinstimmen bzw. der Entwurf nicht als „Buchung geändert“ gilt.
+  - **Umgestellt** werden alle übrigen Buchungen, auch solche mit nur **nacherfassten** Rechnungen (PROJ-37), stornierte und vergangene. Die Positionen nacherfasster Rechnungen selbst bleiben unverändert, sie geben das alte Dokument wieder.
+  - Positionen mit anderer Bezeichnung (z. B. „Reinigung Bettwäsche“, „Zwischenreinigung“) bleiben unverändert.
+- Die Umstellung geschieht in allen Umgebungen beim Einspielen, einmal, ohne Eintrag je Buchung im Änderungsprotokoll.
 
 ### Bereiche
 - **Buchungen** (Navigationspunkt): Liste eines Monats mit Blättern (Vor/Zurück/Heute); ein Eintrag erscheint in jedem Monat, in den sein Zeitraum fällt. Filter nach Wohnung, Art (Buchung, Option, Sperre) und Zustand (aktiv, storniert, verfallen); Suche nach Gast oder Buchungsnummer über alle Monate.
@@ -98,6 +113,7 @@ Der Betreiber-Admin liest wie überall nur (PROJ-1).
 - **Hauptgast, der nicht mitwohnt** (Firma bucht für andere): als Gast wird die wohnende Person angelegt, die Firma bei ihr eingetragen
 - **Preisregeln** (Saisonpreise, Mindestaufenthalt, Rabatte je Dauer): nicht geplant
 - **Bald ablaufende Optionen anzeigen:** Dashboard PROJ-14
+- **Endreinigung (refine 2026-11-05):** keine Umbenennung in ausgestellten Rechnungen, offenen Entwürfen und Positionen nacherfasster Rechnungen; keine spätere automatische Umstellung von Buchungen, deren Entwurf gelöscht wird; keine frei einstellbaren Vorschlagslisten je Kunde
 
 ## Acceptance Criteria
 
@@ -130,6 +146,20 @@ Der Betreiber-Admin liest wie überall nur (PROJ-1).
 - [ ] Angenommen der Inhaber fügt eine Position hinzu, wenn er eine Bezeichnung aus den Vorschlägen wählt oder frei eintippt und einen Betrag eingibt, dann erhöht sich der Endbetrag entsprechend
 - [ ] Angenommen eine Position hat keine Bezeichnung oder einen negativen Betrag, wenn der Inhaber speichert, dann erscheint eine Validierungsmeldung
 - [ ] Angenommen der Inhaber pflegt eine Wohnung (PROJ-6), wenn er eine Reinigungsgebühr einträgt, dann wird sie bei künftigen neuen Buchungen dieser Wohnung vorgeschlagen; bestehende Buchungen bleiben unverändert
+
+### Endreinigung (refine 2026-11-05)
+- [ ] Angenommen eine Wohnung mit Gebühr € 60,00, wenn der Inhaber eine neue Buchung für sie anlegt, dann steht die Position „Endreinigung“ € 60,00 mit 10 % im Formular
+- [ ] Angenommen ein Mitarbeiter legt eine Buchung für diese Wohnung an, wenn sie gespeichert ist, dann hat sie die Position „Endreinigung“ € 60,00 mit 10 %
+- [ ] Angenommen der Inhaber öffnet die Auswahl der Zusatzkosten, wenn sie erscheint, dann enthält sie „Endreinigung“ und „Nächtigungsabgabe“, aber nicht „Reinigung“; „Endreinigung“ setzt 10 %
+- [ ] Angenommen der Inhaber tippt „Reinigung“ von Hand, wenn die Bezeichnung übernommen wird, dann erhält die Position 10 %
+- [ ] Angenommen der Inhaber bearbeitet eine Wohnung, wenn das Formular erscheint, dann heißt das Feld „Endreinigung (€)“ und der Hinweis nennt „Endreinigung“
+- [ ] Angenommen das Briefpapier zeigt die Musterrechnung, wenn sie erscheint, dann heißt die Position „Endreinigung“
+- [ ] Angenommen eine Buchung ohne Rechnung mit Position „Reinigung“ € 60,00 / 10 % an zweiter Stelle, wenn die Umstellung gelaufen ist, dann heißt sie „Endreinigung“, mit gleichem Betrag, Satz und Platz
+- [ ] Angenommen eine Buchung mit nur einer nacherfassten Rechnung, wenn die Umstellung gelaufen ist, dann heißt ihre Position „Endreinigung“ und die Positionen der nacherfassten Rechnung sind unverändert
+- [ ] Angenommen eine Buchung mit ausgestellter Rechnung, wenn die Umstellung gelaufen ist, dann heißt ihre Position weiter „Reinigung“, und Rechnung samt PDF sind unverändert
+- [ ] Angenommen eine Buchung mit offenem Entwurf, wenn die Umstellung gelaufen ist, dann heißt ihre Position weiter „Reinigung“, und der Entwurf zeigt nicht „Die Buchung wurde seit dem Entwurf geändert“
+- [ ] Angenommen Positionen „reinigung“, „ Reinigung “ und „Reinigung Bettwäsche“ ohne Rechnung, wenn die Umstellung gelaufen ist, dann heißen die ersten beiden „Endreinigung“ und die dritte bleibt
+- [ ] Angenommen eine stornierte Buchung ohne Rechnung, wenn die Umstellung gelaufen ist, dann heißt ihre Position „Endreinigung“
 
 ### Konflikte und Kapazität
 - [ ] Angenommen in derselben Wohnung gibt es eine aktive Buchung, Option oder Sperre mit überschneidendem Zeitraum, wenn der Nutzer Wohnung und Zeitraum wählt, dann warnt die App mit Gast bzw. Sperrgrund, Zeitraum und Art des anderen Eintrags
@@ -188,6 +218,10 @@ Der Betreiber-Admin liest wie überall nur (PROJ-1).
 - **Wohnung wird archiviert, während Buchungen in der Zukunft liegen:** Die Buchungen bleiben bearbeitbar, die Wohnung ist aber für neue Buchungen und beim Wechsel der Wohnung nicht mehr wählbar.
 - **Gast wird während des Bearbeitens zusammengeführt oder anonymisiert:** Beim Speichern gilt der Stale-Hinweis; die Buchung zeigt danach den verbleibenden bzw. anonymisierten Gast.
 - **Reinigungsgebühr der Wohnung ändert sich:** Nur neue Buchungen erhalten den neuen Betrag.
+- **Endreinigung: Buchung mit ausgestellter und nacherfasster Rechnung:** zählt als „mit ausgestellter Rechnung“ und bleibt bei „Reinigung“.
+- **Endreinigung: Entwurf wird nach der Umstellung gelöscht:** Die Buchung behält „Reinigung“; der Inhaber kann die Bezeichnung von Hand ändern.
+- **Endreinigung: jemand bearbeitet eine Buchung während der Umstellung:** Die Umstellung ist kurz; danach gilt der Konfliktschutz wie bei jeder Änderung („inzwischen geändert“).
+- **Endreinigung: zwei Positionen „Reinigung“ in einer Buchung:** Beide werden umbenannt.
 - **Mitarbeiter wechselt die Wohnung einer Buchung:** Preis bleibt; der Inhaber sieht „Preis prüfen“.
 - **Netzwerkfehler beim Speichern:** Meldung, Eingaben bleiben erhalten, kein halber Zustand (Gast ohne Buchung).
 - **Hauptgast ist anonymisiert:** Die Buchung bleibt; ein anonymisierter Gast kann für neue Buchungen nicht gewählt werden.
@@ -226,6 +260,9 @@ Der Betreiber-Admin liest wie überall nur (PROJ-1).
 | Liste mit Monatsblättern, Filtern und Suche über alle Monate | Vom Nutzer so entschieden; bis zum Kalender (PROJ-9) die zentrale Übersicht | 2026-10-26 |
 | Buchungsnummer fortlaufend je Kunde und Anreisejahr, gemeinsam für Buchungen und Optionen, Sperren ohne Nummer | Bezug in Telefonat, E-Mail und Rechnung; die Option behält beim Bestätigen ihre Nummer | 2026-10-26 |
 | Mitarbeiter-Buchungen erhalten den Preisvorschlag; bei Änderungen durch Mitarbeiter Hinweis „Preis prüfen“ | Mitarbeiter sehen keine Preise, die Buchung soll trotzdem einen Betrag haben | 2026-10-26 |
+| Automatische Position und Vorschlag heißen „Endreinigung“, Wohnungsfeld „Endreinigung (€)“ | Nutzerwunsch; genauere Bezeichnung auf der Rechnung | 2026-11-05 |
+| Bestehende Positionen „Reinigung“ einmalig umbenennen, außer bei Buchungen mit ausgestellter Rechnung oder offenem Entwurf; nacherfasste Rechnungen hindern nicht | Ausgestellte Rechnungen und Buchung sollen übereinstimmen; Entwürfe sollen nicht als „Buchung geändert“ gelten (Nutzerwahl); nacherfasste Rechnungen sind Altdokumente mit eigenen Zeilen | 2026-11-05 |
+| „Reinigung“ von Hand getippt erhält weiter 10 % | Gewohnheit der Nutzer; sonst fiele der Satz unbemerkt auf 20 % | 2026-11-05 |
 | Buchungsdetail neu angeordnet: links Hauptgast, Mitreisende, Aufenthalt; rechts Preis und Rechnungen | Nutzerwunsch: wer und mit wem zuerst, Geld gebündelt auf einer Seite; als kleine Ergänzung ohne eigenes Spec-Gespräch umgesetzt (reine Umordnung, keine Daten oder Rechte betroffen) | 2026-10-30 |
 
 ### Technical Decisions
