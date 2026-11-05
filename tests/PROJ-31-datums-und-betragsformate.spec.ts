@@ -471,7 +471,7 @@ test.describe('Beträge', () => {
     await expect(panel(page)).toBeVisible()
     const price = panel(page).getByLabel('Wohnungspreis pro Nacht (€)')
     await expect(price).toHaveValue('120,00')
-    await expect(panel(page).getByLabel('Reinigungsgebühr (€)')).toHaveValue('60,00')
+    await expect(panel(page).getByLabel('Endreinigung (€)')).toHaveValue('60,00')
     await price.fill('1250')
     await price.press('Tab')
     await expect(price).toHaveValue('1.250,00')

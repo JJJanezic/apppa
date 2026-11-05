@@ -1,6 +1,6 @@
 # PROJ-8: Manuelle Buchungen
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-10-26
 **Last Updated:** 2026-11-05
 
@@ -580,6 +580,14 @@ Keine neuen Tabellen oder Spalten, keine Änderung der Zugriffsregeln. Ausgestel
 **Geprüft**
 - Typprüfung, Lint, Build grün; Unit-Tests 309/309 (davon 30 neu)
 - Im Browser (Desktop 1440 px, Handy 375 px) als Inhaber und als Mitarbeiter: Liste mit Monatsleiste und Karten, Detail mit Preis (Inhaber) bzw. ohne Preis und ohne „Stornieren“ (Mitarbeiter), Formular mit Preisvorschlag, Kinderalter und Kapazitätswarnung inkl. „Trotzdem speichern“
+
+### Endreinigung (Frontend, 2026-11-05)
+- `messages/de.json`: `bookings.chargeSuggestions.cleaning` „Endreinigung“ (Auswahl im Buchungsformular, beim Nacherfassen und im Entwurf; automatische Position für Inhaber), `apartments.cleaningFee` „Endreinigung (€)“ samt Hinweis, Musterrechnung im Briefpapier „Endreinigung“, Hinweis für Mitarbeiter „aus Standardpreis und Endreinigung“
+- Satz 10 % kommt unverändert aus dem Auswahleintrag `cleaning` (`CHARGE_CHOICES` in `src/lib/vat.ts`); getippte Bezeichnungen starten mit 20 %
+- Kommentare in `booking-panel.tsx`, `validation/apartments.ts`, `vat.ts` nachgezogen; Schlüssel unverändert
+- E2E an die neuen Texte angepasst: PROJ-8 (automatische Position, Feld der Wohnung), PROJ-35 (Auswahl per Tastatur „End“, Auswahl überschreibt Hand-Satz), PROJ-32 (Inhalt der Auswahl), PROJ-31 (Feld der Wohnung); 11 Läufe grün (desktop, gebauter Server). Tests mit „Reinigung“ als Testdaten bleiben gültig
+- Unit 692/692 grün
+- **Offen für /backend:** Migration mit erneuerter `private.save_booking` (Mitarbeiter-Vorschlag „Endreinigung“, Grundlage `20261101061318_tourist_tax.sql`) und Umbenennung der bestehenden Positionen samt Ausnahmen (Tech Design N); bis dahin erhalten Mitarbeiter-Buchungen noch „Reinigung“
 
 ## Implementation Notes (Backend)
 **Stand 2026-10-26.** Migration `supabase/migrations/20261026130000_bookings.sql`, eingespielt nur in „apppa-dev“; `npm run db:types` erzeugt; `db advisors` ohne Befund.

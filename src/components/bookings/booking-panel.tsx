@@ -415,7 +415,7 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
     if (!apt || booking) return
     form.setValue('checkIn', apt.checkIn)
     form.setValue('checkOut', apt.checkOut)
-    // Reinigungsgebühr der Wohnung als Position „Reinigung“ (nur neue Buchungen)
+    // Reinigungsgebühr der Wohnung als Position „Endreinigung“ (nur neue Buchungen, PROJ-8 refine 2026-11-05)
     if (owner) {
       const cleaning = t('chargeSuggestions.cleaning')
       const index = form.getValues('charges').findIndex((c) => c.label === cleaning)

@@ -61,7 +61,8 @@ export function vatBreakdown(lines: readonly VatLine[]): VatShare[] {
 }
 
 // Satz zu einer Bezeichnung (Umstellung bestehender Buchungen, Vorbelegung der automatisch eingetragenen Reinigung):
-// „Reinigung“ 10 %, „Nächtigungsabgabe“ 0 %, sonst 20 % – ohne Groß-/Kleinschreibung und Rand-Leerzeichen
+// „Reinigung“ 10 %, „Nächtigungsabgabe“ 0 %, sonst 20 % – ohne Groß-/Kleinschreibung und Rand-Leerzeichen.
+// Seit PROJ-8 (refine 2026-11-05) heißt der Eintrag der Auswahl „Endreinigung“; der Satz hängt an der Auswahl (CHARGE_CHOICES).
 export function vatBpForLabel(label: string, labels: { cleaning: string; touristTax: string }): number {
   const key = label.trim().toLocaleLowerCase('de')
   if (key === labels.cleaning.toLocaleLowerCase('de')) return 1000

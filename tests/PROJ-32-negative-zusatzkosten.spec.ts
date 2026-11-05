@@ -354,7 +354,7 @@ test.describe('Vorschläge', () => {
     await edit(page, booking.id)
     await panel(page).getByRole('button', { name: 'Position hinzufügen' }).click()
     await chargeLabel(page, 0).click()
-    await expect(panel(page).getByRole('option')).toHaveText(['Reinigung', 'Nächtigungsabgabe'])
+    await expect(panel(page).getByRole('option')).toHaveText(['Endreinigung', 'Nächtigungsabgabe'])
     await chargeLabel(page, 0).fill('Nächtigungsabgabe')
     await expect(chargeAmount(page, 0)).toHaveValue('')
     await save(page)

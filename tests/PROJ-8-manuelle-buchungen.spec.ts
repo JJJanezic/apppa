@@ -217,7 +217,7 @@ test.describe('Buchung anlegen (Inhaber)', () => {
     await chooseApartment(page, 'Haus See · Top 3')
     await expect(panel(page).getByLabel('Check-in')).toHaveValue('16:00')
     await expect(panel(page).getByLabel('Check-out')).toHaveValue('09:30')
-    await expect(panel(page).getByPlaceholder('Bezeichnung')).toHaveValue('Reinigung')
+    await expect(panel(page).getByPlaceholder('Bezeichnung')).toHaveValue('Endreinigung')
     await expect(panel(page).getByPlaceholder('Betrag (€)')).toHaveValue('60,00')
 
     await setPeriod(page, FUTURE, day(3, FUTURE))
@@ -260,7 +260,7 @@ test.describe('Buchung anlegen (Inhaber)', () => {
     await openList(page)
     await newBooking(page)
     await expect(panel(page).getByRole('combobox', { name: 'Wohnung' })).toHaveText('Haus See · Top 1')
-    await expect(panel(page).getByPlaceholder('Bezeichnung')).toHaveValue('Reinigung', { timeout: 3000 })
+    await expect(panel(page).getByPlaceholder('Bezeichnung')).toHaveValue('Endreinigung', { timeout: 3000 })
   })
 
   test('AC: Pflichtfelder, Zeitraum, Kinderalter, Ablaufdatum, Positionen und Preis ohne Standardpreis werden geprüft', async ({ page, users }) => {
@@ -716,7 +716,7 @@ test.describe('Anschluss an Gäste und Wohnungen', () => {
     await page.getByRole('button', { name: /Top 1/ }).first().click()
     await expect(panel(page).getByText(/hat Buchungen und lässt sich nicht endgültig löschen/)).toBeVisible()
     await expect(panel(page).getByRole('button', { name: 'Endgültig löschen' })).toHaveCount(0)
-    await expect(panel(page).getByLabel('Reinigungsgebühr (€)')).toHaveValue('60,00')
+    await expect(panel(page).getByLabel('Endreinigung (€)')).toHaveValue('60,00')
     await panel(page).getByLabel(/Personen/).first().fill('2')
     await expect(panel(page).getByText('1 künftige Buchung hat mehr Personen. Sie bleiben bestehen.')).toBeVisible()
     await panel(page).getByRole('button', { name: 'Archivieren' }).click()

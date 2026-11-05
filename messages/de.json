@@ -630,8 +630,8 @@
       "delete": "Endgültig löschen",
       "archivedNote": "Diese Wohnung ist archiviert. Sie steht nicht zur Auswahl für neue Buchungen und erscheint nicht im Kalender.",
       "postalCodeMismatch": "Die PLZ {postalCode} gehört laut Gemeindeliste nicht zur Gemeinde {municipality}. Bitte prüfen – die Gemeinde bestimmt später die Tourismusabgabe.",
-      "cleaningFee": "Reinigungsgebühr (€)",
-      "cleaningFeeHint": "Optional. Wird neuen Buchungen als Zusatzkosten „Reinigung“ vorgeschlagen.",
+      "cleaningFee": "Endreinigung (€)",
+      "cleaningFeeHint": "Optional. Wird neuen Buchungen als Zusatzkosten „Endreinigung“ vorgeschlagen.",
       "capacityHint": "{count, plural, one {# künftige Buchung hat} other {# künftige Buchungen haben}} mehr Personen. Sie bleiben bestehen.",
       "hasBookingsHint": "Diese Wohnung hat Buchungen und lässt sich nicht endgültig löschen. Archiviere sie stattdessen.",
       "capacityAdultsHint": "{count, plural, one {# künftige Buchung hat} other {# künftige Buchungen haben}} mehr Erwachsene. Sie bleiben bestehen."
@@ -1246,7 +1246,7 @@
       "sortEnd": "{label} abgelegt auf Position {pos} von {total}.",
       "sortCancel": "Verschieben abgebrochen. {label} bleibt auf Position {pos} von {total}.",
       "total": "Endbetrag",
-      "staffPriceNote": "Den Preis setzt die App aus Standardpreis und Reinigungsgebühr; der Inhaber kann ihn anpassen.",
+      "staffPriceNote": "Den Preis setzt die App aus Standardpreis und Endreinigung; der Inhaber kann ihn anpassen.",
       "note": "Notiz",
       "noteHint": "Nur intern sichtbar.",
       "save": "Buchung speichern",
@@ -1270,7 +1270,7 @@
       "tooManyCharges": "Mit der Ortstaxe sind es mehr als {max} Positionen. Bitte Positionen entfernen, um speichern zu können."
     },
     "chargeSuggestions": {
-      "cleaning": "Reinigung",
+      "cleaning": "Endreinigung",
       "touristTax": "Nächtigungsabgabe"
     },
     "warnings": {
@@ -2359,7 +2359,7 @@
       "postalCode": "1010",
       "city": "Wien",
       "nights": "Übernachtung",
-      "cleaning": "Reinigung",
+      "cleaning": "Endreinigung",
       "textIntro": "Vielen Dank für Ihren Aufenthalt. Wir erlauben uns, folgende Leistungen zu verrechnen.",
       "textPayment": "Bitte überweisen Sie den Rechnungsbetrag innerhalb von 14 Tagen.",
       "textClosing": "Mit freundlichen Grüßen"

@@ -66,7 +66,7 @@ const apartmentFields = (t: T) => ({
       })
     )
     .max(LIMITS.childPricesMax),
-  // Reinigungsgebühr (PROJ-8): wird neuen Buchungen als Position „Reinigung“ vorgeschlagen
+  // Reinigungsgebühr (PROJ-8): wird neuen Buchungen als Position „Endreinigung“ vorgeschlagen
   cleaningFee: money(t),
   checkIn: time(t),
   checkOut: time(t),

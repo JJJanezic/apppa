@@ -261,16 +261,16 @@ test.describe('Formular und Detail', () => {
     const p = panel(page)
     await expect(p.getByLabel('USt %', { exact: true })).toHaveValue('10,00')
 
-    // Neue Position: 20,00; Auswahl per Tastatur „Reinigung“ → 10,00
+    // Neue Position: 20,00; Auswahl per Tastatur „Endreinigung“ → 10,00 (PROJ-8 refine 2026-11-05)
     await p.getByRole('button', { name: 'Position hinzufügen' }).click()
     const label = p.getByRole('combobox', { name: 'Bezeichnung' }).first()
     const rate = p.getByLabel('Umsatzsteuersatz in Prozent, Position 1')
     await expect(rate).toHaveValue('20,00')
-    await label.fill('Rein')
+    await label.fill('End')
     await expect(p.getByRole('listbox', { name: 'Bezeichnungen zur Auswahl' })).toBeVisible()
     await label.press('ArrowDown')
     await label.press('Enter')
-    await expect(label).toHaveValue('Reinigung')
+    await expect(label).toHaveValue('Endreinigung')
     await expect(rate).toHaveValue('10,00')
     await expect(panel(page)).toBeVisible()
 
@@ -416,20 +416,20 @@ test.describe('Formular und Detail', () => {
     await expect(p.getByLabel('Umsatzsteuersatz in Prozent, Position 1')).toHaveValue('5,50')
     await expect(p.getByLabel('Umsatzsteuersatz in Prozent, Position 2')).toHaveValue('10,00')
 
-    // Hand-Satz 13,00 an Position 2, dann „Reinigung“ aus der Auswahl wählen → 10,00
+    // Hand-Satz 13,00 an Position 2, dann „Endreinigung“ aus der Auswahl wählen → 10,00
     const rate2 = p.getByLabel('Umsatzsteuersatz in Prozent, Position 2')
     await rate2.fill('13')
     await rate2.blur()
     const label2 = p.getByRole('combobox', { name: 'Bezeichnung' }).nth(1)
     await label2.fill('')
-    await p.getByRole('option', { name: 'Reinigung' }).click()
+    await p.getByRole('option', { name: 'Endreinigung' }).click()
     await expect(rate2).toHaveValue('10,00')
 
     await p.getByRole('button', { name: 'Änderungen speichern' }).click()
     await expect(panel(page)).toBeHidden()
     expect((await stored(b.id)).charges).toMatchObject([
       { position: 1, label: 'Parkplatz', vat_rate: 5.5 },
-      { position: 2, label: 'Reinigung', vat_rate: 10 },
+      { position: 2, label: 'Endreinigung', vat_rate: 10 },
     ])
   })
 
