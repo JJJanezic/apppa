@@ -1,8 +1,8 @@
 # PROJ-41: Briefpapier
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-11-04
-**Last Updated:** 2026-11-04
+**Last Updated:** 2026-11-05
 
 ## Dependencies
 - Requires: PROJ-4 (Kundenkonten & Rollen): Inhaber, Mitarbeiter, Mandantentrennung
@@ -500,4 +500,14 @@ PROJ-28, 36, 38: mehrere „Speichern“ auf der Betreiber-Seite. PROJ-39: Reite
 „SVG, PDF, zu große und beschädigte Dateien“ fand einmal nach dem Hochladen keine Logo-Vorschau; danach 4 von 4 grün. Der Test läuft auf den Stammdaten, die PROJ-41 nicht geändert hat; die Ursache ist nicht geklärt.
 
 ## Deployment
-_To be added by /deploy_
+- **Datum:** 2026-11-05, Version v1.21.0
+- **Commit:** `0e5e442` (Branches `staging` und `production`); vom Nutzer für Production freigegeben und als ordnungsgemäß deployt bestätigt
+- **Staging:** https://staging.apppa.at
+- **Production:** https://app.apppa.at
+- **Migrationen:** `20261104212659_letterhead.sql` (Staging und Production); `db advisors` nur die akzeptierte Warnung `auth_otp_long_expiry`
+- **Neue Pakete:** `@react-pdf/renderer` 4.9.0, `pdfjs-dist` 6.5.438, `esbuild` 0.27.7 (Entwicklung)
+- **Neue Umgebungsvariablen / `config push`:** keine
+- **Mit ausgeliefert:** Buchhaltungs-Commit PROJ-39 (`d270a1e`), Runbook-Anpassung zu geleakten Passwörtern
+- **Tag:** `v1.21.0-PROJ-41` auf `0e5e442`
+- **Build-Fehler auf Staging:** `4f97596` scheiterte auf Vercel mit ERESOLVE (esbuild 0.28 gegen vite). Lokal verdeckte `legacy-peer-deps` in `~/.npmrc` den Konflikt. Behoben mit `0e5e442`.
+- **Offen:** Der Drucktest des Adressfelds wurde nicht einzeln bestätigt (siehe Open Questions); spätestens vor PROJ-42 klären.
