@@ -10,8 +10,42 @@ const TIMEOUT_MS = 20_000
 // und wird über outputFileTracingIncludes (next.config.ts) mitgeliefert.
 const workerFile = () => [process.cwd(), 'pdf-worker-build', 'render-worker.mjs'].join('/')
 
+// Höchstens so viele Arbeitsprozesse je Server-Instanz, weitere warten; ist auch die Warteschlange voll, wird abgelehnt.
+// Jeder Prozess braucht bis zu 256 MB. Das begrenzt die Last, keine einzelne Person (BUG-6 aus PROJ-42).
+const MAX_RUNNING = 3
+const MAX_WAITING = 12
+let running = 0
+const waiting: (() => void)[] = []
+
+export class PdfBusyError extends Error {}
+
+async function acquire() {
+  if (running < MAX_RUNNING) {
+    running++
+    return
+  }
+  if (waiting.length >= MAX_WAITING) throw new PdfBusyError('PDF-Erzeugung ausgelastet')
+  // Der Platz geht direkt vom endenden Prozess auf den wartenden über
+  await new Promise<void>((resolve) => waiting.push(resolve))
+}
+
+function release() {
+  const next = waiting.shift()
+  if (next) next()
+  else running--
+}
+
 // Erzeugt das PDF in einem eigenen, kurzlebigen Arbeitsprozess (siehe render-worker.ts)
-export function renderInvoicePdf(view: PdfView): Promise<PdfResult> {
+export async function renderInvoicePdf(view: PdfView): Promise<PdfResult> {
+  await acquire()
+  try {
+    return await runWorker(view)
+  } finally {
+    release()
+  }
+}
+
+function runWorker(view: PdfView): Promise<PdfResult> {
   return new Promise((resolve, reject) => {
     const worker = new Worker(workerFile(), { workerData: view, resourceLimits: { maxOldGenerationSizeMb: 256 } })
     const timer = setTimeout(() => finish(() => reject(new Error('PDF-Erzeugung dauert zu lange'))), TIMEOUT_MS)

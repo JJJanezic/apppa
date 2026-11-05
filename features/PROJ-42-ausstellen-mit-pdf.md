@@ -1,6 +1,6 @@
 # PROJ-42: Ausstellen mit PDF
 
-## Status: In Review
+## Status: In Progress
 **Created:** 2026-11-05
 **Last Updated:** 2026-11-05
 
@@ -80,9 +80,9 @@ Geprüft wird das tatsächlich erzeugte PDF. Ändert sich der Stand zwischen Anz
 - Das Ausstellen wird mit Person und Zeitpunkt protokolliert.
 
 ### Nach dem Ausstellen
-- Die Seite wechselt zur **Detailseite der Rechnung** mit Meldung. Status „Ausgestellt“, alle festgehaltenen Angaben, Knopf „PDF öffnen“ (Download-Name mit Rechnungsnummer). Keine Knöpfe zum Bearbeiten, Löschen oder Ändern der Buchung.
+- Die Seite wechselt zur **Detailseite der Rechnung** mit Meldung. Status „ausgestellt“, alle festgehaltenen Angaben, Knopf „PDF öffnen“ (Download-Name mit Rechnungsnummer). Keine Knöpfe zum Bearbeiten, Löschen oder Ändern der Buchung.
 - Dort steht ein kurzer Korrekturhinweis: Eine falsche Rechnung wird über eine außerhalb erstellte Gutschrift korrigiert, die mit negativen Beträgen nacherfasst wird, danach folgt eine neue Rechnung. Ist „Rechnungen nacherfassen“ ausgeschaltet, nennt der Hinweis auch diesen Schalter.
-- **Rechnungsliste, Buchungsdetail, Buchungsübersicht:** Status „Ausgestellt“ und die Nummer statt „Entwurf“. Der Betrag wandert von „In Entwürfen“ zu „Verrechnet“. Die Buchung zählt beim Filter als „mit Rechnung“.
+- **Rechnungsliste, Buchungsdetail, Buchungsübersicht:** Status „ausgestellt“ und die Nummer statt „Entwurf“. Der Betrag wandert von „In Entwürfen“ zu „Verrechnet“. Die Buchung zählt beim Filter als „mit Rechnung“.
 - **Andere Entwürfe:** Die Vorauswahl der Positionen zeigt „bereits in Rechnung 2026-0012“, die Abzüge der Schlussrechnung die Nummer.
 - **Einstellungen → Rechnungen:** Die Nummernvorschau zählt die neue Nummer mit, die Warnung beim Ändern des Nummernkreises greift.
 
@@ -180,7 +180,7 @@ Hat der Kunde eine ausgestellte Rechnung innerhalb der Aufbewahrungsfrist, läss
 - [x] Angenommen ein Häkchen ist gesetzt und der Fall ändert sich (etwa andere Nummer), wenn die Seite neu prüft, dann ist das Häkchen wieder leer
 
 ### Ausstellen
-- [x] Angenommen keine Sperre und alle Häkchen gesetzt, wenn der Inhaber „Rechnung ausstellen“ wählt, dann hat die Rechnung Nummer, Status „Ausgestellt“ und ein abgelegtes PDF ohne Aufdruck
+- [x] Angenommen keine Sperre und alle Häkchen gesetzt, wenn der Inhaber „Rechnung ausstellen“ wählt, dann hat die Rechnung Nummer, Status „ausgestellt“ und ein abgelegtes PDF ohne Aufdruck
 - [ ] Angenommen die PDF-Erzeugung oder Ablage scheitert, wenn ausgestellt wird, dann bleibt es ein Entwurf ohne Nummer, die Nummer bleibt frei, eine Meldung erscheint und ein neuer Versuch ist möglich
 - [x] Angenommen ein Doppelklick auf den Knopf, wenn ausgestellt wird, dann entsteht genau eine Rechnung
 - [x] Angenommen die Antwort geht unterwegs verloren, wenn der Inhaber es erneut versucht, dann entsteht keine zweite Rechnung und er landet bei der ausgestellten
@@ -200,7 +200,7 @@ Hat der Kunde eine ausgestellte Rechnung innerhalb der Aufbewahrungsfrist, läss
 - [x] Angenommen „Rechnungen nacherfassen“ ist ausgeschaltet, wenn der Korrekturhinweis erscheint, dann nennt er den Schalter
 - [x] Angenommen ein Mitarbeiter, wenn er die ausgestellte Rechnung öffnet, dann kann er das PDF öffnen und nichts ändern
 - [x] Angenommen ein Nutzer eines anderen Kunden, wenn er Rechnung oder PDF direkt aufruft, dann wird es abgelehnt
-- [x] Angenommen eine ausgestellte Rechnung, wenn die Rechnungsliste lädt, dann zeigt sie Nummer und Status „Ausgestellt“
+- [x] Angenommen eine ausgestellte Rechnung, wenn die Rechnungsliste lädt, dann zeigt sie Nummer und Status „ausgestellt“
 - [x] Angenommen ein Entwurf über € 500, wenn er ausgestellt ist, dann steigt „Verrechnet“ um € 500 und „In Entwürfen“ sinkt um € 500
 - [x] Angenommen eine Buchung mit ausgestellter Rechnung, wenn die Buchungsübersicht nach „mit Rechnung“ filtert, dann erscheint sie, mit Nummer als Link
 - [x] Angenommen eine ausgestellte Rechnung enthält eine Position, wenn ein neuer Entwurf zur Buchung entsteht, dann ist die Position abgewählt mit „bereits in Rechnung …“
@@ -346,7 +346,7 @@ Seite „Rechnung ausstellen“ (neu, /rechnungen/[id]/ausstellen)
 +-- PDF-Vorschau (besteht, PROJ-41), übernimmt Datum und Nummer
 
 Rechnungs-Detailseite (besteht, neue Darstellung für „ausgestellt“)
-+-- Status „Ausgestellt“, Datum und Person
++-- Status „ausgestellt“, Datum und Person
 +-- Angaben aus der festgeschriebenen Fassung
 +-- „PDF öffnen“
 +-- Korrekturhinweis
@@ -532,6 +532,15 @@ Keine neuen Pakete.
 - **Natürliche Ursache weiter offen:** 68 Runden Speichern, davon 32 unter Last, liefen ohne Fehler. Welcher der beiden Wege die Läufe in PROJ-15 traf, ist nicht belegt
 - **Behoben:** `callAction` wechselt selbst zum Ziel, wenn die Adresse nach 4 s unverändert ist (gilt für alle Aktionen mit Weiterleitung). „Entwurf speichern“ bleibt nach dem Erfolg gesperrt, damit kein zweiter Entwurf entsteht
 - **Tests:** `tests/PROJ-40-rechnungsdaten-sammeln.spec.ts`, „Weiterleitung nach dem Speichern“
+
+### Behebung (2026-11-05, alle sechs auf Wunsch des Nutzers)
+Migration `20261105165825_invoice_issue_qa_fixes.sql`, nur in Dev. QA Runde 2 steht aus.
+- **BUG-1:** Der Schutz lässt an Positionen nur noch das Lösen der Verbindung zu entfernten Zusatzkosten zu. Bezeichnung, Betrag und alle anderen Werte bleiben geschützt
+- **BUG-2:** Nummern mit unsichtbaren Zeichen oder Zeilenumbrüchen werden abgelehnt: auf der Seite als Sperre, in `issue_invoice` als Absicherung. Gilt nur fürs Ausstellen, nicht fürs Nacherfassen
+- **BUG-3:** Nur die Folge ist behoben, **die Ursache der langen Antwortzeiten ist weiter unbekannt.** Der Knopf gibt nach 65 s auf und meldet das mit „Seite neu laden“; die Schnittstelle darf bis 60 s laufen. Ein erneuter Versuch stellt keine zweite Rechnung aus. Auf Staging beobachten
+- **BUG-4:** Ist der Vorschlag vergeben, rückt die Seite selbst zur nächsten freien Nummer weiter
+- **BUG-5:** Hinweise tragen `role="note"` statt `alert`; „Datum auf heute setzen“ steht nur noch am Datumsfeld. Schreibweise: Die Spec sagt jetzt „ausgestellt“, passend zu „nacherfasst“ und „Entwurf“; die Oberfläche bleibt
+- **BUG-6:** Teilweise behoben: Höchstens 3 PDF-Arbeitsprozesse je Server-Instanz, 12 warten, darüber hinaus wird abgelehnt. Das schützt den Speicher, gilt für alle PDF-Erzeugungen (auch Briefpapier), ist aber **keine Grenze je Person** und nicht instanzübergreifend. Das bräuchte einen eigenen Dienst
 
 ### Tests
 - **Vitest (in Paketen, nacheinander):** 676 Unit grün; Integration 256, davon 254 grün und 2 als bekannte Fehler markiert (BUG-1, BUG-2)

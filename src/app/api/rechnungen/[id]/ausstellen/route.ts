@@ -22,6 +22,9 @@ const schema = z.object({
   acks: z.array(z.string().max(250)).max(10),
 })
 
+// PDF, Ablage und Festschreiben dürfen länger dauern als die Standardgrenze
+export const maxDuration = 60
+
 export type IssueResponse =
   | { ok: true; id: string }
   | { ok: false; error: 'sessionExpired' | 'forbidden' | 'invalid' | 'conflict' | 'blocked' | 'numberTaken' | 'pdfFailed' | 'unknown'; takenNumber?: string }

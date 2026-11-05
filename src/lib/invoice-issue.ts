@@ -11,6 +11,9 @@ export const ISSUE_MIN_DATE = '1990-01-01'
 
 export const isIssueDate = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value) && value >= ISSUE_MIN_DATE
 
+// Unsichtbare Zeichen (etwa aus kopiertem Text): Das PDF zeigt sie nicht, zwei Rechnungen sähen gleich aus. Regel auch in issue_invoice
+const HIDDEN_CHARS = /[\u0001-\u001f\u007f-\u009f\u00ad\u061c\u200b-\u200f\u202a-\u202e\u2060-\u206f\ufeff]/
+
 export type NumberedInvoice = { number: string; invoiceDate: string }
 
 export type NumberClass =
@@ -26,7 +29,7 @@ export type NumberClass =
 // Einordnung einer eingegebenen Nummer. „Vergeben“ vergleicht wie die Datenbank ohne Groß-/Kleinschreibung und Rand-Leerzeichen.
 export function classifyInvoiceNumber(s: NumberingSettings, existing: readonly string[], rawNumber: string, invoiceDate: string): NumberClass {
   const number = rawNumber.trim()
-  if (!number || number.length > INVOICE_LIMITS.numberMax) return { kind: 'invalid' }
+  if (!number || number.length > INVOICE_LIMITS.numberMax || HIDDEN_CHARS.test(number)) return { kind: 'invalid' }
   const key = invoiceNumberKey(number)
   if (existing.some((n) => invoiceNumberKey(n) === key)) return { kind: 'taken' }
   const proposal = nextInvoiceNumber(s, existing, invoiceDate).number

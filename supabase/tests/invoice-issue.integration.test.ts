@@ -374,8 +374,7 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-42 Rechnung ausstellen', () => {
   })
 
   describe('QA: Zusammenspiel mit anderen Funktionen', () => {
-    // BUG-1: Der Fremdschlüssel setzt source_charge_id zurück, das lehnt der Schutz ausgestellter Rechnungen ab (P0932)
-    it.fails('BUG-1: Buchung: eine Zusatzkosten-Position entfernen, die in einer ausgestellten Rechnung steht', async () => {
+    it('BUG-1: Buchung: eine Zusatzkosten-Position entfernen, die in einer ausgestellten Rechnung steht', async () => {
       const booking = await newBooking()
       const { data: b } = await service.from('bookings').select('*').eq('id', booking).single()
       const save = (charges: unknown[], updatedAt: string) =>
@@ -408,6 +407,8 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-42 Rechnung ausstellen', () => {
       expect(removed.error).toBeNull()
       const { data: lines } = await service.from('invoice_lines').select('label, amount_cents').eq('invoice_id', id).order('position')
       expect(lines).toEqual([{ label: 'Übernachtung', amount_cents: 90000 }, { label: 'Reinigung', amount_cents: 10000 }])
+      // Nur die Verbindung darf sich so lösen, nicht andere Spalten
+      expect((await service.from('invoice_lines').update({ label: 'Anders', source_charge_id: null }).eq('invoice_id', id).eq('label', 'Reinigung')).error?.code).toBe('P0932')
     })
 
     it('Textbaustein löschen, aus dem eine ausgestellte Rechnung stammt', async () => {
@@ -460,12 +461,12 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-42 Rechnung ausstellen', () => {
       expect((await ownerB.from('invoices').select('id').eq('id', id).maybeSingle()).data).toBeNull()
     })
 
-    it.fails('BUG-2: Nummern mit unsichtbarem Zeichen oder Zeilenumbruch gelten nicht als andere Nummer', async () => {
+    it('BUG-2: Nummern mit unsichtbarem Zeichen oder Zeilenumbruch werden abgelehnt', async () => {
       const number = `Z-${runId}`
       await issued(undefined, {}, { number })
       const id = await newDraft(await newBooking())
       const { error } = await issue(id, { number: `${number}\u200b` })
-      expect(error?.code).toBe('P0904')
+      expect(error?.code).toBe('22023')
       const other = await newDraft(await newBooking())
       expect((await issue(other, { number: `Z\n${runId}` })).error?.code).toBe('22023')
     })

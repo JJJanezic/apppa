@@ -29,6 +29,8 @@ interface IssueFormProps {
 }
 
 const PREVIEW_URL = '/api/rechnungen/vorschau'
+// Über der längsten Dauer der Schnittstelle: Danach ist die Antwort verloren, nicht unterwegs (BUG-3)
+const ISSUE_TIMEOUT_MS = 65_000
 const LINK = 'flex min-h-11 w-fit items-center text-sm text-ds-accent-700 underline underline-offset-[3px] sm:min-h-0'
 
 // Seite „Rechnung ausstellen“ (PROJ-42): Datum, Nummer, Prüfungen und Häkchen neben der PDF-Vorschau. Datum und Nummer gelten
@@ -42,7 +44,7 @@ export function IssueForm({ id, updatedAt, initialDate, today, numbering, number
   const [taken, setTaken] = useState<string[]>([])
   const [acked, setAcked] = useState<ReadonlySet<string>>(new Set())
   const [pending, setPending] = useState(false)
-  const [error, setError] = useState<Exclude<IssueResponse, { ok: true }>['error'] | 'network' | null>(null)
+  const [error, setError] = useState<Exclude<IssueResponse, { ok: true }>['error'] | 'network' | 'timeout' | null>(null)
   const dateRef = useRef<HTMLInputElement>(null)
   const numberRef = useRef<HTMLInputElement>(null)
 
@@ -65,6 +67,12 @@ export function IssueForm({ id, updatedAt, initialDate, today, numbering, number
   const current = checks !== null && checks.invoiceDate === date && checks.number === number.trim() && !state.loading && !state.failed
   const canIssue = current && dateValid && !pending && issueAllowed(checks, acked)
 
+  // Der Vorschlag wurde inzwischen von jemand anderem vergeben: nächste freie Nummer vorschlagen (BUG-4)
+  const takenProposal = typed === null && checks?.blocks.some((b) => b.key === 'numberTaken' && b.number === proposal) ? proposal : null
+  useEffect(() => {
+    if (takenProposal) setTaken((prev) => [...prev, takenProposal])
+  }, [takenProposal])
+
   function toggle(ackId: string, on: boolean) {
     setAcked((prev) => {
       const next = new Set(prev)
@@ -84,11 +92,12 @@ export function IssueForm({ id, updatedAt, initialDate, today, numbering, number
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ invoiceDate: date, number: number.trim(), updatedAt, acks: checks.acks.filter((a) => acked.has(a.id)).map((a) => a.id) }),
+        signal: AbortSignal.timeout(ISSUE_TIMEOUT_MS),
       })
       result = (await res.json()) as IssueResponse
-    } catch {
+    } catch (e) {
       setPending(false)
-      setError('network')
+      setError(e instanceof DOMException && e.name === 'TimeoutError' ? 'timeout' : 'network')
       return
     }
     if (result.ok) {
@@ -160,8 +169,8 @@ export function IssueForm({ id, updatedAt, initialDate, today, numbering, number
           </div>
 
           <div aria-live="polite" className="flex flex-col gap-3">
-            {checks?.blocks.map((b, i) => <BlockItem key={i} block={b} id={id} onToday={() => setDate(today)} />)}
-            {checks?.notes.map((n, i) => <NoteItem key={i} note={n} onToday={() => setDate(today)} />)}
+            {checks?.blocks.map((b, i) => <BlockItem key={i} block={b} id={id} />)}
+            {checks?.notes.map((n, i) => <NoteItem key={i} note={n} />)}
             {checks && checks.blocks.length === 0 && checks.notes.length === 0 && checks.acks.length === 0 && <p className="text-sm text-ds-neutral-800">{t('allOk')}</p>}
           </div>
           {checks && checks.acks.length > 0 && (
@@ -197,7 +206,7 @@ export function IssueForm({ id, updatedAt, initialDate, today, numbering, number
   )
 }
 
-function BlockItem({ block, id, onToday }: { block: IssueBlock; id: string; onToday: () => void }) {
+function BlockItem({ block, id }: { block: IssueBlock; id: string }) {
   const t = useTranslations('invoiceIssue.blocks')
   const tr = useTranslations('invoiceDrafts.required')
   const links = (): React.ReactNode => {
@@ -205,12 +214,6 @@ function BlockItem({ block, id, onToday }: { block: IssueBlock; id: string; onTo
       case 'required':
         if (block.check.settings) return <Link href="/einstellungen/stammdaten" className={LINK}>{t('toMasterData')}</Link>
         return block.check.field ? <Link href={`${invoiceEditHref(id)}#${block.check.field}`} className={LINK}>{t('toDraft')}</Link> : null
-      case 'futureDate':
-        return (
-          <Button type="button" variant="link" className="min-h-11 w-fit p-0 text-ds-accent-700 sm:min-h-0" onClick={onToday}>
-            {t('toToday')}
-          </Button>
-        )
       case 'deductionDraft':
         return <Link href={invoiceHref(block.id)} className={LINK}>{t('toPartial')}</Link>
       case 'deductionRemoved':
@@ -233,7 +236,7 @@ function BlockItem({ block, id, onToday }: { block: IssueBlock; id: string; onTo
   const text =
     block.key === 'required' ? tr(`${block.check.key}.error` as never) : block.key === 'numberTaken' ? t('numberTaken', { number: block.number }) : block.key === 'missingChars' ? t('missingChars', { chars: block.chars }) : t(block.key)
   return (
-    <Alert className="border-ds-accent-2-700/40 bg-ds-accent-2-100 text-ds-accent-2-800">
+    <Alert role="note" className="border-ds-accent-2-700/40 bg-ds-accent-2-100 text-ds-accent-2-800">
       <Prohibit size={18} weight="duotone" aria-hidden="true" />
       <AlertDescription className="flex flex-col items-start gap-1">
         {text}
@@ -243,20 +246,12 @@ function BlockItem({ block, id, onToday }: { block: IssueBlock; id: string; onTo
   )
 }
 
-function NoteItem({ note, onToday }: { note: IssueNote; onToday: () => void }) {
+function NoteItem({ note }: { note: IssueNote }) {
   const t = useTranslations('invoiceIssue.notes')
-  const dated = note.key === 'dateLater' || note.key === 'dateEarlier'
   return (
-    <Alert className="border-ds-neutral-400 bg-ds-surface">
+    <Alert role="note" className="border-ds-neutral-400 bg-ds-surface">
       <Info size={18} weight="duotone" aria-hidden="true" />
-      <AlertDescription className="flex flex-col items-start gap-1">
-        {dated ? t(note.key, { number: note.number, date: formatDatePlain(note.date) }) : t(note.key)}
-        {dated && (
-          <Button type="button" variant="link" className="min-h-11 w-fit p-0 text-ds-accent-700 sm:min-h-0" onClick={onToday}>
-            {t('toToday')}
-          </Button>
-        )}
-      </AlertDescription>
+      <AlertDescription>{note.key === 'dateLater' || note.key === 'dateEarlier' ? t(note.key, { number: note.number, date: formatDatePlain(note.date) }) : t(note.key)}</AlertDescription>
     </Alert>
   )
 }
@@ -287,7 +282,7 @@ function IssueError({ error }: { error: string }) {
       <WarningCircle size={18} weight="duotone" aria-hidden="true" />
       <AlertDescription className="flex flex-col items-start gap-3">
         {t(error as never)}
-        {error === 'conflict' && (
+        {(error === 'conflict' || error === 'timeout') && (
           <Button type="button" variant="outline" className="min-h-11" onClick={() => window.location.reload()}>
             {t('reload')}
           </Button>

@@ -24,6 +24,10 @@ describe('classifyInvoiceNumber', () => {
     expect(cls('  ').kind).toBe('invalid')
     expect(cls('x'.repeat(31)).kind).toBe('invalid')
   })
+  it('BUG-2: unsichtbare Zeichen und Zeilenumbrüche', () => {
+    for (const n of ['2026-0041\u200b', '2026\u00ad-0041', 'Z\n1', 'Z\ufeff1', 'Z\t1']) expect(cls(n).kind, JSON.stringify(n)).toBe('invalid')
+    expect(cls(' Ä/ß-1 ').kind).toBe('otherFormat')
+  })
   it('das Jahr des Datums bestimmt bei „jährlich neu“ den Vorschlag', () => expect(cls('2025-0119', '2025-12-30').kind).toBe('proposal'))
   it('Nummernkreis ohne Jahr', () => {
     const plain = { ...s, withYear: false, yearlyReset: false, prefix: 'R' }

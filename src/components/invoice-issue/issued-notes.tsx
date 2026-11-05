@@ -18,7 +18,7 @@ export async function IssuedNotes({ done, owner }: { done: boolean; owner: boole
           <AlertDescription>{t('issuedDone')}</AlertDescription>
         </Alert>
       )}
-      <Alert className="border-ds-neutral-400 bg-ds-surface">
+      <Alert role="note" className="border-ds-neutral-400 bg-ds-surface">
         <Info size={18} weight="duotone" aria-hidden="true" />
         <AlertDescription className="flex flex-col items-start gap-1">
           <span className="font-medium">{t('correctionTitle')}</span>

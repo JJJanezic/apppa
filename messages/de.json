@@ -2236,7 +2236,7 @@
     "submitting": "Rechnung wird ausgestellt …",
     "blocks": {
       "futureDate": "Das Rechnungsdatum liegt in der Zukunft. Stelle die Rechnung an diesem Tag aus oder ändere das Datum.",
-      "numberInvalid": "Bitte gib eine Rechnungsnummer mit höchstens 30 Zeichen ein.",
+      "numberInvalid": "Bitte gib eine Rechnungsnummer mit höchstens 30 Zeichen und ohne unsichtbare Zeichen oder Zeilenumbrüche ein.",
       "numberTaken": "Die Nummer {number} ist schon vergeben.",
       "deductionDraft": "Die abgezogene Teilrechnung ist noch ein Entwurf. Stelle zuerst die Teilrechnung aus.",
       "deductionRemoved": "Eine abgezogene Rechnung existiert nicht mehr. Speichere den Entwurf neu, damit der Abzug stimmt.",
@@ -2244,7 +2244,6 @@
       "missingChars": "Diese Zeichen kann die Schrift nicht darstellen: {chars}. Ändere den Text oder wähle eine andere Schrift.",
       "issuerOverflow": "Der Aussteller-Block passt auch in der kleinsten Schrift nicht in den Kopf der Rechnung.",
       "footerCut": "Die Fußzeile ist zu lang und würde gekürzt. Kürze sie, damit alle Angaben auf der Rechnung stehen.",
-      "toToday": "Datum auf heute setzen",
       "toDraft": "Zum Entwurf",
       "toPartial": "Zur Teilrechnung",
       "toMasterData": "Zu den Stammdaten",
@@ -2269,8 +2268,7 @@
       "overBilled": "Mit dieser Rechnung liegt die verrechnete Summe über dem Gesamtpreis der Buchung.",
       "totalNotPositive": "Der Rechnungsbetrag ist 0 oder negativ.",
       "logoBlurry": "Das Logo könnte im Druck unscharf wirken.",
-      "smallBusinessDiffers": "Der Kleinunternehmer-Status der abgezogenen Rechnung weicht von dieser Rechnung ab. Kläre das im Zweifel mit der Steuerberatung.",
-      "toToday": "Datum auf heute setzen"
+      "smallBusinessDiffers": "Der Kleinunternehmer-Status der abgezogenen Rechnung weicht von dieser Rechnung ab. Kläre das im Zweifel mit der Steuerberatung."
     },
     "errors": {
       "forbidden": "Nur Inhaber können Rechnungen ausstellen.",
@@ -2282,7 +2280,8 @@
       "pdfFailed": "Das PDF konnte nicht erzeugt werden. Die Rechnung wurde nicht ausgestellt, bitte versuche es noch einmal.",
       "unknown": "Das hat nicht geklappt. Die Rechnung wurde nicht ausgestellt, bitte versuche es noch einmal.",
       "network": "Keine Verbindung. Bitte versuche es noch einmal und prüfe danach, ob die Rechnung schon ausgestellt ist.",
-      "sessionExpired": "Deine Sitzung ist abgelaufen."
+      "sessionExpired": "Deine Sitzung ist abgelaufen.",
+      "timeout": "Das dauert ungewöhnlich lange. Lade die Seite neu: Wurde die Rechnung inzwischen ausgestellt, erscheint sie direkt, sonst kannst du es noch einmal versuchen."
     },
     "detail": {
       "issuedDone": "Die Rechnung wurde ausgestellt.",

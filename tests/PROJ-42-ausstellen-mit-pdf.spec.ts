@@ -565,6 +565,59 @@ test.describe('Seite „Rechnung ausstellen“', () => {
     await expect(page.getByRole('link', { name: 'Zu den Rechnungseinstellungen' })).toBeVisible()
   })
 
+  test('BUG-4: Vorschlag inzwischen vergeben: nach einer Änderung erscheint die nächste freie Nummer', async ({ page, users }) => {
+    desktopOnly()
+    const s = await setup(users)
+    const id = await addDraft(s.owner, s.tenantId, s.bookingId)
+    await signInAs(page, s.owner)
+    await open(page, id)
+    const number = page.getByLabel('Rechnungsnummer')
+    await expect(number).toHaveValue('2026-0001')
+    await addBackfilled(s.owner, s.tenantId, '2026-0001', '2026-01-02')
+    await page.getByLabel('Rechnungsdatum').fill('2026-10-21')
+    await expect(number).toHaveValue('2026-0002', { timeout: 20_000 })
+    await expect(submit(page)).toBeEnabled({ timeout: 20_000 })
+  })
+
+  test('BUG-3: Antwort bleibt aus: Meldung mit „Seite neu laden“; nichts bleibt gesperrt', async ({ page, users }) => {
+    desktopOnly()
+    const s = await setup(users)
+    const id = await addDraft(s.owner, s.tenantId, s.bookingId)
+    await signInAs(page, s.owner)
+    await open(page, id)
+    await expect(submit(page)).toBeEnabled()
+    await page.evaluate(() => {
+      // Zeitgrenze des Knopfs verkürzen statt eine Minute zu warten
+      const orig = AbortSignal.timeout.bind(AbortSignal)
+      AbortSignal.timeout = () => orig(300)
+    })
+    await page.route('**/ausstellen', async (route) => {
+      if (route.request().method() !== 'POST') return route.continue()
+      await new Promise((r) => setTimeout(r, 3000))
+      await route.abort().catch(() => {})
+    })
+    await submit(page).click()
+    await expect(page.getByRole('alert').filter({ hasText: 'ungewöhnlich lange' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Seite neu laden' })).toBeVisible()
+    await expect(submit(page)).toBeEnabled()
+  })
+
+  test('BUG-5: Hinweise sind keine Alarme; „Datum auf heute setzen“ nur einmal', async ({ page, users }) => {
+    desktopOnly()
+    const s = await setup(users)
+    await addBackfilled(s.owner, s.tenantId, '2026-0050', '2026-10-25')
+    const id = await addDraft(s.owner, s.tenantId, s.bookingId)
+    await signInAs(page, s.owner)
+    await open(page, id)
+    await expect(page.getByText(/trägt ein späteres Datum/)).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Datum auf heute setzen' })).toHaveCount(1)
+    await expect(page.getByRole('alert').filter({ hasText: 'späteres Datum' })).toHaveCount(0)
+    await submit(page).click()
+    await expect(page).toHaveURL(/ausgestellt=1/, { timeout: 30_000 })
+    await expect(page.getByText('Rechnung falsch?')).toBeVisible({ timeout: 20_000 })
+    await expect(page.getByRole('alert').filter({ hasText: 'Rechnung falsch?' })).toHaveCount(0)
+  })
+
   test('Layout: Ausstellen mit Sperren und Häkchen, Detailseite: ohne seitliches Scrollen, keine WCAG-2.1-AA-Verstöße', async ({ page, users }) => {
     const s = await setup(users, { kind: 'option' })
     await addBackfilled(s.owner, s.tenantId, '2026-0050', '2026-10-25')
