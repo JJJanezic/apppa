@@ -48,9 +48,8 @@ npm run db:types            # src/types/database.ts neu erzeugen
 npx supabase migration list # lokal und remote müssen übereinstimmen
 ```
 
-Danach `npx supabase db advisors --linked` ausführen: Das Ergebnis muss leer sein. Bekannt und akzeptiert (Stand 2026-10-25), beides Auth-Einstellungen und nicht die Datenbank:
+Danach `npx supabase db advisors --linked` ausführen: Das Ergebnis muss leer sein. Bekannt und akzeptiert (Stand 2026-11-05), eine Auth-Einstellung und nicht die Datenbank:
 - `auth_otp_long_expiry` in allen Projekten. Mail-Links gelten bewusst 24 Stunden (`otp_expiry = 86400`).
-- `auth_leaked_password_protection` in Dev und Staging. Die Prüfung ist bisher nur in Produktion eingeschaltet (Abschnitt 5, Punkt 7). Seit alle Projekte im Pro-Tarif sind, ließe sie sich auch in Dev und Staging einschalten (Dashboard, nicht über `config.toml`).
 
 Jeder andere Hinweis stoppt das Ausliefern.
 
@@ -103,7 +102,7 @@ Stand 2026-10-24: Beide Projekte sind angelegt, alle Migrationen eingespielt, Ad
 4. `config push` mit den SMTP-Variablen (Abschnitt 8). Ohne ihn bleiben die Mails englisch und die Links zeigen auf localhost
 5. Ersten Admin wie in Abschnitt 4 einrichten
 6. In Vercel die Variablen aus `.env.local.example` mit den Werten des Projekts setzen: Produktion im Vercel-Projekt `apppa` unter *Production*, Staging im eigenen Vercel-Projekt `apppa-staging` unter *Production* (Produktions-Branch `staging`). Dev-Werte in `apppa` unter *Preview*. Grund: Der Gratis-Tarif erlaubt keine Variablen je Branch. In `apppa-staging` unter *Settings → Build and Deployment → Ignored Build Step* „Only build production“ wählen. Sonst baut das Projekt bei jedem Push auch Previews ohne Variablen, und die scheitern
-7. **Nur Produktion:** *Authentication → Sign In / Providers → Email*: „Prevent use of leaked passwords“ einschalten. `config.toml` kennt diese Einstellung nicht, deshalb nach jedem `config push` in Produktion prüfen, ob sie noch an ist. *Database → Settings*: „Enforce SSL“ einschalten. *Authentication → Sessions*: „Time-box user sessions“ 30 Tage und „Inactivity timeout“ 8 Stunden (Pro-Tarif; zusätzlich zur Prüfung in der App). Backups siehe Abschnitt 6
+7. **In allen Projekten** (seit 2026-11-05 auch in Dev und Staging an): *Authentication → Sign In / Providers → Email*: „Prevent use of leaked passwords“ einschalten. `config.toml` kennt diese Einstellung nicht, deshalb nach jedem `config push` prüfen, ob sie noch an ist; `db advisors` meldet sonst `auth_leaked_password_protection`. **Nur Produktion:** *Database → Settings*: „Enforce SSL“ einschalten. *Authentication → Sessions*: „Time-box user sessions“ 30 Tage und „Inactivity timeout“ 8 Stunden (Pro-Tarif; zusätzlich zur Prüfung in der App). Backups siehe Abschnitt 6
 8. Danach wieder mit der Entwicklung verbinden: `npx supabase link --project-ref nizgfmvjplhegoosanmu`
 
 **`npm test` nie gegen Staging oder Produktion laufen lassen.** Die Integrationstests legen Nutzer und Mandanten an und löschen sie wieder (Abschnitt 7).

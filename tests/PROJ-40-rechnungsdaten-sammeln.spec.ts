@@ -1141,9 +1141,9 @@ test.describe('QA Editor-Erweiterung (PROJ-39)', () => {
     await expect(box).toHaveCSS('font-family', /Tinos/)
     await expect(box).toHaveCSS('text-align', 'justify')
     await expect(intro(page).getByRole('textbox', { name: 'Schriftgröße in pt' })).toHaveValue('12')
+    // Die Vorschau ist ein PDF (PROJ-41): Die Schrift des Textes steckt in der Datei
+    const pdfResponse = page.waitForResponse('**/api/rechnungen/vorschau')
     await page.getByRole('button', { name: 'Vorschau' }).click()
-    const shown = page.getByRole('article', { name: 'Rechnungsvorschau' }).locator('div.break-words').filter({ hasText: 'danke' })
-    await expect(shown).toHaveCSS('font-family', /Tinos/)
-    await expect(shown).toHaveCSS('text-align', 'justify')
+    expect((await (await pdfResponse).body()).toString('latin1')).toMatch(/Tinos/)
   })
 })

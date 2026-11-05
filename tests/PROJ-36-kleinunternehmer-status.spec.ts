@@ -287,7 +287,7 @@ test.describe('Formular', () => {
     await page.getByRole('button', { name: 'Wechsel hinzufügen' }).click()
     const list = page.getByRole('list', { name: 'Wechsel des Umsatzsteuer-Status' })
     await list.getByLabel('ab', { exact: true }).fill('2026-03-01')
-    await page.getByRole('button', { name: 'Speichern', exact: true }).click()
+    await page.getByRole('button', { name: 'Speichern', exact: true }).first().click()
     await expect(page.getByText('Kundendaten gespeichert.')).toBeVisible()
     // Staat war leer und ist im Formular mit Österreich vorbelegt → wird mitgespeichert
     await expect(page.getByRole('listitem').filter({ hasText: 'Stammdaten geändert: Staat, Umsatzsteuer-Status' })).toBeVisible()

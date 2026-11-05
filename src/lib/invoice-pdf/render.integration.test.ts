@@ -107,4 +107,25 @@ describe('PDF-Arbeitsprozess', () => {
     expect(raw).toMatch(/Tinos/)
     expect(raw).toMatch(/Carlito/)
   })
+
+  // Bekannte Fehler aus der QA (BUG-1, BUG-2): it.fails kippt auf rot, sobald sie behoben sind; dann it daraus machen
+  async function rightEdge(pdf: Uint8Array, needle: string): Promise<number> {
+    const page = await (await getDocument({ data: pdf.slice() }).promise).getPage(1)
+    const content = await page.getTextContent()
+    return Math.max(...content.items.filter((i) => 'str' in i && i.str.includes(needle)).map((i) => ('str' in i ? i.transform[4] + i.width : 0)))
+  }
+  const PAGE_RIGHT_PT = 595.28 - (20 * 72) / 25.4
+
+  it.fails('BUG-1: langes Wort ohne Leerzeichen bleibt innerhalb des Seitenrands', async () => {
+    const word = 'A'.repeat(180)
+    const r = await render(view({ intro: docFromText(word) }))
+    expect(await rightEdge(r.pdf, 'AAAA')).toBeLessThanOrEqual(PAGE_RIGHT_PT + 1)
+  })
+
+  it.fails('BUG-2: langer Firmenname im Aussteller-Block wird umgebrochen statt abgeschnitten', async () => {
+    const name = 'Sehr lange Firma mit ausführlichem Namen und noch mehr Worten Gesellschaft mit beschränkter Haftung und Co KG'
+    const logo = new Uint8Array(Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAEBgIApD5fRAAAAABJRU5ErkJggg==', 'base64'))
+    const r = await render(view({ logo: { data: logo, widthMm: 25, heightMm: 25 }, issuer: [{ text: name, bold: true }] }))
+    expect(await rightEdge(r.pdf, 'Sehr lange Firma')).toBeLessThanOrEqual(PAGE_RIGHT_PT + 1)
+  })
 })

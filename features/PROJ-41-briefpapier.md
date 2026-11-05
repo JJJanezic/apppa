@@ -1,6 +1,6 @@
 # PROJ-41: Briefpapier
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-11-04
 **Last Updated:** 2026-11-04
 
@@ -109,77 +109,77 @@ Ist der Aussteller-Block abgeschaltet, erscheint im Formular dauerhaft der Hinwe
 ## Acceptance Criteria
 
 ### Reiter und Zugang
-- [ ] Angenommen ein Inhaber öffnet die Einstellungen, wenn die Reiter laden, dann lautet die Reihenfolge Stammdaten, Team, Wohnungen, Briefpapier, Rechnungen
-- [ ] Angenommen ein Handy mit 375 px Breite, wenn die Reiter laden, dann lassen sich alle fünf Reiter erreichen, ohne dass die Seite seitlich scrollt
-- [ ] Angenommen ein Mitarbeiter ruft `/einstellungen/briefpapier` auf, wenn die Seite lädt, dann erhält er „Seite nicht gefunden“
-- [ ] Angenommen ein Mitarbeiter sendet eine Änderung des Briefpapiers direkt an den Server, wenn die Anfrage ankommt, dann wird sie abgelehnt
-- [ ] Angenommen ein Inhaber sendet eine Änderung für einen anderen Kunden an den Server, wenn die Anfrage ankommt, dann wird sie abgelehnt
+- [x] Angenommen ein Inhaber öffnet die Einstellungen, wenn die Reiter laden, dann lautet die Reihenfolge Stammdaten, Team, Wohnungen, Briefpapier, Rechnungen
+- [x] Angenommen ein Handy mit 375 px Breite, wenn die Reiter laden, dann lassen sich alle fünf Reiter erreichen, ohne dass die Seite seitlich scrollt
+- [x] Angenommen ein Mitarbeiter ruft `/einstellungen/briefpapier` auf, wenn die Seite lädt, dann erhält er „Seite nicht gefunden“
+- [x] Angenommen ein Mitarbeiter sendet eine Änderung des Briefpapiers direkt an den Server, wenn die Anfrage ankommt, dann wird sie abgelehnt
+- [x] Angenommen ein Inhaber sendet eine Änderung für einen anderen Kunden an den Server, wenn die Anfrage ankommt, dann wird sie abgelehnt
 
 ### Standardwerte
-- [ ] Angenommen ein Kunde hat nichts eingestellt, wenn der Reiter lädt, dann stehen dort Carlito, 11 pt, Abstände „normal“, Logo links, 25 mm und Aussteller-Block sichtbar
-- [ ] Angenommen ein bestehender Kunde mit Entwürfen, wenn PROJ-41 live geht, dann bleiben alle Entwürfe erhalten und erscheinen ohne Nacharbeit mit den Standardwerten
-- [ ] Angenommen geänderte Werte, wenn der Inhaber „Auf Standard zurücksetzen“ wählt, dann zeigen Formular und Vorschau die Standardwerte und gespeichert wird erst mit „Speichern“
+- [x] Angenommen ein Kunde hat nichts eingestellt, wenn der Reiter lädt, dann stehen dort Carlito, 11 pt, Abstände „normal“, Logo links, 25 mm und Aussteller-Block sichtbar
+- [x] Angenommen ein bestehender Kunde mit Entwürfen, wenn PROJ-41 live geht, dann bleiben alle Entwürfe erhalten und erscheinen ohne Nacharbeit mit den Standardwerten
+- [x] Angenommen geänderte Werte, wenn der Inhaber „Auf Standard zurücksetzen“ wählt, dann zeigen Formular und Vorschau die Standardwerte und gespeichert wird erst mit „Speichern“
 
 ### Einstellen und Speichern
-- [ ] Angenommen ein Inhaber wählt eine der sechs Schriften, wenn die Vorschau sich aktualisiert hat, dann erscheinen alle Texte auf „Standard“ und alle Rechnungsbereiche ohne eigene Textformatierung in dieser Schrift
-- [ ] Angenommen eine Schriftgröße unter 8 pt, über 14 pt oder außerhalb der 0,5er-Schritte, wenn gespeichert wird, dann erscheint eine Fehlermeldung mit dem erlaubten Bereich und nichts wird gespeichert
-- [ ] Angenommen eine Logo-Höhe unter 10 mm, über 35 mm oder mit Nachkommastellen, wenn gespeichert wird, dann erscheint eine Fehlermeldung mit dem erlaubten Bereich und nichts wird gespeichert
-- [ ] Angenommen ein Inhaber wählt für Zeilen- oder Absatzabstand „eng“ oder „weit“, wenn die Vorschau sich aktualisiert hat, dann ist der jeweilige Abstand sichtbar kleiner bzw. größer als bei „normal“
-- [ ] Angenommen ein Text hat in PROJ-39 eine eigene Schrift, Größe oder Ausrichtung, wenn die Grundwerte geändert werden, dann behält dieser Text seine eigenen Einstellungen
-- [ ] Angenommen ungespeicherte Änderungen, wenn der Nutzer die Seite verlässt, dann erscheint eine Rückfrage
-- [ ] Angenommen gültige Werte, wenn der Inhaber speichert, dann sind sie nach dem Neuladen unverändert da
-- [ ] Angenommen Inhaber und Betreiber haben das Briefpapier geöffnet und einer hat gespeichert, wenn der andere speichert, dann erhält er den Hinweis „Die Einstellungen wurden inzwischen geändert“ mit „Aktuelle Fassung laden“ und seine Änderung wird nicht gespeichert
-- [ ] Angenommen der Server ist nicht erreichbar, wenn gespeichert wird, dann erscheint eine Fehlermeldung und die Eingaben bleiben erhalten
+- [x] Angenommen ein Inhaber wählt eine der sechs Schriften, wenn die Vorschau sich aktualisiert hat, dann erscheinen alle Texte auf „Standard“ und alle Rechnungsbereiche ohne eigene Textformatierung in dieser Schrift
+- [x] Angenommen eine Schriftgröße unter 8 pt, über 14 pt oder außerhalb der 0,5er-Schritte, wenn gespeichert wird, dann erscheint eine Fehlermeldung mit dem erlaubten Bereich und nichts wird gespeichert
+- [x] Angenommen eine Logo-Höhe unter 10 mm, über 35 mm oder mit Nachkommastellen, wenn gespeichert wird, dann erscheint eine Fehlermeldung mit dem erlaubten Bereich und nichts wird gespeichert
+- [x] Angenommen ein Inhaber wählt für Zeilen- oder Absatzabstand „eng“ oder „weit“, wenn die Vorschau sich aktualisiert hat, dann ist der jeweilige Abstand sichtbar kleiner bzw. größer als bei „normal“
+- [x] Angenommen ein Text hat in PROJ-39 eine eigene Schrift, Größe oder Ausrichtung, wenn die Grundwerte geändert werden, dann behält dieser Text seine eigenen Einstellungen
+- [x] Angenommen ungespeicherte Änderungen, wenn der Nutzer die Seite verlässt, dann erscheint eine Rückfrage
+- [x] Angenommen gültige Werte, wenn der Inhaber speichert, dann sind sie nach dem Neuladen unverändert da
+- [x] Angenommen Inhaber und Betreiber haben das Briefpapier geöffnet und einer hat gespeichert, wenn der andere speichert, dann erhält er den Hinweis „Die Einstellungen wurden inzwischen geändert“ mit „Aktuelle Fassung laden“ und seine Änderung wird nicht gespeichert
+- [x] Angenommen der Server ist nicht erreichbar, wenn gespeichert wird, dann erscheint eine Fehlermeldung und die Eingaben bleiben erhalten
 
 ### Logo und Kopf
-- [ ] Angenommen ein Logo ist vorhanden, wenn die Position links, rechts oder mittig gewählt wird, dann stehen Logo und Aussteller-Block wie in der Tabelle „Kopf“ festgelegt
-- [ ] Angenommen das Logo steht mittig und der Aussteller-Block ist sichtbar, wenn die Vorschau erscheint, dann steht der Block zweizeilig zentriert unter dem Logo und ein Logo mit 25 mm Höhe wird nicht verkleinert
-- [ ] Angenommen eine Logo-Höhe zwischen 10 und 35 mm, wenn genügend Platz ist, dann hat das Logo genau diese Höhe, sein Seitenverhältnis bleibt erhalten
-- [ ] Angenommen ein Logo und ein Aussteller-Block passen zusammen nicht in den Kopf, wenn die Vorschau erscheint, dann ragt nichts in das Adressfeld, das Logo ist verkleinert und das Formular nennt das in einem Hinweis
-- [ ] Angenommen ein Kunde ohne Logo, wenn der Reiter lädt, dann sind Position und Höhe nicht wählbar, und ein Hinweis verlinkt zu den Stammdaten; gespeicherte Werte bleiben erhalten
-- [ ] Angenommen ein Logo wird später hochgeladen, wenn die Vorschau erscheint, dann gelten die gespeicherten Werte für Position und Höhe
-- [ ] Angenommen ein kleines Logo mit großer Höhe, wenn es unscharf wirken könnte, dann erscheint ein Hinweis, und speichern bleibt möglich
+- [x] Angenommen ein Logo ist vorhanden, wenn die Position links, rechts oder mittig gewählt wird, dann stehen Logo und Aussteller-Block wie in der Tabelle „Kopf“ festgelegt
+- [x] Angenommen das Logo steht mittig und der Aussteller-Block ist sichtbar, wenn die Vorschau erscheint, dann steht der Block zweizeilig zentriert unter dem Logo und ein Logo mit 25 mm Höhe wird nicht verkleinert
+- [x] Angenommen eine Logo-Höhe zwischen 10 und 35 mm, wenn genügend Platz ist, dann hat das Logo genau diese Höhe, sein Seitenverhältnis bleibt erhalten
+- [x] Angenommen ein Logo und ein Aussteller-Block passen zusammen nicht in den Kopf, wenn die Vorschau erscheint, dann ragt nichts in das Adressfeld, das Logo ist verkleinert und das Formular nennt das in einem Hinweis
+- [x] Angenommen ein Kunde ohne Logo, wenn der Reiter lädt, dann sind Position und Höhe nicht wählbar, und ein Hinweis verlinkt zu den Stammdaten; gespeicherte Werte bleiben erhalten
+- [x] Angenommen ein Logo wird später hochgeladen, wenn die Vorschau erscheint, dann gelten die gespeicherten Werte für Position und Höhe
+- [x] Angenommen ein kleines Logo mit großer Höhe, wenn es unscharf wirken könnte, dann erscheint ein Hinweis, und speichern bleibt möglich
 
 ### Aussteller-Block
-- [ ] Angenommen der Inhaber schaltet den Aussteller-Block ab, wenn die Vorschau sich aktualisiert hat, dann steht im Kopf keine Ausstellerangabe und das Adressfeld bleibt an derselben Stelle
-- [ ] Angenommen der Aussteller-Block ist abgeschaltet, wenn das Formular lädt, dann erscheint dauerhaft der Hinweis zu Name, Anschrift und UID im Fußzeilentext samt Link zur Fußzeile
-- [ ] Angenommen der Aussteller-Block ist abgeschaltet und die Fußzeile ist leer, wenn das Formular lädt, dann sagt der Hinweis zusätzlich, dass die Fußzeile noch leer ist
-- [ ] Angenommen der Aussteller-Block ist abgeschaltet, wenn die Rechnung erzeugt wird, dann fügt die App dem Fußzeilentext nichts hinzu
-- [ ] Angenommen der Aussteller-Block ist abgeschaltet und die Stammdaten sind unvollständig, wenn die Pflichtangaben eines Entwurfs geprüft werden, dann meldet die Liste den Mangel wie in PROJ-40
+- [x] Angenommen der Inhaber schaltet den Aussteller-Block ab, wenn die Vorschau sich aktualisiert hat, dann steht im Kopf keine Ausstellerangabe und das Adressfeld bleibt an derselben Stelle
+- [x] Angenommen der Aussteller-Block ist abgeschaltet, wenn das Formular lädt, dann erscheint dauerhaft der Hinweis zu Name, Anschrift und UID im Fußzeilentext samt Link zur Fußzeile
+- [x] Angenommen der Aussteller-Block ist abgeschaltet und die Fußzeile ist leer, wenn das Formular lädt, dann sagt der Hinweis zusätzlich, dass die Fußzeile noch leer ist
+- [x] Angenommen der Aussteller-Block ist abgeschaltet, wenn die Rechnung erzeugt wird, dann fügt die App dem Fußzeilentext nichts hinzu
+- [x] Angenommen der Aussteller-Block ist abgeschaltet und die Stammdaten sind unvollständig, wenn die Pflichtangaben eines Entwurfs geprüft werden, dann meldet die Liste den Mangel wie in PROJ-40
 
 ### Mehrere Seiten
-- [ ] Angenommen eine Rechnung passt auf eine Seite, wenn sie erscheint, dann steht dort keine Seitenzahl
-- [ ] Angenommen eine Rechnung braucht zwei Seiten, wenn sie erscheint, dann zeigen beide „Seite x von 2“ und die Fußzeile, Seite 2 außerdem die Rechnungsnummer, aber weder Logo noch Aussteller-Block
-- [ ] Angenommen eine lange Positionsliste, wenn ein Seitenwechsel nötig ist, dann wird keine Leistungszeile getrennt und die Gesamtsumme steht nicht allein am Anfang einer Seite
-- [ ] Angenommen ein Entwurf ohne Nummer braucht zwei Seiten, wenn er erscheint, dann steht auf Seite 2 statt der Nummer der Text für die noch nicht vergebene Nummer aus PROJ-40
+- [x] Angenommen eine Rechnung passt auf eine Seite, wenn sie erscheint, dann steht dort keine Seitenzahl
+- [x] Angenommen eine Rechnung braucht zwei Seiten, wenn sie erscheint, dann zeigen beide „Seite x von 2“ und die Fußzeile, Seite 2 außerdem die Rechnungsnummer, aber weder Logo noch Aussteller-Block
+- [x] Angenommen eine lange Positionsliste, wenn ein Seitenwechsel nötig ist, dann wird keine Leistungszeile getrennt und die Gesamtsumme steht nicht allein am Anfang einer Seite
+- [x] Angenommen ein Entwurf ohne Nummer braucht zwei Seiten, wenn er erscheint, dann steht auf Seite 2 statt der Nummer der Text für die noch nicht vergebene Nummer aus PROJ-40
 
 ### Vorschau im Reiter
-- [ ] Angenommen ein Wert wird geändert, wenn etwa eine Sekunde nichts weiter geändert wird, dann zeigt die Vorschau den neuen Stand, obwohl nichts gespeichert wurde
-- [ ] Angenommen die Vorschau wird erstellt, wenn sie noch nicht fertig ist, dann bleibt die alte Fassung sichtbar und ein Hinweis zeigt die Aktualisierung
-- [ ] Angenommen der Nutzer ändert während der Erstellung weiter, wenn eine ältere Vorschau danach fertig wird, dann ersetzt sie die neuere nicht
-- [ ] Angenommen ein ungültiger Wert steht im Formular, wenn die Vorschau aktualisiert würde, dann bleibt die letzte gültige Vorschau stehen und das Feld zeigt den Fehler
-- [ ] Angenommen die Vorschau kann nicht erstellt werden, wenn der Fehler auftritt, dann erscheint eine Meldung mit „Erneut versuchen“ und Speichern bleibt möglich
-- [ ] Angenommen die Musterrechnung, wenn sie erscheint, dann ist sie deutlich als „Muster“ gekennzeichnet und enthält die echten Stammdaten, das Logo, die Standard-Bausteine und die Fußzeile des Kunden
-- [ ] Angenommen die aktuelle Nummer im Nummernkreis, wenn die Musterrechnung erstellt wird, dann wird keine Nummer verbraucht und der nächste Nummernvorschlag bleibt gleich
-- [ ] Angenommen ein Kunde mit aktuellem Kleinunternehmer-Status, wenn die Musterrechnung erscheint, dann zeigt sie keine USt und den Kleinunternehmer-Hinweis
-- [ ] Angenommen ein Handy mit 375 px Breite, wenn die Vorschau erscheint, dann steht sie unter den Einstellungen und ist ohne seitliches Scrollen der Seite lesbar oder lässt sich vollständig öffnen
+- [x] Angenommen ein Wert wird geändert, wenn etwa eine Sekunde nichts weiter geändert wird, dann zeigt die Vorschau den neuen Stand, obwohl nichts gespeichert wurde
+- [x] Angenommen die Vorschau wird erstellt, wenn sie noch nicht fertig ist, dann bleibt die alte Fassung sichtbar und ein Hinweis zeigt die Aktualisierung
+- [x] Angenommen der Nutzer ändert während der Erstellung weiter, wenn eine ältere Vorschau danach fertig wird, dann ersetzt sie die neuere nicht
+- [x] Angenommen ein ungültiger Wert steht im Formular, wenn die Vorschau aktualisiert würde, dann bleibt die letzte gültige Vorschau stehen und das Feld zeigt den Fehler
+- [x] Angenommen die Vorschau kann nicht erstellt werden, wenn der Fehler auftritt, dann erscheint eine Meldung mit „Erneut versuchen“ und Speichern bleibt möglich
+- [x] Angenommen die Musterrechnung, wenn sie erscheint, dann ist sie deutlich als „Muster“ gekennzeichnet und enthält die echten Stammdaten, das Logo, die Standard-Bausteine und die Fußzeile des Kunden
+- [x] Angenommen die aktuelle Nummer im Nummernkreis, wenn die Musterrechnung erstellt wird, dann wird keine Nummer verbraucht und der nächste Nummernvorschlag bleibt gleich
+- [x] Angenommen ein Kunde mit aktuellem Kleinunternehmer-Status, wenn die Musterrechnung erscheint, dann zeigt sie keine USt und den Kleinunternehmer-Hinweis
+- [x] Angenommen ein Handy mit 375 px Breite, wenn die Vorschau erscheint, dann steht sie unter den Einstellungen und ist ohne seitliches Scrollen der Seite lesbar oder lässt sich vollständig öffnen
 
 ### Gestaltete Entwurfsvorschau (PROJ-40)
-- [ ] Angenommen ein gespeicherter Entwurf, wenn der Inhaber „Vorschau“ wählt, dann erscheint er in der Gestaltung des Briefpapiers und auf jeder Seite deutlich als „Entwurf“ gekennzeichnet
-- [ ] Angenommen ein Entwurf mit ungespeicherten Änderungen, wenn der Inhaber im Formular „Vorschau“ wählt, dann zeigt die gestaltete Vorschau den ungespeicherten Stand und die Eingaben bleiben erhalten
-- [ ] Angenommen das Briefpapier wurde geändert und gespeichert, wenn ein offener Entwurf danach angesehen wird, dann zeigt er die neue Gestaltung
-- [ ] Angenommen eine nacherfasste Rechnung, wenn das Briefpapier geändert wird, dann bleiben ihr PDF und ihre Angaben unverändert
-- [ ] Angenommen ein Mitarbeiter öffnet die Vorschau eines Entwurfs, wenn sie erscheint, dann sieht er die Gestaltung samt Logo ohne Bearbeitungsknöpfe und ohne direkten Zugriff auf die Logodatei
-- [ ] Angenommen ein Text mit Schrift, Größe oder Ausrichtung aus PROJ-39, wenn die Vorschau erscheint, dann ist er genau so gesetzt
-- [ ] Angenommen Teilrechnung, Schlussrechnung mit Abzügen oder Kleinunternehmer, wenn die Vorschau erscheint, dann stimmen Inhalte und Beträge mit der bisherigen Vorschau aus PROJ-40 überein
-- [ ] Angenommen die gestaltete Vorschau kann nicht erstellt werden, wenn der Fehler auftritt, dann erscheint eine Meldung mit „Erneut versuchen“ und der Entwurf bleibt unverändert
+- [x] Angenommen ein gespeicherter Entwurf, wenn der Inhaber „Vorschau“ wählt, dann erscheint er in der Gestaltung des Briefpapiers und auf jeder Seite deutlich als „Entwurf“ gekennzeichnet
+- [x] Angenommen ein Entwurf mit ungespeicherten Änderungen, wenn der Inhaber im Formular „Vorschau“ wählt, dann zeigt die gestaltete Vorschau den ungespeicherten Stand und die Eingaben bleiben erhalten
+- [x] Angenommen das Briefpapier wurde geändert und gespeichert, wenn ein offener Entwurf danach angesehen wird, dann zeigt er die neue Gestaltung
+- [x] Angenommen eine nacherfasste Rechnung, wenn das Briefpapier geändert wird, dann bleiben ihr PDF und ihre Angaben unverändert
+- [x] Angenommen ein Mitarbeiter öffnet die Vorschau eines Entwurfs, wenn sie erscheint, dann sieht er die Gestaltung samt Logo ohne Bearbeitungsknöpfe und ohne direkten Zugriff auf die Logodatei
+- [x] Angenommen ein Text mit Schrift, Größe oder Ausrichtung aus PROJ-39, wenn die Vorschau erscheint, dann ist er genau so gesetzt
+- [x] Angenommen Teilrechnung, Schlussrechnung mit Abzügen oder Kleinunternehmer, wenn die Vorschau erscheint, dann stimmen Inhalte und Beträge mit der bisherigen Vorschau aus PROJ-40 überein
+- [x] Angenommen die gestaltete Vorschau kann nicht erstellt werden, wenn der Fehler auftritt, dann erscheint eine Meldung mit „Erneut versuchen“ und der Entwurf bleibt unverändert
 
 ### Betreiber
-- [ ] Angenommen der Betreiber öffnet einen aktiven Kunden, wenn die Detailseite lädt, dann gibt es den Abschnitt „Briefpapier“ gleich bedienbar wie beim Inhaber samt Vorschau
-- [ ] Angenommen der Betreiber speichert Werte eines aktiven Kunden, wenn sich der Inhaber danach anmeldet, dann sieht er sie im Reiter „Briefpapier“
-- [ ] Angenommen ein deaktivierter Kunde, wenn der Betreiber die Detailseite öffnet, dann sieht er die Einstellungen, kann aber nichts ändern
-- [ ] Angenommen eine Änderung wird gespeichert, wenn jemand das Betreiber-Protokoll ansieht, dann ist sie mit Person, Zeitpunkt und Abschnitt „Briefpapier“ vermerkt
-- [ ] Angenommen der Betreiber öffnet die Musterrechnung, wenn sie erscheint, dann enthält sie keine echten Gäste- oder Buchungsdaten des Kunden
+- [x] Angenommen der Betreiber öffnet einen aktiven Kunden, wenn die Detailseite lädt, dann gibt es den Abschnitt „Briefpapier“ gleich bedienbar wie beim Inhaber samt Vorschau
+- [x] Angenommen der Betreiber speichert Werte eines aktiven Kunden, wenn sich der Inhaber danach anmeldet, dann sieht er sie im Reiter „Briefpapier“
+- [x] Angenommen ein deaktivierter Kunde, wenn der Betreiber die Detailseite öffnet, dann sieht er die Einstellungen, kann aber nichts ändern
+- [x] Angenommen eine Änderung wird gespeichert, wenn jemand das Betreiber-Protokoll ansieht, dann ist sie mit Person, Zeitpunkt und Abschnitt „Briefpapier“ vermerkt
+- [x] Angenommen der Betreiber öffnet die Musterrechnung, wenn sie erscheint, dann enthält sie keine echten Gäste- oder Buchungsdaten des Kunden
 
 ## Edge Cases
 - **Sehr breites Logo:** Wird auf den verfügbaren Platz in der Breite begrenzt und dadurch niedriger als eingestellt. Das Formular nennt das in einem Hinweis.
@@ -383,7 +383,81 @@ Mit der genannten Version wurde außerhalb des Projekts ein Wegwerf-Versuch gema
 **Bekanntes Risiko außerhalb dieses Features:** `next build` scheitert zeitweise mit „next/font/google queries have exactly one entry“. Laut Build-Log betrifft es Source Serif 4 und eine Antwort von Google mit `gstatic.com/l/font?kit=…`-Adressen. Der Code dazu stammt aus PROJ-2 und PROJ-39; ohne die Änderungen dieses Features trat es in 3 Läufen nicht auf, mit ihnen in etwa 4 von 10, was bei so wenigen Läufen keine Aussage über die Ursache erlaubt. Kann auch auf Vercel einen Build abbrechen.
 
 ## QA Test Results
-_To be added by /qa_
+
+**Getestet:** 2026-11-05, Dev (localhost, Supabase „apppa-dev“), gebauter Server; Safari gegen `npm run dev`
+
+**Ergebnis:** Alle 55 Abnahmekriterien gelten als erfüllt. Ohne eigenen Test, nur über Code oder Bild beurteilt: Abstände „eng“ und „weit“, Logo erst nach dem Einstellen hochgeladen, nacherfasste Rechnungen bleiben unverändert (der Pfad liest sie nicht). 6 Fehler in Grenzfällen: 0 Critical, 0 High, 2 Medium, 4 Low. **Produktionsreif nach den Regeln (keine Critical/High), Status Approved.** Vor dem Deploy stehen aber der Drucktest und der Vercel-Lauf aus; BUG-1 und BUG-2 sollten spätestens vor PROJ-42 behoben sein, weil dort Rechnungen endgültig ausgestellt werden.
+
+### Geprüft
+| Bereich | Ergebnis |
+|---|---|
+| Reiter, Zugang, Standardwerte, Einstellen, Speichern, Konflikt, Rückfrage | grün (E2E, Integration) |
+| Logo und Kopf: Positionen, Verkleinerung, Hinweise, fehlende Datei | grün, Hinweis im Entwurf fehlt (BUG-4) |
+| Aussteller-Block, Hinweise zur Fußzeile | grün |
+| Mehrere Seiten: Seitenzahl, Fußzeile, Nummer, Aufdruck auf jeder Seite | grün |
+| Vorschau: automatisch, ältere Antwort, Fehler mit „Erneut versuchen“, Musterrechnung, Kleinunternehmer, keine Nummer verbraucht | grün |
+| Gestaltete Entwurfsvorschau, ungespeicherter Stand, Mitarbeiter mit Logo ohne Dateizugriff | grün |
+| Betreiber: speichern, Protokoll ohne Werte, deaktiviert nur ansehen | grün |
+| Sechs Schriften je vier Schnitte mit „Š“, „ő“, „ž“, „€“ | geprüft am Bild |
+| Arbeitsprozess in einem Ordner ohne `node_modules` (Annäherung an Vercel), Dateien in der Ablaufliste beider Schnittstellen | läuft |
+| Breiten 1440 und 375 px, WCAG 2.1 AA (axe), Bedienelemente ≥ 44 px | grün |
+| Firefox und Safari: Reiter, Speichern, Größenänderung; Firefox auch Mitarbeiter-Entwurf | grün |
+| Unit 635 grün, Integration 311 grün (einzeln nacheinander, Stand /backend) | grün |
+
+**Nicht geprüft:** Lauf auf Vercel, echter Druck und Fensterkuvert, Breite 768 px im Browser, gesamter E2E-Lauf aller Features (nur PROJ-28, 36, 38, 39, 40 und PROJ-5 je betroffene Blöcke).
+
+### Sicherheit
+- [x] Abgemeldet, fremder Inhaber, Mitarbeiter (Einstellungen, ungespeicherter Entwurf) und Betreiber auf Entwürfen werden abgelehnt
+- [x] Fremde Entwürfe und Buchungen: 404. Ungültige Werte und Pfade: 400 bzw. 404
+- [x] Antworten mit `no-store`, PDFs werden nicht gespeichert, Aussteller und Logo kommen nie aus dem Browser
+- [x] Grenzen und Rechte auch am Formular vorbei (Integrationstests)
+- [x] 3 MB Text: Arbeitsprozess stoppt am Speicherlimit, Antwort 500, Server bleibt erreichbar. 30 parallele Anfragen: alle 200 in 4,2 s
+- Hinweis: Die Schnittstellen haben keine Anfragenbegrenzung; nur angemeldete Berechtigte können sie nutzen. Das ist für den Pilot vertretbar und vor mehr Kunden zu prüfen.
+
+### Fehler
+
+#### BUG-1: Lange Wörter laufen über den Seitenrand
+- **Severity:** Medium
+- **Schritte:** Text, Positionsbezeichnung oder Fußzeile mit einem Wort ohne Leerzeichen, das breiter als die Textspalte ist (getestet 180 Zeichen)
+- **Erwartet (Edge Cases):** wird umgebrochen. **Tatsächlich:** Der Text läuft rechts aus der Seite und ist abgeschnitten
+- **Test:** `it.fails` in `render.integration.test.ts`
+- **Priorität:** vor PROJ-42
+
+#### BUG-2: Langer Name im Aussteller-Block wird abgeschnitten
+- **Severity:** Medium
+- **Schritte:** Firmenname, der neben dem Logo nicht in eine Zeile passt (getestet 108 Zeichen; mit breitem Logo schon deutlich früher); ebenso die zweite Zeile unter einem mittigen Logo
+- **Erwartet:** Umbruch, Pflichtangaben vollständig sichtbar. **Tatsächlich:** Die Zeile wird rechts abgeschnitten, ohne Hinweis
+- **Test:** `it.fails` in `render.integration.test.ts`
+- **Priorität:** vor PROJ-42, dort würde so eine Rechnung festgeschrieben
+
+#### BUG-3: Eingabe vor dem Aktivwerden des Formulars geht verloren
+- **Severity:** Low
+- **Schritte:** Seite öffnen, bei langsam ladendem JavaScript sofort die Grundschriftgröße ändern
+- **Tatsächlich:** Der Wert springt auf den gespeicherten zurück. Gleiche Fehlerart wie BUG-4 der Editor-Erweiterung; dort gibt es `useAdoptEarlyInput`
+- **Test:** roter E2E „BUG-3“ in `tests/PROJ-41-briefpapier.spec.ts`
+
+#### BUG-4: Fehlendes Logo ohne Hinweis in der Entwurfsvorschau
+- **Severity:** Low
+- **Schritte:** Logo eingetragen, Datei nicht lesbar, Entwurf ansehen
+- **Erwartet (Edge Cases):** Vorschau mit Hinweis ohne Logo. **Tatsächlich:** Nur im Reiter „Briefpapier“ erscheint der Hinweis, im Entwurf fehlt das Logo kommentarlos
+- **Test:** roter E2E „Datei fehlt“ in `tests/PROJ-41-briefpapier.spec.ts`
+
+#### BUG-5: Überlange Fußzeile überdeckt den Inhalt
+- **Severity:** Low
+- **Schritte:** Fußzeile mit 2.000 Zeichen in 24 pt (80 % der Seite)
+- **Erwartet (Edge Cases):** Rechnung läuft auf weitere Seiten. **Tatsächlich:** Ab 60 % der Seite überlagert sie Adressfeld und Inhalt. Der Hinweis „mehr als ein Drittel“ erscheint
+
+#### BUG-6: Zeichen außerhalb der Schriften fehlen kommentarlos
+- **Severity:** Low
+- **Schritte:** „✓“ oder ein Emoji in einem Text
+- **Tatsächlich:** „✓“ fehlt, das Emoji erscheint als falsches Zeichen; „→“ und „€“ stimmen
+
+### Bekannt, nicht aus diesem Feature
+- PROJ-40 BUG-5: Nach „Entwurf speichern“ blieb die Seite in 1 von 4 Läufen eines Tests auf dem Formular (bei Wiederholung grün). Laut Notiz vor PROJ-42 zu klären
+- `next build` scheitert zeitweise an der Google-Schrift; in dieser QA nicht aufgetreten
+
+### Tests an den Umbau angepasst
+PROJ-28, 36, 38: mehrere „Speichern“ auf der Betreiber-Seite. PROJ-39: Reiterliste. PROJ-40: Vorschau ist jetzt ein PDF (Schrift aus der Datei statt CSS; Ausrichtung im Blocksatz nur noch im Vorab-Versuch und am Bild für zentriert geprüft).
 
 ## Deployment
 _To be added by /deploy_

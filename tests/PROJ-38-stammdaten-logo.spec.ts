@@ -348,7 +348,8 @@ test.describe('Logo (Betreiber)', () => {
     await ready(page)
     await upload(page, 'ausweis.png')
     await expect(preview(page)).toBeVisible()
-    await page.getByRole('button', { name: 'Speichern', exact: true }).click()
+    // Die Detailseite hat mehrere „Speichern“ (PROJ-41: Briefpapier); das erste gehört zu den Stammdaten
+    await page.getByRole('button', { name: 'Speichern', exact: true }).first().click()
     await expect(page.getByText('Kundendaten gespeichert.')).toBeVisible()
     await expect(page.getByText('Stammdaten geändert: Staat, Logo')).toBeVisible()
 
@@ -386,7 +387,7 @@ test.describe('Logo (Betreiber)', () => {
     await signInAsAdmin(page, admin)
     await page.goto(`/betreiber/kunden/${tenantId}`)
     await ready(page)
-    await expect(page.getByText('Kein Logo hinterlegt.')).toBeVisible()
+    await expect(page.getByText('Kein Logo hinterlegt.', { exact: true })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Logo hochladen' })).toHaveCount(0)
   })
 })
