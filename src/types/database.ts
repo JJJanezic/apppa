@@ -1842,6 +1842,10 @@ export type Database = {
           tenant_name: string
         }[]
       }
+      rename_cleaning_charges: {
+        Args: { p_tenant_id: string }
+        Returns: number
+      }
       save_block: {
         Args: { p_confirm?: boolean; p_input: Json }
         Returns: Json

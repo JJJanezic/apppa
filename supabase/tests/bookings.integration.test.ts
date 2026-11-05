@@ -170,7 +170,7 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-8 Manuelle Buchungen', () => {
       const g = await guest(tenantA, 'Staffgast')
       const id = savedId(await save(staffA, bookingInput(tenantA, apt, g, '2027-06-01', '2027-06-04', { amounts: { nights_cents: 1, charges: [] } })))
       expect((await service.from('booking_amounts').select('nights_cents').eq('id', id)).data).toEqual([{ nights_cents: 36000 }])
-      expect((await service.from('booking_charges').select('label, amount_cents').eq('booking_id', id)).data).toEqual([{ label: 'Reinigung', amount_cents: 5500 }])
+      expect((await service.from('booking_charges').select('label, amount_cents').eq('booking_id', id)).data).toEqual([{ label: 'Endreinigung', amount_cents: 5500 }])
 
       // Änderung des Zeitraums durch Mitarbeiter: Preis bleibt, „Preis prüfen“ wird gesetzt
       const b = await row(id)
@@ -376,7 +376,7 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-8 Manuelle Buchungen', () => {
       const { data: amounts } = await service.from('booking_amounts').select('nights_cents').eq('id', id).single()
       expect(amounts?.nights_cents).toBe(51000)
       const { data: charges } = await service.from('booking_charges').select('label, amount_cents').eq('booking_id', id)
-      expect(charges).toEqual([{ label: 'Reinigung', amount_cents: 6000 }])
+      expect(charges).toEqual([{ label: 'Endreinigung', amount_cents: 6000 }])
       expect((await row(id)).price_review).toBe(false)
     })
 

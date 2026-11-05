@@ -587,7 +587,7 @@ Keine neuen Tabellen oder Spalten, keine Änderung der Zugriffsregeln. Ausgestel
 - Kommentare in `booking-panel.tsx`, `validation/apartments.ts`, `vat.ts` nachgezogen; Schlüssel unverändert
 - E2E an die neuen Texte angepasst: PROJ-8 (automatische Position, Feld der Wohnung), PROJ-35 (Auswahl per Tastatur „End“, Auswahl überschreibt Hand-Satz), PROJ-32 (Inhalt der Auswahl), PROJ-31 (Feld der Wohnung); 11 Läufe grün (desktop, gebauter Server). Tests mit „Reinigung“ als Testdaten bleiben gültig
 - Unit 692/692 grün
-- **Offen für /backend:** Migration mit erneuerter `private.save_booking` (Mitarbeiter-Vorschlag „Endreinigung“, Grundlage `20261101061318_tourist_tax.sql`) und Umbenennung der bestehenden Positionen samt Ausnahmen (Tech Design N); bis dahin erhalten Mitarbeiter-Buchungen noch „Reinigung“
+- **Erledigt in /backend (siehe unten):** Migration mit erneuerter `private.save_booking` (Mitarbeiter-Vorschlag „Endreinigung“, Grundlage `20261101061318_tourist_tax.sql`) und Umbenennung der bestehenden Positionen samt Ausnahmen (Tech Design N); bis dahin erhalten Mitarbeiter-Buchungen noch „Reinigung“
 
 ## Implementation Notes (Backend)
 **Stand 2026-10-26.** Migration `supabase/migrations/20261026130000_bookings.sql`, eingespielt nur in „apppa-dev“; `npm run db:types` erzeugt; `db advisors` ohne Befund.
@@ -671,6 +671,21 @@ Keine neuen Tabellen oder Spalten, keine Änderung der Zugriffsregeln. Ausgestel
 - Unit-Tests 234/234 grün (inkl. Reinigungsgebühr); Lint und Typprüfung grün
 - Rauchtest im Browser: Mitarbeiter legt Buchung mit neuem Gast an (Preisvorschlag € 420 = 3 × € 120 + Reinigung € 60), Inhaber storniert mit Gebühr
 - Hinweis: Beim Lauf der ganzen Suite schlug einmal ein Test aus PROJ-4 fehl (Anmelde-Grenze von Supabase); einzeln läuft er grün
+
+### Endreinigung (Backend, 2026-11-05)
+- Migration `20261105213314_endreinigung.sql`:
+  - `private.save_booking` neu eingespielt: unveränderte Fassung aus `20261101061318_tourist_tax.sql`, nur Mitarbeiter-Vorschlag „Endreinigung“ (10 %)
+  - `private.rename_cleaning_charges(tenant | null)`: benennt Positionen mit `lower(btrim(label)) = 'reinigung'` in „Endreinigung“ um, außer bei Buchungen mit Rechnung `origin` `issued` oder `draft`; setzt `app.actor` = „PROJ-8 Endreinigung“, damit das Protokoll diesen Urheber statt „system“ zeigt; liefert die Anzahl
+  - `public.rename_cleaning_charges(tenant)`: dieselbe Regel für einen Kunden, nur für den Service-Schlüssel (für Integrationstests; Inhaber/Mitarbeiter 42501)
+  - einmaliger Lauf `private.rename_cleaning_charges(null)` über alle Kunden
+  - keine neuen Tabellen/Spalten, keine RLS-Änderung
+- Dev: 3 Positionen umbenannt (Testreste), 3 Protokolleinträge „PROJ-8 Endreinigung“. Typen neu erzeugt (neue Funktion). Advisors: nur `auth_otp_long_expiry`
+- Hinweis: Bezeichnungen mit Rand-Leerzeichen gibt es nicht, die Prüfregel der Tabelle lässt sie nicht zu; `btrim` bleibt als Absicherung
+- Tests (gegen Dev, nacheinander):
+  - `invoice-issue.integration.test.ts` neu 2: Umbenennung mit allen Ausnahmen (ausgestellt, Entwurf bleiben „Reinigung“; nur nacherfasst und storniert werden umbenannt; Groß-/Kleinschreibung; „Reinigung Bettwäsche“, „Zwischenreinigung“ bleiben; Betrag/Satz/Platz unverändert; Rechnung und Entwurf unverändert; Protokoll-Urheber; zweiter Lauf 0; Inhaber/Mitarbeiter 42501) und Mitarbeiter-Buchung mit „Endreinigung“ 6500/10 %
+  - angepasst: `bookings.integration.test.ts` (2 Erwartungen), `tourist-tax.integration.test.ts` (1 Erwartung) auf „Endreinigung“
+  - grün: bookings + tourist-tax 50, invoice-issue 31, rls + invoice-drafts + invoices 68
+- **Vor dem Deploy:** Migration vor dem Code; in Staging und Produktion vorher lesend zählen, wie viele Positionen betroffen sind
 
 ## QA Test Results
 

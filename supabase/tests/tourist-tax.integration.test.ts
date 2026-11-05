@@ -368,7 +368,7 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-15 Ortstaxe je Wohnung', () => {
       const g = await guest(tenantA)
       const id = await save(staffA, { ...input(apt, g, '2028-01-10', '2028-01-14'), amounts: null })
       expect((await charges(id)).map((c) => [c.label, c.amount_cents])).toEqual([
-        ['Reinigung', 5000],
+        ['Endreinigung', 5000],
         ['Nächtigungsabgabe', 2000],
       ])
       await update(staffA, id, { ...input(apt, g, '2028-01-10', '2028-01-14', { adults: 3 }), amounts: null })

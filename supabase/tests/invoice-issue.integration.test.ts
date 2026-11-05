@@ -506,4 +506,93 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-42 Rechnung ausstellen', () => {
       tenants.splice(tenants.indexOf(o.id), 1)
     })
   })
+
+  describe('PROJ-8 Endreinigung (refine 2026-11-05): Umbenennung bestehender Positionen', () => {
+    const addCharges = async (bookingId: string, labels: string[]) => {
+      const rows = labels.map((label, i) => ({ tenant_id: tenant, booking_id: bookingId, position: i + 1, label, amount_cents: 6000 + i, vat_rate: 10 }))
+      const { error } = await service.from('booking_charges').insert(rows as never)
+      if (error) throw error
+    }
+    const charges = async (bookingId: string) =>
+      (await service.from('booking_charges').select('position, label, amount_cents, vat_rate').eq('booking_id', bookingId).order('position')).data ?? []
+
+    it('benennt um außer bei ausgestellter Rechnung oder Entwurf; nacherfasste hindern nicht; Betrag, Satz, Platz bleiben; Protokoll „PROJ-8 Endreinigung“', async () => {
+      const plain = await newBooking()
+      await addCharges(plain, ['Haustier', 'Reinigung', 'reinigung', 'REINIGUNG', 'Reinigung Bettwäsche', 'Zwischenreinigung'])
+      const backfilled = await newBooking()
+      await addCharges(backfilled, ['Reinigung'])
+      await backfill(backfilled, `B-${runId}-endr`)
+      const cancelled = await newBooking()
+      await addCharges(cancelled, ['Reinigung'])
+      expect((await owner.rpc('cancel_booking', { p_booking_id: cancelled, p_reason: 'Krankheit' })).error).toBeNull()
+      const withDraft = await newBooking()
+      await addCharges(withDraft, ['Reinigung'])
+      const draftId = await newDraft(withDraft)
+      const withIssued = await newBooking()
+      await addCharges(withIssued, ['Reinigung'])
+      const issuedId = await issued(withIssued)
+      const issuedBefore = await row(issuedId)
+      const draftBefore = await row(draftId)
+
+      // Mitarbeiter und Inhaber dürfen die Regel nicht aufrufen
+      expect((await owner.rpc('rename_cleaning_charges', { p_tenant_id: tenant })).error?.code).toBe('42501')
+      expect((await staff.rpc('rename_cleaning_charges', { p_tenant_id: tenant })).error?.code).toBe('42501')
+
+      const { data: count, error } = await service.rpc('rename_cleaning_charges', { p_tenant_id: tenant })
+      expect(error).toBeNull()
+      expect(count).toBeGreaterThanOrEqual(5)
+
+      expect(await charges(plain)).toEqual([
+        { position: 1, label: 'Haustier', amount_cents: 6000, vat_rate: 10 },
+        { position: 2, label: 'Endreinigung', amount_cents: 6001, vat_rate: 10 },
+        { position: 3, label: 'Endreinigung', amount_cents: 6002, vat_rate: 10 },
+        { position: 4, label: 'Endreinigung', amount_cents: 6003, vat_rate: 10 },
+        { position: 5, label: 'Reinigung Bettwäsche', amount_cents: 6004, vat_rate: 10 },
+        { position: 6, label: 'Zwischenreinigung', amount_cents: 6005, vat_rate: 10 },
+      ])
+      expect((await charges(backfilled)).map((c) => c.label)).toEqual(['Endreinigung'])
+      expect((await charges(cancelled)).map((c) => c.label)).toEqual(['Endreinigung'])
+      expect((await charges(withDraft)).map((c) => c.label)).toEqual(['Reinigung'])
+      expect((await charges(withIssued)).map((c) => c.label)).toEqual(['Reinigung'])
+      // Rechnungen selbst unverändert
+      expect(await row(issuedId)).toEqual(issuedBefore)
+      expect(await row(draftId)).toEqual(draftBefore)
+      const { data: backfilledLines } = await service.from('invoice_lines').select('label').eq('tenant_id', tenant).eq('label', 'Anzahlung')
+      expect(backfilledLines?.length).toBeGreaterThan(0)
+
+      // Protokoll: Urheber ist die Umstellung, keine Person
+      const { data: ids } = await service.from('booking_charges').select('id').eq('booking_id', plain).eq('label', 'Endreinigung')
+      const { data: log } = await service.from('audit_log').select('actor_id, actor_label, action').in('record_id', (ids ?? []).map((r) => r.id)).eq('action', 'update')
+      expect(log).toHaveLength(3)
+      expect(log!.every((l) => l.actor_id === null && l.actor_label === 'PROJ-8 Endreinigung' && l.action === 'update')).toBe(true)
+
+      // zweiter Lauf ändert nichts mehr
+      expect((await service.rpc('rename_cleaning_charges', { p_tenant_id: tenant })).data).toBe(0)
+    })
+
+    it('Mitarbeiter-Buchung erhält die Gebühr der Wohnung als „Endreinigung“ mit 10 %', async () => {
+      const { data: apt, error: aptError } = await service.from('apartments').update({ cleaning_fee_cents: 6500 } as never).eq('id', apartment).select('id').single()
+      expect(aptError).toBeNull()
+      const start = new Date(Date.UTC(2029, 0, 1) + (day += 5) * 86_400_000)
+      const iso = (d: Date) => d.toISOString().slice(0, 10)
+      const { data, error } = await staff.rpc('save_booking', {
+        p_input: {
+          tenant_id: tenant,
+          kind: 'booking',
+          apartment_id: apt!.id,
+          arrival: iso(start),
+          planned_departure: iso(new Date(start.getTime() + 2 * 86_400_000)),
+          departure: iso(new Date(start.getTime() + 2 * 86_400_000)),
+          guest_id: guest,
+          adults: 1,
+          child_ages: [],
+        } as Json,
+        p_confirm: false,
+      })
+      expect(error).toBeNull()
+      const id = (data as { id: string }).id
+      expect(await charges(id)).toEqual([{ position: 1, label: 'Endreinigung', amount_cents: 6500, vat_rate: 10 }])
+      await service.from('apartments').update({ cleaning_fee_cents: null } as never).eq('id', apartment)
+    })
+  })
 })
