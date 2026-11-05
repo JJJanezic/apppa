@@ -45,6 +45,7 @@ const DB_ERRORS: Record<string, OperatorErrorCode | CommonErrorCode> = {
   P0013: 'nameMismatch',
   P0014: 'alreadyMember',
   P0015: 'invitationInvalid',
+  P0019: 'retainedInvoices',
 }
 
 function dbFail(error: { code?: string; message?: string }, context: string): Failure {

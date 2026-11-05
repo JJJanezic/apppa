@@ -1,9 +1,11 @@
 // Regeln der Seite „Rechnung ausstellen“ (PROJ-42): Einordnung der Nummer, Vergleich des Datums mit der Nummernfolge und
 // die Prüfliste aus Sperren, Häkchen und Hinweisen. Eine Stelle für die Seite und das Ausstellen auf dem Server.
 
-import type { RequiredCheck } from '@/lib/invoice-drafts'
+import type { DraftIssuer, DraftLine, DraftRecipient, InvoiceKind, PaymentSchedule, RecipientKind, RequiredCheck } from '@/lib/invoice-drafts'
 import { formatInvoiceNumber, nextInvoiceNumber, type NumberingSettings, parseInvoiceNumber } from '@/lib/invoice-numbering'
 import { INVOICE_LIMITS, invoiceNumberKey } from '@/lib/invoices'
+import type { RichDoc } from '@/lib/rich-text'
+import type { VatShare } from '@/lib/vat'
 
 export const ISSUE_MIN_DATE = '1990-01-01'
 
@@ -167,6 +169,23 @@ export function issueChecks(p: IssueChecksInput): IssueChecks {
 export const issueAllowed = (c: IssueChecks, acknowledged: ReadonlySet<string> | readonly string[]) => {
   const set = acknowledged instanceof Set ? acknowledged : new Set(acknowledged as readonly string[])
   return c.blocks.length === 0 && c.acks.every((a) => set.has(a.id))
+}
+
+// Festgeschriebene Fassung (PROJ-42): alles, was auf der Rechnung steht, als Kopie. Texte mit ersetzten Platzhaltern.
+export type IssuedSnapshot = {
+  kind: InvoiceKind
+  issuer: DraftIssuer | null
+  recipient: DraftRecipient
+  recipientKind: RecipientKind
+  period: { apartmentLabel: string; arrival: string; departure: string }
+  guestNames: string[]
+  partialLabel: string | null
+  lines: DraftLine[]
+  deductions: { number: string | null; origin: string; invoiceDate: string; totalCents: number; vatShares: VatShare[] }[]
+  totals: { linesCents: number; totalCents: number; vatShares: VatShare[] }
+  smallBusiness: boolean
+  schedule: PaymentSchedule
+  texts: { intro: RichDoc | null; smallBusinessNote: RichDoc | null; payment: RichDoc | null; closing: RichDoc | null; footer: RichDoc | null }
 }
 
 // Frist für die Löschsperre beim Kunden: 7 Jahre ab dem Ende des Kalenderjahres des Rechnungsdatums. Liefert das früheste

@@ -88,6 +88,9 @@ function dbFail(error: DbError, context: string): Failure {
       return fail('contentInvalid')
     case 'P0923':
       return fail('notDraft')
+    // Ausgestellte Schlussrechnung zieht diese nacherfasste Rechnung ab (PROJ-42)
+    case 'P0933':
+      return fail('deductedByIssued')
   }
   console.error(`[rechnungen] ${context}`, error.code, error.message)
   return fail('unknown')
@@ -104,7 +107,7 @@ const revalidate = (input: { id?: string; bookingIds?: (string | null | undefine
 }
 
 // Doppelte Nummer: Datum der vorhandenen Rechnung für die Meldung „Rechnung vom …“
-export type SaveInvoiceResult = Result<{ id: string }> & { takenDate?: string }
+export type SaveInvoiceResult = Result<{ id: string }> & { takenDate?: string; deductedBy?: string }
 
 type SaveInvoice = {
   id?: string
@@ -155,6 +158,8 @@ export async function saveInvoice(input: SaveInvoice): Promise<SaveInvoiceResult
     if (failure.error === 'numberTaken' && error.details && /^\d{4}-\d{2}-\d{2}$/.test(error.details)) {
       return { ...failure, takenDate: error.details }
     }
+    // Die Datenbank meldet die Nummer der ausgestellten Schlussrechnung im Detail (PROJ-42)
+    if (failure.error === 'deductedByIssued') return { ...failure, deductedBy: error.details ?? '' }
     return failure
   }
   const result = data as unknown as SaveDbResult
@@ -165,14 +170,17 @@ export async function saveInvoice(input: SaveInvoice): Promise<SaveInvoiceResult
   return { ok: true, data: { id: result.id } }
 }
 
-export async function deleteInvoice(input: { id: string }): Promise<Result> {
+export async function deleteInvoice(input: { id: string }): Promise<Result & { deductedBy?: string }> {
   const guard = await requireOwner()
   if (!guard.ok) return guard
   if (!isId(input?.id)) return fail('notFound')
   const supabase = await createClient()
   const { data: before } = await supabase.from('invoices').select('booking_id').eq('id', input.id).eq('tenant_id', guard.tenant.id).maybeSingle()
   const { data, error } = await supabase.rpc('delete_invoice', { p_invoice_id: input.id })
-  if (error) return dbFail(error, 'Rechnung löschen')
+  if (error) {
+    const failure = dbFail(error, 'Rechnung löschen')
+    return failure.error === 'deductedByIssued' ? { ...failure, deductedBy: error.details ?? '' } : failure
+  }
   // Die Funktion meldet das PDF der gelöschten Rechnung zurück
   await removeInvoiceFiles([data])
   revalidate({ bookingIds: [before?.booking_id] })

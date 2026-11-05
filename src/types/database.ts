@@ -1118,6 +1118,10 @@ export type Database = {
           intro_block_id: string | null
           intro_text: Json | null
           invoice_date: string
+          issued_at: string | null
+          issued_by: string | null
+          issued_snapshot: Json | null
+          issued_without_logo: boolean
           kind: string | null
           number: string | null
           number_key: string | null
@@ -1128,6 +1132,7 @@ export type Database = {
           payment_block_id: string | null
           payment_text: Json | null
           pdf_path: string | null
+          pdf_sha256: string | null
           recipient: string
           recipient_city: string | null
           recipient_country: string | null
@@ -1162,6 +1167,10 @@ export type Database = {
           intro_block_id?: string | null
           intro_text?: Json | null
           invoice_date: string
+          issued_at?: string | null
+          issued_by?: string | null
+          issued_snapshot?: Json | null
+          issued_without_logo?: boolean
           kind?: string | null
           number?: string | null
           number_key?: string | null
@@ -1172,6 +1181,7 @@ export type Database = {
           payment_block_id?: string | null
           payment_text?: Json | null
           pdf_path?: string | null
+          pdf_sha256?: string | null
           recipient: string
           recipient_city?: string | null
           recipient_country?: string | null
@@ -1206,6 +1216,10 @@ export type Database = {
           intro_block_id?: string | null
           intro_text?: Json | null
           invoice_date?: string
+          issued_at?: string | null
+          issued_by?: string | null
+          issued_snapshot?: Json | null
+          issued_without_logo?: boolean
           kind?: string | null
           number?: string | null
           number_key?: string | null
@@ -1216,6 +1230,7 @@ export type Database = {
           payment_block_id?: string | null
           payment_text?: Json | null
           pdf_path?: string | null
+          pdf_sha256?: string | null
           recipient?: string
           recipient_city?: string | null
           recipient_country?: string | null
@@ -1258,6 +1273,13 @@ export type Database = {
             columns: ["intro_block_id"]
             isOneToOne: false
             referencedRelation: "invoice_text_blocks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_issued_by_fkey"
+            columns: ["issued_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -1805,6 +1827,7 @@ export type Database = {
       }
       invoice_numbers: { Args: { p_tenant_id: string }; Returns: string[] }
       invoice_preview_data: { Args: { p_tenant_id: string }; Returns: Json }
+      issue_invoice: { Args: { p_input: Json }; Returns: string }
       merge_guests: {
         Args: { p_choice: Json; p_keep: string; p_remove: string }
         Returns: undefined

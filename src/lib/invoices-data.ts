@@ -6,7 +6,7 @@ import { cache } from 'react'
 
 import { apartmentLabel } from '@/lib/apartments'
 import { todayIso } from '@/lib/bookings'
-import { retentionCutoff } from '@/lib/invoice-issue'
+import { type IssuedSnapshot, retentionCutoff } from '@/lib/invoice-issue'
 import {
   type BookingInvoices,
   type Invoice,
@@ -148,6 +148,7 @@ async function pdfLinks(path: string, fileName: string): Promise<InvoicePdfLinks
 
 const DETAIL_COLUMNS =
   'id, number, invoice_date, origin, recipient, small_business, total_cents, pdf_path, updated_at, ' +
+  'issued_at, issued_without_logo, issued_snapshot, issued_profile:profiles!invoices_issued_by_fkey(display_name), ' +
   'lines:invoice_lines(position, label, amount_cents, vat_rate), ' +
   'guest:guests(id, last_name, first_name, title_prefix, title_suffix, country, company_name, anonymized_at), ' +
   'booking:bookings(id, kind, number, arrival, departure, cancelled_at, guest:guests(last_name, first_name), apartment:apartments!inner(name, property:properties!inner(name)))'
@@ -162,6 +163,10 @@ type DetailDbRow = {
   total_cents: number
   pdf_path: string | null
   updated_at: string
+  issued_at: string | null
+  issued_without_logo: boolean
+  issued_snapshot: unknown
+  issued_profile: { display_name: string | null } | null
   lines: { position: number; label: string; amount_cents: number; vat_rate: number | string }[]
   guest: {
     id: string
@@ -242,6 +247,10 @@ export const getInvoice = cache(async (id: string): Promise<Invoice> => {
     pdfPath: r.pdf_path,
     pdf: r.pdf_path ? await pdfLinks(r.pdf_path, pdfFileName(t('pdf.fileName'), r.number ?? '')) : null,
     updatedAt: r.updated_at,
+    issued:
+      r.issued_at && r.issued_snapshot
+        ? { at: r.issued_at, byName: r.issued_profile?.display_name ?? null, withoutLogo: r.issued_without_logo, snapshot: r.issued_snapshot as IssuedSnapshot }
+        : null,
   }
 })
 

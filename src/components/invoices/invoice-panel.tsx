@@ -89,6 +89,7 @@ export function InvoicePanel({ open, onOpenChange, invoice, today }: InvoicePane
   const bookingLabel = useBookingOptionLabel()
   const vatHistory = useVatStatus()
   const [error, setError] = useState<string | null>(null)
+  const [deductedBy, setDeductedBy] = useState<string | null>(null)
   const [stale, setStale] = useState(false)
   const [booking, setBooking] = useState<InvoiceBookingOption | null>(invoice?.booking ?? null)
   const [bookingLoading, setBookingLoading] = useState(false)
@@ -181,6 +182,7 @@ export function InvoicePanel({ open, onOpenChange, invoice, today }: InvoicePane
 
   async function save(values: InvoiceInput, forceNewGuest = false) {
     setError(null)
+    setDeductedBy(null)
     let newGuest: GuestInput | undefined
     if (values.guestMode === 'new') {
       if (!(await guestForm.trigger())) return
@@ -201,6 +203,7 @@ export function InvoicePanel({ open, onOpenChange, invoice, today }: InvoicePane
         const date = (result as SaveInvoiceResult).takenDate
         form.setError('number', { message: date ? tv('numberTakenOn', { date: formatDate(date) }) : tv('numberTaken') }, { shouldFocus: true })
       } else if (result.error === 'dateInFuture') form.setError('invoiceDate', { message: tv('dateInFuture') }, { shouldFocus: true })
+      else if (result.error === 'deductedByIssued') setDeductedBy((result as SaveInvoiceResult).deductedBy ?? '')
       else setError(result.error)
       return
     }
@@ -226,6 +229,11 @@ export function InvoicePanel({ open, onOpenChange, invoice, today }: InvoicePane
       <Form {...form}>
         <form onSubmit={form.handleSubmit((v) => save(v))} noValidate className="flex flex-col gap-6">
           <FormError error={error} namespace="invoices.errors" />
+          {deductedBy !== null && (
+            <Alert role="alert" className="border-ds-accent-2-700/40 bg-ds-accent-2-100 text-ds-accent-2-800">
+              <AlertDescription>{t('errors.deductedByIssued', { number: deductedBy })}</AlertDescription>
+            </Alert>
+          )}
           {stale && (
             <Alert role="alert" className="border-ds-accent-2-700/40 bg-ds-accent-2-100 text-ds-accent-2-800">
               <WarningCircle size={18} weight="duotone" aria-hidden="true" />

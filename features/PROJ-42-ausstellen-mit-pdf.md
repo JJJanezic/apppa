@@ -436,26 +436,33 @@ Keine neuen Pakete.
 - Am Bild geprüft: Desktop und Handy
 - Nicht geprüft: Firefox und Safari; Ablage und echtes Ausstellen (Backend fehlt); Darstellung ausgestellter Rechnungen und Löschsperre im Betreiber-Bereich mit echten Daten
 
-## Offen für /backend
+## Implementation Notes (Backend)
 
-**Bis dahin:** Das Ausstellen führt alle Prüfungen aus, erzeugt das PDF und antwortet dann `notReady` („wird gerade eingerichtet“). Nichts wird gespeichert.
+**Migrationen (nur Dev):** `20261105093618_invoice_issue.sql`, `20261105093734_invoice_issue_error_code.sql` (die Löschsperre brauchte einen eigenen Code, P0017 war schon belegt). RLS unverändert. `db advisors`: nur der schon bekannte Auth-Hinweis zur OTP-Dauer.
 
-**Schreibschritt** an der Stelle `notReady` in `src/app/api/rechnungen/[id]/ausstellen/route.ts`:
-1. PDF ablegen, Prüfsumme bilden (`renderInvoice` liefert die Bytes; Ablage unter `<Kunde>/<zufällig>.pdf`)
-2. Datenbankfunktion nur für den Server: Person, Entwurf, `updated_at`, Buchungsstand, Nummer, Datum, PDF-Ort, Prüfsumme, Fassung (`state.model`), „ohne Logo“; prüft Stand, Nummer und Abzüge noch einmal
-3. Bei Fehlern Datei entfernen; `numberTaken` mit `takenNumber` und `conflict` wie heute beantworten
+**Datenbank**
+- `invoices`: `issued_at`, `issued_by`, `issued_snapshot`, `pdf_sha256`, `issued_without_logo`; Prüfregel: die Felder sind genau bei „ausgestellt“ gesetzt
+- `public.issue_invoice(p_input)`: nur `service_role`. Prüft Person, Kunde, Stand von Entwurf und Buchung, Datum, Nummer, Abzüge, Betrag und Datei, dann der Zustandswechsel. Setzt für diesen Vorgang die handelnde Person, damit das Protokoll sie nennt
+- Trigger `a_protect_issued_*`: lehnen Änderungen an ausgestellten Rechnungen, Positionen und Abzügen ab (P0932), auch mit Systemrechten. Frei bleiben Gastverknüpfung und Herkunft der Textbausteine (Löschen eines Bausteins setzt sie zurück). Löschen geht nur, wenn der Kunde schon weg ist (Kaskade)
+- `refresh_deducting_totals`, `detach_deductions`: nur noch Entwürfe
+- `save_invoice`, `delete_invoice`: Sperre abgezogener nacherfasster Rechnungen (P0933, Nummer der Schlussrechnung im Detail)
+- `admin_delete_tenant`: Löschsperre (P0019)
 
-**Datenmodell:** ausgestellt am, ausgestellt von, festgeschriebene Fassung, Prüfsumme, ohne Logo. Spalte `small_business` wird gesetzt.
+**Server**
+- `src/app/api/rechnungen/[id]/ausstellen/route.ts`: Prüfungen → PDF → Ablage mit Systemrechten → `issue_invoice`; bei Fehlern wird die Datei entfernt
+- Stand der Buchung: `bookings.updated_at`, vor dem Laden gelesen. Alle Preisänderungen setzen ihn
+- `src/lib/invoice-issue-data.ts`: `issuedSnapshot` kopiert nur, was auf der Rechnung steht, nicht die ganze Buchung samt Mitreisenden
 
-**Unveränderlichkeit in der Datenbank:** Rechnung, Positionen, Abzüge; Ausnahmen Gastverknüpfung und Kunde löschen nach Fristablauf. `refresh_deducting_totals` und `detach_deductions` dürfen ausgestellte Rechnungen nicht ändern.
+**Oberfläche ergänzt:** Detailseite aus der Fassung (`issued-detail.tsx`) mit Abzügen, USt je Satz der Fassung, Fristen, Person und Zeitpunkt; Meldungen für abgezogene nacherfasste Rechnungen und die Löschsperre.
 
-**Abgezogene nacherfasste Rechnungen:** Sperre in `save_invoice` und `delete_invoice`; eigener Fehlercode mit Schlussrechnung, Text in `invoices.errors`, Anzeige im Formular.
+**Abweichung vom Tech Design:** Die Stand-Prüfung der Buchung nutzt den Zeitstempel statt des Fingerabdrucks, weil die Datenbank den Fingerabdruck nicht berechnen kann. Gelesen wird er erst beim Absenden. Ändert sich die Buchung in den wenigen Sekunden bis zum Festschreiben, auch nur die Notiz, wird das Ausstellen einmal abgelehnt („neu laden“). Danach geht es.
 
-**Kunde löschen:** Prüfung in `admin_delete_tenant` mit eigenem Fehlercode, Text in `operator.errors`. Die Oberfläche blendet das Löschen über `countRetainedInvoices` schon aus.
+**Bewusst offen:** Wird die Antwort nach dem Hochladen abgebrochen, bleibt eine Datei ohne Rechnung liegen; sie entfernt die tägliche Bereinigung nach 24 Stunden.
 
-**Detailseite:** Die Fassung in `getInvoice` lesen und auf `/rechnungen/[id]` anzeigen: Art, Datum und Person des Ausstellens, Abzüge, USt je Satz der Fassung, Fristen. Heute zeigt die Seite nur Positionen, Gesamtbetrag aus `total_cents` und eine USt-Aufteilung aus den Positionen, die Abzüge nicht berücksichtigt.
-
-**Danach E2E ergänzen:** Ausstellen bis zur Detailseite, `tests/PROJ-42-ausstellen-mit-pdf.spec.ts` erwartet noch „wird gerade eingerichtet“.
+**Geprüft**
+- Vitest nacheinander (`--no-file-parallelism --maxWorkers=1`): 926 grün, davon 23 neu in `supabase/tests/invoice-issue.integration.test.ts`
+- E2E im gebauten Server, Desktop: `PROJ-42` (Ablauf bis zur Detailseite, PDF und Prüfsumme, Nummer inzwischen vergeben, Konflikt, Mitarbeiter, Betreiber), `PROJ-37` komplett, `PROJ-5` Löschen, `PROJ-40` Schlussrechnung und Detail
+- Nicht geprüft: PDF und Ablage auf Vercel; Firefox, Safari, Tablet; Handy nur das Layout der Seite; Ablauf mit Logo-Fehler; Detailseite am Bild
 
 ## QA Test Results
 _To be added by /qa_

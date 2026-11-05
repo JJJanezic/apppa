@@ -5,9 +5,9 @@ import { cache } from 'react'
 import { todayIso } from '@/lib/bookings'
 import { billableCents, invoiceSums, requiredChecks } from '@/lib/invoice-drafts'
 import { getInvoiceDraftView } from '@/lib/invoice-drafts-data'
-import { type IssueChecks, issueChecks, type NumberedInvoice } from '@/lib/invoice-issue'
+import { type IssueChecks, issueChecks, type IssuedSnapshot, type NumberedInvoice } from '@/lib/invoice-issue'
 import type { NumberingSettings } from '@/lib/invoice-numbering'
-import type { PdfMeta } from '@/lib/invoice-pdf/types'
+import type { PdfMeta, PdfView } from '@/lib/invoice-pdf/types'
 import { buildPreviewModel, type InvoicePreviewModel } from '@/lib/invoice-preview'
 import { loadInvoiceSettings } from '@/lib/invoice-settings-data'
 import { createClient } from '@/lib/supabase/server'
@@ -61,6 +61,35 @@ export async function loadIssueState(tenantId: string, id: string, input: { invo
     invoiceNumber: input.number.trim(),
   })
   return { view, model, existing, numbering: settings.numbering as NumberingSettings }
+}
+
+// Stand der Buchung; vor dem Laden gelesen, damit eine Änderung danach beim Festschreiben auffällt
+export async function getBookingUpdatedAt(tenantId: string, id: string): Promise<string | null> {
+  const supabase = await createClient()
+  const { data: invoice } = await supabase.from('invoices').select('booking_id').eq('id', id).eq('tenant_id', tenantId).maybeSingle()
+  if (!invoice?.booking_id) return null
+  const { data } = await supabase.from('bookings').select('updated_at').eq('id', invoice.booking_id).eq('tenant_id', tenantId).maybeSingle()
+  return data?.updated_at ?? null
+}
+
+// Festgeschriebene Fassung aus dem Modell und den fertigen Texten des PDFs
+export function issuedSnapshot(state: Awaited<ReturnType<typeof loadIssueState>>, view: PdfView): IssuedSnapshot {
+  const m = state.model
+  return {
+    kind: m.kind,
+    issuer: m.issuer,
+    recipient: m.recipient,
+    recipientKind: state.view.draft.recipientKind,
+    period: { apartmentLabel: m.booking.apartmentLabel, arrival: m.booking.arrival, departure: m.booking.departure },
+    guestNames: m.guestNames,
+    partialLabel: m.partialLabel,
+    lines: m.lines,
+    deductions: m.deductions.map((d) => ({ number: d.number, origin: d.origin, invoiceDate: d.invoiceDate, totalCents: d.totalCents, vatShares: d.vatShares })),
+    totals: { linesCents: m.totals.linesCents, totalCents: m.totals.totalCents, vatShares: m.totals.vatShares },
+    smallBusiness: m.smallBusiness,
+    schedule: m.schedule,
+    texts: { intro: view.intro, smallBusinessNote: view.smallBusinessNote, payment: view.payment, closing: view.closing, footer: view.footer },
+  }
 }
 
 // Prüfliste aus dem Stand und den Meldungen des tatsächlich erzeugten PDFs

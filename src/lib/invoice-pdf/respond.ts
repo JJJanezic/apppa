@@ -4,7 +4,7 @@ import { getLocale, getTranslations } from 'next-intl/server'
 
 import type { InvoicePreviewModel } from '@/lib/invoice-preview'
 import { renderInvoicePdf } from '@/lib/invoice-pdf/render'
-import { PDF_META_HEADER, type PdfMeta } from '@/lib/invoice-pdf/types'
+import { PDF_META_HEADER, type PdfMeta, type PdfView } from '@/lib/invoice-pdf/types'
 import { buildPdfView } from '@/lib/invoice-pdf/view'
 import type { LetterheadValues } from '@/lib/letterhead'
 import { loadPdfLogo } from '@/lib/letterhead-data'
@@ -19,7 +19,7 @@ type PdfRequest = {
 }
 
 // Erzeugt die Rechnung als PDF samt Meldungen; wirft, wenn die Erzeugung scheitert
-export async function renderInvoice(p: PdfRequest): Promise<{ pdf: Uint8Array; meta: PdfMeta }> {
+export async function renderInvoice(p: PdfRequest): Promise<{ pdf: Uint8Array; meta: PdfMeta; view: PdfView }> {
   const [tp, tl, locale, { logo, failed }] = await Promise.all([
     getTranslations('invoiceDrafts.preview'),
     getTranslations('letterhead.pdf'),
@@ -40,6 +40,7 @@ export async function renderInvoice(p: PdfRequest): Promise<{ pdf: Uint8Array; m
   const result = await renderInvoicePdf(view)
   return {
     pdf: result.pdf,
+    view,
     meta: {
       pages: result.pages,
       footerShare: result.footerShare,

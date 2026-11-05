@@ -3,6 +3,7 @@
 
 import { addDays, isIsoDate, LIMITS as BOOKING_LIMITS, todayIso } from '@/lib/bookings'
 import type { InvoiceKind } from '@/lib/invoice-drafts'
+import type { IssuedSnapshot } from '@/lib/invoice-issue'
 import { vatBreakdown, type VatShare } from '@/lib/vat'
 
 export type InvoiceErrorCode =
@@ -23,6 +24,8 @@ export type InvoiceErrorCode =
   | 'deductionInvalid'
   | 'contentInvalid'
   | 'notDraft'
+  // Ausstellen (PROJ-42)
+  | 'deductedByIssued'
 
 // Herkunft: nacherfasst (PROJ-37), Entwurf ohne Nummer (PROJ-40), ausgestellt (PROJ-41)
 export type InvoiceOrigin = 'backfilled' | 'draft' | 'issued'
@@ -113,6 +116,8 @@ export type Invoice = {
   pdfPath: string | null
   pdf: InvoicePdfLinks | null
   updatedAt: string
+  // Nur bei ausgestellten Rechnungen (PROJ-42)
+  issued: { at: string; byName: string | null; withoutLogo: boolean; snapshot: IssuedSnapshot } | null
 }
 
 // Abschnitt „Rechnungen“ im Buchungsdetail: Rechnungen, verrechnete Summe, Summe der Entwürfe und Gesamtpreis

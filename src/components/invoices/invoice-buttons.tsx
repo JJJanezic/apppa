@@ -40,7 +40,8 @@ export function InvoiceActions({ invoice, today }: { invoice: Invoice; today: st
     const result = await callAction(() => deleteInvoice({ id: invoice.id }))
     setPending(false)
     if (!result.ok) {
-      if (result.error !== 'sessionExpired') toast.error(t(`errors.${result.error}`))
+      if (result.error === 'deductedByIssued') toast.error(t('errors.deductedByIssued', { number: (result as { deductedBy?: string }).deductedBy ?? '' }))
+      else if (result.error !== 'sessionExpired') toast.error(t(`errors.${result.error}`))
       return
     }
     // Die Aktion leitet selbst zur Liste weiter

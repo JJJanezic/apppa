@@ -1,12 +1,12 @@
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 
 import { expect, type Page, test as base } from '@playwright/test'
 
 import type { Json } from '../src/types/database'
-import { anon, createTenant, createUser, deleteUser, type E2EUser, hasSupabaseEnv, service, signInAs } from './support/supabase'
+import { anon, createTenant, createUser, deleteUser, type E2EUser, hasSupabaseEnv, service, signInAs, signInAsAdmin } from './support/supabase'
 
-// PROJ-42: Seite „Rechnung ausstellen“. Regeln: src/lib/invoice-issue.test.ts. Festschreiben und Unveränderlichkeit ergänzt
-// /backend; bis dahin antwortet das Ausstellen „wird eingerichtet“.
+// PROJ-42: Seite „Rechnung ausstellen“ bis zur ausgestellten Rechnung. Regeln: src/lib/invoice-issue.test.ts. Datenbank:
+// supabase/tests/invoice-issue.integration.test.ts.
 
 type Users = (opts?: Parameters<typeof createUser>[0]) => Promise<E2EUser>
 
@@ -220,7 +220,7 @@ test.describe('Seite „Rechnung ausstellen“', () => {
     await expect(submit(page)).toBeDisabled()
   })
 
-  test('AC: Abzug eines Teilrechnungs-Entwurfs und unbekannte Zeichen sperren, mit Link zur Abhilfe; „wird eingerichtet“ ändert nichts', async ({ page, users }) => {
+  test('AC: Abzug eines Teilrechnungs-Entwurfs und unbekannte Zeichen sperren, mit Link zur Abhilfe', async ({ page, users }) => {
     desktopOnly()
     const s = await setup(users)
     const part = await addDraft(s.owner, s.tenantId, s.bookingId, {
@@ -239,13 +239,104 @@ test.describe('Seite „Rechnung ausstellen“', () => {
     await expect(page.getByRole('link', { name: 'Zur Teilrechnung' })).toHaveAttribute('href', `/rechnungen/${part}`)
     await expect(page.getByText(/Diese Zeichen kann die Schrift nicht darstellen: ✓/)).toBeVisible()
     await expect(submit(page)).toBeDisabled()
+  })
 
-    await open(page, part)
+  test('AC: Ausstellen bis zur Detailseite: PDF ohne Aufdruck, Liste, Buchung, Sperren; Mitarbeiter öffnet das PDF; Doppelversuch', async ({ page, users }) => {
+    desktopOnly()
+    const s = await setup(users, { staff: true })
+    const id = await addDraft(s.owner, s.tenantId, s.bookingId)
+    await signInAs(page, s.owner)
+    await open(page, id)
+    const number = await page.getByLabel('Rechnungsnummer').inputValue()
+    await expect(submit(page)).toBeEnabled()
+    const { data: before } = await service().from('invoices').select('updated_at').eq('id', id).single()
+    await submit(page).click()
+    await expect(page).toHaveURL(new RegExp(`/rechnungen/${id}\\?ausgestellt=1$`), { timeout: 30_000 })
+    await ready(page)
+
+    await expect(page.getByRole('heading', { name: number })).toBeVisible()
+    await expect(page.getByText('Die Rechnung wurde ausgestellt.')).toBeVisible()
+    await expect(page.getByText('Rechnung falsch?')).toBeVisible()
+    await expect(page.getByText('ausgestellt', { exact: true })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Bearbeiten' })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Löschen' })).toHaveCount(0)
+    await expect(page.getByRole('link', { name: 'Ausstellen', exact: true })).toHaveCount(0)
+    await expect(page.getByText('Maria Huber').first()).toBeVisible()
+
+    // Datenbank und Datei
+    const { data: row } = await service().from('invoices').select('origin, number, pdf_path, pdf_sha256, issued_by, issued_snapshot').eq('id', id).single()
+    expect(row).toMatchObject({ origin: 'issued', number, issued_by: s.owner.id })
+    const { data: file } = await service().storage.from('invoices').download(row!.pdf_path as string)
+    const bytes = Buffer.from(await file!.arrayBuffer())
+    expect(bytes.subarray(0, 4).toString()).toBe('%PDF')
+    expect(createHash('sha256').update(bytes).digest('hex')).toBe(row!.pdf_sha256)
+    // Die Fassung enthält keine zusätzlichen Gästedaten der Buchung
+    expect(JSON.stringify(row!.issued_snapshot)).not.toContain('companions')
+
+    // Erneuter Aufruf der Schnittstelle: dieselbe Rechnung, kein zweites PDF
+    const again = await page.request.post(`/api/rechnungen/${id}/ausstellen`, { data: { invoiceDate: '2026-10-20', number: 'ANDERE', updatedAt: before!.updated_at, acks: [] } })
+    expect(await again.json()).toEqual({ ok: true, id })
+    const { data: same } = await service().from('invoices').select('number').eq('id', id).single()
+    expect(same!.number).toBe(number)
+
+    // Die Seite führt zur Rechnung
+    await page.goto(`/rechnungen/${id}/ausstellen`)
+    await expect(page).toHaveURL(new RegExp(`/rechnungen/${id}$`))
+
+    // Liste
+    await page.goto('/rechnungen')
+    await expect(page.getByRole('link', { name: number }).first()).toBeVisible()
+
+    // Mitarbeiter sieht Rechnung und PDF, kann nichts ändern
+    await page.context().clearCookies()
+    await signInAs(page, s.staff!)
+    await page.goto(`/rechnungen/${id}`)
+    await ready(page)
+    await expect(page.getByRole('link', { name: 'PDF öffnen' })).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Herunterladen' })).toBeVisible()
+    await expect(page.getByText('Die Rechnung wurde ausgestellt.')).toHaveCount(0)
+    const staffPost = await page.request.post(`/api/rechnungen/${id}/ausstellen`, { data: { invoiceDate: '2026-10-20', number: 'X', updatedAt: 'x', acks: [] } })
+    expect(staffPost.status()).toBe(403)
+  })
+
+  test('AC: Nummer inzwischen vergeben: Meldung und neuer Vorschlag; Entwurf in anderem Fenster geändert: nicht ausgestellt', async ({ page, users }) => {
+    desktopOnly()
+    const s = await setup(users)
+    const id = await addDraft(s.owner, s.tenantId, s.bookingId, { kind: 'partial', partial: { mode: 'amount', percent: null, amount_cents: 20000 }, lines: [{ label: 'Anteil', amount_cents: 20000, vat_rate: '10.00' }] })
+    await signInAs(page, s.owner)
+    await open(page, id)
+    const number = page.getByLabel('Rechnungsnummer')
+    await expect(number).toHaveValue('2026-0001')
+    await expect(submit(page)).toBeEnabled()
+    await addBackfilled(s.owner, s.tenantId, '2026-0001', '2026-01-02')
+    await submit(page).click()
+    await expect(page.getByRole('alert').filter({ hasText: 'inzwischen vergeben' })).toBeVisible()
+    await expect(number).toHaveValue('2026-0002')
+    await expect(submit(page)).toBeEnabled({ timeout: 20_000 })
+    expect((await service().from('invoices').select('origin').eq('id', id).single()).data).toMatchObject({ origin: 'draft' })
+
+    await service().from('invoices').update({ updated_at: '2026-01-01T00:00:00Z' } as never).eq('id', id)
+    await submit(page).click()
+    await expect(page.getByRole('alert').filter({ hasText: 'inzwischen geändert' })).toBeVisible()
+    expect((await service().from('invoices').select('origin').eq('id', id).single()).data).toMatchObject({ origin: 'draft' })
+  })
+
+  test('AC: Betreiber: Kunde mit ausgestellter Rechnung nicht löschbar', async ({ page, users }) => {
+    desktopOnly()
+    const s = await setup(users)
+    const id = await addDraft(s.owner, s.tenantId, s.bookingId)
+    await signInAs(page, s.owner)
+    await open(page, id)
     await expect(submit(page)).toBeEnabled()
     await submit(page).click()
-    await expect(page.getByRole('alert').filter({ hasText: 'wird gerade eingerichtet' })).toBeVisible()
-    const { data } = await service().from('invoices').select('number, origin').eq('id', part).single()
-    expect(data).toMatchObject({ number: null, origin: 'draft' })
+    await expect(page).toHaveURL(/ausgestellt=1/, { timeout: 30_000 })
+    await service().from('tenants').update({ status: 'deactivated' } as never).eq('id', s.tenantId)
+    await page.context().clearCookies()
+    await signInAsAdmin(page, await users({ admin: true }))
+    await page.goto(`/betreiber/kunden/${s.tenantId}`)
+    await ready(page)
+    await expect(page.getByText(/1 ausgestellte Rechnung fällt noch unter die Aufbewahrungspflicht/)).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Endgültig löschen' })).toHaveCount(0)
   })
 
   test('Layout: ohne seitliches Scrollen', async ({ page, users }) => {
