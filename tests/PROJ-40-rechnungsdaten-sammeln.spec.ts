@@ -711,7 +711,7 @@ test.describe('Empfänger, Texte, Zahlungsregeln', () => {
     await page.getByRole('option', { name: 'Mit Format' }).click()
     const box = intro.getByRole('textbox', { name: 'Text für diese Rechnung', exact: true })
     await expect(box).toHaveText('Formatierter Dank')
-    await expect(box).toHaveCSS('font-family', /Tinos/)
+    await expect(box).toHaveCSS('font-family', /Tinos/i)
     await expect(box).toHaveCSS('font-size', '16px')
 
     // Die Vorschau ist ein PDF (PROJ-41): Die Schrift des Textes steckt in der Datei
@@ -1180,7 +1180,7 @@ test.describe('QA Editor-Erweiterung (PROJ-39)', () => {
     await page.goto(`/rechnungen/${id}/bearbeiten`)
     await ready(page)
     const box = intro(page).getByRole('textbox', { name: 'Text für diese Rechnung', exact: true })
-    await expect(box).toHaveCSS('font-family', /Tinos/)
+    await expect(box).toHaveCSS('font-family', /Tinos/i)
     await expect(box).toHaveCSS('text-align', 'justify')
     await expect(intro(page).getByRole('textbox', { name: 'Schriftgröße in pt' })).toHaveValue('12')
     // Die Vorschau ist ein PDF (PROJ-41): Die Schrift des Textes steckt in der Datei

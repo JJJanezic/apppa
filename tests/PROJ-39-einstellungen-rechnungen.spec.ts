@@ -913,7 +913,7 @@ test.describe('Editor-Erweiterung: Schrift, Größe, Ausrichtung, Code', () => {
       await expect(page.getByRole('option', { name, exact: true })).toBeVisible()
     }
     await page.getByRole('option', { name: 'Arimo (wie Arial)' }).click()
-    await expect(box).toHaveCSS('font-family', /Arimo/)
+    await expect(box).toHaveCSS('font-family', /Arimo/i)
 
     const size = p.getByRole('textbox', { name: 'Schriftgröße in pt' })
     await size.fill('12')
@@ -923,7 +923,7 @@ test.describe('Editor-Erweiterung: Schrift, Größe, Ausrichtung, Code', () => {
     await expect(box).toHaveCSS('text-align', 'justify')
     await expect(p.getByRole('button', { name: 'Blocksatz' })).toHaveAttribute('aria-pressed', 'true')
     await expect(p.getByRole('button', { name: 'Linksbündig' })).toHaveAttribute('aria-pressed', 'false')
-    await expect(p.locator('div.flex-col.gap-2.break-words').filter({ hasText: 'Ein Text' })).toHaveCSS('font-family', /Arimo/)
+    await expect(p.locator('div.flex-col.gap-2.break-words').filter({ hasText: 'Ein Text' })).toHaveCSS('font-family', /Arimo/i)
 
     // Liste bleibt linksbündig
     await p.getByRole('button', { name: 'Aufzählung' }).click()
@@ -1054,7 +1054,7 @@ test.describe('Editor-Erweiterung: Schrift, Größe, Ausrichtung, Code', () => {
     await expect(p.getByRole('combobox', { name: 'Schriftart' })).toHaveText('Carlito (wie Calibri)')
     await expect(p.getByRole('textbox', { name: 'Schriftgröße in pt' })).toHaveValue('10,5')
     await expect(p.getByRole('button', { name: 'Zentriert' })).toHaveAttribute('aria-pressed', 'true')
-    await expect(editor(p, 'Text')).toHaveCSS('font-family', /Carlito/)
+    await expect(editor(p, 'Text')).toHaveCSS('font-family', /Carlito/i)
     await expect(editor(p, 'Text')).toHaveCSS('text-align', 'center')
     await p.getByRole('button', { name: 'HTML-Code bearbeiten' }).click()
     await expect(p.locator('textarea')).toHaveValue('<div style="font-family: Carlito; font-size: 10.5pt; text-align: center">\n<p>Mit Format</p>\n</div>')
@@ -1082,7 +1082,7 @@ test.describe('Editor-Erweiterung: Schrift, Größe, Ausrichtung, Code', () => {
     await p.getByRole('textbox', { name: 'Schriftgröße in pt' }).fill('24')
     await p.getByRole('textbox', { name: 'Schriftgröße in pt' }).blur()
     await typeInto(page, editor(p, 'Text'), 'Einsehrlangeswortohneleerzeichendasumbrechenmussweilessonstseitlichscrollenwuerde und mehr', { clear: true })
-    await expect(editor(p, 'Text')).toHaveCSS('font-family', /Open Sans/)
+    await expect(editor(p, 'Text')).toHaveCSS('font-family', /OpenSans/i)
     expect(await p.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(0)
     if (process.env.QA_SHOTS) await p.screenshot({ path: `${process.env.QA_SHOTS}/${test.info().project.name}-editor.png` })
     await p.getByRole('button', { name: 'HTML-Code bearbeiten' }).click()
@@ -1239,8 +1239,8 @@ test.describe('QA Editor-Erweiterung', () => {
     await page.waitForLoadState('networkidle')
     // Vor der Auswahl ist keine der sechs Rechnungsschriften geladen; nur die App-Schrift
     const loadedFamilies = () => page.evaluate(() => Array.from(document.fonts).filter((f) => f.status === 'loaded' && !f.family.includes('Fallback') && !f.family.includes('__nextjs')).map((f) => f.family.replace(/['"]/g, '')))
-    expect(await loadedFamilies()).not.toEqual(expect.arrayContaining(['Arimo']))
-    expect(new Set(await loadedFamilies())).toEqual(new Set(['Source Serif 4']))
+    expect(await loadedFamilies()).not.toEqual(expect.arrayContaining(['richArimo']))
+    expect(new Set(await loadedFamilies())).toEqual(new Set(['appSerif']))
     const atEditor = fonts.length
     await p.getByRole('combobox', { name: 'Schriftart' }).click()
     await page.getByRole('option', { name: 'Tinos (wie Times)' }).click()
@@ -1250,7 +1250,7 @@ test.describe('QA Editor-Erweiterung', () => {
     test.info().annotations.push({ type: 'Schriftdateien', description: `andere Seite ${elsewhere}, Editor ${atEditor}, nach Auswahl ${fonts.length}` })
     console.log(`Schriftdateien: andere Seite ${elsewhere}, Editor ${atEditor}, nach Auswahl ${fonts.length}`)
     // Die gewählte Schrift kommt an; die geöffnete Liste kann je nach Browser auch die übrigen laden
-    await expect.poll(loadedFamilies).toContain('Tinos')
+    await expect.poll(loadedFamilies).toContain('richTinos')
   })
 
   test('Barrierefreiheit: Editor mit Auswahl, Fehler, Code-Feld und Hinweis ohne axe-Verstöße', async ({ page, users }) => {
