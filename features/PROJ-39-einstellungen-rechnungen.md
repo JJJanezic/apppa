@@ -443,6 +443,7 @@ Dazu: Kleinunternehmer-Hinweis mit Gesetzestext, Fußzeile leer, Nummernkreis JJ
 | Früh Eingegebenes wird beim Aktivwerden des Entwurfs übernommen (`useAdoptEarlyInput`), nicht die Eingabe gesperrt | Nichts geht verloren und die Felder flackern nicht ausgegraut (BUG-4) | 2026-11-04 |
 | Schriften im Browser beim Bauen mitgeliefert (`next/font`), ohne Vorladen; PDF-Dateien erst mit PROJ-41 | Keine Verbindung zu Google, DSGVO-freundlich, übrige App nicht langsamer; React-PDF braucht ohnehin andere Dateien (TTF/WOFF, nicht variabel) | 2026-11-04 |
 | Zeilenhöhe als Faktor ohne Einheit statt in pt | Bleibt bei jeder Schriftgröße und beim Verkleinern der Fußzeile stimmig; entspricht dem Briefpapier-Zeilenabstand und dem PDF-Erzeuger | 2026-11-05 |
+| PDF: Zeilenhöhe als Faktor mit ausdrücklicher Schriftgröße am selben Text, nie als pt-Zahl | React-PDF multipliziert jede Zahl mit der Schriftgröße desselben Stils (Standard 18 pt); eine pt-Zahl führte zu Endlos-Lauf | 2026-11-05 |
 | Migration erweitert nur die Einstellungsprüfung, vor dem Code einspielen; ausgestellte Rechnungen unberührt | Laufende App sendet die Angabe nie; ältere Daten bleiben gültig | 2026-11-05 |
 | Zeilenhöhe als vierte optionale Einstellung im gespeicherten Text (Schlüssel `lineHeight`), gleiche Prüfung in App und Datenbank (`private.rich_attrs_ok`), keine neuen Spalten | Wie die drei Einstellungen: Konfliktschutz, Protokoll, Kopie in den Entwurf und PDF ohne Sonderweg; alte Texte bleiben gültig | 2026-11-05 |
 | Gespeichert bleibt die strukturierte Beschreibung, ergänzt um die drei Einstellungen je Text; Datenbank und App prüfen die erlaubten Werte; HTML ist nur eine Bearbeitungsansicht | Freies HTML bleibt nicht speicherbar, PDF kann weiter direkt aus der Struktur setzen; alte Texte bleiben gültig | 2026-11-04 |
@@ -888,11 +889,11 @@ Der Textblock setzt die Zeilenhöhe zusätzlich zu Schriftart, Größe und Ausri
 - `src/lib/rich-text.ts`: vierte Einstellung `lineHeight` (Faktor 0,80–3,00, höchstens zwei Nachkommastellen, `isRichLineHeight`, `RICH_LINE_HEIGHT`); Bereinigung führt sie zuletzt und auf zwei Stellen gerundet; strenge Prüfung kennt den Schlüssel
 - `src/lib/rich-text-html.ts`: `line-height` im äußeren `<div style>` hinter den übrigen Angaben, nur wenn gesetzt; beim Lesen nur eine Zahl mit Punkt (auch `.9`), sonst entfernt und genannt (Einheit, Prozent, `normal`, Komma, Grenzen, drei Stellen); bei mehreren Angaben gilt die letzte gültige
 - Anzeige: `richTextStyle` (Vorschau, Entwurfsvorschau) und Schreibfläche setzen die Zeilenhöhe für den ganzen Text; ohne Angabe unverändert
-- PDF (`src/lib/invoice-pdf/document.tsx`): Textblöcke inkl. Listen und Fußzeile setzen die Zeilenhöhe, sonst die des Briefpapiers; Fußzeile wird mit dem echten Satz gemessen, die Verkleinerung behält die Zeilenhöhe; Empfänger und Aussteller-Block (`Lines`, 1,2) unverändert
+- PDF (`src/lib/invoice-pdf/document.tsx`): Textblöcke inkl. Listen und Fußzeile setzen die Zeilenhöhe zusammen mit der ausdrücklichen Schriftgröße (siehe Backend-Notiz), sonst die des Briefpapiers; Fußzeile wird mit dem echten Satz gemessen, die Verkleinerung behält die Zeilenhöhe; Empfänger und Aussteller-Block (`Lines`, 1,2) unverändert
 - Hinweis im Code-Modus nennt `line-height (0.80 bis 3.00, z. B. 1.25)` (`messages/de.json`)
 - Unit-Tests: Grenzen, Rundung/Reihenfolge, Hin- und Rückweg, ungültige Werte, letzte Angabe, Zeilenhöhe an `<p>`/`<li>`, Einfügen aus Word
 
-**Offen für /backend:** Migration für `private.rich_attrs_ok`: Schlüssel `lineHeight` zulassen; Wert muss JSON-Zahl sein, 0.8 bis 3, `* 100 % 1 = 0`. Bis dahin lehnt die Datenbank in Dev Texte mit Zeilenhöhe beim Speichern ab; Texte ohne Zeilenhöhe sind nicht betroffen. Integrationstests: Annahme/Ablehnung, Bausteinstand bei reiner Änderung der Zeilenhöhe, PDF mit Zeilenhöhe.
+**Erledigt in /backend (siehe unten):** Migration für `private.rich_attrs_ok`: Schlüssel `lineHeight` zulassen; Wert muss JSON-Zahl sein, 0.8 bis 3, `* 100 % 1 = 0`. Bis dahin lehnt die Datenbank in Dev Texte mit Zeilenhöhe beim Speichern ab; Texte ohne Zeilenhöhe sind nicht betroffen. Integrationstests: Annahme/Ablehnung, Bausteinstand bei reiner Änderung der Zeilenhöhe, PDF mit Zeilenhöhe.
 
 ## Implementation Notes (Backend)
 **Stand 2026-10-31.** Migration `20261031110516_invoice_settings.sql` ist in Dev („apppa-dev“) eingespielt (vom Nutzer freigegeben wegen neuer Zugriffsregeln), die Typen sind neu erzeugt. Die Advisors melden nur die bekannten Auth-Hinweise (`auth_otp_long_expiry`, `auth_leaked_password_protection`, Runbook).
@@ -988,6 +989,17 @@ Migration `20261031135815_invoice_settings_qa_fixes.sql`, in Dev eingespielt; Ty
   - `invoice-drafts.integration.test.ts` (22): Einstellungen im Entwurf gespeichert, ungültige abgelehnt
   - E2E Desktop: speichern und neu öffnen, Code-Ansicht danach, alter Baustein bleibt Standard; Entwurf übernimmt die Einstellungen als Kopie, Vorschau, Rückfrage bei reiner Größenänderung, Baustein bleibt unverändert
 - Nicht gelaufen: der gesamte `npm test`-Lauf und alle E2E-Dateien; das gehört zu `/qa`.
+
+### Zeilenhöhe (Backend, 2026-11-05)
+- Migration `20261105200349_rich_text_line_height.sql`: `private.rich_attrs_ok` kennt `lineHeight` (JSON-Zahl, 0,8 bis 3, `* 100 % 1 = 0`); die Prüfung der Schriftgröße ist nun eine eigene Bedingung statt Abschluss der Prüfung. `create or replace` behält das Ausführungsrecht. Keine neuen Spalten, keine Datenumstellung, keine RLS-Änderung; vorhandene Zeilen und ausgestellte Rechnungen werden nicht neu geprüft. Nur in Dev; vor dem Code in Staging und Produktion.
+- Typen unverändert. Advisors: nur die bekannte Auth-Warnung `auth_otp_long_expiry`.
+- **PDF-Fehler beim Bau gefunden und behoben:** React-PDF multipliziert jede Zahl bei `lineHeight` mit der Schriftgröße **desselben** Stils (ohne Angabe dort mit 18 pt, nicht mit der geerbten Größe). Ein Faktor allein ergab darum 18 pt × Faktor; eine Umrechnung in pt (z. B. 30) wurde noch einmal multipliziert (720 pt), die Zeile passte auf keine Seite und die Erzeugung lief endlos. Lösung: Faktor plus ausdrückliche Schriftgröße (eigene oder Grundgröße des Briefpapiers) am selben Text; `RichDocPdf`/`FooterPdf` bekommen dafür die Grundgröße.
+- Tests, gegen Dev grün:
+  - `invoice-settings.integration.test.ts` (18, neu 1): gültige und ungültige Zeilenhöhen über die Speicherfunktion und direkt in der Tabelle, Abgleich mit `isRichDoc`, Zeilenhöhe am Absatz abgelehnt, reine Änderung der Zeilenhöhe ändert Bausteinstand und Protokoll
+  - `invoice-drafts.integration.test.ts` (22): Zeilenhöhe im Entwurf gespeichert, 3,5 abgelehnt
+  - `render.integration.test.ts` (18, neu 2): Zeilenabstand mit 0,8 kleiner, mit 2 größer und gleich 2 × 11 pt, Empfänger unverändert, Fußzeile wächst; Grenzwerte 0,8/3 mit Standard, 6 und 24 pt über Absätze, Umbrüche, Listen und Fußzeile ohne Endlos-Lauf
+  - Unit 218 in `src/lib/rich-text*`, `invoice-pdf`, `validation`
+- Nicht gelaufen: gesamter `npm test`-Lauf und E2E; das gehört zu `/qa`.
 
 ## QA Test Results
 

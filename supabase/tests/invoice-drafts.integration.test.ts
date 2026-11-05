@@ -400,6 +400,13 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-40 Rechnungsentwurf', () => {
       expect((await invoice(id)).intro_text).toEqual(body)
       const bad = { ...(doc('Guten Tag') as object), attrs: { fontFamily: 'comic' } } as Json
       expect((await save(ownerA, booking, { texts: { intro: { block_id: null, body: bad } } })).error?.code).toBe('P0922')
+      // Zeilenhöhe (refine 2026-11-05), eigene Buchung: ein zweiter Entwurf über den ganzen Preis wäre zu viel (P0920)
+      const other = await newBooking()
+      const tall = { ...(doc('Guten Tag') as object), attrs: { fontSize: 10.5, lineHeight: 1.25 } } as Json
+      const tallId = savedId(await save(ownerA, other, { texts: { intro: { block_id: null, body: tall } } }))
+      expect((await invoice(tallId)).intro_text).toEqual(tall)
+      const tooTall = { ...(doc('Guten Tag') as object), attrs: { lineHeight: 3.5 } } as Json
+      expect((await save(ownerA, other, { texts: { intro: { block_id: null, body: tooTall } } })).error?.code).toBe('P0922')
     })
 
     it('übernimmt nur Bausteine des eigenen Kunden und Blocks als Verweis', async () => {

@@ -45,20 +45,23 @@ function Inline({ nodes }: { nodes: RichInline[] }) {
   )
 }
 
-function textStyle(attrs: RichAttrs | undefined, familyOf: FamilyOf) {
+// baseSize: Schriftgröße, die der Text sonst erbt (Grundgröße des Briefpapiers)
+function textStyle(attrs: RichAttrs | undefined, familyOf: FamilyOf, baseSize: number) {
   return {
     ...(attrs?.fontFamily ? { fontFamily: familyOf(attrs.fontFamily) } : {}),
     ...(attrs?.fontSize ? { fontSize: attrs.fontSize } : {}),
     ...(attrs?.textAlign ? { textAlign: attrs.textAlign } : {}),
-    // Faktor der Schriftgröße; ohne Angabe gilt die Zeilenhöhe der Seite aus dem Briefpapier
-    ...(attrs?.lineHeight ? { lineHeight: attrs.lineHeight } : {}),
+    // Faktor der Schriftgröße. React-PDF multipliziert jede Zahl bei lineHeight mit der Schriftgröße desselben Stils,
+    // ohne Angabe dort mit seinen 18 pt statt der geerbten Größe; darum steht die Größe ausdrücklich dabei. Ohne
+    // Zeilenhöhe gilt die des Briefpapiers von der Seite.
+    ...(attrs?.lineHeight ? { fontSize: attrs.fontSize ?? baseSize, lineHeight: attrs.lineHeight } : {}),
   }
 }
 
 const paragraphText = (p: RichParagraph) => <Inline nodes={p.content?.length ? p.content : [{ type: 'text', text: ' ' }]} />
 
-export function RichDocPdf({ doc, gap, familyOf }: { doc: RichDoc; gap: number; familyOf: FamilyOf }) {
-  const style = textStyle(doc.attrs, familyOf)
+export function RichDocPdf({ doc, gap, familyOf, baseSize }: { doc: RichDoc; gap: number; familyOf: FamilyOf; baseSize: number }) {
+  const style = textStyle(doc.attrs, familyOf, baseSize)
   return (
     <View style={{ gap }}>
       {doc.content.map((block, i) => {
@@ -146,10 +149,10 @@ function Row({ row }: { row: PdfRow }) {
   )
 }
 
-export function FooterPdf({ doc, gap, familyOf }: { doc: RichDoc; gap: number; familyOf: FamilyOf }) {
+export function FooterPdf({ doc, gap, familyOf, baseSize }: { doc: RichDoc; gap: number; familyOf: FamilyOf; baseSize: number }) {
   return (
     <View style={{ borderTopWidth: 0.5, borderTopColor: '#999999', paddingTop: 4 }}>
-      <RichDocPdf doc={doc} gap={gap} familyOf={familyOf} />
+      <RichDocPdf doc={doc} gap={gap} familyOf={familyOf} baseSize={baseSize} />
     </View>
   )
 }
@@ -229,7 +232,7 @@ export function InvoiceDocument({
           (doc, i) =>
             doc && (
               <View key={i} style={{ marginBottom: section }}>
-                <RichDocPdf doc={doc} gap={gap} familyOf={familyOf} />
+                <RichDocPdf doc={doc} gap={gap} familyOf={familyOf} baseSize={v.fontSize} />
               </View>
             )
         )}
@@ -263,14 +266,14 @@ export function InvoiceDocument({
           (doc, i) =>
             doc && (
               <View key={i} style={{ marginBottom: section }}>
-                <RichDocPdf doc={doc} gap={gap} familyOf={familyOf} />
+                <RichDocPdf doc={doc} gap={gap} familyOf={familyOf} baseSize={v.fontSize} />
               </View>
             )
         )}
 
         {view.footer && (
           <View fixed style={{ position: 'absolute', left: mm(P.marginXMm), right: mm(P.marginXMm), bottom: mm(P.footerBottomMm) + pageLinePt, maxHeight: footerHeightPt, overflow: 'hidden' }}>
-            <FooterPdf doc={view.footer} gap={footerGap(view)} familyOf={familyOf} />
+            <FooterPdf doc={view.footer} gap={footerGap(view)} familyOf={familyOf} baseSize={v.fontSize} />
           </View>
         )}
         <Text

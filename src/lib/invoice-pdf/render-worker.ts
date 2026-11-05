@@ -128,7 +128,7 @@ async function measure(view: PdfView): Promise<Measured> {
         { size: 'A4', style: { ...pageBase(view, familyOf), paddingHorizontal: (P.marginXMm * 72) / 25.4 } },
         ...issuerSizes.map((size) => createElement(View, { key: `i${size}`, id: `issuer-${size}`, wrap: false, style: { width: issuerWidthPt(view) } } as never, createElement(Lines, { lines: view.issuer ?? [], size, width: issuerWidthPt(view) }))),
         ...footerSizes.map((size) =>
-          createElement(View, { key: `f${size}`, id: `footer-${size}`, wrap: false, style: { width } } as never, createElement(FooterPdf, { doc: size === footerStart ? (footer as RichDoc) : withFontSize(footer as RichDoc, size), gap: footerGap(view), familyOf }))
+          createElement(View, { key: `f${size}`, id: `footer-${size}`, wrap: false, style: { width } } as never, createElement(FooterPdf, { doc: size === footerStart ? (footer as RichDoc) : withFontSize(footer as RichDoc, size), gap: footerGap(view), familyOf, baseSize: view.letterhead.fontSize }))
         )
       )
     )

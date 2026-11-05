@@ -297,6 +297,40 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-39 Rechnungseinstellungen', () => {
     expect((await saveTexts(ownerA, tenantA, { small_business_note: note, footer: null })).error).toBeNull()
   })
 
+  it('Zeilenhöhe (refine 2026-11-05): 0,8 bis 3 mit höchstens zwei Nachkommastellen, auch direkt in der Datenbank', async () => {
+    const note = (await settings(tenantA)).small_business_note
+    const styled = (attrs: unknown): Json => ({ ...(doc('Text') as object), attrs }) as Json
+
+    for (const attrs of [{ lineHeight: 0.8 }, { lineHeight: 1 }, { lineHeight: 1.25 }, { lineHeight: 3 }, { fontFamily: 'arimo', fontSize: 9, textAlign: 'center', lineHeight: 1.5 }]) {
+      const { error } = await saveTexts(ownerA, tenantA, { small_business_note: note, footer: styled(attrs) })
+      expect(error, JSON.stringify(attrs)).toBeNull()
+      expect((await settings(tenantA)).footer, JSON.stringify(attrs)).toEqual(styled(attrs))
+      expect(isRichDoc(styled(attrs)), JSON.stringify(attrs)).toBe(true)
+    }
+    for (const attrs of [{ lineHeight: 0.79 }, { lineHeight: 3.01 }, { lineHeight: 1.255 }, { lineHeight: 0 }, { lineHeight: '1.2' }, { lineHeight: 'abc' }, { lineHeight: null }, { lineHeight: 1.2, fontSize: 40 }]) {
+      expect((await saveTexts(ownerA, tenantA, { small_business_note: note, footer: styled(attrs) })).error?.code, JSON.stringify(attrs)).toBe('P0914')
+      expect(isRichDoc(styled(attrs)), JSON.stringify(attrs)).toBe(false)
+      const direct = await service.from('invoice_settings').update({ footer: styled(attrs) } as never).eq('tenant_id', tenantA)
+      expect(direct.error?.code, JSON.stringify(attrs)).toBe('23514')
+    }
+    // an einem Absatz bleibt sie verboten
+    const onParagraph = { type: 'doc', content: [{ type: 'paragraph', attrs: { lineHeight: 2 }, content: [{ type: 'text', text: 'x' }] }] } as Json
+    expect((await saveTexts(ownerA, tenantA, { small_business_note: note, footer: onParagraph })).error?.code).toBe('P0914')
+
+    // Baustein: reine Änderung der Zeilenhöhe ändert den Stand und steht im Protokoll
+    const body = doc('Zeilenhöhe')
+    const name = `Zeilen ${randomUUID().slice(0, 6)}`
+    expect((await saveBlock(ownerA, { name, body })).error).toBeNull()
+    const before = (await blocks(tenantA)).find((b) => b.name === name)!
+    const taller = { ...(body as object), attrs: { lineHeight: 1.75 } } as Json
+    expect((await saveBlock(ownerA, { id: before.id, updated_at: before.content_updated_at, name, body: taller })).error).toBeNull()
+    const after = (await blocks(tenantA)).find((b) => b.id === before.id)!
+    expect(after.body).toEqual(taller)
+    expect(after.content_updated_at).not.toBe(before.content_updated_at)
+    expect((await log(tenantA)).at(-1)).toEqual({ action: 'text_block_updated', changed_fields: ['body'], target_block: 'intro', target_label: name })
+    expect((await saveTexts(ownerA, tenantA, { small_business_note: note, footer: null })).error).toBeNull()
+  })
+
   it('Baustein: reine Formatänderung zählt als Textänderung für Stand, Konflikt und Protokoll, ohne Textinhalt', async () => {
     const body = doc('Formatierter Text')
     const name = `Format ${randomUUID().slice(0, 6)}`

@@ -217,4 +217,42 @@ describe('PDF-Arbeitsprozess', () => {
     const r = await render(view({ footer: docFromText(`IBAN ${iban}`) }))
     expect((await pageTexts(r.pdf))[0].replace(/\s/g, '')).toContain(iban)
   })
+
+  it('Zeilenhöhe eines Texts (refine 2026-11-05): höher als ohne, Fußzeile wächst mit; Empfänger bleibt bei 1,2', async () => {
+    const lines = docFromText('Zeile eins\nZeile zwei')
+    const gap = async (lineHeight?: number) => {
+      const r = await render(view({ intro: lineHeight ? { ...lines, attrs: { lineHeight } } : lines }))
+      return {
+        text: (await yOf(r.pdf, 'Zeile eins')) - (await yOf(r.pdf, 'Zeile zwei')),
+        recipient: (await yOf(r.pdf, 'Jan Šimek')) - (await yOf(r.pdf, 'Hauptstraße 5')),
+      }
+    }
+    const [none, tight, tall] = [await gap(), await gap(0.8), await gap(2)]
+    expect(tight.text).toBeLessThan(none.text)
+    expect(tall.text).toBeGreaterThan(none.text)
+    // Faktor der tatsächlichen Schriftgröße (Briefpapier 11 pt), nicht der 18 pt von React-PDF
+    expect(tall.text).toBeCloseTo(2 * DEFAULT_LETTERHEAD.fontSize, 0)
+    expect(tall.recipient).toBeCloseTo(none.recipient, 3)
+    expect(tight.recipient).toBeCloseTo(none.recipient, 3)
+
+    const footer = docFromText('Bankverbindung\nIBAN AT12\nMuster GmbH')
+    const plain = await render(view({ footer }))
+    const taller = await render(view({ footer: { ...footer, attrs: { lineHeight: 3 } } }))
+    expect(taller.footerShare).toBeGreaterThan(plain.footerShare)
+  }, 60_000)
+
+  it('Zeilenhöhe an den Grenzen mit kleiner und großer Schrift: Absätze, Umbrüche, Listen und Fußzeile werden gesetzt', async () => {
+    // Vorher wurde eine Zahl in pt von React-PDF noch einmal mit der Schriftgröße multipliziert: Zeilen über eine Seite,
+    // die Erzeugung lief endlos
+    const list = { type: 'bulletList' as const, content: [{ type: 'listItem' as const, content: [{ type: 'paragraph' as const, content: [{ type: 'text' as const, text: 'Punkt '.repeat(30) }] }] }] }
+    for (const lineHeight of [0.8, 3]) {
+      for (const fontSize of [undefined, 6, 24]) {
+        const attrs = fontSize ? { fontSize, lineHeight } : { lineHeight }
+        const text = { type: 'doc' as const, attrs, content: [...docFromText('Zeile eins\nZeile zwei\n\n' + 'Langer Absatz '.repeat(40)).content, list] }
+        const r = await render(view({ intro: text, payment: text, footer: { ...docFromText('Bankverbindung\nIBAN AT12'), attrs } }))
+        expect(r.pages, JSON.stringify(attrs)).toBeGreaterThanOrEqual(1)
+        expect(r.pages, JSON.stringify(attrs)).toBeLessThan(12)
+      }
+    }
+  }, 120_000)
 })
