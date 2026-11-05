@@ -1,6 +1,6 @@
 # PROJ-42: Ausstellen mit PDF
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-11-05
 **Last Updated:** 2026-11-05
 
@@ -85,6 +85,11 @@ Geprüft wird das tatsächlich erzeugte PDF. Ändert sich der Stand zwischen Anz
 - **Rechnungsliste, Buchungsdetail, Buchungsübersicht:** Status „Ausgestellt“ und die Nummer statt „Entwurf“. Der Betrag wandert von „In Entwürfen“ zu „Verrechnet“. Die Buchung zählt beim Filter als „mit Rechnung“.
 - **Andere Entwürfe:** Die Vorauswahl der Positionen zeigt „bereits in Rechnung 2026-0012“, die Abzüge der Schlussrechnung die Nummer.
 - **Einstellungen → Rechnungen:** Die Nummernvorschau zählt die neue Nummer mit, die Warnung beim Ändern des Nummernkreises greift.
+
+### Abgezogene nacherfasste Rechnungen
+Zieht eine ausgestellte Schlussrechnung eine nacherfasste Rechnung ab, gilt für diese nacherfasste Rechnung:
+- **Gesperrt:** Löschen und Ändern von Positionen, Beträgen, Kleinunternehmer-Schalter und Buchungsverknüpfung. Die Meldung nennt die Schlussrechnung.
+- **Weiter änderbar:** Nummer, Datum, Empfänger, Gast und PDF, damit sich Erfassungsfehler noch beheben lassen. Die festgeschriebene Fassung und das PDF der Schlussrechnung nennen weiterhin die Angaben vom Zeitpunkt des Ausstellens.
 
 ### Kunde löschen (Betreiber)
 Hat der Kunde eine ausgestellte Rechnung innerhalb der Aufbewahrungsfrist, lässt er sich nicht löschen. Der Dialog nennt die Anzahl und verweist auf „Deaktivieren“. Die Frist endet 7 Jahre nach dem Ende des Kalenderjahres des Rechnungsdatums. Nacherfasste Rechnungen und Entwürfe sperren das Löschen nicht.
@@ -202,6 +207,12 @@ Hat der Kunde eine ausgestellte Rechnung innerhalb der Aufbewahrungsfrist, läss
 - [ ] Angenommen eine Rechnung wurde ausgestellt, wenn der Inhaber den Nummernkreis ändert, dann erscheint die Warnung aus PROJ-39
 - [ ] Angenommen eine Rechnung 2026-0042 wurde ausgestellt, wenn die Nummernvorschau lädt, dann zeigt sie 2026-0043
 
+### Abgezogene nacherfasste Rechnungen
+- [ ] Angenommen eine ausgestellte Schlussrechnung zieht eine nacherfasste Rechnung ab, wenn der Inhaber die nacherfasste Rechnung löschen will, dann wird es abgelehnt und die Meldung nennt die Schlussrechnung, auch am Formular vorbei
+- [ ] Angenommen dieselbe nacherfasste Rechnung, wenn der Inhaber Positionen, Beträge, Kleinunternehmer-Schalter oder Buchung ändern will, dann wird es abgelehnt und die Meldung nennt die Schlussrechnung
+- [ ] Angenommen dieselbe nacherfasste Rechnung, wenn der Inhaber Nummer, Datum, Empfänger, Gast oder PDF ändert, dann wird gespeichert, und PDF, festgeschriebene Fassung und Betrag der Schlussrechnung bleiben unverändert
+- [ ] Angenommen eine nacherfasste Rechnung wird nur von einem Schlussrechnungs-Entwurf abgezogen, wenn der Inhaber sie ändert oder löscht, dann geht das wie bisher und der Entwurf rechnet neu
+
 ### Kunde löschen
 - [ ] Angenommen ein Kunde mit einer ausgestellten Rechnung innerhalb der Frist, wenn der Betreiber ihn löschen will, dann ist es gesperrt, der Dialog nennt die Anzahl und verweist auf „Deaktivieren“
 - [ ] Angenommen derselbe Kunde, wenn das Löschen am Dialog vorbei aufgerufen wird, dann lehnt der Server ab
@@ -243,6 +254,7 @@ Hat der Kunde eine ausgestellte Rechnung innerhalb der Aufbewahrungsfrist, läss
 - [ ] Steuerberater: Beginn und Länge der Aufbewahrungsfrist für die Löschsperre (angenommen: 7 Jahre ab Ende des Kalenderjahres des Rechnungsdatums)
 - [ ] Steuerberater: Schlussrechnung, wenn sich der Kleinunternehmer-Status nach einer ausgestellten Teilrechnung geändert hat (offen aus PROJ-40)
 - [ ] PROJ-43: Sammel-Ausgabe aller PDFs, damit ein Kunde beim Verlassen der App seine Rechnungen mitnehmen kann
+- [x] Nacherfasste Rechnung, die eine ausgestellte Schlussrechnung abzieht: Darf sie noch gelöscht oder im Betrag geändert werden? Nein, siehe „Abgezogene nacherfasste Rechnungen“ (Nutzer, 2026-11-05)
 
 ## Decision Log
 
@@ -261,18 +273,143 @@ Hat der Kunde eine ausgestellte Rechnung innerhalb der Aufbewahrungsfrist, läss
 | Eigene Seite mit PDF statt Dialog | Kontrolle gehört zu einem unveränderbaren Beleg; Platz für Prüfungen und Häkchen, auch am Handy | 2026-11-05 |
 | Aufdruck „Entwurf“ bis zuletzt, auch mit vorgesehener Nummer | Kein PDF vor dem Ausstellen, das wie eine echte Rechnung aussieht | 2026-11-05 |
 | Datum und Nummer auf der Seite werden nur beim Ausstellen übernommen | Die Seite verändert den Entwurf nicht, Ausprobieren bleibt folgenlos | 2026-11-05 |
+| Nacherfasste Rechnung, die eine ausgestellte Schlussrechnung abzieht: Löschen und Ändern von Beträgen, Positionen, Kleinunternehmer-Schalter und Buchung gesperrt; Nummer, Datum, Empfänger, Gast und PDF bleiben änderbar | Schützt, was in die Rechnung eingeflossen ist; Erfassungsfehler bleiben korrigierbar. Schalter und Buchung gehören dazu, weil sie USt und Zuordnung des Abzugs bestimmen | 2026-11-05 |
 | Das abgelegte PDF ist die Rechnung und wird nie neu erzeugt | Beleg bleibt auch bei Änderungen an Vorlage und Schriften unverändert | 2026-11-05 |
 
 ### Technical Decisions
 <!-- Added by /architecture -->
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Ausstellen ist ein Zustandswechsel in der bestehenden Rechnungstabelle | Vorbereitet seit PROJ-40; Entwürfe aus der Produktion bleiben ohne Migration ausstellbar | 2026-11-05 |
+| Reihenfolge: prüfen, PDF erzeugen, ablegen, dann erst die Nummer in einem Datenbankschritt vergeben | Keine reservierte Nummer und kein Zustand mit Nummer ohne PDF; übrig gebliebene Dateien entfernt die vorhandene Bereinigung | 2026-11-05 |
+| Eigene Schnittstelle unter `/api` statt Server-Aktion | Arbeitsprozess und Schriften werden laut Build-Einstellung nur für `/api` mitgeliefert; Lauf kann länger dauern | 2026-11-05 |
+| Vollständiger Seitenaufruf nach dem Ausstellen | Umgeht das sporadische Hängenbleiben nach Server-Aktionen und zeigt sicher frische Daten | 2026-11-05 |
+| Schreibschritt nur für den Server freigegeben, Person wird mitgegeben | Sonst könnte ein Aufruf am Server vorbei Pflichtangaben umgehen und ein selbst gewähltes PDF festschreiben | 2026-11-05 |
+| Prüfung des Stands in der Datenbank, Pflichtangaben und PDF-Meldungen auf dem Server | Die Prüfregel lebt in der App, wo auch das PDF entsteht; die Datenbank sichert den Moment des Festschreibens (Entwurf, Buchung, Nummer, Abzüge) | 2026-11-05 |
+| Festgeschriebene Fassung als zusammenhängende Kopie je Rechnung | Detailseite bleibt von späteren Änderungen unabhängig; keine vielen neuen Spalten für Werte, die nur angezeigt werden | 2026-11-05 |
+| Prüfsumme des PDFs speichern | Geringer Aufwand; belegt bei einer Prüfung, dass die Datei unverändert ist | 2026-11-05 |
+| Unveränderlichkeit in der Datenbank statt nur in den Funktionen | Hält auch bei späteren Funktionen oder Fehlern; die Sammelfunktionen aus PROJ-40 aktualisieren Gesamtbeträge sonst automatisch | 2026-11-05 |
+| Vorschau liefert Prüfliste mit | Eine Anfrage je Änderung; Prüfung und PDF stammen aus derselben Erzeugung | 2026-11-05 |
+| PDF-Meldung „gekürzt“ getrennt von „verkleinert“ | Nur das Kürzen sperrt laut Spec; heute fällt beides in eine Meldung | 2026-11-05 |
+| Sperre abgezogener nacherfasster Rechnungen in der Datenbank | Sonst würden Betrag und Abzug der ausgestellten Schlussrechnung und ihr PDF auseinanderlaufen, weil Gesamtbeträge automatisch neu gebildet werden | 2026-11-05 |
+| Keine neuen Pakete | Vorlage, Anzeige und Ablage bestehen seit PROJ-37 und PROJ-41 | 2026-11-05 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### Ausgangslage (bereits vorhanden)
+- **Rechnungstabelle:** Entwürfe liegen schon in derselben Tabelle wie nacherfasste Rechnungen. Die Herkunft „ausgestellt“ und die Regel „Nummer fehlt nur beim Entwurf“ sind in der Datenbank vorbereitet. Ausstellen ist ein Zustandswechsel, bestehende Entwürfe brauchen keine Datenmigration.
+- **PDF:** Eine Vorlage, Erzeugung in einem eigenen Arbeitsprozess, Meldungen zu Zeichen, Aussteller-Block und Logo (PROJ-41). Der Aufdruck „Entwurf“ ist schon abschaltbar.
+- **Nummern:** Regel „nächste Nummer“, Eindeutigkeit je Kunde in der Datenbank (PROJ-39, PROJ-37).
+- **Ablage:** Privater Speicherbereich für Rechnungs-PDFs mit täglicher Bereinigung unbenutzter Dateien. Nutzer dürfen dort nichts ändern oder löschen (PROJ-37).
+- **Listen und Summen:** „Verrechnet“, „In Entwürfen“, Vorauswahl und Warnung beim Nummernkreis kennen „ausgestellt“ bereits (PROJ-40).
+
+### Ablauf des Ausstellens
+```
+Inhaber drückt „Rechnung ausstellen“
+  |
+  v
+1. Server prüft Anmeldung, Rolle, Stand des Entwurfs, alle Sperren und Häkchen
+  |
+  v
+2. Server erzeugt das endgültige PDF ohne Aufdruck und prüft dessen Meldungen
+  |
+  v
+3. Server legt das PDF unter zufälligem Namen ab
+  |
+  v
+4. Datenbank in einem einzigen Schritt: nochmals Stand und Nummer prüfen,
+   Herkunft „ausgestellt“, Nummer, Datum, PDF, Fassung und Protokoll schreiben
+  |
+  +-- gelingt  --> Detailseite der Rechnung
+  +-- scheitert --> Datei wird entfernt, Entwurf unverändert, Meldung auf der Seite
+```
+Die Nummer wird erst in Schritt 4 vergeben, also nie reserviert. Scheitert etwas davor, bleibt sie frei. Bleibt wegen eines Abbruchs doch eine Datei übrig, entfernt sie die tägliche Bereinigung, weil keine Rechnung auf sie zeigt. Ein zweiter Versuch derselben Anfrage findet keinen Entwurf mehr und führt zur bereits ausgestellten Rechnung.
+
+### Seiten und Bausteine der Oberfläche
+```
+Entwurf-Detailseite (besteht)
++-- Knopf „Ausstellen“ (neu, nur Inhaber)
+
+Seite „Rechnung ausstellen“ (neu, /rechnungen/[id]/ausstellen)
++-- Formularbereich
+|   +-- Rechnungsdatum mit „Datum auf heute setzen“
+|   +-- Rechnungsnummer mit „Vorschlag übernehmen“ und Hinweis zur Folge
+|   +-- Prüfungen
+|   |   +-- Sperren mit Link zur Abhilfe
+|   |   +-- Häkchen
+|   |   +-- Hinweise
+|   +-- Knopf „Rechnung ausstellen“ mit Fortschritt und Hinweis auf die Endgültigkeit
+|   +-- „Zurück zum Entwurf“
++-- PDF-Vorschau (besteht, PROJ-41), übernimmt Datum und Nummer
+
+Rechnungs-Detailseite (besteht, neue Darstellung für „ausgestellt“)
++-- Status „Ausgestellt“, Datum und Person
++-- Angaben aus der festgeschriebenen Fassung
++-- „PDF öffnen“
++-- Korrekturhinweis
+(keine Knöpfe zum Bearbeiten, Löschen, PDF ersetzen oder Buchung ändern)
+
+Betreiber: Gefahrenbereich des Kunden (besteht)
++-- Löschen gesperrt, mit Anzahl und Verweis auf „Deaktivieren“
+```
+Rechnungsliste, Buchungsdetail und Buchungsübersicht bleiben im Aufbau gleich. Sie zeigen nur den neuen Status und die Nummer.
+
+### Regeln an einer Stelle
+- **Prüfregel:** Eine einzige Regel ermittelt aus Entwurf, Buchung, anderen Rechnungen, Nummer, Datum und PDF-Meldungen die Listen „Sperren“, „Häkchen“ und „Hinweise“. Seite und Ausstellen nutzen dieselbe Regel, so können sie nicht auseinanderlaufen. Sie läuft bei jedem Ausstellen auf dem Server neu.
+- **Nummernregel:** Die bestehende Regel bekommt eine Einordnung: Vorschlag, Lücke, über dem Vorschlag, anderes Format, anderes Jahr, vergeben. Dazu kommt der Vergleich mit den Daten der Nachbarn. Dafür liefert die Datenbank alle Nummern samt Datum.
+- **Storno-Erkennung:** Die Buchung ist storniert und der gespeicherte Fingerabdruck aus PROJ-40 weicht ab. Eine eigene Spalte ist nicht nötig.
+- **Fußzeile:** Die PDF-Erzeugung meldet bisher nur „verkleinert“, auch wenn zusätzlich gekürzt wurde. Sie meldet künftig beides getrennt, weil nur das Kürzen sperrt.
+
+### Datenmodell (in Worten)
+Neu an jeder ausgestellten Rechnung:
+- **Ausgestellt am** und **ausgestellt von**
+- **Festgeschriebene Fassung:** alle Werte, die auf der Rechnung stehen, als eine zusammenhängende Kopie: Aussteller, Empfänger, Zeitraum, Wohnung, Gastnamen, Positionen, Abzüge mit Nummer und Betrag, USt je Satz, Kleinunternehmer-Status, Texte mit ersetzten Platzhaltern, Fristen. Die Detailseite zeigt nur diese Kopie.
+- **Prüfsumme des PDFs:** belegt später, dass die Datei unverändert ist
+- **Ohne Logo ausgestellt:** vermerkt das gesetzte Häkchen
+
+Beim Ausstellen gesetzt: Herkunft „ausgestellt“, Nummer, Rechnungsdatum, PDF-Speicherort, Kleinunternehmer-Status und Gesamtbetrag. Positionen und Abzüge bleiben in ihren Tabellen und werden damit ebenfalls unveränderlich.
+
+Für die anderen Herkünfte bleiben die neuen Felder leer. Eine Datenmigration ist nicht nötig.
+
+### Unveränderlichkeit
+Sie wird in der Datenbank selbst durchgesetzt, nicht nur durch fehlende Knöpfe: Jeder Versuch, eine ausgestellte Rechnung, ihre Positionen oder Abzüge zu ändern oder zu löschen, wird abgelehnt.
+
+Zwei enge Ausnahmen:
+- **Gastverknüpfung:** Sie darf beim Zusammenführen von Gästen wechseln (PROJ-7). Rechnung und PDF ändern sich dabei nicht.
+- **Kunde löschen:** Nach Ablauf der Aufbewahrungsfrist darf die Rechnung mit dem Kunden gelöscht werden.
+
+Die Sammelfunktionen zu Gesamtbeträgen und Abzügen aus PROJ-40 dürfen ausgestellte Rechnungen nicht mehr anfassen.
+
+### Abgezogene nacherfasste Rechnungen
+Speichern und Löschen nacherfasster Rechnungen prüfen in der Datenbank, ob eine ausgestellte Schlussrechnung sie abzieht, und lehnen die gesperrten Änderungen ab. Die festgeschriebene Fassung enthält Nummer und Betrag des Abzugs als Kopie, spätere Korrekturen an der nacherfassten Rechnung wirken dort nicht.
+
+### Kunde löschen
+Die Löschfunktion prüft die Frist in der Datenbank und lehnt ab, wenn eine ausgestellte Rechnung noch darunter fällt. Der Betreiber-Dialog zeigt die Anzahl schon vorher. Ein Aufruf am Dialog vorbei scheitert ebenfalls.
+
+### Rechte
+- **Ausstellen:** nur über die neue Schnittstelle. Der Schreibschritt in der Datenbank ist nur für den Server freigegeben. So kann niemand am Server vorbei eine Rechnung mit einem selbst gewählten PDF festschreiben. Der Server gibt die handelnde Person für das Protokoll mit.
+- **Lesen:** wie bei nacherfassten Rechnungen, für alle Mitglieder des Kunden. Auf Datenbankebene darf der Betreiber schon heute nicht-Entwürfe lesen (PROJ-40); die Oberfläche bietet ihm dafür nichts an. PROJ-42 ändert daran nichts.
+
+### Schnittstellen
+- **Vorschau und Prüfung:** Die Entwurfsvorschau nimmt zusätzlich Datum und Nummer an und liefert neben dem PDF die Prüfliste. Weiterhin wird nichts gespeichert oder zwischengespeichert. Veraltete Anfragen werden abgebrochen, wie in PROJ-41.
+- **Ausstellen:** eine eigene Schnittstelle unter `/api/rechnungen/…`. Der Browser wechselt danach mit einem vollständigen Seitenaufruf zur Rechnung.
+
+### Für /frontend und /backend
+- **/frontend:** Seite „Rechnung ausstellen“, Prüfregel, Nummerneinordnung, Vorschau mit Datum und Nummer, Detaildarstellung, Korrekturhinweis, Betreiber-Dialog. PROJ-40 BUG-5 klären, bevor die Weiterleitung gebaut wird. Bis zur Migration zeigt die Seite die Prüfungen, und das Ausstellen meldet „wird eingerichtet“.
+- **/backend:** Neue Felder, Schreibfunktion, Unveränderlichkeit, Lesefunktion für Nummern mit Datum, Löschsperre, Ablage und Schnittstelle, Änderung an den Sammelfunktionen. Die RLS-Regeln bleiben unverändert.
+
+### Für /qa
+- Gleichzeitiges Ausstellen mit derselben Nummer, Doppelklick, Abbruch nach der Ablage
+- Direkte Änderungsversuche an ausgestellten Rechnungen, Positionen, Abzügen und Dateien
+- Vergleich von Vorschau und abgelegtem PDF (Seitenzahl, Umbruch, Text)
+- PDF-Erzeugung und Ablage auf Staging unter Vercel
+- Vorhandene Entwürfe aus der Produktion in Staging prüfen, soweit vergleichbare Testdaten vorliegen
+
+### Abhängigkeiten
+Keine neuen Pakete.
 
 ## QA Test Results
 _To be added by /qa_
