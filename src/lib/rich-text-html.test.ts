@@ -229,3 +229,53 @@ describe('htmlToDoc gegen Angriffe und kaputtes HTML (QA)', () => {
     expect(failures.length, failures.slice(0, 4).join('\n\n')).toBe(0)
   })
 })
+
+describe('Zeilenhöhe im Code (refine 2026-11-05)', () => {
+  const para = { type: 'doc' as const, content: [{ type: 'paragraph' as const, content: [text('x')] }] }
+
+  it('steht nur bei Angabe im äußeren <div>, hinter den übrigen Einstellungen, und kommt unverändert zurück', () => {
+    expect(docToHtml(para)).not.toContain('line-height')
+    for (const lineHeight of [0.8, 1, 1.25, 3]) {
+      const doc: RichDoc = { type: 'doc', attrs: { fontSize: 10, textAlign: 'center', lineHeight }, content: para.content }
+      const html = docToHtml(doc)
+      expect(html).toContain(`style="font-size: 10pt; text-align: center; line-height: ${lineHeight}"`)
+      const back = htmlToDoc(html)
+      expect(back.removed).toEqual([])
+      expect(JSON.stringify(back.doc)).toBe(JSON.stringify(doc))
+    }
+  })
+
+  it('übernimmt gültige Werte aus dem Code', () => {
+    expect(htmlToDoc('<div style="line-height: 1.25"><p>x</p></div>').doc.attrs).toEqual({ lineHeight: 1.25 })
+    expect(htmlToDoc('<div style="line-height: 3.00"><p>x</p></div>').doc.attrs).toEqual({ lineHeight: 3 })
+    expect(htmlToDoc('<div style="line-height: .9"><p>x</p></div>').doc.attrs).toEqual({ lineHeight: 0.9 })
+    expect(htmlToDoc('<div style="LINE-HEIGHT: 2"><p>x</p></div>').doc.attrs).toEqual({ lineHeight: 2 })
+  })
+
+  it('entfernt ungültige Werte und nennt sie, der Text bleibt', () => {
+    for (const value of ['4', '0.79', '1.255', '18pt', '120%', 'normal', '1,25', '-1', '']) {
+      const { doc, removed } = htmlToDoc(`<div style="line-height: ${value}"><p>x</p></div>`)
+      expect(doc.attrs, value).toBeUndefined()
+      expect(removed, value).toEqual([`line-height: ${value}`.trim()])
+      expect(doc.content).toEqual(para.content)
+    }
+  })
+
+  it('bei mehreren Angaben gilt die letzte gültige, wie im Browser', () => {
+    expect(htmlToDoc('<div style="line-height: 1.2; line-height: 1.5"><p>x</p></div>').doc.attrs).toEqual({ lineHeight: 1.5 })
+    const { doc, removed } = htmlToDoc('<div style="line-height: 1.2; line-height: 9"><p>x</p></div>')
+    expect(doc.attrs).toEqual({ lineHeight: 1.2 })
+    expect(removed).toEqual(['line-height: 9'])
+  })
+
+  it('an <p> oder <li> wird sie entfernt und genannt', () => {
+    const { doc, removed } = htmlToDoc('<p style="line-height: 2">a</p><ul><li style="line-height: 2">b</li></ul>')
+    expect(doc.attrs).toBeUndefined()
+    expect(removed).toEqual(['style an <p>', 'style an <li>'])
+  })
+
+  it('Einfügen-Weg ohne <div> übernimmt keine Zeilenhöhe', () => {
+    const { doc } = htmlToDoc('<p style="line-height: 150%; margin: 0">Word</p>')
+    expect(doc.attrs).toBeUndefined()
+  })
+})

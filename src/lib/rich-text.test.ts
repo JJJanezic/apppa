@@ -123,6 +123,19 @@ describe('Einstellungen je Text', () => {
     expect('attrs' in normalizeDoc({ type: 'doc', attrs: {}, content })).toBe(false)
   })
 
+  it('Zeilenhöhe: 0,80 bis 3,00 mit höchstens zwei Nachkommastellen (refine 2026-11-05)', () => {
+    for (const lineHeight of [0.8, 1, 1.2, 1.25, 2.99, 3]) expect(isRichDoc({ type: 'doc', attrs: { lineHeight }, content })).toBe(true)
+    for (const lineHeight of [0.79, 3.01, 1.255, 0, -1, '1.2', null]) expect(isRichDoc({ type: 'doc', attrs: { lineHeight }, content })).toBe(false)
+    expect(isRichDoc({ type: 'doc', attrs: { fontFamily: 'arimo', fontSize: 10, textAlign: 'center', lineHeight: 1.5 }, content })).toBe(true)
+  })
+
+  it('normalizeDoc führt die Zeilenhöhe zuletzt und als gerundete Zahl', () => {
+    const a = normalizeDoc({ type: 'doc', attrs: { lineHeight: 1.2500000000000002, fontSize: 9 }, content })
+    expect(JSON.stringify(a.attrs)).toBe('{"fontSize":9,"lineHeight":1.25}')
+    expect(normalizeDoc({ type: 'doc', attrs: { lineHeight: 4 }, content }).attrs).toBeUndefined()
+    expect(normalizeDoc({ type: 'doc', attrs: { lineHeight: '1.2' }, content }).attrs).toBeUndefined()
+  })
+
   it('withAttrs entfernt leere Angaben', () => {
     expect('attrs' in withAttrs(emptyDoc(), { fontSize: undefined })).toBe(false)
     expect(withAttrs(emptyDoc(), { fontSize: 9 }).attrs).toEqual({ fontSize: 9 })

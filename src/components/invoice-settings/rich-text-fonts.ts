@@ -78,11 +78,13 @@ export const RICH_FONT_FAMILY: Record<RichFont, string> = {
   'open-sans': richOpenSans.style.fontFamily,
 }
 
-// Darstellung der Einstellungen eines Texts; ohne Angabe gilt, was die Umgebung vorgibt (Standard, linksbündig)
+// Darstellung der Einstellungen eines Texts; ohne Angabe gilt, was die Umgebung vorgibt (Standard, linksbündig,
+// Zeilenhöhe der Umgebung)
 export function richTextStyle(attrs: RichAttrs | undefined): CSSProperties {
   const style: CSSProperties = {}
   if (attrs?.fontFamily) style.fontFamily = RICH_FONT_FAMILY[attrs.fontFamily]
   if (attrs?.fontSize) style.fontSize = `${attrs.fontSize}pt`
   if (attrs?.textAlign) style.textAlign = attrs.textAlign
+  if (attrs?.lineHeight) style.lineHeight = attrs.lineHeight
   return style
 }

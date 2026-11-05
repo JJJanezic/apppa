@@ -1825,7 +1825,7 @@
       "alignJustify": "Blocksatz",
       "code": "HTML-Code bearbeiten",
       "codeShort": "Code",
-      "codeHint": "Erlaubt: {tags}, dazu ein äußeres {wrapper} mit font-family, font-size und text-align. Anderes wird entfernt.",
+      "codeHint": "Erlaubt: {tags}, dazu ein äußeres {wrapper} mit font-family, font-size, text-align und line-height (0.80 bis 3.00, z. B. 1.25). Anderes wird entfernt.",
       "removed": "Entfernt: {items}. Bitte prüfen Sie den Text.",
       "codeTooLong": "Der eingefügte Code ist länger als {max} Zeichen und wurde nicht übernommen. Es wurde nichts gekürzt.",
       "insertPlaceholder": "Platzhalter einfügen",

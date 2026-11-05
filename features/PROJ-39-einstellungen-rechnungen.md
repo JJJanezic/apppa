@@ -1,6 +1,6 @@
 # PROJ-39: Einstellungen → Rechnungen
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-10-31
 **Last Updated:** 2026-11-05
 
@@ -883,6 +883,16 @@ Der Textblock setzt die Zeilenhöhe zusätzlich zu Schriftart, Größe und Ausri
 **Backend (2026-11-04):** erledigt, siehe „Editor-Erweiterung (Backend)“.
 
 **Für /qa:** Eingabe direkt nach dem Laden des Entwurfs. Füllt ein Test das Rechnungsdatum aus, bevor das Formular aktiv ist, zeigt das Feld den neuen Wert, das Formular rechnet aber mit dem heutigen Datum. Das bestand schon vor dieser Erweiterung (1 von 6 Läufen), mit ihr trat es im selben Test öfter auf (4 von 5 Läufen, kleine Stichprobe). Ursache und Größe des Zeitfensters sind nicht gemessen. In den Tests überbrückt `openCreate` die Lücke; behoben ist sie damit nicht. Vor PROJ-42 klären, weil das Datum dort festgeschrieben wird.
+
+### Zeilenhöhe (Frontend, 2026-11-05)
+- `src/lib/rich-text.ts`: vierte Einstellung `lineHeight` (Faktor 0,80–3,00, höchstens zwei Nachkommastellen, `isRichLineHeight`, `RICH_LINE_HEIGHT`); Bereinigung führt sie zuletzt und auf zwei Stellen gerundet; strenge Prüfung kennt den Schlüssel
+- `src/lib/rich-text-html.ts`: `line-height` im äußeren `<div style>` hinter den übrigen Angaben, nur wenn gesetzt; beim Lesen nur eine Zahl mit Punkt (auch `.9`), sonst entfernt und genannt (Einheit, Prozent, `normal`, Komma, Grenzen, drei Stellen); bei mehreren Angaben gilt die letzte gültige
+- Anzeige: `richTextStyle` (Vorschau, Entwurfsvorschau) und Schreibfläche setzen die Zeilenhöhe für den ganzen Text; ohne Angabe unverändert
+- PDF (`src/lib/invoice-pdf/document.tsx`): Textblöcke inkl. Listen und Fußzeile setzen die Zeilenhöhe, sonst die des Briefpapiers; Fußzeile wird mit dem echten Satz gemessen, die Verkleinerung behält die Zeilenhöhe; Empfänger und Aussteller-Block (`Lines`, 1,2) unverändert
+- Hinweis im Code-Modus nennt `line-height (0.80 bis 3.00, z. B. 1.25)` (`messages/de.json`)
+- Unit-Tests: Grenzen, Rundung/Reihenfolge, Hin- und Rückweg, ungültige Werte, letzte Angabe, Zeilenhöhe an `<p>`/`<li>`, Einfügen aus Word
+
+**Offen für /backend:** Migration für `private.rich_attrs_ok`: Schlüssel `lineHeight` zulassen; Wert muss JSON-Zahl sein, 0.8 bis 3, `* 100 % 1 = 0`. Bis dahin lehnt die Datenbank in Dev Texte mit Zeilenhöhe beim Speichern ab; Texte ohne Zeilenhöhe sind nicht betroffen. Integrationstests: Annahme/Ablehnung, Bausteinstand bei reiner Änderung der Zeilenhöhe, PDF mit Zeilenhöhe.
 
 ## Implementation Notes (Backend)
 **Stand 2026-10-31.** Migration `20261031110516_invoice_settings.sql` ist in Dev („apppa-dev“) eingespielt (vom Nutzer freigegeben wegen neuer Zugriffsregeln), die Typen sind neu erzeugt. Die Advisors melden nur die bekannten Auth-Hinweise (`auth_otp_long_expiry`, `auth_leaked_password_protection`, Runbook).

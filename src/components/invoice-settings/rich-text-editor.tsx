@@ -125,8 +125,15 @@ export function RichTextEditor({ value, onChange, context, max, labelId, describ
       'min-h-32 break-words px-3 py-2 text-[15px] leading-relaxed outline-none [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:text-left [&_p]:my-1 [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:text-left',
   }
   // Einstellungen des Texts direkt an der Schreibfläche; Tiptap setzt das Attribut, darum als Text statt als React-Stil
-  const { fontFamily, fontSize, textAlign } = richTextStyle(value.attrs)
-  const style = [fontFamily && `font-family:${fontFamily}`, fontSize && `font-size:${fontSize}`, textAlign && `text-align:${textAlign}`].filter(Boolean).join(';')
+  const { fontFamily, fontSize, textAlign, lineHeight } = richTextStyle(value.attrs)
+  const style = [
+    fontFamily && `font-family:${fontFamily}`,
+    fontSize && `font-size:${fontSize}`,
+    textAlign && `text-align:${textAlign}`,
+    lineHeight && `line-height:${lineHeight}`,
+  ]
+    .filter(Boolean)
+    .join(';')
   if (style) attributes.style = style
   if (describedBy) attributes['aria-describedby'] = describedBy
   const editor = useEditor({

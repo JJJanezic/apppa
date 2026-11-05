@@ -50,6 +50,8 @@ function textStyle(attrs: RichAttrs | undefined, familyOf: FamilyOf) {
     ...(attrs?.fontFamily ? { fontFamily: familyOf(attrs.fontFamily) } : {}),
     ...(attrs?.fontSize ? { fontSize: attrs.fontSize } : {}),
     ...(attrs?.textAlign ? { textAlign: attrs.textAlign } : {}),
+    // Faktor der Schriftgröße; ohne Angabe gilt die Zeilenhöhe der Seite aus dem Briefpapier
+    ...(attrs?.lineHeight ? { lineHeight: attrs.lineHeight } : {}),
   }
 }
 

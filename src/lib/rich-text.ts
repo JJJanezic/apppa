@@ -1,8 +1,8 @@
 // Formatierter Text der Rechnungstexte (PROJ-39): Absätze und Listen, darin Text mit „fett“/„kursiv“ und Zeilenumbrüche.
 // Gespeichert wird nur diese kleine Struktur, nie HTML. Sie ist eine Teilmenge des Tiptap-Formats, damit der Editor sie
 // direkt laden kann. Gilt im Browser und auf dem Server; die Datenbank prüft dieselbe Struktur noch einmal.
-// Dazu optional je ganzem Text: Schriftart, Schriftgröße und Ausrichtung (attrs am Dokument); fehlt eine Angabe, gilt
-// „Standard“ bzw. linksbündig.
+// Dazu optional je ganzem Text: Schriftart, Schriftgröße, Ausrichtung und Zeilenhöhe (attrs am Dokument); fehlt eine
+// Angabe, gilt „Standard“ bzw. linksbündig, die Zeilenhöhe folgt dann dem Briefpapier.
 
 export type RichMark = { type: 'bold' } | { type: 'italic' }
 export type RichInline = { type: 'text'; text: string; marks?: RichMark[] } | { type: 'hardBreak' }
@@ -15,7 +15,9 @@ export type RichFont = (typeof RICH_FONTS)[number]
 export const RICH_ALIGNS = ['center', 'right', 'justify'] as const
 export type RichAlign = (typeof RICH_ALIGNS)[number]
 export const RICH_FONT_SIZE = { min: 6, max: 24, step: 0.5 } as const
-export type RichAttrs = { fontFamily?: RichFont; fontSize?: number; textAlign?: RichAlign }
+// Zeilenhöhe als Faktor der Schriftgröße, höchstens zwei Nachkommastellen (nur über den HTML-Code einstellbar)
+export const RICH_LINE_HEIGHT = { min: 0.8, max: 3 } as const
+export type RichAttrs = { fontFamily?: RichFont; fontSize?: number; textAlign?: RichAlign; lineHeight?: number }
 export type RichDoc = { type: 'doc'; attrs?: RichAttrs; content: RichBlock[] }
 
 export const emptyDoc = (): RichDoc => ({ type: 'doc', content: [{ type: 'paragraph' }] })
@@ -38,6 +40,12 @@ export const isRichAlign = (v: unknown): v is RichAlign => RICH_ALIGNS.includes(
 export const isRichFontSize = (v: unknown): v is number =>
   typeof v === 'number' && v >= RICH_FONT_SIZE.min && v <= RICH_FONT_SIZE.max && Number.isInteger(v / RICH_FONT_SIZE.step)
 
+export const isRichLineHeight = (v: unknown): v is number =>
+  typeof v === 'number' &&
+  v >= RICH_LINE_HEIGHT.min &&
+  v <= RICH_LINE_HEIGHT.max &&
+  Math.abs(v * 100 - Math.round(v * 100)) < 1e-9
+
 // Eingabe im Feld Schriftgröße (Komma oder Punkt); leer = Standard, undefined; ungültig = null
 export function parseFontSize(input: string): number | undefined | null {
   const text = input.trim().replace(',', '.')
@@ -49,11 +57,13 @@ export function parseFontSize(input: string): number | undefined | null {
 // Nur gültige Werte, feste Reihenfolge, leere Angaben fallen weg: Gleiche Einstellungen werden gleich gespeichert und verglichen
 function normalizeAttrs(input: unknown): RichAttrs | undefined {
   if (typeof input !== 'object' || input === null) return undefined
-  const { fontFamily, fontSize, textAlign } = input as Record<string, unknown>
+  const { fontFamily, fontSize, textAlign, lineHeight } = input as Record<string, unknown>
   const attrs: RichAttrs = {}
   if (isRichFont(fontFamily)) attrs.fontFamily = fontFamily
   if (isRichFontSize(fontSize)) attrs.fontSize = fontSize
   if (isRichAlign(textAlign)) attrs.textAlign = textAlign
+  // auf zwei Stellen gerundet, damit 1.25 und 1.2500000001 gleich gespeichert und verglichen werden
+  if (isRichLineHeight(lineHeight)) attrs.lineHeight = Math.round(lineHeight * 100) / 100
   return Object.keys(attrs).length ? attrs : undefined
 }
 
@@ -169,12 +179,13 @@ export function isRichDoc(value: unknown): value is RichDoc {
       n.content.every(item))
   const attrs = (a: unknown): boolean => {
     if (a === undefined) return true
-    if (!isObject(a) || !keys(a, ['fontFamily', 'fontSize', 'textAlign']) || !Object.keys(a).length) return false
-    const { fontFamily, fontSize, textAlign } = a as Record<string, unknown>
+    if (!isObject(a) || !keys(a, ['fontFamily', 'fontSize', 'textAlign', 'lineHeight']) || !Object.keys(a).length) return false
+    const { fontFamily, fontSize, textAlign, lineHeight } = a as Record<string, unknown>
     return (
       (fontFamily === undefined || isRichFont(fontFamily)) &&
       (fontSize === undefined || isRichFontSize(fontSize)) &&
-      (textAlign === undefined || isRichAlign(textAlign))
+      (textAlign === undefined || isRichAlign(textAlign)) &&
+      (lineHeight === undefined || isRichLineHeight(lineHeight))
     )
   }
   return (

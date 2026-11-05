@@ -4,6 +4,7 @@
 import {
   isRichAlign,
   isRichFontSize,
+  isRichLineHeight,
   normalizeDoc,
   RICH_FONTS,
   type RichAttrs,
@@ -60,6 +61,7 @@ function attrsStyle(attrs: RichAttrs): string {
   }
   if (attrs.fontSize) parts.push(`font-size: ${attrs.fontSize}pt`)
   if (attrs.textAlign) parts.push(`text-align: ${attrs.textAlign}`)
+  if (attrs.lineHeight) parts.push(`line-height: ${attrs.lineHeight}`)
   return parts.join('; ')
 }
 
@@ -119,6 +121,11 @@ function readDivStyle(style: string, note: (s: string) => void): RichAttrs {
       const align = value.toLowerCase()
       if (isRichAlign(align)) attrs.textAlign = align
       else if (align !== 'left') note(decl)
+    } else if (prop === 'line-height') {
+      // nur eine Zahl ohne Einheit mit Punkt, wie in CSS; Komma, Einheit, Prozent oder „normal“ werden entfernt
+      const height = /^(\d+(\.\d*)?|\.\d+)$/.test(value) ? Number(value) : NaN
+      if (isRichLineHeight(height)) attrs.lineHeight = height
+      else note(decl)
     } else note(decl)
   }
   return attrs
