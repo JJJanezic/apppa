@@ -597,4 +597,4 @@ Migration `20261105165825_invoice_issue_qa_fixes.sql`, nur in Dev. QA Runde 2 st
 - **Produktion:** https://app.apppa.at. Der erste Build scheiterte an `next/font/google` („queries have exactly one entry“), der Redeploy desselben Commits lief durch
 - **Migrationen** in Staging und Produktion, in dieser Reihenfolge: `20261105093618_invoice_issue.sql`, `20261105093734_invoice_issue_error_code.sql`, `20261105165825_invoice_issue_qa_fixes.sql`. `db advisors`: nur der bekannte Auth-Hinweis
 - **Nicht ausdrücklich bestätigt:** Ausstellen samt PDF und Ablage unter Vercel, Antwortzeiten (BUG-3), Smoke-Test in der Produktion, Drucktest des Adressfelds
-- **Danach:** Schriften liegen jetzt im Projekt statt bei Google (`29f9033`), damit der Build nicht mehr an Google scheitert. Kommt mit dem nächsten Release
+- **Nachgeliefert 2026-11-05:** Schriften liegen jetzt im Projekt statt bei Google (`29f9033`), damit der Build nicht mehr an Google scheitert. Über Staging in die Produktion ausgeliefert (`edc3944`, Tag `v1.22.1`), beide Builds „Ready“, vom Nutzer geprüft
