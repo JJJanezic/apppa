@@ -12,6 +12,7 @@ import { adminUpdateTenantMasterData } from '@/app/(app)/betreiber/actions'
 import { updateTenantMasterData } from '@/app/(app)/einstellungen/actions'
 import { callAction, FormError } from '@/components/auth/form-error'
 import { CountryPicker } from '@/components/guests/country-picker'
+import { BankAccountsFields, toAccountInput } from '@/components/tenant/bank-accounts-fields'
 import { TenantLogoField } from '@/components/tenant/tenant-logo-field'
 import { VatStatusFields } from '@/components/tenant/vat-status-fields'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -34,6 +35,7 @@ const toInput = (d: TenantMasterData): TenantMasterDataInput => ({
   registerNumber: d.registerNumber ?? '',
   vatStatus: d.vatStatus.map((c) => ({ validFrom: c.validFrom, status: c.smallBusiness ? 'small' : 'regular' })),
   logoPath: d.logoPath ?? '',
+  bankAccounts: d.bankAccounts.map(toAccountInput),
 })
 
 interface TenantMasterDataFormProps {
@@ -74,7 +76,7 @@ export function TenantMasterDataForm({ data, mode, readOnly = false }: TenantMas
   }
 
   const text = (
-    name: Exclude<keyof TenantMasterDataInput, 'country' | 'vatStatus' | 'logoPath'>,
+    name: Exclude<keyof TenantMasterDataInput, 'country' | 'vatStatus' | 'logoPath' | 'bankAccounts'>,
     max: number,
     opts: { hint?: string; autoComplete?: string } = {}
   ) => (
@@ -171,6 +173,9 @@ export function TenantMasterDataForm({ data, mode, readOnly = false }: TenantMas
           </div>
 
           <VatStatusFields control={form.control} saved={data.vatStatus} readOnly={readOnly} />
+
+          {/* Bankkonten (PROJ-46) am Ende der Seite */}
+          <BankAccountsFields saved={data.bankAccounts} readOnly={readOnly} />
 
         </fieldset>
 

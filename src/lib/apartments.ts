@@ -12,6 +12,7 @@ export type ApartmentErrorCode =
   | 'apartmentHasBookings'
   | 'duplicateTouristTaxDate'
   | 'notFound'
+  | 'bankAccountArchived'
 
 // Bundesländer in der Reihenfolge der Gemeindekennziffern von Statistik Austria (erste Ziffer 1–9)
 export const FEDERAL_STATES = [
@@ -74,6 +75,10 @@ export type Apartment = {
   note: string | null
   // Ortstaxe-Tarife (PROJ-15), neueste zuerst
   touristTaxRates: TouristTaxRate[]
+  // booking.com Hotel-ID (PROJ-46); null = nicht angegeben
+  bookingHotelId: string | null
+  // Bankkonto (PROJ-46); null = „Primäres Konto“ (folgt automatisch)
+  bankAccountId: string | null
   archivedAt: string | null
   // PROJ-8: Hat die Wohnung Buchungen oder Sperren (auch stornierte)? Dann kein „Endgültig löschen“
   hasBookings: boolean

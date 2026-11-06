@@ -17,8 +17,12 @@ const DB_ERRORS: Record<string, TenantMasterDataErrorCode | CommonErrorCode> = {
   // P0016 kommt aus private.lock_tenant (wie im Betreiber-Bereich)
   P0016: 'tenantDeactivated',
   P0017: 'staleTenant',
-  // zwei Statuswechsel am selben Tag (PROJ-36)
+  // zwei Statuswechsel am selben Tag (PROJ-36); doppelte IBAN unterscheidet die Meldung (PROJ-46)
   '23505': 'vatDateDuplicate',
+  // Konto wird inzwischen von einer Wohnung verwendet (PROJ-46)
+  '23503': 'bankAccountInUse',
+  // Primär-Regeln oder Höchstzahl der Bankkonten verletzt (PROJ-46)
+  P0019: 'bankAccountsInvalid',
   // Logo fehlt im Speicher oder liegt nicht im Ordner des Kunden (PROJ-38)
   P0018: 'logoMissing',
 }
@@ -46,10 +50,23 @@ export async function saveTenantMasterData(
       vat_status: v.vatStatus.map((c) => ({ valid_from: c.validFrom, small_business: c.smallBusiness })),
       // PROJ-38: null entfernt das Logo
       logo_path: v.logoPath,
+      // PROJ-46: Abgleich je Konto über die Kennung; Reihenfolge der Liste = Reihenfolge des Anlegens
+      bank_accounts: v.bankAccounts.map((a) => ({
+        id: a.id,
+        label: a.label,
+        account_holder: a.accountHolder,
+        iban: a.iban,
+        bic: a.bic,
+        bank_name: a.bankName,
+        note: a.note,
+        is_primary: a.primary,
+        archived: a.archived,
+      })),
     },
   })
   if (error) {
-    const mapped = error.code ? DB_ERRORS[error.code] : undefined
+    const duplicateIban = error.code === '23505' && (error.message ?? '').includes('bank_accounts')
+    const mapped = duplicateIban ? 'ibanDuplicate' : error.code ? DB_ERRORS[error.code] : undefined
     if (!mapped) console.error('[stammdaten] nicht gespeichert', error.code, error.message)
     return { ok: false, error: mapped ?? 'unknown' }
   }

@@ -50,6 +50,9 @@ async function requireOwner(): Promise<{ ok: true; tenant: TenantSummary } | Fai
 // Fehler der Datenbank → Meldung (Namen der Regeln siehe supabase/migrations/20261024140000_properties_apartments.sql)
 function dbFail(error: DbError, context: string): Failure {
   const message = error.message ?? ''
+  // PROJ-46: Konto inzwischen archiviert (Prüfung an der Wohnung) bzw. gelöscht oder nicht vom selben Kunden (Fremdschlüssel).
+  // Vor der allgemeinen Regel für „apartment“ prüfen, weil der Name des Fremdschlüssels „apartments“ enthält.
+  if (error.code === 'P0020' || (error.code === '23503' && message.includes('bank_account'))) return fail('bankAccountArchived')
   if (error.code === '23505' && message.includes('apartments_property_name_key')) return fail('duplicateApartmentName')
   if (error.code === '23505' && message.includes('properties_tenant_name_key')) return fail('duplicatePropertyName')
   if (error.code === '23505' && message.includes('apartment_tourist_tax_rates')) return fail('duplicateTouristTaxDate')
@@ -81,11 +84,16 @@ type ApartmentFields = {
   checkIn: string
   checkOut: string
   note: string | null
+  bookingHotelId: string | null
+  bankAccountId: string | null
 }
 
 // Spalten, die die Funktion „Wohnung mit Objekt anlegen“ (PROJ-6) nicht kennt: Reinigungsgebühr (PROJ-8),
-// Erwachsenen-Grenze und Preis-Konfiguration (PROJ-27). Die Werte der nicht gewählten Preisart bleiben gespeichert.
+// Erwachsenen-Grenze und Preis-Konfiguration (PROJ-27), Hotel-ID und Bankkonto (PROJ-46). Die Werte der nicht gewählten
+// Preisart bleiben gespeichert.
 const extraColumns = (v: ApartmentFields) => ({
+  booking_hotel_id: v.bookingHotelId,
+  bank_account_id: v.bankAccountId,
   max_adults: v.maxAdults,
   price_mode: v.priceMode,
   adult_price_cents: v.adultPrice,

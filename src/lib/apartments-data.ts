@@ -3,6 +3,7 @@ import 'server-only'
 import { notFound } from 'next/navigation'
 
 import { type Apartment, childPricesFromDb, type FederalState, type PriceMode, type Property } from '@/lib/apartments'
+import type { BankAccountOption } from '@/lib/bank-accounts'
 import { createClient } from '@/lib/supabase/server'
 import { getTenantContext } from '@/lib/tenant'
 import { ratesByApartment, TOURIST_TAX_RATE_COLUMNS } from '@/lib/tourist-tax'
@@ -22,7 +23,7 @@ export async function getProperties(): Promise<Property[]> {
   const { data, error } = await supabase
     .from('properties')
     .select(
-      'id, name, street, postal_code, city, municipality:municipalities!inner(code, name, state), apartments(id, property_id, name, max_guests, max_adults, kind, price_mode, price_cents, adult_price_cents, child_prices, cleaning_fee_cents, check_in, check_out, note, archived_at)'
+      'id, name, street, postal_code, city, municipality:municipalities!inner(code, name, state), apartments(id, property_id, name, max_guests, max_adults, kind, price_mode, price_cents, adult_price_cents, child_prices, cleaning_fee_cents, check_in, check_out, note, booking_hotel_id, bank_account_id, archived_at)'
     )
     .eq('tenant_id', active.id)
     .limit(500)
@@ -80,6 +81,8 @@ export async function getProperties(): Promise<Property[]> {
             checkOut: hhmm(a.check_out),
             note: a.note,
             touristTaxRates: rates.get(a.id) ?? [],
+            bookingHotelId: a.booking_hotel_id,
+            bankAccountId: a.bank_account_id,
             archivedAt: a.archived_at,
             hasBookings: withBookings.has(a.id),
             futureStays: futureStays.get(a.id) ?? [],
@@ -88,4 +91,23 @@ export async function getProperties(): Promise<Property[]> {
         .sort(byName),
     }))
     .sort(byName)
+}
+
+// Aktive Bankkonten des Kunden für die Auswahl bei der Wohnung (PROJ-46): primär zuerst, dann in der Reihenfolge des
+// Anlegens. Nur Inhaber (die Tabelle ist für Mitarbeiter nicht lesbar).
+export async function getBankAccountOptions(): Promise<BankAccountOption[]> {
+  const { active } = await getTenantContext()
+  if (!active || active.role !== 'owner') notFound()
+
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('bank_accounts')
+    .select('id, iban, label, bank_name, is_primary, position')
+    .eq('tenant_id', active.id)
+    .is('archived_at', null)
+    .order('is_primary', { ascending: false })
+    .order('position')
+    .limit(50)
+  if (error) console.error('[wohnungen] Bankkonten nicht lesbar', error.message)
+  return (data ?? []).map((a) => ({ id: a.id, iban: a.iban, label: a.label, bankName: a.bank_name, primary: a.is_primary }))
 }

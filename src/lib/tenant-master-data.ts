@@ -1,8 +1,17 @@
 // Kundenstammdaten (PROJ-28): Felder, Grenzen und UID-Regeln. Gilt im Browser und auf dem Server.
 
+import { type BankAccount, type BankAccountRow, bankAccountsFromRows } from '@/lib/bank-accounts'
 import { type VatStatusChange, type VatStatusChangeRow, vatStatusFromRows } from '@/lib/vat-status'
 
-export type TenantMasterDataErrorCode = 'staleTenant' | 'tenantDeactivated' | 'tenantGone' | 'vatDateDuplicate' | 'logoMissing'
+export type TenantMasterDataErrorCode =
+  | 'staleTenant'
+  | 'tenantDeactivated'
+  | 'tenantGone'
+  | 'vatDateDuplicate'
+  | 'logoMissing'
+  | 'ibanDuplicate'
+  | 'bankAccountInUse'
+  | 'bankAccountsInvalid'
 
 export const MASTER_DATA_LIMITS = {
   nameMax: 200,
@@ -32,14 +41,16 @@ export type TenantMasterData = {
   // Logo (PROJ-38): Speicherort <Kunde>/<zufällig>.png und kurzlebiger Abruf-Link (vom Server beim Laden erzeugt)
   logoPath: string | null
   logoUrl: string | null
+  // Bankkonten (PROJ-46): primär oben, dann aktive nach Anlage, archivierte unten; je Konto die Wohnungen mit fester Zuordnung
+  bankAccounts: BankAccount[]
   // Stand beim Laden; Schutz vor Überschreiben bei gleichzeitiger Bearbeitung
   updatedAt: string
 }
 
 // Spalten der Tabelle tenants (inkl. Logo, PROJ-38; der Schalter „Rechnungen nacherfassen“ liegt seit PROJ-39 in invoice_settings), dazu der Verlauf des
-// Kleinunternehmer-Status (PROJ-36)
+// Kleinunternehmer-Status (PROJ-36) und die Bankkonten samt Wohnungen mit fester Zuordnung (PROJ-46)
 export const MASTER_DATA_COLUMNS =
-  'id, name, name_line2, address_line1, address_line2, postal_code, city, country, vat_id, tax_number, register_number, logo_path, updated_at, vat_status_changes(valid_from, small_business)'
+  'id, name, name_line2, address_line1, address_line2, postal_code, city, country, vat_id, tax_number, register_number, logo_path, updated_at, vat_status_changes(valid_from, small_business), bank_accounts(id, label, account_holder, iban, bic, bank_name, note, is_primary, archived_at, position, apartments(name, property:properties(name)))'
 
 export type TenantMasterDataRow = {
   id: string
@@ -56,6 +67,7 @@ export type TenantMasterDataRow = {
   logo_path: string | null
   updated_at: string
   vat_status_changes: VatStatusChangeRow[]
+  bank_accounts: BankAccountRow[]
 }
 
 // logoUrl: Abruf-Link des Logos, falls vorhanden (tenant-logo-data.ts)
@@ -74,6 +86,7 @@ export const masterDataFromRow = (row: TenantMasterDataRow, logoUrl: string | nu
   vatStatus: vatStatusFromRows(row.vat_status_changes),
   logoPath: row.logo_path,
   logoUrl: row.logo_path ? logoUrl : null,
+  bankAccounts: bankAccountsFromRows(row.bank_accounts),
   updatedAt: row.updated_at,
 })
 

@@ -1,5 +1,6 @@
 import { z } from 'zod'
 
+import { BANK_ACCOUNT_LIMITS as B, ibanProblem, isBic, normalizeBic, normalizeIban } from '@/lib/bank-accounts'
 import { isIsoDate } from '@/lib/bookings'
 import { isCountry } from '@/lib/guests'
 import { isVatId, MASTER_DATA_LIMITS as L, normalizeVatId } from '@/lib/tenant-master-data'
@@ -22,6 +23,50 @@ const optional = (t: T, max: number) =>
     .trim()
     .max(max, t('tooLong'))
     .transform((v) => v || null)
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+const IBAN_MESSAGES = { country: 'ibanCountry', length: 'ibanLength', checksum: 'ibanChecksum', format: 'ibanInvalid' } as const
+
+// Bankkonten (PROJ-46): Kennung entsteht beim Hinzufügen im Formular. Regeln über alle Konten: höchstens 20,
+// jede IBAN nur einmal (auch archivierte), genau ein aktives primäres Konto, sobald es Konten gibt.
+const bankAccountsSchema = (t: T) =>
+  z
+    .array(
+      z.object({
+        id: z.string().regex(UUID, t('unknown')),
+        label: optional(t, B.labelMax),
+        accountHolder: z.string().trim().min(1, t('accountHolderRequired')).max(B.holderMax, t('tooLong')),
+        iban: z
+          .string()
+          .transform(normalizeIban)
+          .superRefine((v, ctx) => {
+            if (v === '') return void ctx.addIssue({ code: 'custom', message: t('ibanRequired') })
+            const problem = ibanProblem(v)
+            if (problem) ctx.addIssue({ code: 'custom', message: t(IBAN_MESSAGES[problem]) })
+          }),
+        bic: z
+          .string()
+          .transform(normalizeBic)
+          .refine((v) => v === '' || isBic(v), t('bicInvalid'))
+          .transform((v) => v || null),
+        bankName: optional(t, B.bankNameMax),
+        note: optional(t, B.noteMax),
+        primary: z.boolean(),
+        archived: z.boolean(),
+      })
+    )
+    .max(B.accountsMax, t('bankAccountsTooMany'))
+    .superRefine((accounts, ctx) => {
+      const seen = new Set<string>()
+      accounts.forEach((a, i) => {
+        if (a.iban && seen.has(a.iban)) ctx.addIssue({ code: 'custom', path: [i, 'iban'], message: t('ibanDuplicate') })
+        seen.add(a.iban)
+        if (a.primary && a.archived) ctx.addIssue({ code: 'custom', path: [i, 'archived'], message: t('primaryArchived') })
+      })
+      const primaries = accounts.filter((a) => a.primary).length
+      if (accounts.length > 0 && primaries !== 1) ctx.addIssue({ code: 'custom', message: t('primaryRequired') })
+    })
 
 export const tenantMasterDataSchema = (t: T) =>
   z.object({
@@ -67,6 +112,7 @@ export const tenantMasterDataSchema = (t: T) =>
         })
       })
       .transform((rows) => rows.map((r) => ({ validFrom: r.validFrom, smallBusiness: r.status }))),
+    bankAccounts: bankAccountsSchema(t),
     // Logo (PROJ-38): leer oder <Kunde>/<zufällig>.png; den Ordner des Kunden prüft die Datenbank
     logoPath: z
       .string()

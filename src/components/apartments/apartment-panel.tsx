@@ -2,6 +2,7 @@
 
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Plus, Trash } from '@phosphor-icons/react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { useState } from 'react'
@@ -40,6 +41,7 @@ import {
   priceInput,
   type Property,
 } from '@/lib/apartments'
+import { accountDisplayName, type BankAccountOption, formatIban, HOTEL_ID_MAX, PRIMARY_ACCOUNT, shortIban } from '@/lib/bank-accounts'
 import { type ApartmentInput, NEW_PROPERTY, withExistingProperty, withNewProperty } from '@/lib/validation/apartments'
 
 type FormValues = {
@@ -59,6 +61,9 @@ type FormValues = {
   // Ortstaxe-Tarife (PROJ-15), neueste oben
   touristTaxRates: TouristTaxRateFormValues[]
   note: string
+  // PROJ-46: booking.com Hotel-ID und Bankkonto (PRIMARY_ACCOUNT = „Primäres Konto“)
+  bookingHotelId: string
+  bankAccountId: string
 }
 
 const EMPTY_PROPERTY = { name: '', street: '', postalCode: '', city: '', municipalityCode: '' }
@@ -67,6 +72,8 @@ interface ApartmentPanelProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   properties: Property[]
+  // aktive Bankkonten des Kunden (PROJ-46), primär zuerst
+  bankAccounts: BankAccountOption[]
   // Bearbeiten: die Wohnung; Anlegen: null (optional mit vorgewähltem Objekt)
   apartment: Apartment | null
   presetPropertyId?: string
@@ -74,7 +81,7 @@ interface ApartmentPanelProps {
 
 // Detail-Panel „Wohnung anlegen / bearbeiten“ (PROJ-6). Beim Anlegen lässt sich ein neues Objekt mit Adresse und
 // Gemeinde im selben Formular erfassen; beim Bearbeiten kann die Wohnung in ein anderes Objekt verschoben werden.
-export function ApartmentPanel({ open, onOpenChange, properties, apartment, presetPropertyId }: ApartmentPanelProps) {
+export function ApartmentPanel({ open, onOpenChange, properties, bankAccounts, apartment, presetPropertyId }: ApartmentPanelProps) {
   const t = useTranslations('apartments')
   const tv = useTranslations('apartments.validation')
   const router = useRouter()
@@ -100,6 +107,8 @@ export function ApartmentPanel({ open, onOpenChange, properties, apartment, pres
         checkOut: apartment.checkOut,
         touristTaxRates: apartment.touristTaxRates.map(toRateFormValues),
         note: apartment.note ?? '',
+        bookingHotelId: apartment.bookingHotelId ?? '',
+        bankAccountId: apartment.bankAccountId ?? PRIMARY_ACCOUNT,
       }
     : {
         propertyId: presetPropertyId ?? (properties.length === 0 ? NEW_PROPERTY : ''),
@@ -117,6 +126,8 @@ export function ApartmentPanel({ open, onOpenChange, properties, apartment, pres
         checkOut: APARTMENT_DEFAULTS.checkOut,
         touristTaxRates: [],
         note: '',
+        bookingHotelId: '',
+        bankAccountId: PRIMARY_ACCOUNT,
       }
 
   // Die Objektangaben werden nur geprüft, wenn „Neues Objekt“ gewählt ist; der Server erhält die Rohwerte
@@ -146,6 +157,11 @@ export function ApartmentPanel({ open, onOpenChange, properties, apartment, pres
     if (!result.ok) {
       if (result.error === 'duplicateApartmentName') form.setError('name', { message: t('errors.duplicateApartmentName') })
       else if (result.error === 'duplicatePropertyName') form.setError('newProperty.name', { message: t('errors.duplicatePropertyName') })
+      else if (result.error === 'bankAccountArchived') {
+        // Konto inzwischen archiviert oder gelöscht (PROJ-46): Auswahl neu laden
+        form.setError('bankAccountId', { message: t('errors.bankAccountArchived') })
+        router.refresh()
+      }
       else setError(result.error)
       return
     }
@@ -437,6 +453,7 @@ export function ApartmentPanel({ open, onOpenChange, properties, apartment, pres
               />
             ))}
           </div>
+          <PlatformAndBankFields bankAccounts={bankAccounts} />
           <FormField
             control={form.control}
             name="note"
@@ -495,5 +512,87 @@ export function ApartmentPanel({ open, onOpenChange, properties, apartment, pres
         />
       )}
     </DetailPanel>
+  )
+}
+
+// Abschnitt „booking.com und Bankkonto“ (PROJ-46)
+function PlatformAndBankFields({ bankAccounts }: { bankAccounts: BankAccountOption[] }) {
+  const t = useTranslations('apartments.panel')
+  const primary = bankAccounts.find((a) => a.primary)
+  return (
+    <fieldset className="flex flex-col gap-4 rounded-lg border p-4">
+      <legend className="px-1 text-sm font-semibold">{t('platformSection')}</legend>
+      <FormField<FormValues, 'bookingHotelId'>
+        name="bookingHotelId"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>{t('bookingHotelId')}</FormLabel>
+            <FormControl>
+              <Input maxLength={HOTEL_ID_MAX} autoComplete="off" spellCheck={false} className="min-h-11 sm:w-60" {...field} />
+            </FormControl>
+            <FormDescription>{t('bookingHotelIdHint')}</FormDescription>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+      <FormField<FormValues, 'bankAccountId'>
+        name="bankAccountId"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>{t('bankAccount')}</FormLabel>
+            {primary ? (
+              <Select value={field.value} onValueChange={field.onChange}>
+                <FormControl>
+                  <SelectTrigger className="min-h-11 w-full min-w-0">
+                    <SelectValue />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value={PRIMARY_ACCOUNT} className="min-h-11">
+                    {t('bankAccountPrimary', { iban: shortIban(primary.iban) })}
+                  </SelectItem>
+                  {bankAccounts.map((a) => {
+                    const name = a.label?.trim() || a.bankName?.trim()
+                    return (
+                      <SelectItem key={a.id} value={a.id} className="min-h-11">
+                        <span className="flex min-w-0 flex-wrap items-baseline gap-x-2">
+                          <span className="font-mono">{formatIban(a.iban)}</span>
+                          {name && <span className="truncate text-sm text-ds-neutral-800">· {accountDisplayName(a)}</span>}
+                        </span>
+                      </SelectItem>
+                    )
+                  })}
+                </SelectContent>
+              </Select>
+            ) : (
+              <Select value={PRIMARY_ACCOUNT} disabled>
+                <FormControl>
+                  <SelectTrigger className="min-h-11 w-full min-w-0">
+                    <SelectValue />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value={PRIMARY_ACCOUNT}>{t('bankAccountNone')}</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
+            <FormDescription>
+              {primary ? (
+                t('bankAccountHint')
+              ) : (
+                <>
+                  {t('bankAccountNoneHint')}{' '}
+                  <Link href="/einstellungen/stammdaten" className="text-ds-accent-700 underline underline-offset-[3px]">
+                    {t('bankAccountNoneLink')}
+                  </Link>
+                  .
+                </>
+              )}
+            </FormDescription>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+    </fieldset>
   )
 }

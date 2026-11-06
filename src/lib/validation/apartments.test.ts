@@ -29,6 +29,8 @@ const base = {
     vat: string
   }[],
   note: '  ',
+  bookingHotelId: '',
+  bankAccountId: 'primary',
 }
 const property = { name: 'Haus Seeblick', street: 'Seeweg 1', postalCode: '5340', city: 'St. Gilgen', municipalityCode: '50408' }
 
@@ -173,3 +175,26 @@ describe('Objekt', () => {
     expect((r.error?.issues ?? []).map((i) => i.message).sort()).toEqual(['municipalityRequired', 'postalCodeInvalid'])
   })
 })
+
+describe('Hotel-ID und Bankkonto (PROJ-46)', () => {
+  const schema = withExistingProperty(key)
+  const parse = (over: Partial<typeof base>) => schema.safeParse({ ...base, ...over })
+
+  it('trimmt die Hotel-ID außen und behält die Schreibweise', () => {
+    expect(parse({ bookingHotelId: ' AB-12345x ' }).data?.bookingHotelId).toBe('AB-12345x')
+    expect(parse({ bookingHotelId: '  ' }).data?.bookingHotelId).toBeNull()
+  })
+
+  it('lehnt andere Zeichen und Überlänge ab', () => {
+    expect(parse({ bookingHotelId: '123/45' }).error?.issues[0].message).toBe('hotelIdInvalid')
+    expect(parse({ bookingHotelId: '12 34' }).error?.issues[0].message).toBe('hotelIdInvalid')
+    expect(parse({ bookingHotelId: 'a'.repeat(31) }).error?.issues[0].message).toBe('hotelIdInvalid')
+  })
+
+  it('„Primäres Konto“ wird null, sonst die Kennung', () => {
+    expect(parse({}).data?.bankAccountId).toBeNull()
+    expect(parse({ bankAccountId: '5b1d7a0e-0000-4000-8000-000000000009' }).data?.bankAccountId).toBe('5b1d7a0e-0000-4000-8000-000000000009')
+    expect(parse({ bankAccountId: 'x' }).error?.issues[0].message).toBe('bankAccountInvalid')
+  })
+})
+

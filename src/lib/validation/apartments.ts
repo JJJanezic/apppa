@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
 import { type ChildPrice, LIMITS, parsePriceCents, PRICE_MODES } from '@/lib/apartments'
+import { isHotelId, PRIMARY_ACCOUNT } from '@/lib/bank-accounts'
 import { isIsoDate, parseAmountCents } from '@/lib/bookings'
 import { TOURIST_TAX_BASES, TOURIST_TAX_LIMITS, TOURIST_TAX_METHODS, type TouristTaxRate } from '@/lib/tourist-tax'
 import { parseVatRate } from '@/lib/vat'
@@ -94,6 +95,17 @@ const apartmentFields = (t: T) => ({
     .trim()
     .max(LIMITS.noteMax, t('tooLong'))
     .transform((v) => v || null),
+  // booking.com Hotel-ID (PROJ-46): außen getrimmt, Schreibweise sonst unverändert; leer = nicht angegeben
+  bookingHotelId: z
+    .string()
+    .trim()
+    .refine((v) => v === '' || isHotelId(v), t('hotelIdInvalid'))
+    .transform((v) => v || null),
+  // Bankkonto (PROJ-46): „Primäres Konto“ → null; sonst Kennung eines Kontos (Kunde und Aktiv-Status prüft die Datenbank)
+  bankAccountId: z
+    .string()
+    .refine((v) => v === PRIMARY_ACCOUNT || /^[0-9a-f-]{36}$/i.test(v), t('bankAccountInvalid'))
+    .transform((v) => (v === PRIMARY_ACCOUNT ? null : v)),
 })
 
 // Regeln über mehrere Felder (PROJ-27): Erwachsene höchstens die Personenzahl, Erwachsenenpreis bei Personenpreisen,

@@ -322,7 +322,8 @@
       "vatStatus": "Umsatzsteuer-Status",
       "invoiceBackfill": "Rechnungen nacherfassen",
       "invoiceBackfillHint": "Zeigt in „Rechnungen“ den Knopf „Rechnung nacherfassen“, um Rechnungen aus dem bisherigen System zu übernehmen. Ausgeschaltet bleiben erfasste Rechnungen sichtbar und bearbeitbar.",
-      "logoPath": "Logo"
+      "logoPath": "Logo",
+      "bankAccounts": "Bankkonten"
     },
     "logo": {
       "title": "Logo",
@@ -387,7 +388,18 @@
       "vatStatusTooMany": "Höchstens 50 Wechsel sind möglich.",
       "vatDateDuplicate": "Für dieses Datum gibt es bereits einen Eintrag.",
       "unknown": "Bitte prüfe diese Angabe.",
-      "logoUploading": "Bitte warte, bis das Logo hochgeladen ist."
+      "logoUploading": "Bitte warte, bis das Logo hochgeladen ist.",
+      "accountHolderRequired": "Bitte gib den Kontoinhaber ein.",
+      "ibanRequired": "Bitte gib die IBAN ein.",
+      "ibanInvalid": "Bitte prüfe die IBAN. Erlaubt sind Buchstaben und Ziffern, z. B. AT61 1904 3002 3457 3201.",
+      "ibanCountry": "Bitte prüfe die IBAN. Sie beginnt mit einem Länderkürzel, z. B. AT.",
+      "ibanLength": "Bitte prüfe die IBAN. Die Länge passt nicht zum Land (Österreich: 20 Zeichen).",
+      "ibanChecksum": "Bitte prüfe die IBAN. Die Prüfziffer stimmt nicht, wahrscheinlich ein Tippfehler.",
+      "ibanDuplicate": "Diese IBAN ist bereits erfasst.",
+      "bicInvalid": "Bitte prüfe den BIC: 8 oder 11 Zeichen, z. B. RZBAATWW.",
+      "bankAccountsTooMany": "Höchstens 20 Bankkonten sind möglich.",
+      "primaryArchived": "Das primäre Konto kann nicht archiviert werden.",
+      "primaryRequired": "Bitte lege genau ein aktives Konto als primär fest."
     },
     "errors": {
       "staleTenant": "Die Kundendaten wurden inzwischen geändert.",
@@ -398,7 +410,44 @@
       "sessionExpired": "Deine Sitzung ist abgelaufen. Bitte melde dich erneut an.",
       "notImplemented": "Diese Funktion wird gerade eingerichtet.",
       "unknown": "Etwas ist schiefgelaufen. Bitte versuche es erneut.",
-      "logoMissing": "Das Logo wurde nicht gefunden. Bitte lade es erneut hoch."
+      "logoMissing": "Das Logo wurde nicht gefunden. Bitte lade es erneut hoch.",
+      "ibanDuplicate": "Eine IBAN ist bereits erfasst. Bitte prüfe die Bankkonten.",
+      "bankAccountInUse": "Ein Bankkonto wird inzwischen von einer Wohnung verwendet und lässt sich nicht löschen. Lade die aktuelle Fassung und archiviere es stattdessen.",
+      "bankAccountsInvalid": "Bei den Bankkonten muss genau ein aktives Konto primär sein. Bitte prüfe die Liste."
+    },
+    "bank": {
+      "title": "Bankkonten",
+      "empty": "Noch kein Bankkonto erfasst. Das erste Konto wird automatisch zum primären Konto; Wohnungen verwenden es, solange du ihnen kein anderes zuordnest.",
+      "listLabel": "Bankkonten des Kunden",
+      "add": "Bankkonto hinzufügen",
+      "full": "Höchstens {max} Bankkonten sind möglich (aktive und archivierte).",
+      "primary": "Primär",
+      "archived": "archiviert",
+      "unsaved": "neu, noch nicht gespeichert",
+      "actions": "Aktionen für {name}",
+      "edit": "Bearbeiten",
+      "collapse": "Zuklappen",
+      "makePrimary": "Als primär festlegen",
+      "archive": "Archivieren",
+      "restore": "Wiederherstellen",
+      "remove": "Löschen",
+      "primaryLocked": "Das primäre Konto lässt sich weder archivieren noch löschen. Lege zuerst ein anderes Konto als primär fest.",
+      "inUse": "Fest zugeordnet: {apartments}",
+      "inUseNoDelete": "Löschen ist nicht möglich, solange Wohnungen das Konto fest verwenden. Du kannst es archivieren.",
+      "archiveTitle": "Konto „{name}“ archivieren?",
+      "archiveText": "Diese Wohnungen verwenden das Konto fest und werden beim Speichern auf „Primäres Konto“ zurückgestellt: {apartments}.",
+      "archiveConfirm": "Archivieren",
+      "cancel": "Abbrechen",
+      "label": "Bezeichnung",
+      "labelHint": "Optional, z. B. „Geschäftskonto Raiffeisen“. Ohne Bezeichnung zeigt die App den Namen der Bank oder die IBAN.",
+      "accountHolder": "Kontoinhaber",
+      "iban": "IBAN",
+      "ibanHint": "Zum Beispiel AT61 1904 3002 3457 3201. Leerzeichen sind erlaubt.",
+      "bic": "BIC",
+      "bicHint": "Optional, 8 oder 11 Zeichen, z. B. RZBAATWW.",
+      "bankName": "Name der Bank",
+      "note": "Notiz",
+      "noteHint": "Nur intern, erscheint nirgends sonst."
     }
   },
   "operator": {
@@ -635,7 +684,16 @@
       "cleaningFeeHint": "Optional. Wird neuen Buchungen als Zusatzkosten „Endreinigung“ vorgeschlagen.",
       "capacityHint": "{count, plural, one {# künftige Buchung hat} other {# künftige Buchungen haben}} mehr Personen. Sie bleiben bestehen.",
       "hasBookingsHint": "Diese Wohnung hat Buchungen und lässt sich nicht endgültig löschen. Archiviere sie stattdessen.",
-      "capacityAdultsHint": "{count, plural, one {# künftige Buchung hat} other {# künftige Buchungen haben}} mehr Erwachsene. Sie bleiben bestehen."
+      "capacityAdultsHint": "{count, plural, one {# künftige Buchung hat} other {# künftige Buchungen haben}} mehr Erwachsene. Sie bleiben bestehen.",
+      "platformSection": "booking.com und Bankkonto",
+      "bookingHotelId": "booking.com Hotel-ID",
+      "bookingHotelIdHint": "Optional. Buchstaben, Ziffern und Bindestrich, höchstens 30 Zeichen. Mehrere Wohnungen dürfen dieselbe ID haben.",
+      "bankAccount": "Bankkonto",
+      "bankAccountPrimary": "Primäres Konto ({iban})",
+      "bankAccountHint": "„Primäres Konto“ folgt automatisch, wenn in den Stammdaten ein anderes Konto primär wird. Ein ausgewähltes Konto bleibt fest.",
+      "bankAccountNone": "Kein Bankkonto erfasst",
+      "bankAccountNoneHint": "Bankkonten erfasst du unter",
+      "bankAccountNoneLink": "Einstellungen → Stammdaten"
     },
     "propertyPanel": {
       "title": "Objekt bearbeiten",
@@ -701,7 +759,9 @@
         "ageInvalid": "Bitte ein Alter von 1 bis 18 eingeben oder leer lassen.",
         "vatRequired": "Bitte einen Steuersatz eingeben.",
         "vatInvalid": "Bitte einen Satz von 0 bis 100 mit höchstens zwei Nachkommastellen eingeben."
-      }
+      },
+      "hotelIdInvalid": "Bitte nur Buchstaben, Ziffern und Bindestrich eingeben, höchstens 30 Zeichen.",
+      "bankAccountInvalid": "Bitte ein Konto aus der Liste wählen."
     },
     "errors": {
       "duplicateApartmentName": "In diesem Objekt gibt es schon eine Wohnung mit diesem Namen.",
@@ -714,7 +774,8 @@
       "sessionExpired": "Deine Sitzung ist abgelaufen. Bitte melde dich erneut an.",
       "notImplemented": "Diese Funktion wird gerade eingerichtet.",
       "unknown": "Etwas ist schiefgelaufen. Bitte versuche es erneut.",
-      "duplicateTouristTaxDate": "Für ein Datum gibt es zwei Ortstaxe-Tarife. Bitte ein Datum ändern."
+      "duplicateTouristTaxDate": "Für ein Datum gibt es zwei Ortstaxe-Tarife. Bitte ein Datum ändern.",
+      "bankAccountArchived": "Das gewählte Bankkonto wurde inzwischen archiviert oder gelöscht. Die Wohnung wurde nicht gespeichert; bitte ein anderes Konto wählen."
     },
     "editPropertyFor": "Objekt „{name}“ bearbeiten",
     "addToProperty": "Wohnung in „{name}“ hinzufügen",

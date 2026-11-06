@@ -20,7 +20,24 @@ const EMPTY = {
   registerNumber: '',
   vatStatus: [] as { validFrom: string; status: string }[],
   logoPath: '',
+  bankAccounts: [] as ReturnType<typeof account>[],
 }
+
+function account(over: Partial<{ id: string; label: string; accountHolder: string; iban: string; bic: string; bankName: string; note: string; primary: boolean; archived: boolean }> = {}) {
+  return {
+    id: '7f0c2c1e-1b0a-4c4e-9a51-1f2b3c4d5e6f',
+    label: '',
+    accountHolder: 'Pichler Ferienwohnungen',
+    iban: 'AT61 1904 3002 3457 3201',
+    bic: '',
+    bankName: '',
+    note: '',
+    primary: true,
+    archived: false,
+    ...over,
+  }
+}
+const SECOND = '8a1d3d2f-2c1b-4d5f-8b62-2a3b4c5d6e7f'
 
 const firstError = (r: { success: boolean; error?: { issues: { message: string }[] } }) => r.error?.issues[0]?.message
 
@@ -39,6 +56,7 @@ describe('tenantMasterDataSchema', () => {
       registerNumber: null,
       vatStatus: [],
       logoPath: null,
+      bankAccounts: [],
     })
   })
 
@@ -136,5 +154,49 @@ describe('tenantMasterDataSchema', () => {
     expect(schema.parse({ ...EMPTY, logoPath: path }).logoPath).toBe(path)
     expect(firstError(schema.safeParse({ ...EMPTY, logoPath: 'uploading' }))).toBe(v.logoUploading)
     expect(schema.safeParse({ ...EMPTY, logoPath: 'fremd/logo.svg' }).success).toBe(false)
+  })
+
+  describe('Bankkonten (PROJ-46)', () => {
+    it('bereinigt IBAN und BIC, leere Felder werden null', () => {
+      const [a] = schema.parse({ ...EMPTY, bankAccounts: [account({ iban: 'at61 1904 3002 3457 3201', bic: 'rzba atww' })] }).bankAccounts
+      expect(a).toMatchObject({ iban: 'AT611904300234573201', bic: 'RZBAATWW', label: null, bankName: null, note: null, primary: true })
+    })
+
+    it('verlangt Kontoinhaber und IBAN', () => {
+      expect(firstError(schema.safeParse({ ...EMPTY, bankAccounts: [account({ accountHolder: '  ' })] }))).toBe(v.accountHolderRequired)
+      expect(firstError(schema.safeParse({ ...EMPTY, bankAccounts: [account({ iban: ' ' })] }))).toBe(v.ibanRequired)
+    })
+
+    it('meldet Prüfziffer, Länge, Land und BIC verständlich', () => {
+      expect(firstError(schema.safeParse({ ...EMPTY, bankAccounts: [account({ iban: 'AT62 1904 3002 3457 3201' })] }))).toBe(v.ibanChecksum)
+      expect(firstError(schema.safeParse({ ...EMPTY, bankAccounts: [account({ iban: 'AT61 1904 3002 3457 320' })] }))).toBe(v.ibanLength)
+      expect(firstError(schema.safeParse({ ...EMPTY, bankAccounts: [account({ iban: 'XX61 1904 3002 3457 3201' })] }))).toBe(v.ibanCountry)
+      expect(firstError(schema.safeParse({ ...EMPTY, bankAccounts: [account({ bic: 'RZBAATWWX' })] }))).toBe(v.bicInvalid)
+    })
+
+    it('lehnt doppelte IBAN ab, auch bei archiviertem Konto, Meldung beim zweiten', () => {
+      const r = schema.safeParse({
+        ...EMPTY,
+        bankAccounts: [account(), account({ id: SECOND, primary: false, archived: true, iban: 'AT611904300234573201' })],
+      })
+      expect(r.error?.issues[0]).toMatchObject({ message: v.ibanDuplicate, path: ['bankAccounts', 1, 'iban'] })
+    })
+
+    it('verlangt genau ein primäres, nicht archiviertes Konto', () => {
+      const de = 'DE89 3704 0044 0532 0130 00'
+      expect(firstError(schema.safeParse({ ...EMPTY, bankAccounts: [account({ primary: false })] }))).toBe(v.primaryRequired)
+      expect(
+        firstError(schema.safeParse({ ...EMPTY, bankAccounts: [account(), account({ id: SECOND, iban: de })] }))
+      ).toBe(v.primaryRequired)
+      expect(firstError(schema.safeParse({ ...EMPTY, bankAccounts: [account({ archived: true })] }))).toBe(v.primaryArchived)
+      expect(schema.safeParse({ ...EMPTY, bankAccounts: [account(), account({ id: SECOND, iban: de, primary: false, archived: true })] }).success).toBe(true)
+    })
+
+    it('erlaubt höchstens 20 Konten', () => {
+      const many = Array.from({ length: 21 }, (_, i) =>
+        account({ id: `7f0c2c1e-1b0a-4c4e-9a51-${String(i).padStart(12, '0')}`, primary: i === 0, iban: 'AT61 1904 3002 3457 3201' })
+      )
+      expect(schema.safeParse({ ...EMPTY, bankAccounts: many }).error?.issues.some((i) => i.message === v.bankAccountsTooMany)).toBe(true)
+    })
   })
 })

@@ -87,6 +87,8 @@ export type Database = {
         Row: {
           adult_price_cents: number | null
           archived_at: string | null
+          bank_account_id: string | null
+          booking_hotel_id: string | null
           check_in: string
           check_out: string
           child_prices: Json
@@ -109,6 +111,8 @@ export type Database = {
         Insert: {
           adult_price_cents?: number | null
           archived_at?: string | null
+          bank_account_id?: string | null
+          booking_hotel_id?: string | null
           check_in?: string
           check_out?: string
           child_prices?: Json
@@ -131,6 +135,8 @@ export type Database = {
         Update: {
           adult_price_cents?: number | null
           archived_at?: string | null
+          bank_account_id?: string | null
+          booking_hotel_id?: string | null
           check_in?: string
           check_out?: string
           child_prices?: Json
@@ -152,6 +158,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "apartments_bank_account_fkey"
+            columns: ["bank_account_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
             foreignKeyName: "apartments_property_fkey"
             columns: ["property_id", "tenant_id"]
             isOneToOne: false
@@ -160,6 +173,68 @@ export type Database = {
           },
           {
             foreignKeyName: "apartments_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bank_accounts: {
+        Row: {
+          account_holder: string
+          archived_at: string | null
+          bank_name: string | null
+          bic: string | null
+          created_at: string
+          created_by: string | null
+          iban: string
+          id: string
+          is_primary: boolean
+          label: string | null
+          note: string | null
+          position: number
+          tenant_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          account_holder: string
+          archived_at?: string | null
+          bank_name?: string | null
+          bic?: string | null
+          created_at?: string
+          created_by?: string | null
+          iban: string
+          id?: string
+          is_primary?: boolean
+          label?: string | null
+          note?: string | null
+          position: number
+          tenant_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          account_holder?: string
+          archived_at?: string | null
+          bank_name?: string | null
+          bic?: string | null
+          created_at?: string
+          created_by?: string | null
+          iban?: string
+          id?: string
+          is_primary?: boolean
+          label?: string | null
+          note?: string | null
+          position?: number
+          tenant_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_accounts_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"

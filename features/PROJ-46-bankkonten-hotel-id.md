@@ -1,6 +1,6 @@
 # PROJ-46: Bankkonten und booking.com Hotel-ID
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-11-06
 **Last Updated:** 2026-11-06
 
@@ -344,6 +344,25 @@ Anlegen und Bearbeiten der Wohnung übernehmen die beiden neuen Felder in die be
 
 ### Abhängigkeiten (Pakete)
 - `ibantools`: Prüfung von IBAN (Länderlängen, Prüfziffer) und BIC; ohne weitere Abhängigkeiten. Vor dem Einbau sauber ohne `legacy-peer-deps` prüfen.
+
+### Umsetzung Frontend (2026-11-06)
+- **Paket** `ibantools` 4.5.4 (keine Abhängigkeiten, keine Peers; Lockdatei nur um diesen Eintrag ergänzt).
+- **Regeln** `src/lib/bank-accounts.ts`: `ibanProblem` (country/length/checksum/format), `isBic`, `normalizeIban`/`normalizeBic`, `formatIban` (Viererblöcke), `shortIban` („AT61 1904 … 3201“), `accountDisplayName`, `isHotelId`, `bankAccountsFromRows` (Sortierung primär → aktive nach `position` → archivierte; `usedBy` als „Objekt · Wohnung“), `PRIMARY_ACCOUNT`. Unit-Tests `bank-accounts.test.ts`.
+- **Prüfregeln** `src/lib/validation/tenant.ts`: `bankAccounts` (Kennung UUID, Pflicht Kontoinhaber/IBAN, IBAN-Meldungen je Fehlerart, BIC 8/11, Längen, höchstens 20, doppelte IBAN an der späteren Zeile, primär nicht archiviert, genau ein primäres sobald Konten existieren). `src/lib/validation/apartments.ts`: `bookingHotelId` (außen getrimmt, leer → null) und `bankAccountId` („primary“ → null, sonst UUID). Tests in `tenant.test.ts` und `apartments.test.ts`.
+- **Formularbereich** `src/components/tenant/bank-accounts-fields.tsx` am Ende des gemeinsamen Stammdaten-Formulars (Inhaber und Betreiber): Karten mit Anzeigename, IBAN, Kennzeichen „Primär“/„archiviert“/„neu, noch nicht gespeichert“, „Fest zugeordnet: …“; Aufklappen per Knopf; Aktionsmenü (Bearbeiten, Als primär festlegen, Archivieren/Wiederherstellen, Löschen); Löschen gesperrt bei primärem oder zugeordnetem Konto (Ausnahme: neues, einziges Konto); Archivieren eines zugeordneten Kontos mit Bestätigung samt Wohnungen; Kennung neuer Konten per `crypto.randomUUID()`; erstes Konto automatisch primär; Kontoinhaber mit dem aktuellen Kundennamen vorbelegt; Karten mit Fehler klappen auf; bei deaktiviertem Kunden alle Karten offen und nur lesbar.
+- **Wohnungs-Fenster** `apartment-panel.tsx`: Abschnitt „booking.com und Bankkonto“ vor der Notiz (Anlegen und Bearbeiten); Auswahl „Primäres Konto (…)“ + aktive Konten (IBAN · Bezeichnung); ohne Konten gesperrt mit Link zu *Einstellungen → Stammdaten*; Fehler `bankAccountArchived` am Feld und Neuladen der Auswahl.
+- **Laden:** `MASTER_DATA_COLUMNS` bettet `bank_accounts(…, apartments(name, property:properties(name)))` ein; `getProperties` liest `booking_hotel_id`, `bank_account_id`; neu `getBankAccountOptions()` (aktive Konten, primär zuerst, nach `position`).
+- **Speichern:** `saveTenantMasterData` übergibt `bank_accounts` (id, label, account_holder, iban, bic, bank_name, note, is_primary, archived) in `p_data`; Reihenfolge der Liste = `position`. Fehler: 23505 mit „bank_accounts“ im Text → `ibanDuplicate`, 23503 → `bankAccountInUse`, P0019 → `bankAccountsInvalid`. Wohnungsaktionen schreiben `booking_hotel_id`, `bank_account_id` (über `extraColumns`, auch beim Anlegen mit neuem Objekt); P0020 oder 23503 mit „bank_account“ → `bankAccountArchived` (vor der allgemeinen „apartment“-Regel).
+- **Protokoll:** Feldname `bank_accounts` erscheint als „Bankkonten“ (`tenantData.fields.bankAccounts`).
+- **Texte** in `messages/de.json` (`tenantData.bank`, Prüf- und Fehlermeldungen; `apartments.panel`/`validation`/`errors`).
+- **Typen** `src/types/database.ts` von Hand um `bank_accounts` und die Wohnungsfelder ergänzt; `/backend` erzeugt sie neu.
+- **Prüfung:** `tsc`, ESLint, alle 765 Unit-Tests und `npm run build` grün.
+- **Offen für /backend:**
+  - Tabelle `bank_accounts` (tenant_id, label, account_holder, iban, bic, bank_name, note, is_primary, archived_at, position, Standardfelder); eindeutig (tenant_id, iban) mit „bank_accounts“ im Namen; eindeutig (id, tenant_id) für den Verweis; höchstens ein `is_primary` je Kunde; primär ⇒ nicht archiviert; Grundformat IBAN/BIC und Längen. RLS: Lesen nur Inhaber + Admin, kein direktes Schreiben; Änderungsprotokoll.
+  - Wohnung: `booking_hotel_id` (Prüfregel `^[A-Za-z0-9-]{1,30}$`), `bank_account_id` mit Fremdschlüssel `apartments_bank_account_fkey` (bank_account_id, tenant_id) → bank_accounts(id, tenant_id), Löschen gesperrt; Prüfung „Konto nicht archiviert“ beim Speichern der Wohnung → P0020.
+  - `update_tenant_master_data`: optionaler Schlüssel `bank_accounts` (fehlt er, bleibt alles unverändert). Abgleich über `id` (fremde Kennung ablehnen), fehlende Konten löschen (23503 bei Verweis), `position` = Listenindex, `archived_at` setzen/entfernen (bestehenden Zeitpunkt behalten), Wohnungen archivierter Konten auf null, Abschlussprüfung höchstens 20 und genau ein aktives primäres → P0019; bei Änderung „zuletzt geändert am“ des Kunden setzen und `bank_accounts` in `changed_fields`.
+  - Anlegen mit neuem Objekt schreibt Hotel-ID und Konto erst nach `create_apartment_with_property` (bisheriges Muster); scheitert das Konto, existiert die Wohnung bereits. Ggf. Funktion erweitern.
+  - **Ohne Migration schlagen *Einstellungen → Stammdaten*, die Betreiber-Detailseite und *Einstellungen → Wohnungen* beim Laden fehl.**
 
 ## QA Test Results
 _To be added by /qa_

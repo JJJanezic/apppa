@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { type Apartment, type Property, visibleProperties } from '@/lib/apartments'
+import type { BankAccountOption } from '@/lib/bank-accounts'
 import { formatCents } from '@/lib/format'
 
 type Panel =
@@ -22,7 +23,7 @@ type Panel =
   | null
 
 // „Einstellungen → Wohnungen“ (PROJ-6): Wohnungen gruppiert nach Objekt; ab 768 px Tabelle, darunter Karten
-export function ApartmentsOverview({ properties }: { properties: Property[] }) {
+export function ApartmentsOverview({ properties, bankAccounts }: { properties: Property[]; bankAccounts: BankAccountOption[] }) {
   const t = useTranslations('apartments')
   const [showArchived, setShowArchived] = useState(false)
   const [panel, setPanel] = useState<Panel>(null)
@@ -199,6 +200,7 @@ export function ApartmentsOverview({ properties }: { properties: Property[] }) {
           open
           onOpenChange={close}
           properties={properties}
+          bankAccounts={bankAccounts}
           apartment={panel.kind === 'apartment' ? panel.apartment : null}
           presetPropertyId={panel.kind === 'create' ? panel.presetPropertyId : undefined}
         />
