@@ -10,6 +10,8 @@ import { toast } from 'sonner'
 
 import { checkGuestDuplicates } from '@/app/(app)/gaeste/actions'
 import { loadInvoiceBooking, saveInvoice, type SaveInvoiceResult } from '@/app/(app)/rechnungen/actions'
+import { listActivePaymentMethods } from '@/app/(app)/zahlungen/actions'
+import { AlreadyPaidFields } from '@/components/payments/already-paid-fields'
 import { Amount } from '@/components/amount'
 import { AmountInput } from '@/components/amount-input'
 import { callAction, FormError } from '@/components/auth/form-error'
@@ -44,6 +46,8 @@ import {
 } from '@/lib/invoices'
 import { EMPTY_GUEST_INPUT, type GuestInput, guestSchema } from '@/lib/validation/guests'
 import { type InvoiceInput, type InvoiceLineInput, invoiceSchema } from '@/lib/validation/invoices'
+import { type AlreadyPaidInput, alreadyPaidSchema } from '@/lib/validation/payments'
+import type { PaymentMethod } from '@/lib/payments'
 import { CHARGE_CHOICES, formatVatRate, parseVatRate, VAT_DEFAULTS, vatBreakdown, vatRateInput } from '@/lib/vat'
 import { vatStatusOn } from '@/lib/vat-status'
 
@@ -83,6 +87,7 @@ export function InvoicePanel({ open, onOpenChange, invoice, today }: InvoicePane
   const tv = useTranslations('invoices.validation')
   const tb = useTranslations('bookings')
   const tgv = useTranslations('guests.validation')
+  const tpv = useTranslations('payments.validation')
   const tg = useTranslations('guests')
   const locale = useLocale()
   const router = useRouter()
@@ -102,12 +107,21 @@ export function InvoicePanel({ open, onOpenChange, invoice, today }: InvoicePane
   const [replaceWith, setReplaceWith] = useState<InvoiceLine[] | null>(null)
   const [duplicates, setDuplicates] = useState<{ matches: DuplicateMatch[]; values: string } | null>(null)
   // Während eine Position verschoben wird bzw. die Bezeichnungsauswahl offen ist, schließt Escape nicht das Panel
+  // „Bereits bezahlt“ (PROJ-45, nur beim Anlegen): Zahlungsarten laden beim ersten Einschalten
+  const [alreadyPaid, setAlreadyPaid] = useState(false)
+  const [paidMethods, setPaidMethods] = useState<PaymentMethod[] | null>(null)
+  const [paidUnavailable, setPaidUnavailable] = useState(false)
+  const [platform, setPlatform] = useState(false)
   const sortingLine = useRef(false)
   const labelListOpen = useRef(false)
 
   const form = useForm<InvoiceInput>({
     resolver: zodResolver(invoiceSchema(tv, { today }), undefined, { raw: true }),
     defaultValues: initialValues(invoice, vatStatusOn(vatHistory, today).smallBusiness),
+  })
+  const paidForm = useForm<AlreadyPaidInput>({
+    resolver: zodResolver(alreadyPaidSchema(tpv, { today }), undefined, { raw: true }),
+    defaultValues: { paidOn: '', methodId: '', commission: '', fee: '' },
   })
   const guestForm = useForm<GuestInput>({
     resolver: zodResolver(guestSchema(tgv), undefined, { raw: true }),
@@ -170,7 +184,8 @@ export function InvoicePanel({ open, onOpenChange, invoice, today }: InvoicePane
       if (result.ok === false && result.error !== 'sessionExpired') toast.error(t(`errors.${result.error}`))
       return
     }
-    const { guest, amounts } = result.data
+    const { guest, amounts, platform: viaPlatform } = result.data
+    setPlatform(viaPlatform)
     // Hauptgast der Buchung vorbelegen (anonymisierte Gäste nicht)
     if (guest && !guest.anonymized) pickGuest(guest)
     if (!amounts) return
@@ -178,6 +193,24 @@ export function InvoicePanel({ open, onOpenChange, invoice, today }: InvoicePane
     // Schon Positionen eingetragen? Dann erst fragen
     if (hasLineInput()) setReplaceWith(next)
     else replaceLines(next)
+  }
+
+  async function toggleAlreadyPaid(on: boolean) {
+    setAlreadyPaid(on)
+    if (!on) return
+    if (!paidForm.getValues('paidOn')) paidForm.setValue('paidOn', isIsoDate(invoiceDate) ? invoiceDate : today)
+    if (paidMethods !== null) return
+    const result = await callAction(() => listActivePaymentMethods())
+    if (!result.ok) {
+      if (result.error === 'notImplemented') {
+        setPaidUnavailable(true)
+        setAlreadyPaid(false)
+      } else if (result.error !== 'sessionExpired') toast.error(t(`errors.unknown`))
+      return
+    }
+    const methods = result.data ?? []
+    setPaidMethods(methods)
+    if (!paidForm.getValues('methodId')) paidForm.setValue('methodId', methods.find((m) => m.isDefault)?.id ?? methods[0]?.id ?? '')
   }
 
   async function save(values: InvoiceInput, forceNewGuest = false) {
@@ -196,7 +229,13 @@ export function InvoicePanel({ open, onOpenChange, invoice, today }: InvoicePane
         }
       }
     }
-    const result: SaveInvoiceResult = await callAction(() => saveInvoice({ id: invoice?.id, updatedAt: invoice?.updatedAt, values, newGuest }))
+    // „Bereits bezahlt“ nur beim Anlegen und bei Betrag > 0
+    const withPayment = !invoice && alreadyPaid && total !== null && total > 0
+    if (withPayment && !(await paidForm.trigger())) return
+    const paid = withPayment ? { ...paidForm.getValues(), ...(platform ? {} : { commission: '', fee: '' }) } : undefined
+    const result: SaveInvoiceResult = await callAction(() =>
+      saveInvoice({ id: invoice?.id, updatedAt: invoice?.updatedAt, values, newGuest, alreadyPaid: paid })
+    )
     if (!result.ok) {
       if (result.error === 'staleInvoice') setStale(true)
       else if (result.error === 'numberTaken') {
@@ -293,6 +332,7 @@ export function InvoicePanel({ open, onOpenChange, invoice, today }: InvoicePane
                   className="min-h-11"
                   onClick={() => {
                     setBooking(null)
+                    setPlatform(false)
                     form.setValue('bookingId', '')
                   }}
                 >
@@ -585,6 +625,19 @@ export function InvoicePanel({ open, onOpenChange, invoice, today }: InvoicePane
               </FormItem>
             )}
           />
+
+          {!invoice && total !== null && total > 0 && (
+            <AlreadyPaidFields
+              form={paidForm}
+              on={alreadyPaid}
+              onToggle={(on) => void toggleAlreadyPaid(on)}
+              methods={paidMethods}
+              unavailable={paidUnavailable}
+              platform={platform}
+              totalCents={total}
+              today={today}
+            />
+          )}
 
           {!visibleDuplicates && (
             <Button type="submit" disabled={submitting || bookingLoading} aria-busy={submitting} className="min-h-11">

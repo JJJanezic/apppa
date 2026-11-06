@@ -4,6 +4,7 @@ import { useTranslations } from 'next-intl'
 import { Amount } from '@/components/amount'
 import { InvoiceStatus } from '@/components/invoices/invoice-status'
 import { ListPagination } from '@/components/list-pagination'
+import { PaymentStatusBadge } from '@/components/payments/payment-status'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { bookingHref } from '@/lib/bookings'
 import { formatDate } from '@/lib/format'
@@ -32,6 +33,7 @@ export function InvoiceList({ page }: { page: InvoicePage }) {
             <TableHead>{t('col.booking')}</TableHead>
             <TableHead className="text-right">{t('col.amount')}</TableHead>
             <TableHead>{t('col.status')}</TableHead>
+            <TableHead>{t('col.payment')}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -52,6 +54,7 @@ export function InvoiceList({ page }: { page: InvoicePage }) {
               <TableCell>
                 <InvoiceStatus origin={r.origin} kind={r.kind} hasPdf={r.hasPdf} cancelled={r.cancelledBy !== null} />
               </TableCell>
+              <TableCell>{r.payment ? <PaymentStatusBadge state={r.payment} /> : <span className="text-ds-neutral-700">–</span>}</TableCell>
             </TableRow>
           ))}
         </TableBody>
@@ -71,7 +74,10 @@ export function InvoiceList({ page }: { page: InvoicePage }) {
                 {formatDate(r.invoiceDate)}
                 {r.booking && <> · {t('list.bookingShort', { number: r.booking.number ?? '–' })}</>}
               </span>
-              <InvoiceStatus origin={r.origin} kind={r.kind} hasPdf={r.hasPdf} cancelled={r.cancelledBy !== null} />
+              <span className="flex flex-wrap items-center gap-1.5">
+                <InvoiceStatus origin={r.origin} kind={r.kind} hasPdf={r.hasPdf} cancelled={r.cancelledBy !== null} />
+                {r.payment && <PaymentStatusBadge state={r.payment} dash={false} />}
+              </span>
             </Link>
           </li>
         ))}

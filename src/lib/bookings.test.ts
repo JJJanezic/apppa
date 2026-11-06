@@ -303,7 +303,8 @@ describe('Monat und Filter', () => {
 
   it('liest und schreibt die Quelle in der Adresse', () => {
     expect(parseBookingFilters({ quelle: 'booking-com' }, TODAY).source).toBe('booking_com')
-    expect(parseBookingFilters({ quelle: 'airbnb' }, TODAY).source).toBeNull()
+    expect(parseBookingFilters({ quelle: 'airbnb' }, TODAY).source).toBe('airbnb')
+    expect(parseBookingFilters({ quelle: 'expedia' }, TODAY).source).toBeNull()
     expect(bookingListHref({ month: '2026-11', source: 'google_ads', state: 'cancelled' }, TODAY)).toBe(
       '/buchungen?monat=2026-11&zustand=storniert&quelle=google-ads'
     )

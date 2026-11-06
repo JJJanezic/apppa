@@ -28,13 +28,13 @@ describe('Navigationsliste', () => {
   })
 
   it('zeigt derzeit Dashboard, Belegung (PROJ-9), Buchungen (PROJ-8) und Gäste (PROJ-7) und für Inhaber die Einstellungen (PROJ-4)', () => {
-    expect(visibleNavItems('owner').map((i) => i.id)).toEqual(['dashboard', 'calendar', 'bookings', 'guests', 'invoices', 'settings'])
-    expect(visibleNavItems('staff').map((i) => i.id)).toEqual(['dashboard', 'calendar', 'bookings', 'guests', 'invoices'])
+    expect(visibleNavItems('owner').map((i) => i.id)).toEqual(['dashboard', 'calendar', 'bookings', 'guests', 'invoices', 'payments', 'settings'])
+    expect(visibleNavItems('staff').map((i) => i.id)).toEqual(['dashboard', 'calendar', 'bookings', 'guests', 'invoices', 'payments'])
   })
 
   it('zeigt den Betreiber-Bereich nur dem Admin, unabhängig von der Rolle (PROJ-5)', () => {
-    expect(visibleNavItems({ role: 'staff', isAdmin: true }).map((i) => i.id)).toEqual(['dashboard', 'calendar', 'bookings', 'guests', 'invoices', 'operator'])
-    expect(visibleNavItems({ role: 'owner', isAdmin: true }).map((i) => i.id)).toEqual(['dashboard', 'calendar', 'bookings', 'guests', 'invoices', 'settings', 'operator'])
+    expect(visibleNavItems({ role: 'staff', isAdmin: true }).map((i) => i.id)).toEqual(['dashboard', 'calendar', 'bookings', 'guests', 'invoices', 'payments', 'operator'])
+    expect(visibleNavItems({ role: 'owner', isAdmin: true }).map((i) => i.id)).toEqual(['dashboard', 'calendar', 'bookings', 'guests', 'invoices', 'payments', 'settings', 'operator'])
     expect(visibleNavItems({ role: 'owner', isAdmin: false }).map((i) => i.id)).not.toContain('operator')
     expect(isAreaAvailable('operator', 'owner')).toBe(false)
     expect(isAreaAvailable('operator', { role: 'staff', isAdmin: true })).toBe(true)
@@ -51,10 +51,10 @@ describe('Navigationsliste', () => {
     expect(visibleNavItems('staff', items).map((i) => i.id)).toEqual(['dashboard'])
   })
 
-  it('Zahlungen und Auswertungen sind nur für Inhaber vorgesehen', () => {
+  it('Zahlungen auch für Mitarbeiter (PROJ-45), Auswertungen nur für Inhaber', () => {
     const allReady = NAV_ITEMS.map((i) => ({ ...i, ready: true }))
     const staff = visibleNavItems('staff', allReady).map((i) => i.id)
-    expect(staff).not.toContain('payments')
+    expect(staff).toContain('payments')
     expect(staff).not.toContain('reports')
   })
 })
@@ -90,7 +90,8 @@ describe('Erreichbarkeit und aktiver Punkt', () => {
   it('nicht fertige Bereiche sind nicht erreichbar', () => {
     expect(isAreaAvailable('dashboard', 'owner')).toBe(true)
     expect(isAreaAvailable('calendar', 'staff')).toBe(true)
-    expect(isAreaAvailable('payments', 'owner')).toBe(false)
+    expect(isAreaAvailable('reports', 'owner')).toBe(false)
+    expect(isAreaAvailable('payments', 'staff')).toBe(true)
   })
 
   it('erkennt den aktiven Bereich inklusive Unterseiten', () => {
@@ -117,7 +118,8 @@ describe('Rücksprung-Ziele nach der Anmeldung', () => {
     expect(isPathAvailable('/einstellungen/team', 'owner')).toBe(true)
     expect(isPathAvailable('/betreiber', 'owner')).toBe(false)
     expect(isPathAvailable('/belegung', 'staff')).toBe(true)
-    expect(isPathAvailable('/zahlungen', 'owner')).toBe(false)
+    expect(isPathAvailable('/auswertungen', 'owner')).toBe(false)
+    expect(isPathAvailable('/zahlungen', 'staff')).toBe(true)
     expect(isPathAvailable('/konto', 'staff')).toBe(true)
   })
 })

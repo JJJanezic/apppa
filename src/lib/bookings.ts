@@ -46,6 +46,8 @@ export const BOOKING_SOURCES = [
   'referral',
   'platform_search',
   'booking_com',
+  // PROJ-45: Airbnb-Buchungen von Hand (Provisionsabzug); ohne eigene Kalenderfarbe
+  'airbnb',
   'custom',
   'none',
 ] as const
@@ -366,6 +368,7 @@ const SOURCE_PARAM: Record<BookingSource, string> = {
   referral: 'empfehlung',
   platform_search: 'plattform-suche',
   booking_com: 'booking-com',
+  airbnb: 'airbnb',
   custom: 'eigene',
   none: 'keine',
 }

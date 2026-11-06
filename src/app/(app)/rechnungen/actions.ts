@@ -6,7 +6,7 @@ import { redirect } from 'next/navigation'
 import { apartmentLabel } from '@/lib/apartments'
 import type { ActionResult, CommonErrorCode } from '@/lib/auth/result'
 import { getSessionUser, pendingMfaStep } from '@/lib/auth/session'
-import { bookingHref, todayIso } from '@/lib/bookings'
+import { bookingHref, type BookingSource, todayIso } from '@/lib/bookings'
 import { billableCents, lineSourceToDb, partialLabel, splitByVat } from '@/lib/invoice-drafts'
 import { currentFingerprint, getDraftBooking } from '@/lib/invoice-drafts-data'
 import { guestDbColumns } from '@/lib/guests-data'
@@ -20,11 +20,13 @@ import {
   type InvoiceErrorCode,
   invoiceHref,
 } from '@/lib/invoices'
+import { isPlatformSource } from '@/lib/payments'
 import { createClient } from '@/lib/supabase/server'
 import { getTenantContext, type TenantSummary } from '@/lib/tenant'
 import { type GuestInput, guestSchema } from '@/lib/validation/guests'
 import { type DraftInput, draftSchema } from '@/lib/validation/invoice-drafts'
 import { type InvoiceInput, invoiceSchema } from '@/lib/validation/invoices'
+import { type AlreadyPaidInput, alreadyPaidSchema } from '@/lib/validation/payments'
 import { VAT_DEFAULTS, vatRateFromDb, vatRateToDb } from '@/lib/vat'
 
 // Server-Aktionen der Rechnungen (PROJ-37 nacherfassen, PROJ-40 Entwürfe). Anlegen, Ändern, Löschen und PDF-Upload:
@@ -91,6 +93,9 @@ function dbFail(error: DbError, context: string): Failure {
     // Ausgestellte Schlussrechnung zieht diese nacherfasste Rechnung ab (PROJ-42)
     case 'P0933':
       return fail('deductedByIssued')
+    // Zahlungen hängen an der Rechnung (PROJ-45): erst umhängen oder löschen
+    case 'P0961':
+      return fail('invoiceHasPayments')
   }
   console.error(`[rechnungen] ${context}`, error.code, error.message)
   return fail('unknown')
@@ -115,6 +120,8 @@ type SaveInvoice = {
   values: InvoiceInput
   // Neuer Gast (wenn values.guestMode = „new“)
   newGuest?: GuestInput
+  // „Bereits bezahlt“ (PROJ-45, nur beim Anlegen): Zahlung über den vollen Betrag im selben Datenbankschritt
+  alreadyPaid?: AlreadyPaidInput
 }
 
 type SaveDbResult = { id: string; unused_pdf: string | null; previous_booking_id?: string | null }
@@ -134,6 +141,13 @@ export async function saveInvoice(input: SaveInvoice): Promise<SaveInvoiceResult
     newGuest = guestDbColumns(guest.data)
   }
 
+  let alreadyPaid: { paid_on: string; method_id: string; commission_cents: number; fee_cents: number } | null = null
+  if (input.alreadyPaid && input.id === undefined) {
+    const paid = alreadyPaidSchema(key, { today: todayIso() }).safeParse(input.alreadyPaid)
+    if (!paid.success) return fail('unknown')
+    alreadyPaid = { paid_on: paid.data.paidOn, method_id: paid.data.methodId, commission_cents: paid.data.commission, fee_cents: paid.data.fee }
+  }
+
   const supabase = await createClient()
   const { data, error } = await supabase.rpc('save_invoice', {
     p_input: {
@@ -150,6 +164,7 @@ export async function saveInvoice(input: SaveInvoice): Promise<SaveInvoiceResult
       // Reihenfolge = Position; Sätze als exakte Dezimalzahl („10.00“), Gesamtbetrag bildet die Datenbank
       lines: v.lines.map((l) => ({ label: l.label, amount_cents: l.amountCents, vat_rate: vatRateToDb(l.vatBp) })),
       pdf_path: v.pdfPath,
+      ...(alreadyPaid ? { already_paid: alreadyPaid } : {}),
     },
   })
   if (error) {
@@ -237,7 +252,7 @@ export async function loadInvoiceBooking(input: { id: string }): Promise<Result<
   const { data: b, error } = await supabase
     .from('bookings')
     .select(
-      'id, kind, cancelled_at, guest:guests(id, last_name, first_name, title_prefix, title_suffix, country, company_name, anonymized_at), amounts:booking_amounts(billed_nights_cents, nights_cents, nights_vat_rate, cancellation_fee_cents, cancellation_fee_vat_rate), charges:booking_charges(position, label, amount_cents, vat_rate)'
+      'id, kind, source, cancelled_at, guest:guests(id, last_name, first_name, title_prefix, title_suffix, country, company_name, anonymized_at), amounts:booking_amounts(billed_nights_cents, nights_cents, nights_vat_rate, cancellation_fee_cents, cancellation_fee_vat_rate), charges:booking_charges(position, label, amount_cents, vat_rate)'
     )
     .eq('id', input.id)
     .eq('tenant_id', guard.tenant.id)
@@ -271,6 +286,7 @@ export async function loadInvoiceBooking(input: { id: string }): Promise<Result<
             cancellationFeeVatBp: a.cancellation_fee_vat_rate === null ? VAT_DEFAULTS.cancellationFee : vatRateFromDb(a.cancellation_fee_vat_rate),
           }
         : null,
+      platform: isPlatformSource(b.source as BookingSource),
     },
   }
 }

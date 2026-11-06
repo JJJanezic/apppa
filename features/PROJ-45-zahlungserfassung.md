@@ -1,6 +1,6 @@
 # PROJ-45: Zahlungserfassung
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-11-06
 **Last Updated:** 2026-11-06
 
@@ -455,6 +455,32 @@ Lesen ist über die Zugriffsregeln (RLS) für alle Mitglieder des Kunden erlaubt
 
 ### Abhängigkeiten
 Keine neuen Pakete (Bildumwandlung, Hochladen, Griff zum Ordnen und Monatsauswahl sind vorhanden).
+
+## Implementation Notes (Frontend)
+
+**Gebaut (2026-11-06):** Abschnitt „Zahlungen“ bzw. „Rückzahlungen“ im Rechnungsdetail (ausgestellte und nacherfasste Rechnungen, Gutschriften) mit Liste, Summen, Status, Fälligkeit samt „überfällig“, Hinweis bei stornierter Rechnung mit Guthaben und Knöpfen; Zahlungs-Dialog für Erfassen, Bearbeiten/Umhängen (Suche nach anderer Rechnung), Rückzahlung, Provision/Zahlungsgebühr bei Plattform-Buchungen mit mitlaufendem Vorschlag für „Ausbezahlt“, Beleg (PDF oder umgewandeltes Foto) und Bestätigungsdialog für Hinweise der Datenbank; im Buchungsdetail Status und Offen je Rechnung, „Bezahlt/Offen“ und „Zahlung erfassen“ mit Rechnungsauswahl; Spalte „Zahlung“ in der Rechnungsliste (Handy: Kennzeichen in der Karte); Seite „Zahlungen“ (Menüpunkt für Inhaber und Mitarbeiter) mit Monats-Sprungauswahl, „Alle Monate“, Zahlungsart, Suche, Summen, Blättern, Tabelle/Karten; Einstellungen → Zahlungen (Zahlungsarten anlegen, umbenennen, per Griff ordnen, Standard, deaktivieren, löschen); „Bereits bezahlt“ im Formular „Rechnung nacherfassen“ (nur beim Anlegen und bei Betrag > 0; Provision/Gebühr bei Plattform-Buchung); Buchungsquelle „Airbnb“ (Formular, Detail, Filter `?quelle=airbnb`, ohne Kalenderfarbe); Löschsperre-Meldung für Rechnungen mit Zahlungen.
+
+**Bis zur Migration:** Die Lesefunktionen erkennen fehlende Tabellen/Sichten/Funktionen und zeigen den Stand ohne Zahlungen (alle zahlbaren Rechnungen „offen“), leere Listen und den Hinweis „wird gerade eingerichtet“. Speichern meldet „Diese Funktion wird gerade eingerichtet.“; „Bereits bezahlt“ ist dann gesperrt. Achtung: Die Buchungsquelle „Airbnb“ lehnt die Datenbank bis zur Migration ab (Prüfregel der Spalte).
+
+**Regeln und Dateien**
+- `src/lib/payments.ts`: Typen, Grenzen, `computePaymentState` (gleiche Regel wie die Lesesicht), `statusOf`, `dueByToday`/`isOverdue`, `suggestedAmountCents`, `overpaidByCents`, `isPlatformSource`, Filter der Zahlungsliste in der Adresse, Belegprüfung (Tests: `payments.test.ts`, 18)
+- `src/lib/validation/payments.ts`: `paymentSchema`, `alreadyPaidSchema`, `paymentMethodNameSchema`
+- `src/lib/payments-data.ts`: `getPaymentMethods`, `getPaymentMethodsWithUsage`, `getPaymentStates`, `getPlatformBookings`, `getInvoicePayments`, `getPaymentPage`, `hasAnyPayment`, `receiptLink`; `src/lib/payment-files.ts`: `removeReceiptFiles`
+- Aktionen: `src/app/(app)/zahlungen/actions.ts` (`recordPayment`, `updatePayment`, `deletePayment`, `prepareReceiptUpload`, `openReceipt`, `searchPayableInvoices`, `listActivePaymentMethods`), `src/app/(app)/einstellungen/zahlungen/actions.ts` (Zahlungsarten); `saveInvoice` nimmt `alreadyPaid`, `loadInvoiceBooking` liefert `platform`
+- Bausteine `src/components/payments/`: `invoice-payments`, `payment-dialog`, `payment-buttons`, `payment-status`, `receipt-field`, `receipt-link`, `payment-filters`, `payment-list`, `payment-methods-settings`, `already-paid-fields`; geändert: `booking-invoices`, `invoice-list`, `invoice-panel`, `settings-tabs`, `navigation.ts`
+- Texte: `messages/de.json` → `payments.*`, `paymentMethods.*`, `bookings.source.airbnb`, `invoices.col.payment`, `invoices.errors.invoiceHasPayments`, `settings.payments`
+
+**Vertrag für /backend** (so ruft die Oberfläche die Datenbank auf; Namen dürfen sich in /backend ändern, dann hier und im Code nachziehen)
+- Tabelle `payment_methods` (id, tenant_id, name, position, active, is_default; Name je Kunde eindeutig ohne Groß-/Kleinschreibung → Fehler 23505; Verweis von Zahlungen → 23503 beim Löschen); Standardarten für bestehende und neue Kunden; Funktionen `set_default_payment_method(p_tenant_id, p_method_id)`, `reorder_payment_methods(p_tenant_id, p_ids uuid[])`; Regeln „mindestens eine aktiv“ (P0962), „Standard nicht deaktivierbar“ (P0963), Stand (P0964)
+- Tabelle `payments` (id, tenant_id, invoice_id, kind payment|refund, paid_on, amount_cents, commission_cents, fee_cents, method_id, note, receipt_path, created_by → `payments_created_by_fkey` auf profiles, created_at, updated_by, updated_at); RLS lesen für Mitglieder ohne Betreiber-Ausnahme, kein direktes Schreiben
+- `record_payment(p_input jsonb)` / `update_payment(p_input jsonb mit id, updated_at)`: Eingaben tenant_id, kind, invoice_id, paid_on, amount_cents, commission_cents, fee_cents, method_id, note, receipt_path, confirmed. Antwort `{ saved, id, warnings: [{code: overpaid|duplicate|refundOver, cents, date?}], invoice_id, previous_invoice_id, booking_ids, unused_receipt }`; ohne `confirmed` und mit Hinweisen `saved: false`. Fehler P0950 Rolle, P0951 nicht gefunden, P0952 nicht zahlbar, P0953 storniert, P0954 keine Gutschrift, P0955 Datum Zukunft, P0956 Betrag, P0957 Provision nicht erlaubt, P0958 Zahlungsart inaktiv, P0959 Beleg fehlt, P0960 Stand, P0016 Kunde deaktiviert
+- `delete_payment(p_payment_id)` → `{ invoice_id, booking_id, receipt_path }`
+- Lesesicht `invoice_payment_status` (invoice_id, tenant_id, mode none|payable|cancelled|credit, status, total/received/commission/fee/settled/open/balance/refunded_cents, overdue)
+- Lesesicht `payment_list` (Spalten der Zahlung + method_id, method_name, invoice_number, recipient, booking_id, booking_number, note, created_at, receipt_path) und Funktion `payment_list_totals(p_tenant_id, p_from, p_to, p_method_id, p_query)` → received_cents (Rückzahlungen abgezogen), commission_cents, fee_cents
+- `search_payable_invoices(p_tenant_id, p_query, p_booking_id, p_limit)` → id, number, kind, recipient, open_cents, booking_id, platform (gleiche Buchung zuerst)
+- `save_invoice`: optional `already_paid { paid_on, method_id, commission_cents, fee_cents }` nur beim Anlegen, Zahlung über den vollen Betrag im selben Schritt; `delete_invoice` mit Zahlungen → P0961
+- Speicherbereich `payment-receipts` (privat, PDF/JPEG, 10 MB, Ordner je Kunde; Mitglieder laden hoch, Server löscht), tägliche Bereinigung erweitern
+- Buchungsquelle `airbnb` in der Prüfregel der Spalte `bookings.source`
 
 ## QA Test Results
 _To be added by /qa_

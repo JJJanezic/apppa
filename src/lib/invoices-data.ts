@@ -24,6 +24,7 @@ import {
   isBilled,
 } from '@/lib/invoices'
 import type { Role } from '@/lib/navigation'
+import { getPaymentStates } from '@/lib/payments-data'
 import { createClient } from '@/lib/supabase/server'
 import { getTenantContext } from '@/lib/tenant'
 import { vatRateFromDb } from '@/lib/vat'
@@ -87,9 +88,11 @@ export async function getInvoicePage(filters: InvoiceFilters): Promise<InvoicePa
   const rows = ((data ?? []) as unknown as ListDbRow[]).map(toRow)
   // Stornierte Rechnungen kennzeichnen (PROJ-44)
   const credits = await getCreditNotesFor(tenantId, rows.filter((r) => r.origin === 'issued' && r.kind !== 'credit_note').map((r) => r.id))
+  // Zahlungsstand je Rechnung (PROJ-45)
+  const states = await getPaymentStates(rows.map((r) => ({ id: r.id, origin: r.origin, kind: r.kind, totalCents: r.totalCents, cancelled: credits.has(r.id) })))
   return {
     ...filters,
-    rows: rows.map((r) => ({ ...r, cancelledBy: credits.get(r.id) ?? null })),
+    rows: rows.map((r) => ({ ...r, cancelledBy: credits.get(r.id) ?? null, payment: states.get(r.id) })),
     total,
     pageCount: Math.max(1, Math.ceil(total / INVOICE_PAGE_SIZE)),
   }

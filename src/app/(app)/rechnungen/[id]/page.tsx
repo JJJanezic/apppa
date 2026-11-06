@@ -11,6 +11,7 @@ import { IssuedDetail } from '@/components/invoice-issue/issued-detail'
 import { CreditStatus } from '@/components/invoice-credit/credit-status'
 import { BackfilledCreditHint, IssuedNotes } from '@/components/invoice-issue/issued-notes'
 import { PageHeader } from '@/components/page-header'
+import { InvoicePaymentsSection } from '@/components/payments/invoice-payments'
 import { Button } from '@/components/ui/button'
 import { requireArea } from '@/lib/areas'
 import { bookingHref, todayIso } from '@/lib/bookings'
@@ -61,6 +62,8 @@ export default async function InvoiceDetailPage({ params, searchParams }: { para
           <CreditStatus invoice={invoice} owner={owner} />
         </div>
         <IssuedDetail invoice={invoice} issued={invoice.issued} />
+        {/* Zahlungen bzw. Rückzahlungen (PROJ-45) */}
+        <InvoicePaymentsSection invoice={invoice} />
       </>
     )
   }
@@ -178,6 +181,8 @@ export default async function InvoiceDetailPage({ params, searchParams }: { para
           {booking && <p className="text-[13px] text-ds-neutral-800">{t('detail.copyNote')}</p>}
         </section>
       </div>
+      {/* Zahlungen (PROJ-45) */}
+      <InvoicePaymentsSection invoice={invoice} />
     </>
   )
 }

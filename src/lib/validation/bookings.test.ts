@@ -103,7 +103,9 @@ describe('Buchung', () => {
   it('Buchungsquelle: Freitext Pflicht bei „Eigene Angabe“, sonst verworfen (PROJ-30)', () => {
     expect(messages({ ...valid, source: 'custom', sourceCustom: '  ' })).toEqual(['sourceCustom:sourceCustomRequired'])
     expect(messages({ ...valid, source: 'custom', sourceCustom: 'x'.repeat(101) })).toEqual(['sourceCustom:tooLong'])
-    expect(messages({ ...valid, source: 'airbnb' })).toHaveLength(1)
+    // Airbnb ist seit PROJ-45 eine Buchungsquelle; unbekannte Werte bleiben ungültig
+    expect(messages({ ...valid, source: 'airbnb' })).toEqual([])
+    expect(messages({ ...valid, source: 'expedia' })).toHaveLength(1)
     const parse = (input: Partial<BookingInput>) => bookingSchema(t, { owner: true, today: TODAY }).parse({ ...valid, ...input })
     expect(parse({ source: 'custom', sourceCustom: ' Messe ' })).toMatchObject({ source: 'custom', sourceCustom: 'Messe' })
     expect(parse({ source: 'booking_com', sourceCustom: 'Messe' })).toMatchObject({ source: 'booking_com', sourceCustom: null })

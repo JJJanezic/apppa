@@ -4,6 +4,7 @@
 import { addDays, isIsoDate, LIMITS as BOOKING_LIMITS, todayIso } from '@/lib/bookings'
 import type { InvoiceDocKind, InvoiceKind } from '@/lib/invoice-drafts'
 import type { IssuedSnapshot } from '@/lib/invoice-issue'
+import type { PaymentState } from '@/lib/payments'
 import { vatBreakdown, type VatShare } from '@/lib/vat'
 
 export type InvoiceErrorCode =
@@ -26,6 +27,8 @@ export type InvoiceErrorCode =
   | 'notDraft'
   // Ausstellen (PROJ-42)
   | 'deductedByIssued'
+  // Zahlungen hängen an der Rechnung (PROJ-45): Löschen gesperrt
+  | 'invoiceHasPayments'
 
 // Herkunft: nacherfasst (PROJ-37), Entwurf ohne Nummer (PROJ-40), ausgestellt (PROJ-41)
 export type InvoiceOrigin = 'backfilled' | 'draft' | 'issued'
@@ -78,6 +81,8 @@ export type InvoiceRow = {
   booking: { id: string; number: string | null } | null
   // Gutschrift, die diese Rechnung storniert (PROJ-44)
   cancelledBy: DocLink | null
+  // Zahlungsstand (PROJ-45), in der Liste gesetzt
+  payment?: PaymentState
 }
 
 export type InvoiceFilters = { query: string; page: number }
@@ -159,6 +164,8 @@ export type InvoiceBookingOption = InvoiceBookingRef
 export type InvoiceBookingDetails = {
   guest: InvoiceGuest | null
   amounts: BookingAmountsForInvoice | null
+  // Buchung über booking.com oder Airbnb: „Bereits bezahlt“ mit Provision und Zahlungsgebühr (PROJ-45)
+  platform: boolean
 }
 
 export const invoiceHref = (id: string) => `/rechnungen/${id}`

@@ -41,7 +41,8 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { id: 'guests', href: '/gaeste', roles: ALL, ready: true, mobile: 'primary' },
   // PROJ-37: Rechnungen für Inhaber und Mitarbeiter, am Handy unter „Mehr“
   { id: 'invoices', href: '/rechnungen', roles: ALL, ready: true, mobile: 'more' },
-  { id: 'payments', href: '/zahlungen', roles: OWNER, ready: false, mobile: 'more' },
+  // PROJ-45: Zahlungen für Inhaber und Mitarbeiter (Mitarbeiter erfassen Zahlungen), am Handy unter „Mehr“
+  { id: 'payments', href: '/zahlungen', roles: ALL, ready: true, mobile: 'more' },
   { id: 'reports', href: '/auswertungen', roles: OWNER, ready: false, mobile: 'more' },
   { id: 'tax', href: '/tourismusabgabe', roles: OWNER, ready: false, mobile: 'more' },
   { id: 'channels', href: '/kanaele', roles: OWNER, ready: false, mobile: 'more' },
