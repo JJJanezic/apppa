@@ -196,6 +196,8 @@ test.describe('Formular', () => {
       'Empfehlung',
       'Plattform-Suche',
       'booking.com',
+      // seit PROJ-45
+      'Airbnb',
       'Eigene Angabe',
       'Keine Angabe',
     ])

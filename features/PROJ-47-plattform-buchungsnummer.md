@@ -1,6 +1,6 @@
 # PROJ-47: Plattform-Buchungsnummer
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-11-06
 **Last Updated:** 2026-11-06
 
@@ -279,7 +279,96 @@ _2026-11-07_
 - Regression: `bookings.integration.test.ts` (32) und `tourist-tax.integration.test.ts` (18) grün; Unit-Tests 770 grün; tsc und Lint sauber
 
 ## QA Test Results
-_To be added by /qa_
+
+**Tested:** 2026-11-07
+**App URL:** http://localhost:3000 (Produktions-Build gegen „apppa-dev“)
+**Tester:** QA Engineer (AI)
+
+### Acceptance Criteria Status
+
+#### AC-1: Feld im Buchungsformular (7/7)
+- [x] booking.com → Feld „booking.com-Buchungsnummer (optional)“ unter/neben der Quelle (E2E)
+- [x] Airbnb → „Airbnb-Bestätigungscode (optional)“ (E2E)
+- [x] Andere Quelle / keine Angabe → kein Feld (E2E)
+- [x] Option mit booking.com → Feld vorhanden (E2E)
+- [x] Sperre → kein Feld, keine Quelle (E2E, Integration: Sperre speichert nie eine Nummer)
+- [x] Leer gespeichert → ohne Nummer (E2E, Integration)
+- [x] Bestehende booking.com-Buchung ohne Nummer → Nachtragen möglich (E2E)
+
+#### AC-2: Validierung (5/5)
+- [x] „ 4123 456 789 “ → „4123456789“ (E2E, Unit, Integration)
+- [x] „HMabcd1234“ unverändert (Unit, Integration; E2E mit „HMabcd-1234“)
+- [x] „AB-1234“ akzeptiert (Unit)
+- [x] „#4123“, „4123/456“ → Fehlermeldung beim Feld, nichts gespeichert, Eingabe bleibt (E2E, Unit; Server P0807, Tabellenregel 23514)
+- [x] Mehr als 30 Zeichen ohne Leerzeichen → Fehlermeldung (E2E, Unit, Integration)
+
+#### AC-3: Doppelte Nummer (6/6)
+- [x] Hinweis mit Nummer, Wohnung, Zeitraum und Link (neuer Tab); Speichern ohne Bestätigung möglich (E2E als Mitarbeiter)
+- [x] Andere Buchung storniert → Hinweis (E2E, Integration)
+- [x] „hmabcd1234“ vs. „HMABCD1234“ → Hinweis (E2E, Integration)
+- [x] Gleiche Zeichenfolge bei anderer Quelle → kein Hinweis (E2E, Integration)
+- [x] Gleiche Nummer bei anderem Kunden → kein Hinweis, nichts preisgegeben (Integration)
+- [x] Nur sie selbst trägt die Nummer → kein Hinweis (Integration; E2E: beim erneuten Bearbeiten nennt der Hinweis nur die andere Buchung)
+
+#### AC-4: Wechsel der Buchungsquelle (4/4)
+- [x] booking.com → „Website“ + Speichern löscht die Nummer; Änderungsprotokoll mit alter/neuer Nummer und Person (E2E, Integration)
+- [x] booking.com → Airbnb: Feld leer (E2E)
+- [x] booking.com → Website → booking.com vor dem Speichern: letzte Eingabe steht wieder im Feld (E2E)
+- [x] Server speichert bei anderer Quelle keine Nummer, auch wenn die Anfrage eine schickt (Integration)
+
+#### AC-5: Anzeige und Suche (6/6)
+- [x] Detail „booking.com · 4123456789“ (E2E)
+- [x] „Kopieren“ → Zwischenablage + Bestätigung „Nummer kopiert“ (E2E, Chromium)
+- [x] booking.com ohne Nummer → nur „booking.com“, kein Kopier-Knopf (E2E)
+- [x] Suche „3456“ findet die Buchung, Nummer klein neben der Buchungsnummer; Airbnb-Code ohne Groß-/Kleinschreibung (E2E)
+- [x] Ohne Suche: Liste unverändert, keine neue Spalte (E2E)
+- [x] Kalender, Rechnungsentwurf, Zahlungsliste unverändert (Code-Prüfung: keine Änderungen an diesen Bereichen; Regression PROJ-8 grün)
+
+#### AC-6: Allgemein (5/5)
+- [x] Mitarbeiter erfasst/ändert (Integration, E2E)
+- [x] Mandantentrennung bei Lesen, Suche, Warnung und Speichern (Integration; fremder Kunde → P0801)
+- [x] Bestand: keine Nummer, Daten unverändert (Migration fügt nur eine leere Spalte hinzu; Regression grün)
+- [x] 375 px mit 30-stelliger Nummer: kein seitliches Scrollen, keine WCAG-2.1-AA-Verstöße in Detail und Formular mit Hinweis (E2E mobile, desktop, Firefox)
+- [x] Änderungsprotokoll: wer wann (Integration, E2E)
+
+### Edge Cases Status
+- [x] Aufgeteilte booking.com-Buchung (gleiche Nummer, zwei Wohnungen): Hinweis, Speichern möglich (Integration)
+- [x] Storniert und neu erfasst: Hinweis verweist auf die stornierte (E2E)
+- [x] Storno behält die Nummer (Integration)
+- [x] Wohnung/Zeitraum geändert: Nummer bleibt (Speicherfunktion übernimmt sie unverändert; Code-Prüfung)
+- [x] Mehrere Treffer: erste Buchung + „und N weitere“ (Integration: `more`; Text per Code-Prüfung)
+- [x] Bindestrich am Anfang/Ende akzeptiert (Unit)
+- [x] Kein Zwischenablage-Zugriff: Fehlermeldung, Nummer markierbar (`select-all`) – nur Code-Prüfung, im Browser nicht nachstellbar
+- [x] Gleichzeitiges Bearbeiten: bestehende Regel (P0803) unverändert
+- [x] Zusätzlich: Tippen in der Nummer setzt „Trotzdem speichern“ bei Überschneidungen nicht zurück (Unit-Test des Hooks)
+- [x] Zusätzlich: Wechsel nur der Groß-/Kleinschreibung löst keine neue Abfrage aus (Hinweis bleibt korrekt)
+
+### Security Audit Results
+- [x] Authentifizierung: Server-Aktionen prüfen die Mitgliedschaft; RPCs ohne Mitgliedschaft → P0801
+- [x] Autorisierung: Doppelungsprüfung nur im eigenen Kunden; `p_exclude` mit fremder Buchungs-ID schließt nur aus und verrät nichts; `private.platform_number_duplicate` für Rollen nicht aufrufbar
+- [x] Eingaben: Format in Formular, Server-Aktion, Speicherfunktion und Tabellenregel; Suche über den bereinigten Suchbegriff (nur Buchstaben, Ziffern, Bindestrich) → keine Filter-Injektion in PostgREST; Anzeige über React (kein XSS)
+- [x] Keine neuen Geheimnisse, keine neuen Umgebungsvariablen; Advisors nur bekannter Auth-Hinweis
+- [x] Hinweis: `booking_warnings` begrenzt `p_platform_number` bei direktem Aufruf nicht in der Länge (Server-Aktion schon); Folge nur ein leerer Treffer – kein Risiko
+
+### Automatisierte Tests
+- Unit: 772 grün (neu: Hook-Test `use-booking-warnings.test.ts`, Validierung, Hilfsfunktionen)
+- Integration: `platform-number` (5), `rls` (19), `bookings` (32), `tourist-tax` (18) grün
+- E2E neu `tests/PROJ-47-plattform-buchungsnummer.spec.ts`: 8 Tests desktop grün, Layout mobile (375 px) und Firefox grün
+- Regression E2E: PROJ-8 (desktop, 22 + Setup) grün; PROJ-30 (desktop) grün nach Anpassung des veralteten Tests „Quellen-Liste“ (Airbnb seit PROJ-45; kein PROJ-47-Fehler)
+- Nicht getestet: Safari (nur gegen den Entwicklungsserver möglich, optional)
+
+### Beobachtungen (keine Bugs)
+- Der Hinweis erscheint erst, wenn Wohnung und Zeitraum gewählt sind (dokumentierte Abweichung, läuft in der Live-Prüfung mit). Zum Speichern sind beide ohnehin Pflicht.
+
+### Bugs Found
+Keine.
+
+### Summary
+- **Acceptance Criteria:** 33/33 passed
+- **Bugs Found:** 0
+- **Security:** Pass
+- **Production Ready:** YES
+- **Recommendation:** Deploy
 
 ## Deployment
 _To be added by /deploy_
