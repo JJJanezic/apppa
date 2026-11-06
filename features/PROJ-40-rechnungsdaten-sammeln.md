@@ -1,10 +1,10 @@
 # PROJ-40: Rechnungsdaten sammeln (Entwurf)
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-10-31
 **Last Updated:** 2026-11-06
 
-> Grundumfang in Produktion. Geplant (refine 2026-11-06): neue Schreibweise im Leistungsblock (Abschnitt „Leistungen: Schreibweise der USt“).
+> Grundumfang in Produktion. Seit v1.25.0 (refine 2026-11-06): neue Schreibweise im Leistungsblock (Abschnitt „Leistungen: Schreibweise der USt“).
 
 ## Dependencies
 - Requires: PROJ-4 (Kundenkonten & Rollen): nur Inhaber erstellen, Mitarbeiter sehen, Mandantentrennung
@@ -792,3 +792,13 @@ Tests Runde 2:
 - **Mit ausgeliefert:** PROJ-37-Änderung „Ohne Umsatzsteuer (Kleinunternehmer)“ je nacherfasster Rechnung; Buchhaltungs-Commit PROJ-39 (`dcc710a`)
 - **Vorabprüfung:** Lint und Build grün; Unit-/Integrationstests im Gesamtlauf 710/714 (3 Zeitüberschreitungen unter Last, 1 bekannter RLS-Testrest), die vier Dateien einzeln nacheinander 67/67 grün
 - **Tag:** `v1.18.0-PROJ-40` auf `8c009b6`
+
+### Schreibweise der USt (2026-11-06)
+- **Datum:** 2026-11-06 (Staging und Produktion), Version v1.25.0
+- **Commit:** `300bda2` (Branches `staging` und `production`); Staging vom Nutzer geprüft und freigegeben, Produktion vom Nutzer bestätigt
+- **Staging:** https://staging.apppa.at
+- **Production:** https://app.apppa.at
+- **Migrationen, neue Pakete, Umgebungsvariablen, `config push`:** keine
+- **Mit ausgeliefert:** Buchhaltungs-Commit PROJ-8 (`8d4b753`)
+- **Vorabprüfung:** Lint sauber, Secret-Scan ohne Treffer, Unit 696/696, Rechnungs-Integrationstests 107 grün
+- **Tag:** `v1.25.0-PROJ-40` auf `300bda2`

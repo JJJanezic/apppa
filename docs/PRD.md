@@ -41,7 +41,7 @@ Die App wird als Mehrmandanten-SaaS betrieben: Jeder Kunde (Vermieter) hat ein e
 | P0 (Pilot) | Rechnungen nacherfassen (Altrechnungen mit PDF, Positionen, Buchung/Gast optional; Rechnungen in der Buchungsübersicht; Kleinunternehmer-Schalter je Rechnung) | Deployed (PROJ-37) |
 | P0 (Pilot) | Stammdaten: Umbenennung und Logo-Upload | Deployed (PROJ-38) |
 | P0 (Pilot) | Einstellungen → Rechnungen (Nummernkreis, Textbausteine, Fußzeile, Kleinunternehmer-Hinweis) | Deployed (PROJ-39, inkl. Editor-Erweiterung: Schrift, Größe, Ausrichtung, HTML-Code, Zeilenhöhe) |
-| P0 (Pilot) | Rechnungsdaten sammeln: Entwurf ohne Nummer aus der Buchung (Teilung, Empfänger, Pflichtangaben, Vorschau) | Deployed (PROJ-40); Schreibweise der USt im Leistungsblock geplant |
+| P0 (Pilot) | Rechnungsdaten sammeln: Entwurf ohne Nummer aus der Buchung (Teilung, Empfänger, Pflichtangaben, Vorschau) | Deployed (PROJ-40, inkl. Schreibweise der USt im Leistungsblock) |
 | P0 (Pilot) | Briefpapier: Gestaltung der Rechnung (Schrift, Abstände, Logo, Aussteller-Block) mit Vorschau | Deployed (PROJ-41) |
 | P0 (Pilot) | Rechnung ausstellen mit PDF, Rechnungsübersicht ausbauen, Rechnungsstorno | Deployed (PROJ-42); Roadmap (PROJ-43, PROJ-44) |
 | P0 (Pilot) | Gästeblatt (Meldewesen) | Roadmap (PROJ-26) |
