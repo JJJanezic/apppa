@@ -2,6 +2,7 @@
 // Lesefunktionen: src/lib/bookings-data.ts (nur Server), Aktionen: src/app/(app)/buchungen/actions.ts.
 
 import { AMOUNT_MAX_CENTS, type ApartmentPricing } from '@/lib/apartments'
+import { HOTEL_ID_MAX } from '@/lib/bank-accounts'
 import { TIME_ZONE } from '@/lib/locale'
 import type { TouristTaxMark, TouristTaxMode, TouristTaxRate } from '@/lib/tourist-tax'
 
@@ -53,6 +54,14 @@ export const BOOKING_SOURCES = [
 ] as const
 export type BookingSource = (typeof BOOKING_SOURCES)[number]
 
+// Plattform-Buchungsnummer (PROJ-47): nur bei booking.com („Buchungsnummer“) und Airbnb („Bestätigungscode“).
+// Alle Leerzeichen werden entfernt, Schreibweise bleibt; Format wie die Hotel-ID (PROJ-46), gleiche Regel in der Datenbank.
+export const PLATFORM_SOURCES = ['booking_com', 'airbnb'] as const
+export type PlatformSource = (typeof PLATFORM_SOURCES)[number]
+export const isPlatformSource = (source: string): source is PlatformSource => (PLATFORM_SOURCES as readonly string[]).includes(source)
+export const normalizePlatformNumber = (value: string) => value.replace(/\s+/g, '')
+export const platformNumberKey = (value: string | null) => normalizePlatformNumber(value ?? '').toLocaleLowerCase('de')
+
 
 export const LIMITS = {
   noteMax: 2000,
@@ -68,6 +77,7 @@ export const LIMITS = {
   optionDefaultDays: 7,
   nameMax: 100,
   guestSheetNumberMax: 30,
+  platformNumberMax: HOTEL_ID_MAX,
   sourceCustomMax: 100,
 } as const
 
@@ -141,12 +151,25 @@ export type GuestSheetDuplicate = {
   cancelled: boolean
 }
 
+// Andere Buchung des Kunden mit derselben Plattform-Nummer bei gleicher Quelle (PROJ-47); nur Hinweis
+export type PlatformNumberDuplicate = {
+  id: string
+  kind: BookingKind
+  number: string | null
+  apartmentLabel: string
+  arrival: string
+  departure: string
+  cancelled: boolean
+}
+
 export type BookingWarnings = {
   conflicts: Conflict[]
   // Personen über der Kapazität bzw. Erwachsene über der Erwachsenen-Grenze der Wohnung (PROJ-27)
   overCapacity: { persons: number; maxGuests: number; adults: number; maxAdults: number | null } | null
   // Übergehbar für Inhaber und Mitarbeiter (eigene Bestätigung)
   guestSheetDuplicates: GuestSheetDuplicate[]
+  // Nur Hinweis, Speichern bleibt möglich (PROJ-47): erster Treffer und Anzahl weiterer
+  platformNumberDuplicate: { first: PlatformNumberDuplicate; more: number } | null
 }
 
 export type Booking = {
@@ -172,6 +195,8 @@ export type Booking = {
   residenceRegistered: boolean
   source: BookingSource
   sourceCustom: string | null
+  // PROJ-47: nur bei Quelle booking.com/Airbnb
+  platformNumber: string | null
   note: string | null
   cancelledAt: string | null
   cancelledBy: string | null
@@ -204,6 +229,8 @@ export type BookingRow = {
   blockReason: BlockReason | null
   guestSheetNumber: string | null
   source: BookingSource
+  // PROJ-47: Anzeige nur bei Suchtreffern
+  platformNumber: string | null
   persons: number
   state: BookingState
   optionUntil: string | null

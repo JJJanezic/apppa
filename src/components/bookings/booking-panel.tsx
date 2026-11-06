@@ -13,7 +13,7 @@ import { checkGuestDuplicates } from '@/app/(app)/gaeste/actions'
 import { Amount } from '@/components/amount'
 import { AmountInput } from '@/components/amount-input'
 import { callAction, FormError } from '@/components/auth/form-error'
-import { BookingWarningsAlert, GuestSheetWarning, hasGuestSheetDuplicates, hasWarnings } from '@/components/bookings/booking-warnings'
+import { BookingWarningsAlert, GuestSheetWarning, hasGuestSheetDuplicates, hasWarnings, PlatformNumberNotice } from '@/components/bookings/booking-warnings'
 import { chargeMoneyCell, SortableChargeList, SortableChargeRow } from '@/components/bookings/sortable-charges'
 import { useBookingWarnings } from '@/components/bookings/use-booking-warnings'
 import { DetailPanel } from '@/components/detail-panel'
@@ -43,8 +43,10 @@ import {
   type Booking,
   BOOKING_SOURCES,
   isIsoDate,
+  isPlatformSource,
   LIMITS,
   nightsBetween,
+  normalizePlatformNumber,
   parseAmountCents,
   suggestedNightsCents,
 } from '@/lib/bookings'
@@ -138,6 +140,11 @@ function initialValues(
       touristTaxRecalc: false,
       source: booking.source,
       sourceCustom: booking.sourceCustom ?? '',
+      // Gespeicherte Nummer bei ihrer Quelle; die andere Plattform startet leer (PROJ-47)
+      platformNumbers: {
+        booking_com: booking.source === 'booking_com' ? (booking.platformNumber ?? '') : '',
+        airbnb: booking.source === 'airbnb' ? (booking.platformNumber ?? '') : '',
+      },
       guestMode: 'existing',
       guestId: booking.guest?.id ?? '',
       adults: String(booking.adults),
@@ -179,6 +186,7 @@ function initialValues(
     touristTaxRecalc: false,
     source: 'none',
     sourceCustom: '',
+    platformNumbers: { booking_com: '', airbnb: '' },
     guestMode: 'existing',
     guestId: '',
     adults: '1',
@@ -253,6 +261,7 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
     mainGuestTaxExempt,
     touristTaxMode,
     nightsVat,
+    platformNumbers,
   ] = useWatch({
       control: form.control,
       name: [
@@ -273,6 +282,7 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
         'mainGuestTaxExempt',
         'touristTaxMode',
         'nightsVat',
+        'platformNumbers',
       ],
     })
   const guestValues = JSON.stringify(useWatch({ control: guestForm.control }))
@@ -309,6 +319,9 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
     persons,
     adults: adultCount,
     guestSheetNumber,
+    // PROJ-47: nur die Nummer der gewählten Plattform
+    source,
+    platformNumber: isPlatformSource(source) ? platformNumbers[source] : '',
   })
   const warn = hasWarnings(warnings)
   const overrideOk = owner && override?.version === version
@@ -663,6 +676,42 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
                   </FormItem>
                 )}
               />
+            )}
+            {/* Plattform-Nummer (PROJ-47): je Plattform ein eigenes Feld, damit Zurückwechseln die Eingabe wiederherstellt */}
+            {isPlatformSource(source) && (
+              <FormField
+                key={source}
+                control={form.control}
+                name={`platformNumbers.${source}`}
+                render={({ field }) => (
+                  <FormItem className="min-w-0">
+                    <FormLabel>{t(`panel.platformNumber.${source}`)}</FormLabel>
+                    <FormControl>
+                      {/* Mehr Platz für eingefügte Leerzeichen; die 30 Zeichen prüft das Schema nach dem Entfernen */}
+                      <Input
+                        maxLength={LIMITS.platformNumberMax * 2}
+                        autoComplete="off"
+                        autoCapitalize="none"
+                        spellCheck={false}
+                        className="min-h-11 font-mono tabular-nums"
+                        {...field}
+                        onBlur={() => {
+                          const clean = normalizePlatformNumber(field.value)
+                          if (clean !== field.value) field.onChange(clean)
+                          field.onBlur()
+                        }}
+                      />
+                    </FormControl>
+                    <FormDescription>{t('panel.platformNumberHint')}</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+            {isPlatformSource(source) && warnings?.platformNumberDuplicate && (
+              <div className="sm:col-span-2">
+                <PlatformNumberNotice source={source} duplicate={warnings.platformNumberDuplicate} />
+              </div>
             )}
           </div>
 

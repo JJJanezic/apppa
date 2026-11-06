@@ -1191,6 +1191,10 @@
     "nightsCount": "{nights, plural, one {# Nacht} other {# Nächte}}",
     "personsCount": "{persons, plural, one {# Person} other {# Personen}}",
     "guestSheetShort": "Gästeblatt {number}",
+    "platformNumberShort": {
+      "booking_com": "booking.com {number}",
+      "airbnb": "Airbnb {number}"
+    },
     "optionUntil": "Option bis {date}",
     "overlapping": "überschneidet sich",
     "priceReview": "Preis prüfen",
@@ -1212,6 +1216,12 @@
       "channel": "Kanal",
       "channelDirect": "Direkt",
       "source": "Buchungsquelle",
+      "copyPlatformNumber": {
+        "booking_com": "booking.com-Buchungsnummer kopieren",
+        "airbnb": "Airbnb-Bestätigungscode kopieren"
+      },
+      "platformNumberCopied": "Nummer kopiert",
+      "copyFailed": "Kopieren nicht möglich. Bitte die Nummer markieren und kopieren.",
       "guestSheetNumber": "Gästeblattnummer",
       "residence": "Wohnsitz",
       "residenceRegistered": "Wohnsitz angemeldet (keine Ortstaxe)",
@@ -1265,6 +1275,11 @@
       "plannedNights": "geplant {nights, plural, one {# Nacht} other {# Nächte}}",
       "source": "Buchungsquelle",
       "sourceCustom": "Eigene Quelle",
+      "platformNumber": {
+        "booking_com": "booking.com-Buchungsnummer (optional)",
+        "airbnb": "Airbnb-Bestätigungscode (optional)"
+      },
+      "platformNumberHint": "Leerzeichen werden beim Speichern entfernt.",
       "registration": "Meldung",
       "guestSheetNumber": "Gästeblattnummer (optional)",
       "guestSheetNumberHint": "Kann jederzeit nachgetragen werden, z. B. beim Check-in.",
@@ -1346,7 +1361,15 @@
       "staffBlocked": "So lässt sich nicht speichern. Bitte Zeitraum oder Personen ändern oder den Inhaber fragen.",
       "guestSheetTitle": "Gästeblattnummer bereits vergeben",
       "guestSheetText": "Diese Nummer ist in deinem Konto schon einer anderen Buchung zugeordnet:",
-      "guestSheetHint": "Ich habe die Nummer geprüft und speichere sie bewusst ein weiteres Mal."
+      "guestSheetHint": "Ich habe die Nummer geprüft und speichere sie bewusst ein weiteres Mal.",
+      "platformNumberTitle": {
+        "booking_com": "booking.com-Buchungsnummer schon vorhanden",
+        "airbnb": "Airbnb-Bestätigungscode schon vorhanden"
+      },
+      "platformNumberText": "Dieselbe Nummer steht schon bei:",
+      "platformNumberMore": "und {count, plural, one {# weitere Buchung} other {# weitere Buchungen}}",
+      "platformNumberHint": "Speichern ist trotzdem möglich, z. B. wenn eine Buchung auf mehrere Wohnungen aufgeteilt ist.",
+      "platformNumberOpen": "{what} in neuem Tab öffnen"
     },
     "block": {
       "createTitle": "Neue Sperre",
@@ -1460,6 +1483,8 @@
       "plannedDepartureRequired": "Bitte die geplante Abreise eingeben.",
       "plannedDepartureBeforeArrival": "Die geplante Abreise muss nach der Anreise liegen.",
       "guestSheetNumberTooLong": "Höchstens 30 Zeichen.",
+      "platformNumberInvalid": "Nur Buchstaben, Ziffern und Bindestrich.",
+      "platformNumberTooLong": "Höchstens 30 Zeichen (ohne Leerzeichen).",
       "sourceCustomRequired": "Bitte die Quelle eingeben."
     },
     "notePanel": {

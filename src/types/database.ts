@@ -528,6 +528,7 @@ export type Database = {
           option_until: string | null
           override_at: string | null
           override_by: string | null
+          platform_number: string | null
           planned_departure: string
           price_review: boolean
           residence_registered: boolean
@@ -566,6 +567,7 @@ export type Database = {
           option_until?: string | null
           override_at?: string | null
           override_by?: string | null
+          platform_number?: string | null
           planned_departure: string
           price_review?: boolean
           residence_registered?: boolean
@@ -603,6 +605,7 @@ export type Database = {
           option_until?: string | null
           override_at?: string | null
           override_by?: string | null
+          platform_number?: string | null
           planned_departure?: string
           price_review?: boolean
           residence_registered?: boolean
@@ -2070,6 +2073,8 @@ export type Database = {
           p_exclude?: string
           p_guest_sheet_number?: string
           p_persons: number
+          p_platform_number?: string
+          p_source?: string
           p_tenant_id: string
         }
         Returns: Json

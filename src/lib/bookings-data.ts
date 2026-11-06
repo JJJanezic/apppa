@@ -98,7 +98,7 @@ const touristTaxMode = (value: string | null | undefined): TouristTaxMode =>
   (TOURIST_TAX_MODES as readonly string[]).includes(value ?? '') ? (value as TouristTaxMode) : 'pending'
 
 const ROW_COLUMNS =
-  'id, kind, number, apartment_id, arrival, departure, adults, child_ages, block_reason, option_until, cancelled_at, price_review, guest_sheet_number, source, guest:guests(id, last_name, first_name, title_prefix, title_suffix), apartment:apartments!inner(name, property:properties!inner(name)), amounts:booking_amounts(billed_nights_cents), charges:booking_charges(amount_cents), ' +
+  'id, kind, number, apartment_id, arrival, departure, adults, child_ages, block_reason, option_until, cancelled_at, price_review, guest_sheet_number, source, platform_number, guest:guests(id, last_name, first_name, title_prefix, title_suffix), apartment:apartments!inner(name, property:properties!inner(name)), amounts:booking_amounts(billed_nights_cents), charges:booking_charges(amount_cents), ' +
   // PROJ-37: verknüpfte Rechnungen (Lesen für alle Mitglieder, RLS); PROJ-40: Entwürfe ohne Nummer
   'invoices(id, number, invoice_date, origin, kind)'
 
@@ -117,6 +117,7 @@ type ListDbRow = {
   price_review: boolean
   guest_sheet_number: string | null
   source: string
+  platform_number: string | null
   guest: { id: string; last_name: string; first_name: string | null; title_prefix: string | null; title_suffix: string | null } | null
   apartment: { name: string; property: { name: string } }
   // eine Zeile je Buchung; PostgREST liefert sie als Liste (Verweis über id + tenant_id)
@@ -182,6 +183,7 @@ function toRow(r: ListDbRow, owner: boolean, today: string, occupancy: Occupancy
     blockReason: r.block_reason as BlockReason | null,
     guestSheetNumber: r.guest_sheet_number,
     source: r.source as BookingSource,
+    platformNumber: r.platform_number,
     persons: kind === 'block' ? 0 : personCount(r.adults ?? 0, r.child_ages),
     state,
     optionUntil: r.option_until,
@@ -218,6 +220,7 @@ export async function getBookingList(filters: BookingFilters): Promise<BookingLi
   const columns = ROW_COLUMNS
 
   // Suche: Gäste über den vereinheitlichten Suchtext (PROJ-7), dazu Buchungs- und Gästeblattnummer (PROJ-30)
+  // und Plattform-Nummer (PROJ-47; nur Buchstaben, Ziffern, Bindestrich wie der bereinigte Suchbegriff)
   let searchFilter: string | null = null
   if (searching) {
     const words = searchKey(query).split(' ').filter(Boolean)
@@ -227,7 +230,7 @@ export async function getBookingList(filters: BookingFilters): Promise<BookingLi
     const ids = (hits ?? []).map((g) => g.id)
     const number = query.replace(/\s/g, '')
     const sheet = cleanSheetQuery(filters.query) || query
-    const numbers = `number.ilike.%${number}%,guest_sheet_number.ilike."%${sheet}%"`
+    const numbers = `number.ilike.%${number}%,guest_sheet_number.ilike."%${sheet}%",platform_number.ilike.%${number}%`
     searchFilter = ids.length ? `${numbers},guest_id.in.(${ids.join(',')})` : numbers
   }
 
@@ -326,7 +329,7 @@ export const findBooking = cache(async (id: string): Promise<Booking | null> => 
   const { data: b, error } = await supabase
     .from('bookings')
     .select(
-      'id, kind, channel, number, apartment_id, arrival, planned_departure, departure, check_in, check_out, adults, child_ages, block_reason, option_until, guest_sheet_number, residence_registered, source, source_custom, note, cancelled_at, cancelled_by, cancel_reason, override_by, price_review, tourist_tax_mode, main_guest_tourist_tax_exempt, updated_at, guest:guests(id, last_name, first_name, title_prefix, title_suffix, country, anonymized_at, birth_date), apartment:apartments!inner(name, max_guests, archived_at, property:properties!inner(name)), companions:booking_companions(position, first_name, last_name, birth_date, tourist_tax_exempt), amounts:booking_amounts(nights_cents, billed_nights_cents, nights_extension_pricing, cancellation_fee_cents, nights_vat_rate, cancellation_fee_vat_rate), charges:booking_charges(id, position, label, amount_cents, vat_rate, tourist_tax, tourist_tax_rate_id, tax_person_nights), invoices(origin, total_cents)'
+      'id, kind, channel, number, apartment_id, arrival, planned_departure, departure, check_in, check_out, adults, child_ages, block_reason, option_until, guest_sheet_number, residence_registered, source, source_custom, platform_number, note, cancelled_at, cancelled_by, cancel_reason, override_by, price_review, tourist_tax_mode, main_guest_tourist_tax_exempt, updated_at, guest:guests(id, last_name, first_name, title_prefix, title_suffix, country, anonymized_at, birth_date), apartment:apartments!inner(name, max_guests, archived_at, property:properties!inner(name)), companions:booking_companions(position, first_name, last_name, birth_date, tourist_tax_exempt), amounts:booking_amounts(nights_cents, billed_nights_cents, nights_extension_pricing, cancellation_fee_cents, nights_vat_rate, cancellation_fee_vat_rate), charges:booking_charges(id, position, label, amount_cents, vat_rate, tourist_tax, tourist_tax_rate_id, tax_person_nights), invoices(origin, total_cents)'
     )
     .eq('id', id)
     .eq('tenant_id', tenantId)
@@ -378,6 +381,7 @@ export const findBooking = cache(async (id: string): Promise<Booking | null> => 
     residenceRegistered: b.residence_registered,
     source: b.source as BookingSource,
     sourceCustom: b.source_custom,
+    platformNumber: b.platform_number,
     note: b.note,
     cancelledAt: b.cancelled_at,
     cancelledBy: b.cancelled_by ? (names.get(b.cancelled_by) ?? null) : null,

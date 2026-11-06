@@ -114,7 +114,7 @@ export default async function BookingsPage({ searchParams }: { searchParams: Sea
           />
         ) : (
           <>
-            <BookingList rows={list.rows} showAmounts={owner} />
+            <BookingList rows={list.rows} showAmounts={owner} query={list.searching ? filters.query : undefined} />
             {list.invoiceFilter && list.pageCount > 1 && (
               <ListPagination
                 page={filters.page}

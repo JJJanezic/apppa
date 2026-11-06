@@ -1,6 +1,6 @@
 # PROJ-47: Plattform-Buchungsnummer
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-11-06
 **Last Updated:** 2026-11-06
 
@@ -243,6 +243,29 @@ Keine neuen Pakete.
 ### G) Aufteilung Frontend / Backend
 - **Backend:** neues Feld mit Datenbankregeln und Index; Speicherfunktion und Live-Warnung erweitert; Suche erweitert; Laden der Nummer in Liste und Detail
 - **Frontend:** Feld mit Beschriftung je Quelle und Merken je Quelle, Hinweisbox, Anzeige und Kopieren im Detail, Anzeige bei Suchtreffern, deutsche Texte
+
+## Implementation Notes (Frontend)
+_2026-11-06_
+
+**Gebaut:**
+- `src/lib/bookings.ts`: `PLATFORM_SOURCES`, `isPlatformSource`, `normalizePlatformNumber` (alle Leerzeichen raus), `platformNumberKey` (Vergleich ohne Groß-/Kleinschreibung), `LIMITS.platformNumberMax` (= `HOTEL_ID_MAX`), Typ `PlatformNumberDuplicate`; `Booking.platformNumber`, `BookingRow.platformNumber`, `BookingWarnings.platformNumberDuplicate` (erster Treffer + Anzahl weiterer)
+- `src/lib/validation/bookings.ts`: Formularfeld `platformNumbers: { booking_com, airbnb }` (je Plattform getrennt → Zurückwechseln vor dem Speichern stellt die Eingabe wieder her); geprüft wird nur die Nummer der gewählten Quelle (Format über `isHotelId` aus PROJ-46, max. 30 nach Entfernen der Leerzeichen); Ausgabe `platformNumber` nur bei booking.com/Airbnb, sonst `null`
+- Buchungsformular (`booking-panel.tsx`): Feld „booking.com-Buchungsnummer (optional)“ bzw. „Airbnb-Bestätigungscode (optional)“ neben/unter der Buchungsquelle (gleiches Raster wie „Eigene Quelle“; am Handy darunter), Leerzeichen werden beim Verlassen des Felds entfernt; Hinweisbox `PlatformNumberNotice` (`booking-warnings.tsx`) direkt darunter: Art + Buchungsnummer als Link (neuer Tab, damit Eingaben erhalten bleiben), Wohnung, Zeitraum, „storniert“, „und N weitere Buchungen“; kein Häkchen, Speichern nie blockiert
+- `use-booking-warnings.ts`: schickt Quelle und Nummer mit; Tippen in der Nummer setzt Überschneidungs-/Gästeblatt-Bestätigungen nicht zurück (eigener Schlüssel nur für den Hinweis)
+- Buchungsdetail: „booking.com · 4123456789“ mit Kopier-Knopf (neue Komponente `src/components/copy-button.tsx`, Meldung bei fehlendem Zwischenablage-Zugriff; Nummer markierbar)
+- Buchungsübersicht: Suche zusätzlich in `platform_number`; bei Treffer in der Nummer erscheint „booking.com 4123456789“ bzw. „Airbnb HM…“ klein neben Buchungs-/Gästeblattnummer (Prop `query` von `BookingList`)
+- Server-Aktion `saveBooking` schickt `platform_number`, `checkBookingWarnings` schickt `p_source`/`p_platform_number` (nur bei gültiger Nummer und booking.com/Airbnb)
+- `src/types/database.ts` von Hand ergänzt (Spalte `bookings.platform_number`, Parameter `p_source`, `p_platform_number` von `booking_warnings`) – wird mit /backend durch die erzeugten Typen ersetzt
+- Texte in `messages/de.json` (`bookings.panel.platformNumber.*`, `bookings.warnings.platformNumber*`, `bookings.detail.copyPlatformNumber.*`, `bookings.platformNumberShort.*`, `bookings.validation.platformNumber*`)
+- Unit-Tests: Validierung (Bereinigung, Format, Länge, nur gewählte Quelle) und Hilfsfunktionen
+
+**Für /backend offen:**
+- Spalte `bookings.platform_number` mit Prüfungen (Format, 1–30, nur bei Quelle booking_com/airbnb, nie bei Sperren) und Index (tenant_id, source, lower(platform_number))
+- `save_booking`: `platform_number` übernehmen, bei anderer Quelle leeren; nie wegen Doppelung blockieren
+- `booking_warnings` (öffentlich und privat): Parameter `p_source`, `p_platform_number`; Rückgabe `platform_number_duplicate: { first: { id, kind, number, apartment_label, arrival, departure, cancelled }, more }` oder null; nur eigener Kunde, gleiche Quelle, ohne Groß-/Kleinschreibung, storniert mit, eigene Buchung ausgenommen
+- Bis dahin funktionieren Buchungsliste, -detail und -formular in Dev nicht (Spalte fehlt)
+
+**Abweichung:** Der Hinweis erscheint erst, wenn Wohnung und Zeitraum gewählt sind (er läuft in der bestehenden Live-Prüfung mit).
 
 ## QA Test Results
 _To be added by /qa_

@@ -5,24 +5,33 @@ import { Amount } from '@/components/amount'
 import { BookingBadges } from '@/components/bookings/booking-badges'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { formatDate, formatNumber, formatPeriod } from '@/lib/format'
-import { bookingHref, type BookingRow, nightsBetween } from '@/lib/bookings'
+import { bookingHref, type BookingRow, isPlatformSource, nightsBetween, platformNumberKey } from '@/lib/bookings'
 import { invoiceHref } from '@/lib/invoices'
 
 interface BookingListProps {
   rows: BookingRow[]
   // Beträge nur für Inhaber
   showAmounts: boolean
+  // Suchbegriff der Buchungsübersicht: trifft er die Plattform-Nummer, steht sie bei der Buchungsnummer (PROJ-47)
+  query?: string
 }
 
 // Buchungsliste (PROJ-8): ab 768 px Tabelle (der Name ist der Link), darunter Karten
-export function BookingList({ rows, showAmounts }: BookingListProps) {
+export function BookingList({ rows, showAmounts, query = '' }: BookingListProps) {
   const t = useTranslations('bookings')
   // „Mi, 28.10.2026 – Di, 03.11.2026“ (PROJ-31), immer mit Jahr
   const period = (r: BookingRow) => formatPeriod(r.arrival, r.departure)
   const title = (r: BookingRow) => r.guestName ?? (r.blockReason ? `${t('kind.block')}: ${t(`blockReason.${r.blockReason}`)}` : t('kind.block'))
   const amount = (r: BookingRow) => (r.totalCents === null ? '–' : <Amount cents={r.totalCents} />)
   // Buchungs- und Gästeblattnummer (PROJ-30)
-  const numbers = (r: BookingRow) => [r.number, r.guestSheetNumber && t('guestSheetShort', { number: r.guestSheetNumber })].filter(Boolean).join(' · ')
+  // Plattform-Nummer nur bei einem Suchtreffer in ihr (gleiche Bereinigung wie die Suche, ab 2 Zeichen)
+  const term = platformNumberKey(query.replace(/[^\p{L}\d\s-]/gu, ''))
+  const platform = (r: BookingRow) =>
+    term.length >= 2 && r.platformNumber && isPlatformSource(r.source) && platformNumberKey(r.platformNumber).includes(term)
+      ? t(`platformNumberShort.${r.source}`, { number: r.platformNumber })
+      : null
+  const numbers = (r: BookingRow) =>
+    [r.number, r.guestSheetNumber && t('guestSheetShort', { number: r.guestSheetNumber }), platform(r)].filter(Boolean).join(' · ')
   const badges = (r: BookingRow) => (
     <BookingBadges kind={r.kind} state={r.state} optionUntil={r.optionUntil} overlapping={r.overlapping} priceReview={showAmounts && r.priceReview} />
   )
@@ -56,7 +65,7 @@ export function BookingList({ rows, showAmounts }: BookingListProps) {
                 <Link href={bookingHref(r.id)} className="font-medium text-ds-accent-700 underline underline-offset-[3px] hover:decoration-2">
                   {title(r)}
                 </Link>
-                {(r.number || r.guestSheetNumber) && <span className="block break-words text-[13px] tabular-nums text-ds-neutral-700">{numbers(r)}</span>}
+                {numbers(r) && <span className="block break-words text-[13px] tabular-nums text-ds-neutral-700">{numbers(r)}</span>}
               </TableCell>
               <TableCell className="max-w-[240px] break-words">{r.apartmentLabel}</TableCell>
               <TableCell className="text-right tabular-nums">{formatNumber(nightsBetween(r.arrival, r.departure))}</TableCell>
@@ -104,7 +113,7 @@ export function BookingList({ rows, showAmounts }: BookingListProps) {
               </span>
               <span className="break-words text-[13px] text-ds-neutral-800">
                 {r.apartmentLabel}
-                {(r.number || r.guestSheetNumber) && <> · {numbers(r)}</>}
+                {numbers(r) && <> · {numbers(r)}</>}
               </span>
               {/* Handy: die Karte ist der Link zur Buchung, Rechnungsnummern daher als Text (kein Link im Link) */}
               {r.invoices.length > 0 && (

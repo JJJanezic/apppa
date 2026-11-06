@@ -7,11 +7,14 @@ import {
   type BookingAmounts,
   EXTENSION_PRICING,
   isIsoDate,
+  isPlatformSource,
   LIMITS,
   nightsBetween,
+  normalizePlatformNumber,
   parseAmountCents,
   todayIso,
 } from '@/lib/bookings'
+import { isHotelId } from '@/lib/bank-accounts'
 import { TOURIST_TAX_MODES } from '@/lib/tourist-tax'
 import { parseVatRate, VAT_DEFAULTS } from '@/lib/vat'
 
@@ -110,6 +113,9 @@ export const bookingSchema = (t: T, { owner, today = todayIso() }: { owner: bool
       touristTaxRecalc: z.boolean(),
       source: z.enum(BOOKING_SOURCES),
       sourceCustom: z.string().trim().max(LIMITS.sourceCustomMax, t('tooLong')),
+      // Plattform-Nummer je Plattform getrennt (PROJ-47): Zurückwechseln vor dem Speichern stellt die Eingabe wieder her;
+      // geprüft und gespeichert wird nur die Nummer der gewählten Quelle
+      platformNumbers: z.object({ booking_com: z.string(), airbnb: z.string() }),
       nightsPrice: z.string(),
       nightsVat: z.string(),
       // Preisregel bei Verlängerung (PROJ-30); wird auch ohne aktuelle Verlängerung gespeichert
@@ -138,6 +144,13 @@ export const bookingSchema = (t: T, { owner, today = todayIso() }: { owner: bool
       })
       checkPeriod(t, today, v, ctx, { arrival: false })
       if (v.source === 'custom' && !v.sourceCustom) ctx.addIssue({ code: 'custom', path: ['sourceCustom'], message: t('sourceCustomRequired') })
+      if (isPlatformSource(v.source)) {
+        const number = normalizePlatformNumber(v.platformNumbers[v.source])
+        if (number.length > LIMITS.platformNumberMax)
+          ctx.addIssue({ code: 'custom', path: ['platformNumbers', v.source], message: t('platformNumberTooLong') })
+        else if (number && !isHotelId(number))
+          ctx.addIssue({ code: 'custom', path: ['platformNumbers', v.source], message: t('platformNumberInvalid') })
+      }
       if (v.guestMode === 'existing' && !/^[0-9a-f-]{36}$/i.test(v.guestId))
         ctx.addIssue({ code: 'custom', path: ['guestId'], message: t('guestRequired') })
       if (v.adults + v.children.length > LIMITS.personsMax)
@@ -175,6 +188,8 @@ export const bookingSchema = (t: T, { owner, today = todayIso() }: { owner: bool
       source: v.source,
       // Freitext nur bei „Eigene Angabe“, sonst verworfen
       sourceCustom: v.source === 'custom' ? v.sourceCustom : null,
+      // Nur bei booking.com/Airbnb; sonst gelöscht (PROJ-47)
+      platformNumber: isPlatformSource(v.source) ? normalizePlatformNumber(v.platformNumbers[v.source]) || null : null,
       guestId: v.guestMode === 'existing' ? v.guestId : null,
       adults: v.adults,
       childAges: v.children.map((c) => Number(c.age)),

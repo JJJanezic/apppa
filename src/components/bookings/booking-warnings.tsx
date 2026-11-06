@@ -1,12 +1,13 @@
 'use client'
 
-import { WarningCircle } from '@phosphor-icons/react'
+import { ArrowSquareOut, Info, WarningCircle } from '@phosphor-icons/react'
+import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
-import type { BookingWarnings, Conflict, GuestSheetDuplicate } from '@/lib/bookings'
+import { bookingHref, type BookingWarnings, type Conflict, type GuestSheetDuplicate, type PlatformSource } from '@/lib/bookings'
 import { formatDate } from '@/lib/format'
 
 export const hasWarnings = (w: BookingWarnings | null): w is BookingWarnings =>
@@ -98,6 +99,46 @@ export function GuestSheetWarning({ duplicates, confirmed, onConfirmedChange }: 
             <span className="text-[13px]">{t('warnings.guestSheetHint')}</span>
           </Label>
         </div>
+      </AlertDescription>
+    </Alert>
+  )
+}
+
+interface PlatformNumberNoticeProps {
+  source: PlatformSource
+  duplicate: NonNullable<BookingWarnings['platformNumberDuplicate']>
+}
+
+// Hinweis „Plattform-Nummer schon vorhanden“ (PROJ-47): nur Information, Speichern bleibt möglich (kein Häkchen).
+// Der Link öffnet einen neuen Tab, damit die Eingaben im Formular erhalten bleiben.
+export function PlatformNumberNotice({ source, duplicate }: PlatformNumberNoticeProps) {
+  const t = useTranslations('bookings')
+  const d = duplicate.first
+  const what = [t(`kind.${d.kind}`), d.number].filter(Boolean).join(' ')
+  const details = [d.apartmentLabel, `${formatDate(d.arrival)} – ${formatDate(d.departure)}`, d.cancelled ? t('state.cancelled') : null].filter(Boolean).join(' · ')
+
+  return (
+    <Alert role="status" className="border-ds-accent-2-700/40 bg-ds-accent-2-100 text-ds-accent-2-800">
+      <Info size={18} weight="duotone" aria-hidden="true" />
+      <AlertTitle>{t(`warnings.platformNumberTitle.${source}`)}</AlertTitle>
+      <AlertDescription className="flex min-w-0 flex-col gap-2 text-ds-accent-2-800">
+        <p>{t('warnings.platformNumberText')}</p>
+        <p className="min-w-0 break-words">
+          <Link
+            href={bookingHref(d.id)}
+            target="_blank"
+            rel="noopener"
+            aria-label={t('warnings.platformNumberOpen', { what })}
+            className="inline-flex items-center gap-1 font-semibold underline underline-offset-2"
+          >
+            {what}
+            <ArrowSquareOut size={14} aria-hidden="true" />
+          </Link>
+          {' · '}
+          {details}
+        </p>
+        {duplicate.more > 0 && <p>{t('warnings.platformNumberMore', { count: duplicate.more })}</p>}
+        <p className="text-[13px]">{t('warnings.platformNumberHint')}</p>
       </AlertDescription>
     </Alert>
   )

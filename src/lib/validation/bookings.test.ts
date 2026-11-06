@@ -22,6 +22,7 @@ const valid: BookingInput = {
   touristTaxRecalc: false,
   source: 'none',
   sourceCustom: '',
+  platformNumbers: { booking_com: '', airbnb: '' },
   guestMode: 'existing',
   guestId: GUEST,
   adults: '2',
@@ -110,6 +111,32 @@ describe('Buchung', () => {
     expect(parse({ source: 'custom', sourceCustom: ' Messe ' })).toMatchObject({ source: 'custom', sourceCustom: 'Messe' })
     expect(parse({ source: 'booking_com', sourceCustom: 'Messe' })).toMatchObject({ source: 'booking_com', sourceCustom: null })
     expect(parse({ residenceRegistered: true })).toMatchObject({ residenceRegistered: true })
+  })
+
+  it('Plattform-Nummer: Leerzeichen entfernt, Schreibweise bleibt, nur bei booking.com/Airbnb (PROJ-47)', () => {
+    const parse = (input: Partial<BookingInput>) => bookingSchema(t, { owner: true, today: TODAY }).parse({ ...valid, ...input })
+    const numbers = (booking_com: string, airbnb = '') => ({ booking_com, airbnb })
+    expect(parse({ source: 'booking_com', platformNumbers: numbers(' 4123 456 789 ') })).toMatchObject({ platformNumber: '4123456789' })
+    expect(parse({ source: 'airbnb', platformNumbers: numbers('', 'HMabcd1234') })).toMatchObject({ platformNumber: 'HMabcd1234' })
+    expect(parse({ source: 'booking_com', platformNumbers: numbers('AB-1234') })).toMatchObject({ platformNumber: 'AB-1234' })
+    expect(parse({ source: 'booking_com', platformNumbers: numbers('-12-') })).toMatchObject({ platformNumber: '-12-' })
+    expect(parse({ source: 'booking_com', platformNumbers: numbers('   ') })).toMatchObject({ platformNumber: null })
+    // Gespeichert wird nur die Nummer der gewählten Quelle; andere Quellen löschen sie
+    expect(parse({ source: 'booking_com', platformNumbers: numbers('4123', 'HM1') })).toMatchObject({ platformNumber: '4123' })
+    expect(parse({ source: 'website', platformNumbers: numbers('4123', 'HM1') })).toMatchObject({ platformNumber: null })
+    expect(parse({ source: 'none', platformNumbers: numbers('4123') })).toMatchObject({ platformNumber: null })
+  })
+
+  it('Plattform-Nummer: Fehler bei unerlaubten Zeichen und mehr als 30 Zeichen, nur bei der gewählten Quelle (PROJ-47)', () => {
+    const numbers = (booking_com: string, airbnb = '') => ({ booking_com, airbnb })
+    expect(messages({ ...valid, source: 'booking_com', platformNumbers: numbers('4123/456') })).toEqual(['platformNumbers.booking_com:platformNumberInvalid'])
+    expect(messages({ ...valid, source: 'airbnb', platformNumbers: numbers('', '#4123') })).toEqual(['platformNumbers.airbnb:platformNumberInvalid'])
+    expect(messages({ ...valid, source: 'booking_com', platformNumbers: numbers('1'.repeat(31)) })).toEqual(['platformNumbers.booking_com:platformNumberTooLong'])
+    // 30 Zeichen nach Entfernen der Leerzeichen sind erlaubt
+    expect(messages({ ...valid, source: 'booking_com', platformNumbers: numbers(`${'1'.repeat(15)} ${'2'.repeat(15)}`) })).toEqual([])
+    // Ungültige Eingabe bei einer nicht gewählten Quelle stört nicht (wird verworfen)
+    expect(messages({ ...valid, source: 'booking_com', platformNumbers: numbers('4123', '#x') })).toEqual([])
+    expect(messages({ ...valid, source: 'website', platformNumbers: numbers('#x') })).toEqual([])
   })
 
   it('verlangt einen Gast und mindestens einen Erwachsenen', () => {

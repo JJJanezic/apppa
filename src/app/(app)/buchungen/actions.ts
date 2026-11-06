@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation'
 
 import type { ActionResult, CommonErrorCode } from '@/lib/auth/result'
 import { getSessionUser, pendingMfaStep } from '@/lib/auth/session'
-import { type BlockReason, type BookingErrorCode, type BookingKind, type BookingWarnings, isIsoDate, LIMITS } from '@/lib/bookings'
+import { type BlockReason, type BookingErrorCode, type BookingKind, type BookingWarnings, isIsoDate, isPlatformSource, LIMITS, normalizePlatformNumber } from '@/lib/bookings'
 import { guestDbColumns } from '@/lib/guests-data'
 import { createClient } from '@/lib/supabase/server'
 import { getTenantContext, type TenantSummary } from '@/lib/tenant'
@@ -100,6 +100,11 @@ type DbWarnings = {
   over_capacity: { persons: number; max_guests: number; adults: number | null; max_adults: number | null } | null
   // PROJ-30: andere Buchungen des Kunden mit derselben Gästeblattnummer (auch storniert)
   guest_sheet_duplicates?: { id: string; kind: string; number: string | null; guest_name: string | null; cancelled: boolean }[]
+  // PROJ-47: erste andere Buchung mit derselben Plattform-Nummer bei gleicher Quelle und Anzahl weiterer
+  platform_number_duplicate?: {
+    first: { id: string; kind: string; number: string | null; apartment_label: string; arrival: string; departure: string; cancelled: boolean }
+    more: number
+  } | null
 }
 
 const toWarnings = (w: DbWarnings): BookingWarnings => ({
@@ -127,6 +132,20 @@ const toWarnings = (w: DbWarnings): BookingWarnings => ({
     guestName: d.guest_name,
     cancelled: d.cancelled,
   })),
+  platformNumberDuplicate: w?.platform_number_duplicate
+    ? {
+        first: {
+          id: w.platform_number_duplicate.first.id,
+          kind: w.platform_number_duplicate.first.kind as BookingKind,
+          number: w.platform_number_duplicate.first.number,
+          apartmentLabel: w.platform_number_duplicate.first.apartment_label,
+          arrival: w.platform_number_duplicate.first.arrival,
+          departure: w.platform_number_duplicate.first.departure,
+          cancelled: w.platform_number_duplicate.first.cancelled,
+        },
+        more: w.platform_number_duplicate.more,
+      }
+    : null,
 })
 
 type SaveResult = { status: 'saved'; id: string } | { status: 'warnings'; warnings: DbWarnings }
@@ -151,18 +170,24 @@ type WarningQuery = {
   adults: number
   // PROJ-30: Doppelungsprüfung der Gästeblattnummer (leer = keine Prüfung)
   guestSheetNumber?: string | null
+  // PROJ-47: Doppelungsprüfung der Plattform-Nummer bei Quelle booking.com/Airbnb (leer = keine Prüfung)
+  source?: string | null
+  platformNumber?: string | null
 }
 
 // Vorschau im Formular: Überschneidungen und Überbelegung, sobald Wohnung und Zeitraum stehen
 export async function checkBookingWarnings(values: WarningQuery): Promise<Result<BookingWarnings>> {
   const guard = await requireMember()
   if (!guard.ok) return guard
-  const none = { ok: true as const, data: { conflicts: [], overCapacity: null, guestSheetDuplicates: [] } }
+  const none = { ok: true as const, data: { conflicts: [], overCapacity: null, guestSheetDuplicates: [], platformNumberDuplicate: null } }
   if (!isId(values?.apartmentId) || !isIsoDate(String(values.arrival)) || !isIsoDate(String(values.departure))) return none
   if (values.arrival >= values.departure) return none
   const persons = Math.max(0, Math.min(LIMITS.personsMax * 2, Math.floor(Number(values.persons) || 0)))
   const adults = Math.max(0, Math.min(LIMITS.personsMax * 2, Math.floor(Number(values.adults) || 0)))
   const sheet = typeof values.guestSheetNumber === 'string' ? values.guestSheetNumber.trim().slice(0, LIMITS.guestSheetNumberMax) : ''
+  const platform = typeof values.source === 'string' && isPlatformSource(values.source) ? values.source : null
+  const platformNumber = platform && typeof values.platformNumber === 'string' ? normalizePlatformNumber(values.platformNumber) : ''
+  const checkPlatform = platform !== null && platformNumber !== '' && platformNumber.length <= LIMITS.platformNumberMax
   const supabase = await createClient()
   const { data, error } = await supabase.rpc('booking_warnings', {
     p_tenant_id: guard.tenant.id,
@@ -173,6 +198,8 @@ export async function checkBookingWarnings(values: WarningQuery): Promise<Result
     p_adults: adults,
     p_exclude: isId(values.id) ? values.id : undefined,
     p_guest_sheet_number: sheet || undefined,
+    p_source: checkPlatform ? platform : undefined,
+    p_platform_number: checkPlatform ? platformNumber : undefined,
   })
   if (error) return dbFail(error, 'Warnungen')
   return { ok: true, data: toWarnings(data as unknown as DbWarnings) }
@@ -233,6 +260,8 @@ export async function saveBooking(input: SaveBooking): Promise<Result<{ id: stri
       tourist_tax_recalculate: v.touristTaxRecalc,
       source: v.source,
       source_custom: v.sourceCustom,
+      // PROJ-47: die Datenbank speichert sie nur bei booking.com/Airbnb; doppelte Nummer blockiert nie
+      platform_number: v.platformNumber,
       guest_id: v.guestId,
       new_guest: newGuest,
       adults: v.adults,

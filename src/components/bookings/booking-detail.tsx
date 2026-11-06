@@ -4,9 +4,10 @@ import { getLocale, getTranslations } from 'next-intl/server'
 import { Amount } from '@/components/amount'
 import { BookingActions } from '@/components/bookings/booking-actions'
 import { BookingBadges } from '@/components/bookings/booking-badges'
+import { CopyButton } from '@/components/copy-button'
 import { BookingInvoicesSection } from '@/components/invoices/booking-invoices'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { billableNights, type BookableApartment, type Booking, bookingState, nightsBetween, personCount, totalCents } from '@/lib/bookings'
+import { billableNights, type BookableApartment, type Booking, bookingState, isPlatformSource, nightsBetween, personCount, totalCents } from '@/lib/bookings'
 import { formatCents, formatDate, formatDatePlain, formatNumber, formatPeriod } from '@/lib/format'
 import { countryName, guestDisplayName, guestHref, guestSortName } from '@/lib/guests'
 import { cn } from '@/lib/utils'
@@ -112,6 +113,8 @@ export async function BookingDetail({ booking, apartments, owner, today, layout,
         })
       : null
   const sourceLabel = booking.source === 'custom' && booking.sourceCustom ? booking.sourceCustom : t(`source.${booking.source}`)
+  // Plattform-Nummer (PROJ-47): „booking.com · 4123456789“ mit Kopier-Knopf
+  const platform = isPlatformSource(booking.source) && booking.platformNumber ? { source: booking.source, number: booking.platformNumber } : null
 
   return (
     <>
@@ -217,7 +220,25 @@ export async function BookingDetail({ booking, apartments, owner, today, layout,
                   <Fact label={t('detail.childAges')}>{t('detail.agesValue', { ages: booking.childAges.join(', ') })}</Fact>
                 )}
                 <Fact label={t('detail.channel')}>{t('detail.channelDirect')}</Fact>
-                <Fact label={t('detail.source')}>{booking.source === 'none' ? missing : <span className="break-words">{sourceLabel}</span>}</Fact>
+                <Fact label={t('detail.source')}>
+                  {booking.source === 'none' ? (
+                    missing
+                  ) : platform ? (
+                    <span className="-my-2 flex min-w-0 items-center gap-1">
+                      <span className="min-w-0 break-all">
+                        {sourceLabel} · <span className="font-mono tabular-nums select-all">{platform.number}</span>
+                      </span>
+                      <CopyButton
+                        value={platform.number}
+                        label={t(`detail.copyPlatformNumber.${platform.source}`)}
+                        copiedMessage={t('detail.platformNumberCopied')}
+                        failedMessage={t('detail.copyFailed')}
+                      />
+                    </span>
+                  ) : (
+                    <span className="break-words">{sourceLabel}</span>
+                  )}
+                </Fact>
                 <Fact label={t('detail.guestSheetNumber')}>{booking.guestSheetNumber ?? missing}</Fact>
                 {booking.residenceRegistered && <Fact label={t('detail.residence')}>{t('detail.residenceRegistered')}</Fact>}
               </>

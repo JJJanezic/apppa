@@ -14,11 +14,14 @@ import {
   formatBookingNumber,
   guestSheetKey,
   isIsoDate,
+  isPlatformSource,
   monthRange,
   nightsBetween,
+  normalizePlatformNumber,
   overCapacity,
   parseAmountCents,
   parseBookingFilters,
+  platformNumberKey,
   rangesOverlap,
   shiftMonth,
   suggestedNightsCents,
@@ -197,6 +200,25 @@ describe('Buchungsnummer', () => {
   })
 })
 
+describe('Plattform-Nummer (PROJ-47)', () => {
+  it('gilt nur für booking.com und Airbnb', () => {
+    expect(isPlatformSource('booking_com')).toBe(true)
+    expect(isPlatformSource('airbnb')).toBe(true)
+    expect(isPlatformSource('website')).toBe(false)
+    expect(isPlatformSource('none')).toBe(false)
+  })
+
+  it('entfernt alle Leerzeichen und behält die Schreibweise', () => {
+    expect(normalizePlatformNumber(' 4123 456\t789 ')).toBe('4123456789')
+    expect(normalizePlatformNumber('HMabcd1234')).toBe('HMabcd1234')
+  })
+
+  it('vergleicht ohne Groß-/Kleinschreibung und Leerzeichen', () => {
+    expect(platformNumberKey('HMABCD 1234')).toBe(platformNumberKey('hmabcd1234'))
+    expect(platformNumberKey(null)).toBe('')
+  })
+})
+
 describe('Monat und Filter', () => {
   it('blättert über Jahresgrenzen', () => {
     expect(shiftMonth('2026-12', 1)).toBe('2027-01')
@@ -242,6 +264,7 @@ describe('Monat und Filter', () => {
       guestName: null,
       blockReason: null,
       guestSheetNumber: null,
+      platformNumber: null,
       source: 'none',
       persons: 2,
       state: 'active',
@@ -272,6 +295,7 @@ describe('Monat und Filter', () => {
       guestName: null,
       blockReason: null,
       guestSheetNumber: null,
+      platformNumber: null,
       source: 'none',
       persons: 2,
       state: 'active',
