@@ -44,8 +44,8 @@ export function InvoiceActions({ invoice, today }: { invoice: Invoice; today: st
       else if (result.error !== 'sessionExpired') toast.error(t(`errors.${result.error}`))
       return
     }
-    // Die Aktion leitet selbst zur Liste weiter
-    toast.success(t('done.deleted'))
+    // Fester Wechsel zur Liste; die Bestätigung zeigt die Liste selbst (?geloescht=1, siehe DeletedNotice)
+    window.location.assign(result.redirectTo ?? '/rechnungen?geloescht=1')
   }
 
   return (

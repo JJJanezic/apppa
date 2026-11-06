@@ -389,6 +389,49 @@ test.describe('Storno und Rückzahlung', () => {
   })
 })
 
+test.describe('QA-Regression', () => {
+  test('BUG-3: Gutschrift zu einer nie bezahlten Rechnung zeigt keinen Abschnitt „Rückzahlungen“', async ({ page, users }) => {
+    desktopOnly()
+    const s = await setup(users)
+    const bookingId = await addBooking(s)
+    const client = await signedIn(s.owner)
+    const { data: draftId, error } = await client.rpc('save_invoice_draft', {
+      p_input: {
+        id: null,
+        updated_at: null,
+        tenant_id: s.tenantId,
+        booking_id: bookingId,
+        kind: 'invoice',
+        invoice_date: '2026-10-20',
+        recipient_kind: 'guest',
+        recipient: { name: 'Maria Huber', line1: 'Gartenweg 3', line2: '', postal_code: '5020', city: 'Salzburg', country: 'AT', vat_id: '' },
+        company_salutation: 'generic',
+        guest_names: 'none',
+        partial: null,
+        lines: [{ label: 'Übernachtung', amount_cents: 50000, vat_rate: '10.00', source_kind: 'nights', source_charge_id: null }],
+        deduction_ids: [],
+        texts: { intro: { block_id: null, body: null }, payment: { block_id: null, body: null }, closing: { block_id: null, body: null } },
+        payment: { deposit_percent: null, deposit_days: null, due_days: 14, due_basis: 'after_invoice' },
+        booking_fingerprint: null,
+      } as unknown as Json,
+    })
+    if (error) throw error
+    const id = draftId as string
+    await service().from('tenants').update({ address_line1: 'Seeweg 12', postal_code: '5340', city: 'St. Gilgen', country: 'AT', vat_id: 'ATU12345678' } as never).eq('id', s.tenantId)
+    await signInAs(page, s.owner)
+    const { data: r } = await service().from('invoices').select('updated_at').eq('id', id).single()
+    const issue = await page.request.post(`/api/rechnungen/${id}/ausstellen`, { data: { invoiceDate: '2026-10-20', number: '2026-0001', updatedAt: r!.updated_at, acks: [] } })
+    expect(await issue.json()).toEqual({ ok: true, id })
+    const res = await page.request.post(`/api/rechnungen/${id}/gutschrift`, { data: { invoiceDate: '2026-10-20', number: '2026-0002', reason: '', acks: [] } })
+    const credit = (await res.json()) as { ok: boolean; id: string }
+    expect(credit.ok).toBe(true)
+    await openInvoice(page, credit.id)
+    await expect(page.getByRole('heading', { name: '2026-0002' })).toBeVisible()
+    await expect(page.getByRole('region', { name: 'Rückzahlungen' })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Rückzahlung erfassen' })).toHaveCount(0)
+  })
+})
+
 test.describe('Zahlungsliste', () => {
   test('AC: Monat mit Summen, Filter Zahlungsart, Suche, „Alle Monate“, Rückzahlung negativ', async ({ page, users }) => {
     desktopOnly()

@@ -1,6 +1,6 @@
 # PROJ-45: Zahlungserfassung
 
-## Status: In Review
+## Status: Approved
 **Created:** 2026-11-06
 **Last Updated:** 2026-11-06
 
@@ -550,11 +550,11 @@ Keine neuen Pakete (Bildumwandlung, Hochladen, Griff zum Ordnen und Monatsauswah
 #### Bearbeiten und Löschen
 - [x] Inhaber ändert (inkl. Zahlungsart) und löscht mit Bestätigung (E2E)
 - [x] Löschsperre der nacherfassten Rechnung mit Zahlungen, Meldung wie in der Spec (E2E)
-- [ ] BUG-2: Nach dem Löschen einer nacherfassten Rechnung ohne Zahlungen bleibt die Seite sporadisch auf „Seite nicht gefunden“ (Regression)
+- [x] BUG-2 behoben (Nachtest): Löschen wechselt zuverlässig zur Liste mit „Rechnung gelöscht.“ (11 von 11 Läufen)
 
 #### Nacherfassen mit „Bereits bezahlt“
 - [x] Datenbank: Zahlung über den vollen Betrag im selben Schritt, mit Provision, Zurückrollen bei ungültiger Zahlungsart (Integration)
-- [ ] BUG-1: Einschalten des Schalters bringt die Seite zum Absturz
+- [x] BUG-1 behoben (Nachtest): Schalter zeigt Zahlungsdatum (= Rechnungsdatum) und Standard-Zahlungsart; Rechnung danach „bezahlt“ (E2E)
 
 #### Zahlungsliste
 - [x] Monat mit Summen (eingegangen, Provision, Gebühr), Filter Zahlungsart (in der Adresse), Suche nach Notiz, „Alle Monate“, leerer Zeitraum, leere Liste (E2E, Integration)
@@ -600,6 +600,7 @@ Keine neuen Pakete (Bildumwandlung, Hochladen, Griff zum Ordnen und Monatsauswah
 - **Ursache:** `src/components/payments/already-paid-fields.tsx` setzt `<FormDescription>` außerhalb eines `FormField`/`FormItem`; `useFormField` wirft „should be used within <FormField>“, sobald der Betrag angezeigt wird. Abhilfe: einfacher Absatz statt `FormDescription`.
 - **Test:** E2E „Nacherfassen mit ‚Bereits bezahlt‘“ schlägt fehl
 - **Priority:** Fix before deployment
+- **Status:** behoben 2026-11-06: einfacher Absatz statt `FormDescription`; dabei gefunden und behoben: die Standard-Zahlungsart war nicht vorbelegt (wird jetzt gesetzt, sobald die Liste geladen ist)
 
 #### BUG-2: Nach „Rechnung löschen“ bleibt die Seite sporadisch auf „Seite nicht gefunden“ (Regression PROJ-37)
 - **Severity:** High (bestehender E2E-Test schlägt fehl)
@@ -609,6 +610,7 @@ Keine neuen Pakete (Bildumwandlung, Hochladen, Griff zum Ordnen und Monatsauswah
   3. Actual: in etwa jedem zweiten Lauf bleibt die Adresse auf `/rechnungen/<id>` und die Seite zeigt „Seite nicht gefunden“ (die Rechnung ist gelöscht)
 - **Nachweis:** PROJ-37-Test „Löschen – Abbrechen behält, Bestätigen entfernt …“ 2 von 4 bzw. 1 von 2 Läufen rot; mit vorübergehend ausgeblendetem Abschnitt „Zahlungen“ 4 von 4 grün. Vermutlich überholt das Neuladen der Detailseite (zusätzliche Abfragen des Zahlungsabschnitts) die Weiterleitung aus `deleteInvoice` (bekanntes Next-16-Verhalten, siehe `router-push`-Notiz); die Rückfall-Weiterleitung nach 4 s kommt nicht rechtzeitig.
 - **Priority:** Fix before deployment
+- **Status:** behoben 2026-11-06: `deleteInvoice` leitet nicht mehr selbst weiter; der Browser wechselt fest zur Liste (`/rechnungen?geloescht=1`), die Liste zeigt die Bestätigung über `DeletedNotice` (Muster aus dem Gast-Löschen, PROJ-7). Vermutete Ursache: Neuladen der aktuellen Seite nach der Aktion (Cookies der Sitzung bzw. revalidatePath) überholte die Weiterleitung; mit dem schwereren Rechnungsdetail häufiger. Nur `revalidatePath` wegzulassen reichte nicht (5 von 6)
 
 #### BUG-3: Gutschrift ohne Zahlungen zeigt einen leeren Abschnitt „Rückzahlungen“
 - **Severity:** Low
@@ -616,6 +618,7 @@ Keine neuen Pakete (Bildumwandlung, Hochladen, Griff zum Ordnen und Monatsauswah
 - **Expected (Spec):** Zahlungsstatus „–“, kein Knopf
 - **Actual:** kein Knopf (richtig), aber Abschnitt mit „Noch keine Rückzahlung erfasst.“ und Summen € 0,00
 - **Priority:** Nice to have
+- **Status:** behoben 2026-11-06: Abschnitt entfällt bei Gutschrift ohne Guthaben und ohne Rückzahlungen (E2E „BUG-3“)
 
 ### Testpflege (keine Bugs, durch die Spec beabsichtigt)
 - `tests/PROJ-37-rechnungen-nacherfassen.spec.ts`: Spaltenköpfe mit „Zahlung“; „Zahlungen“ steht zwischen „Rechnungen“ und „Einstellungen“
@@ -626,12 +629,18 @@ Keine neuen Pakete (Bildumwandlung, Hochladen, Griff zum Ordnen und Monatsauswah
 - Integrationstests aller Bereiche grün (außer Anmelde-Dateien, wegen Anmeldegrenzen nicht gelaufen); 745 Unit-Tests grün
 - Nicht geprüft: Firefox und Safari (optional, nicht gelaufen)
 
+### Nachtest nach den Korrekturen (2026-11-06)
+- PROJ-45 E2E (Desktop): alle 16 grün, darunter der neue Regressionstest „BUG-3“
+- PROJ-37 „Löschen – Abbrechen behält, Bestätigen entfernt …“: 11 von 11 Läufen grün; Block „Bearbeiten, Löschen, Buchungsdetail“ 7 von 8, der eine Ausreißer beim **Anlegen** (Detailseite erschien nicht binnen 5 s), in 5 Wiederholungen danach nicht mehr aufgetreten — als Beobachtung notiert, kein reproduzierbarer Fehler
+- PROJ-7 Gast löschen (gemeinsamer Baustein `DeletedNotice`): grün
+- 745 Unit-Tests, Lint, Typen: grün
+
 ### Summary
-- **Acceptance Criteria:** alle Gruppen bestanden außer „Bereits bezahlt“ in der Oberfläche (BUG-1) und dem Löschen einer Rechnung (BUG-2)
-- **Bugs Found:** 3 total (0 critical, 2 high, 0 medium, 1 low)
+- **Acceptance Criteria:** alle bestanden (nach Nachtest)
+- **Bugs Found:** 3 total (0 critical, 2 high, 0 medium, 1 low) — alle behoben
 - **Security:** Pass
-- **Production Ready:** NO
-- **Recommendation:** BUG-1 und BUG-2 beheben, dann `/qa` erneut
+- **Production Ready:** YES
+- **Recommendation:** Deploy (beide Migrationen vor dem Code einspielen)
 
 ## Deployment
 _To be added by /deploy_

@@ -208,10 +208,14 @@ export function InvoicePanel({ open, onOpenChange, invoice, today }: InvoicePane
       } else if (result.error !== 'sessionExpired') toast.error(t(`errors.unknown`))
       return
     }
-    const methods = result.data ?? []
-    setPaidMethods(methods)
-    if (!paidForm.getValues('methodId')) paidForm.setValue('methodId', methods.find((m) => m.isDefault)?.id ?? methods[0]?.id ?? '')
+    setPaidMethods(result.data ?? [])
   }
+
+  // Standard-Zahlungsart vorbelegen, sobald die Liste da ist (vorher kennt die Auswahl den Wert noch nicht)
+  useEffect(() => {
+    if (!alreadyPaid || !paidMethods?.length || paidForm.getValues('methodId')) return
+    paidForm.setValue('methodId', paidMethods.find((m) => m.isDefault)?.id ?? paidMethods[0].id)
+  }, [alreadyPaid, paidMethods, paidForm])
 
   async function save(values: InvoiceInput, forceNewGuest = false) {
     setError(null)

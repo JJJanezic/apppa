@@ -205,7 +205,9 @@ export async function deleteInvoice(input: { id: string }): Promise<Result & { d
   // Die Funktion meldet das PDF der gelöschten Rechnung zurück
   await removeInvoiceFiles([data])
   revalidate({ bookingIds: [before?.booking_id] })
-  redirect(LIST)
+  // Keine Weiterleitung aus der Aktion (QA BUG-2, PROJ-45): Das Neuladen der jetzt gelöschten Rechnung überholte sie sporadisch
+  // („Seite nicht gefunden“). Der Browser wechselt selbst (wie beim Löschen eines Gastes); die Liste zeigt die Bestätigung.
+  return { ok: true, redirectTo: `${LIST}?geloescht=1` }
 }
 
 // PDF hochladen: Der Server vergibt Speicherort und einmaligen Upload-Schlüssel im Ordner des eigenen Kunden;

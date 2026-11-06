@@ -4,7 +4,7 @@ import { useTranslations } from 'next-intl'
 import { type UseFormReturn } from 'react-hook-form'
 
 import { AmountInput } from '@/components/amount-input'
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
@@ -112,8 +112,9 @@ export function AlreadyPaidFields({ form, on, onToggle, methods, unavailable, pl
                 ))}
               </div>
             )}
+            {/* Kein FormDescription: der braucht ein umgebendes FormField (QA BUG-1) */}
             {paidOut !== null && (
-              <FormDescription>{t(platform ? 'paidOutPlatform' : 'paidOut', { amount: formatCents(paidOut) })}</FormDescription>
+              <p className="text-sm text-muted-foreground">{t(platform ? 'paidOutPlatform' : 'paidOut', { amount: formatCents(paidOut) })}</p>
             )}
           </div>
         </Form>

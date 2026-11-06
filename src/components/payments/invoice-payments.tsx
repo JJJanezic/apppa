@@ -14,15 +14,17 @@ import { getInvoicePayments, getPaymentMethods } from '@/lib/payments-data'
 import { cn } from '@/lib/utils'
 
 // Abschnitt „Zahlungen“ (Rechnung) bzw. „Rückzahlungen“ (Gutschrift) im Rechnungsdetail (PROJ-45), für Inhaber und Mitarbeiter.
-// Erfassen dürfen beide, Bearbeiten und Löschen nur Inhaber. Ohne Zahlungsstand (Altrechnung mit Betrag ≤ 0) und ohne
-// Einträge bleibt der Abschnitt weg.
+// Erfassen dürfen beide, Bearbeiten und Löschen nur Inhaber. Ohne Zahlungsstand (Altrechnung mit Betrag ≤ 0) bzw. bei einer
+// Gutschrift ohne Guthaben und jeweils ohne Einträge bleibt der Abschnitt weg.
 export async function InvoicePaymentsSection({ invoice }: { invoice: Invoice }) {
   const [t, { state, payments, platform, owner, ready }, methods] = await Promise.all([
     getTranslations('payments'),
     getInvoicePayments(invoice),
     getPaymentMethods(),
   ])
-  if (state.mode === 'none' && payments.length === 0) return null
+  // Ohne Einträge weglassen: kein Zahlungsstand, oder Gutschrift ohne Guthaben (Rechnung war nie bezahlt; QA BUG-3)
+  const nothingToRefund = state.mode === 'credit' && state.balanceCents <= 0 && state.refundedCents === 0
+  if ((state.mode === 'none' || nothingToRefund) && payments.length === 0) return null
   const today = todayIso()
   const credit = state.mode === 'credit'
   const choice = {

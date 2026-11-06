@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { getTranslations } from 'next-intl/server'
 
 import { EmptyState } from '@/components/empty-state'
+import { DeletedNotice } from '@/components/guests/deleted-notice'
 import { NewInvoiceButton } from '@/components/invoices/invoice-buttons'
 import { InvoiceList } from '@/components/invoices/invoice-list'
 import { InvoiceSearch } from '@/components/invoices/invoice-search'
@@ -46,6 +47,7 @@ export default async function InvoicesPage({ searchParams }: { searchParams: Sea
     return (
       <>
         <PageHeader title={t('title')} lead={t('lead')} />
+        <DeletedNotice message={t('done.deleted')} />
         <EmptyState icon={Receipt} title={t('emptyTitle')} text={action ? t('emptyTextOwner') : t('emptyTextStaff')} action={action} />
       </>
     )
@@ -54,6 +56,7 @@ export default async function InvoicesPage({ searchParams }: { searchParams: Sea
   return (
     <>
       <PageHeader title={t('title')} lead={t('lead')} action={action} />
+      <DeletedNotice message={t('done.deleted')} />
       <section className="flex flex-col gap-4">
         <InvoiceSearch query={filters.query} />
         <p className="text-sm text-ds-neutral-800" aria-live="polite">
