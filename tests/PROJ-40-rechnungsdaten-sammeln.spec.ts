@@ -867,6 +867,8 @@ test.describe('Pflichtangaben und Vorschau', () => {
     await expect(page.getByText('Keine Umsatzsteuer (Kleinunternehmer)')).toBeVisible()
     await expect(page.locator('dl[aria-label="Darin enthaltene Umsatzsteuer"]')).toHaveCount(0)
     await page.getByRole('button', { name: 'Vorschau' }).click()
+    // erst lesen, wenn der Text der PDF-Vorschau geladen ist (sonst wackelig, QA PROJ-39 BUG-1)
+    await expect(page.getByRole('article', { name: 'Rechnungsvorschau' })).toContainText('Kleinunternehmerregelung', { timeout: 15_000 })
     const content = text(await page.getByRole('article', { name: 'Rechnungsvorschau' }).innerText())
     expect(content.indexOf('Kleinunternehmerregelung')).toBeGreaterThan(content.indexOf('Rechnungsbetrag'))
     expect(content.indexOf('Kleinunternehmerregelung')).toBeLessThan(content.indexOf('Bitte überweisen'))

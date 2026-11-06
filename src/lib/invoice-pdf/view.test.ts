@@ -1,9 +1,12 @@
+import { createTranslator } from 'use-intl/core'
 import { describe, expect, it } from 'vitest'
 
 import type { InvoicePreviewModel } from '@/lib/invoice-preview'
 import { buildPdfView, pdfDoc } from '@/lib/invoice-pdf/view'
 import { DEFAULT_LETTERHEAD } from '@/lib/letterhead'
 import { docFromText, emptyDoc } from '@/lib/rich-text'
+
+import messages from '../../../messages/de.json'
 
 const t = (key: string, values?: Record<string, string | number>) => `${key}${values ? JSON.stringify(values) : ''}`
 
@@ -69,3 +72,74 @@ describe('Inhalte', () => {
     expect(pdfDoc(doc)?.content).toHaveLength(4)
   })
 })
+
+describe('Schreibweise der USt (PROJ-40, refine 2026-11-06)', () => {
+  // echte deutsche Texte, damit die Formulierungen geprüft sind
+  const de = createTranslator({ locale: 'de', messages, namespace: 'invoiceDrafts.preview' }) as unknown as (key: string, values?: Record<string, string | number>) => string
+  const view = (over: Partial<InvoicePreviewModel> = {}) =>
+    buildPdfView({ model: model(over), letterhead: DEFAULT_LETTERHEAD, number: 'Entwurf', mark: null, logo: null, t: de, pageOf: 'S', locale: 'de' }).view
+  const norm = (s: string | undefined) => s?.replace(/\u00a0/g, ' ')
+  const shares = (s: { vatBp: number; grossCents: number; vatCents: number }[], linesCents: number, deductionsCents = 0) => ({
+    linesCents,
+    deductionsCents,
+    totalCents: linesCents - deductionsCents,
+    vatShares: s,
+  })
+
+  it('Zeilen „· (inkl. 10 % USt.)“, auch 0 %; Rechnungsbetrag „(inkl. USt.)“; Tabelle „10 % aus € 409,09“', () => {
+    const v = view({
+      lines: [
+        { label: 'Übernachtung', amountCents: 39000, vatBp: 1000, source: null },
+        { label: 'Endreinigung', amountCents: 6000, vatBp: 1000, source: null },
+        { label: 'Nächtigungsabgabe', amountCents: 1200, vatBp: 0, source: null },
+      ],
+      totals: shares([{ vatBp: 1000, grossCents: 45000, vatCents: 4091 }], 46200),
+    } as Partial<InvoicePreviewModel>)
+    expect(v.services.rows.map((r) => norm(r.label))).toEqual([
+      'Übernachtung · (inkl. 10 % USt.)',
+      'Endreinigung · (inkl. 10 % USt.)',
+      'Nächtigungsabgabe · (inkl. 0 % USt.)',
+    ])
+    expect(v.services.totals.map((r) => r.label)).toEqual(['Rechnungsbetrag (inkl. USt.)'])
+    expect(v.services.vatTitle).toBe('Darin enthaltene Umsatzsteuer')
+    expect(v.services.vatRows.map((r) => [norm(r.label), norm(r.amount)])).toEqual([['10 % aus € 409,09', '€ 40,91']])
+  })
+
+  it('Teilrechnung: „Anteil (inkl. 10 % USt.)“', () => {
+    const v = view({
+      kind: 'partial',
+      partialLabel: 'Anzahlung für Aufenthalt',
+      lines: [
+        { label: 'Anteil', amountCents: 9000, vatBp: 1000, source: null },
+        { label: 'Anteil', amountCents: 1000, vatBp: 2000, source: null },
+      ],
+      totals: shares([{ vatBp: 1000, grossCents: 9000, vatCents: 818 }, { vatBp: 2000, grossCents: 1000, vatCents: 167 }], 10000),
+    } as Partial<InvoicePreviewModel>)
+    expect(v.services.rows.slice(1).map((r) => norm(r.label))).toEqual(['Anteil (inkl. 10 % USt.)', 'Anteil (inkl. 20 % USt.)'])
+    expect(v.services.vatRows.map((r) => norm(r.label))).toEqual(['10 % aus € 81,82', '20 % aus € 8,33'])
+  })
+
+  it('Schlussrechnung mit Abzug: beide Summen mit „(inkl. USt.)“, Netto nach Abzug', () => {
+    const v = view({
+      kind: 'final',
+      deductions: [{ id: 'd', number: 'R-1', invoiceDate: '2026-10-01', kind: 'partial', origin: 'issued', totalCents: 10000, vatShares: [{ vatBp: 1000, grossCents: 10000, vatCents: 909 }] }],
+      lines: [{ label: 'Übernachtung', amountCents: 45000, vatBp: 1000, source: null }],
+      totals: shares([{ vatBp: 1000, grossCents: 35000, vatCents: 3182 }], 45000, 10000),
+    } as Partial<InvoicePreviewModel>)
+    expect(v.services.totals[0].label).toBe('Summe der Leistungen (inkl. USt.)')
+    expect(v.services.totals.at(-1)?.label).toBe('Rechnungsbetrag (inkl. USt.)')
+    expect(norm(v.services.vatRows[0].label)).toBe('10 % aus € 318,18')
+  })
+
+  it('Kleinunternehmer und nur 0 %: Summen ohne Zusatz, keine Tabelle', () => {
+    const small = view({ smallBusiness: true, totals: shares([], 10000) })
+    expect(small.services.rows[0].label).toBe('Übernachtung')
+    expect(small.services.totals.map((r) => r.label)).toEqual(['Rechnungsbetrag'])
+    expect(small.services.vatRows).toEqual([])
+    const zero = view({ lines: [{ label: 'Nächtigungsabgabe', amountCents: 1200, vatBp: 0, source: null }], totals: shares([], 1200) } as Partial<InvoicePreviewModel>)
+    expect(norm(zero.services.rows[0].label)).toBe('Nächtigungsabgabe · (inkl. 0 % USt.)')
+    expect(zero.services.totals.map((r) => r.label)).toEqual(['Rechnungsbetrag'])
+    expect(zero.services.vatTitle).toBeNull()
+  })
+})
+

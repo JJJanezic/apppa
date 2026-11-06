@@ -1,6 +1,6 @@
 # PROJ-40: Rechnungsdaten sammeln (Entwurf)
 
-## Status: Planned
+## Status: In Progress
 **Created:** 2026-10-31
 **Last Updated:** 2026-11-06
 
@@ -523,6 +523,16 @@ Keine neuen Pakete.
 - **Lesen:** RLS für die neuen Spalten/Tabellen wie `invoices`; Betreiber ohne Zugriff auf Entwürfe. Buchungsübersicht nutzt `billed:invoices(id)` mit Filter `billed.origin=neq.draft`.
 - **Fehlercodes:** P0920 nichts zu verrechnen, P0921 Abzug ungültig, P0922 Inhalt ungültig, P0923 kein Entwurf; dazu die bestehenden (P0901/42501, P0902, P0903, P0908, P0016).
 - Nach der Migration die Typen neu erzeugen (`src/types/database.ts` ist von Hand vorbereitet).
+
+### Schreibweise der USt (Frontend, 2026-11-06)
+- Kein eigenes Tech Design (Nutzerfreigabe 2026-11-06): nur Texte an einer Stelle, keine Datenbank, keine neuen Bausteine oder Pakete
+- `src/lib/invoice-pdf/view.ts` (gemeinsam für Entwurfsvorschau, Musterrechnung und ausgestellte PDFs): Leistungszeilen über Text `lineVat` „{label} · (inkl. {rate} USt.)“; Summen „Summe der Leistungen (inkl. USt.)“/„Rechnungsbetrag (inkl. USt.)“ nur, wenn keine Kleinunternehmer-Rechnung und mindestens eine Position über 0 %; USt-Tabelle links `vatBase` „{rate} aus {net}“ mit Netto = Brutto − USt je Satz (bei Schlussrechnungen die Werte nach Abzug)
+- `messages/de.json` (`invoiceDrafts.preview`): `partialShare` „Anteil (inkl. {rate} USt.)“, neu `lineVat`, `subtotalVat`, `totalVat`, `vatBase`
+- Unverändert: Detailansichten in der App (Entwurf, ausgestellte und nacherfasste Rechnung, Buchung) – sie sind keine Rechnungsdokumente; Abzugszeilen „darin USt …“
+- Bereits ausgestellte PDFs bleiben, weil sie abgelegt sind
+- Tests: Unit `view.test.ts` +4 mit den echten deutschen Texten (Zeilen inkl. 0 %, Teilrechnung, Schlussrechnung mit Abzug und Netto nach Abzug, Kleinunternehmer und nur 0 %); E2E PROJ-41 neu „Musterrechnung mit (inkl. 10 % USt.) …“; Regression PROJ-40 Vorschau/Teil-/Schlussrechnung/Kleinunternehmer 18, PROJ-42 PDF 6, PROJ-41 Musterrechnung grün; Unit gesamt grün
+- Nebenbei behoben: wackeliger E2E PROJ-40 „Kleinunternehmer-Buchung“ (QA PROJ-39 BUG-1) wartet jetzt auf den Text der PDF-Vorschau; 4/4 grün
+- Hinweis: Die Musterrechnung (`src/lib/invoice-pdf/sample.ts`) setzt die Endreinigung mit 20 % an, damit zwei Sätze erscheinen; in Buchungen ist der Vorschlag 10 %
 
 ## Implementation Notes (Backend)
 **Stand 2026-10-31.** Migration `supabase/migrations/20261031175615_invoice_drafts.sql`, in Dev eingespielt; Typen neu erzeugt (entsprechen der Handvorbereitung); Advisors ohne Befund zur Datenbank (nur die bekannten Auth-Einstellungen in Dev).

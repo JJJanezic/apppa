@@ -683,5 +683,18 @@ test.describe('PROJ-8 Endreinigung (refine 2026-11-05)', () => {
     await expect(previewText(page)).toContainText('Endreinigung', { timeout: 15_000 })
     await expect(previewText(page)).not.toContainText(/(^|[^d])Reinigung/)
   })
+
+  test('AC (PROJ-40, refine 2026-11-06): Musterrechnung mit „(inkl. 10 % USt.)“, „Rechnungsbetrag (inkl. USt.)“ und „10 % aus €“', async ({ page, users }) => {
+    const owner = await users()
+    await createTenant('QA40 USt', [{ user: owner, role: 'owner' }])
+    await signInAs(page, owner)
+    await page.goto('/einstellungen/briefpapier')
+    await ready(page)
+    const text = previewText(page)
+    await expect(text).toContainText(/Übernachtung\s·\s\(inkl\.\s10\s%\sUSt\.\)/, { timeout: 15_000 })
+    await expect(text).toContainText(/Endreinigung\s·\s\(inkl\.\s\d+\s%\sUSt\.\)/)
+    await expect(text).toContainText(/Rechnungsbetrag\s\(inkl\.\sUSt\.\)/)
+    await expect(text).toContainText(/10\s%\saus\s€\s[\d.]+,\d{2}/)
+  })
 })
 

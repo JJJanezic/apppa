@@ -89,17 +89,20 @@ function serviceRows(m: InvoicePreviewModel, t: T): { rows: PdfRow[]; totals: Pd
   } else if (m.lines.length) {
     for (const l of m.lines) {
       const r = rate(l.vatBp)
-      rows.push({ label: r ? `${l.label} · ${r}` : l.label, amount: formatCents(l.amountCents) })
+      rows.push({ label: r ? t('lineVat', { label: l.label, rate: r }) : l.label, amount: formatCents(l.amountCents) })
     }
   } else {
     rows.push({ label: t('noLines'), amount: '' })
   }
+  // „(inkl. USt.)“ an den Summen nur, wenn USt enthalten ist: nicht bei Kleinunternehmern und nicht, wenn keine
+  // Position mehr als 0 % hat (PROJ-40, refine 2026-11-06)
+  const withVat = !m.smallBusiness && m.lines.some((l) => l.vatBp > 0)
   const totals: PdfRow[] = []
   if (m.deductions.length) {
-    totals.push({ label: t('subtotal'), amount: formatCents(m.totals.linesCents), bold: true })
+    totals.push({ label: t(withVat ? 'subtotalVat' : 'subtotal'), amount: formatCents(m.totals.linesCents), bold: true })
     totals.push(...m.deductions.map((d) => deductionRow(d, t)))
   }
-  totals.push({ label: t('total'), amount: formatCents(m.totals.totalCents), bold: true })
+  totals.push({ label: t(withVat ? 'totalVat' : 'total'), amount: formatCents(m.totals.totalCents), bold: true })
   return { rows, totals }
 }
 
@@ -139,7 +142,11 @@ export function buildPdfView(p: PdfViewInput): { view: PdfView; logo: LogoBox | 
         totals,
         note: m.missingDeductions > 0 ? t('deductionMissing') : null,
         vatTitle: m.totals.vatShares.length ? t('vatIncluded') : null,
-        vatRows: m.totals.vatShares.map((s) => ({ label: formatVatRate(s.vatBp), amount: formatCents(s.vatCents) })),
+        // links „10 % aus € 409,09“: Nettobetrag je Satz = Brutto minus enthaltene USt (bei Schlussrechnungen nach Abzug)
+        vatRows: m.totals.vatShares.map((s) => ({
+          label: t('vatBase', { rate: formatVatRate(s.vatBp), net: formatCents(s.grossCents - s.vatCents) }),
+          amount: formatCents(s.vatCents),
+        })),
       },
       smallBusinessNote: m.smallBusiness ? pdfDoc(m.smallBusinessNote) : null,
       payment: pdfDoc(m.texts.payment, m.values),
