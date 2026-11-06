@@ -1,8 +1,10 @@
 # PROJ-40: Rechnungsdaten sammeln (Entwurf)
 
-## Status: Deployed
+## Status: Planned
 **Created:** 2026-10-31
-**Last Updated:** 2026-10-31
+**Last Updated:** 2026-11-06
+
+> Grundumfang in Produktion. Geplant (refine 2026-11-06): neue Schreibweise im Leistungsblock (Abschnitt „Leistungen: Schreibweise der USt“).
 
 ## Dependencies
 - Requires: PROJ-4 (Kundenkonten & Rollen): nur Inhaber erstellen, Mitarbeiter sehen, Mandantentrennung
@@ -82,6 +84,22 @@ Wahl je Rechnung: **„keine Gastnamen“** (immer vorausgewählt), „Hauptgast
 - Summe und enthaltene USt je Satz wie PROJ-35.
 - **Kleinunternehmer-Status nach der Buchung** (PROJ-36: Abreise, bei stornierten Buchungen Stornodatum), für alle Rechnungen einer Buchung gleich. Im Entwurf bei jedem Öffnen neu ermittelt, festgehalten erst beim Ausstellen (PROJ-41). Bei Kleinunternehmer: keine USt-Ausweisung, Kleinunternehmer-Hinweis aus PROJ-39 nach Block 5 (nicht änderbar).
 - **Nacherfasste Rechnungen (PROJ-37) bleiben unberührt:** Sie wurden bereits außerhalb der App ausgestellt; erfasst werden nur ihre Daten und das vorhandene PDF. Die Regel gilt nur für Rechnungen, die in der App entstehen.
+
+### Leistungen: Schreibweise der USt (refine 2026-11-06)
+Gilt für alle in der App erzeugten Rechnungen: Entwurfsvorschau, Musterrechnung im Briefpapier (PROJ-41) und ausgestellte PDFs (PROJ-42). Bereits ausgestellte PDFs bleiben unverändert.
+
+| Stelle | Bisher | Neu |
+|---|---|---|
+| Leistungszeile | „Übernachtung · 10 %“ | „Übernachtung · (inkl. 10 % USt.)“ |
+| Leistungszeile mit 0 % | „Nächtigungsabgabe · 0 %“ | „Nächtigungsabgabe · (inkl. 0 % USt.)“ |
+| Teilrechnung, Anteil je Satz | „Anteil 10 %“ | „Anteil (inkl. 10 % USt.)“ |
+| Summe der Leistungen (Schlussrechnung mit Abzug) | „Summe der Leistungen“ | „Summe der Leistungen (inkl. USt.)“ |
+| Rechnungsbetrag | „Rechnungsbetrag“ | „Rechnungsbetrag (inkl. USt.)“ |
+| USt-Tabelle, links | „10 %“ | „10 % aus € 409,09“ |
+
+- **Betrag in der USt-Tabelle:** Summe der Nettobeträge zum Satz, also Bruttosumme des Satzes minus der darin enthaltenen USt. Bei der Schlussrechnung gilt der Betrag nach Abzug der Teilrechnungen, wie die USt in derselben Zeile. Format wie alle Beträge („€ 1.234,56“).
+- **Ohne Zusatz bei den Summen:** Bei Kleinunternehmer-Rechnungen und bei Rechnungen ohne jede Position mit mehr als 0 % stehen „Summe der Leistungen“ und „Rechnungsbetrag“ ohne „(inkl. USt.)“. Leistungszeilen bei Kleinunternehmern bleiben ohne Satz wie bisher; 0-%-Zeilen ohne Kleinunternehmer erhalten „(inkl. 0 % USt.)“.
+- **Unverändert:** Überschrift „Darin enthaltene Umsatzsteuer“, Abzugszeilen samt „darin USt 10 % € …“, Beträge rechts, Anordnung. Die Anzeige im Buchungsdetail („Endreinigung · 10 %“) ist keine Rechnung und bleibt.
 
 ### Pflichtangaben-Prüfung
 Im Entwurf und in der Vorschau sichtbare Liste „Pflichtangaben“ mit ✓ bzw. Fehlertext und Link zum Feld. Speichern ist bei Fehlern möglich, Ausstellen (PROJ-41) nicht. Die Rechnungsnummer fehlt im Entwurf immer und gilt nicht als Fehler.
@@ -220,6 +238,18 @@ Im Entwurf und in der Vorschau sichtbare Liste „Pflichtangaben“ mit ✓ bzw.
 - [ ] Angenommen nach dem Speichern wird der Kleinunternehmer-Verlauf geändert, wenn der Entwurf wieder geöffnet wird, dann gilt der neue Status
 - [ ] Angenommen eine nacherfasste Rechnung, wenn PROJ-40 eingespielt ist, dann bleibt ihre Anzeige unverändert (Verhalten wie PROJ-37)
 
+### Schreibweise der USt (refine 2026-11-06)
+- [ ] Angenommen eine Rechnung mit Übernachtung 10 % und Endreinigung 10 %, wenn die Vorschau erscheint, dann lauten die Zeilen „Übernachtung · (inkl. 10 % USt.)“ und „Endreinigung · (inkl. 10 % USt.)“
+- [ ] Angenommen eine Position Nächtigungsabgabe mit 0 % und eine Übernachtung mit 10 %, wenn die Vorschau erscheint, dann lautet die Zeile „Nächtigungsabgabe · (inkl. 0 % USt.)“ und der Rechnungsbetrag „Rechnungsbetrag (inkl. USt.)“
+- [ ] Angenommen eine Teilrechnung nach Betrag mit Anteilen zu 10 % und 20 %, wenn die Vorschau erscheint, dann lauten die Anteile „Anteil (inkl. 10 % USt.)“ und „Anteil (inkl. 20 % USt.)“
+- [ ] Angenommen eine Schlussrechnung mit Abzug, wenn die Vorschau erscheint, dann lauten die Summen „Summe der Leistungen (inkl. USt.)“ und „Rechnungsbetrag (inkl. USt.)“
+- [ ] Angenommen Positionen zu 10 % mit zusammen € 450,00 brutto, wenn die USt-Tabelle erscheint, dann steht links „10 % aus € 409,09“ und rechts „€ 40,91“
+- [ ] Angenommen eine Schlussrechnung zieht eine Teilrechnung ab, wenn die USt-Tabelle erscheint, dann ist der Nettobetrag je Satz der Wert nach Abzug, passend zur USt in derselben Zeile
+- [ ] Angenommen eine Kleinunternehmer-Rechnung, wenn die Vorschau erscheint, dann haben Zeilen und Summen keinen Zusatz und es gibt keine USt-Tabelle (wie bisher)
+- [ ] Angenommen eine Rechnung nur mit 0-%-Positionen, wenn die Vorschau erscheint, dann stehen die Zeilen mit „(inkl. 0 % USt.)“, der Rechnungsbetrag ohne Zusatz, und es gibt keine USt-Tabelle
+- [ ] Angenommen eine ausgestellte Rechnung (PROJ-42), wenn ihr PDF erzeugt wird, dann hat es die neue Schreibweise; vorher ausgestellte PDFs bleiben unverändert
+- [ ] Angenommen das Briefpapier (PROJ-41), wenn die Musterrechnung erscheint, dann zeigt sie die neue Schreibweise
+
 ### Pflichtangaben
 - [ ] Angenommen ein Rechnungsbetrag von € 300 und ein Empfänger ohne Anschrift, wenn die Pflichtangaben geprüft werden, dann gibt es keinen Fehler zur Anschrift
 - [ ] Angenommen ein Rechnungsbetrag von € 500 und ein Empfänger ohne PLZ, wenn die Pflichtangaben geprüft werden, dann zeigt die Liste den Fehler mit Link zum Feld
@@ -305,6 +335,8 @@ Im Entwurf und in der Vorschau sichtbare Liste „Pflichtangaben“ mit ✓ bzw.
 | Teilbetrag und Summenüberschreitung nur Hinweis, keine Sperre im Entwurf | Wie PROJ-37; Sperre wirkt nur auf den Knopf | 2026-10-31 |
 | Entwürfe zählen beim Filter „ohne/mit Rechnung“ nicht als Rechnung, erscheinen aber in der Spalte als „Entwurf“ | „ohne Rechnung“ soll zeigen, was noch nicht verrechnet ist; Entwurf ist sichtbar | 2026-10-31 |
 | Mitarbeiter sehen Entwürfe samt Vorschau, ohne Bearbeiten | Wie bei nacherfassten Rechnungen (PROJ-37) | 2026-10-31 |
+| Schreibweise im Leistungsblock: „· (inkl. 10 % USt.)“ je Zeile, „Anteil (inkl. 10 % USt.)“, „(inkl. USt.)“ bei Summe der Leistungen und Rechnungsbetrag, USt-Tabelle „10 % aus € [Netto]“ | Nutzerwunsch 2026-11-06; macht die Bruttobeträge auf der Rechnung ausdrücklich | 2026-11-06 |
+| 0-%-Zeilen erhalten „(inkl. 0 % USt.)“; Summen ohne Zusatz, wenn keine Position mehr als 0 % hat, und bei Kleinunternehmern | Nutzerentscheidung 2026-11-06: einheitliche Zeilen; „inkl. USt.“ bei der Summe nur, wenn tatsächlich USt enthalten ist | 2026-11-06 |
 | Bausteintexte als Kopie im Entwurf, Platzhalter erst in der Vorschau ersetzt | Änderungen an Einstellungen wirken nicht auf Entwürfe (PROJ-39); Werte wie Zeitraum bleiben aktuell | 2026-10-31 |
 
 ### Technical Decisions
