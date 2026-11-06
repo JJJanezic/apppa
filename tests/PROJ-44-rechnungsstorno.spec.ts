@@ -6,8 +6,7 @@ import { expect, type Page, test as base } from '@playwright/test'
 import type { Json } from '../src/types/database'
 import { anon, createTenant, createUser, deleteUser, type E2EUser, hasSupabaseEnv, service, signInAs } from './support/supabase'
 
-// PROJ-44: Gutschrift zu Rechnung. Regeln: src/lib/invoice-credit.test.ts. Die Abläufe mit ausgestellter Gutschrift laufen erst, wenn die
-// Datenbank Gutschriften kennt (/backend PROJ-44); bis dahin prüfen die Tests Einstieg, Seite, Prüfungen und Vorschau.
+// PROJ-44: Gutschrift zu Rechnung. Regeln: src/lib/invoice-credit.test.ts. Datenbank: supabase/tests/invoice-credit.integration.test.ts.
 
 type Users = (opts?: Parameters<typeof createUser>[0]) => Promise<E2EUser>
 
@@ -32,12 +31,6 @@ const ready = (page: Page) =>
 const previewText = (page: Page) => page.getByTestId('pdf-text')
 const submit = (page: Page) => page.getByRole('button', { name: 'Gutschrift ausstellen', exact: true })
 const plain = (v: string | null) => (v ?? '').replace(/ /g, ' ')
-
-// Kennt die Datenbank schon Gutschriften (Spalte aus /backend PROJ-44)?
-async function creditReady() {
-  const { error } = await service().from('invoices').select('credited_invoice_id' as 'id').limit(1)
-  return !error
-}
 
 let seq = 7400
 
@@ -261,10 +254,6 @@ test.describe('Gutschrift: Einstieg und Seite', () => {
 })
 
 test.describe('Gutschrift ausstellen und Wirkung', () => {
-  test.beforeEach(async () => {
-    test.skip(!(await creditReady()), 'Datenbank kennt Gutschriften noch nicht (/backend PROJ-44)')
-  })
-
   test('AC: Ausstellen bis zur Gutschrift; Rechnung storniert mit gegenseitigen Links; Buchung wieder offen; kein zweites Mal', async ({ page, users }) => {
     desktopOnly()
     const s = await setup(users)
@@ -295,6 +284,20 @@ test.describe('Gutschrift ausstellen und Wirkung', () => {
     await page.goto(`/buchungen/${s.bookingId}`)
     await ready(page)
     await expect(page.getByRole('link', { name: 'Rechnung', exact: true })).toBeVisible()
+
+    // Buchungsübersicht: „ohne Rechnung“ zeigt die Buchung (es zählt die Summe), Spalte mit beiden Belegen, Rechnung storniert
+    const { data: booking } = await service().from('bookings').select('number_year, number_seq').eq('id', s.bookingId).single()
+    const bookingNumber = `${booking!.number_year}-${String(booking!.number_seq).padStart(4, '0')}`
+    await page.goto('/buchungen?rechnung=ohne')
+    await ready(page)
+    const line = page.getByRole('row').filter({ hasText: bookingNumber })
+    await expect(line).toBeVisible()
+    await expect(line.getByRole('link', { name: '2026-0001' })).toBeVisible()
+    await expect(line.getByRole('link', { name: number })).toBeVisible()
+    await expect(line.getByText('(storniert)')).toBeVisible()
+    await page.goto('/buchungen?rechnung=mit')
+    await ready(page)
+    await expect(page.getByRole('row').filter({ hasText: bookingNumber })).toHaveCount(0)
   })
 })
 

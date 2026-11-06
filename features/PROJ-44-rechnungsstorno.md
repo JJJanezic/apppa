@@ -315,7 +315,7 @@ Keine neuen Pakete.
 - Die Spiegelung lebt in der Fassung: `kind` der Gutschrift-Fassung ist die Art der stornierten Rechnung (für die Anzahlungszeile), die Gutschrift erkennt man an `credit` in der Fassung und an der Spalte `kind = 'credit_note'`.
 - „Verrechnet“ im Buchungsformular (Ortstaxe automatisch, PROJ-15) zählt jetzt nach der Summe der Belege statt „irgendein Beleg“, passend zur Buchung „wieder offen“.
 
-**Offen für /backend** (Schnittstelle, die das Frontend erwartet)
+**Schnittstelle für /backend** (umgesetzt, siehe Implementation Notes (Backend))
 - `invoices.kind` erlaubt `'credit_note'`; neue Spalten `credited_invoice_id` (Fremdschlüssel auf die Rechnung desselben Kunden, eindeutig, nur und immer bei Gutschriften) und `credit_reason` (bis 300 Zeichen); Prüfregeln der Tabelle mit Ausnahme für Gutschriften (keine Fristen, Bausteine, Teilung)
 - RPC `public.issue_credit_note(p_input jsonb)`, nur `service_role`, liefert die ID der Gutschrift. Eingabe: `invoice_id, tenant_id, actor_id, number, invoice_date, reason, total_cents, lines [{label, amount_cents, vat_rate}], pdf_path, pdf_sha256, without_logo, snapshot`. Prüft Person (Inhaber), Kunde aktiv, Rechnung ausgestellt und keine Gutschrift, keine gültige Schlussrechnung zieht sie ab, Datum (nicht vor der Rechnung, nicht in der Zukunft), Nummer, Betrag = −Rechnungsbetrag, Datei. Sperrt die Rechnung, legt die Gutschrift an (Buchung, Gast, Empfängerfelder, Kleinunternehmer aus der Rechnung), entfernt Abzüge einer stornierten Teilrechnung aus Entwürfen (`detach_deductions`), Protokoll. Fehlercodes, die die Schnittstelle auswertet: P0904 Nummer vergeben, **P0934** schon storniert, **P0935** abgezogen, P0901/P0016 keine Rechte bzw. Kunde deaktiviert
 - „Abgezogen“ nur durch gültige Schlussrechnungen: `issued_final_deducting`, `check_deducted_invoice`/`save_invoice`/`delete_invoice`; `issue_invoice` lehnt stornierte und schon gültig abgezogene Teilrechnungen ab
@@ -328,6 +328,33 @@ Keine neuen Pakete.
 - PROJ-42-E2E angepasst (Knopf statt Hinweis; Schalter-Hinweis bei der nacherfassten Rechnung): betroffene Tests grün
 - Am Bild geprüft: Seite am Handy, Detailseite am Desktop
 - Nicht geprüft: Ausstellen selbst (Backend fehlt), Tablet, Firefox, Safari
+
+## Implementation Notes (Backend)
+
+**Migrationen (nur Dev, in dieser Reihenfolge):** `20261106082931_invoice_credit_notes.sql`, `20261106083354_invoice_credit_notes_history.sql`. RLS unverändert. `db advisors`: nur der bekannte Auth-Hinweis zur OTP-Dauer.
+
+**Datenbank**
+- `invoices`: Art `credit_note`; `credited_invoice_id` (Fremdschlüssel auf die Rechnung desselben Kunden, eindeutig: höchstens eine Gutschrift je Rechnung), `credit_reason` (bis 300 Zeichen); Prüfregel: Gutschrift immer ausgestellt und mit Verweis, sonst beides leer; Gutschriften ohne Fristen
+- `public.issue_credit_note(p_input)`: nur `service_role`. Sperrt die Rechnung, prüft Person, Kunde, Art und Herkunft, Storno, gültige Schlussrechnung, Datum, Grund, Nummer, Betrag (= −Rechnungsbetrag) und Datei, legt die Gutschrift an und spiegelt die Positionen **aus der Rechnung** (nicht aus der Eingabe). Entfernt Abzüge der stornierten Rechnung aus Entwürfen (`private.detach_draft_deductions`, Hinweis „Abgezogene Rechnung existiert nicht mehr“). Fehler: P0901, P0016, P0902, P0903, P0904, P0906, P0907, **P0934** (Detail: Kennung der Gutschrift), **P0935** (Detail: Nummer der Schlussrechnung), 22023
+- `private.issued_final_deducting`: nur gültige Schlussrechnungen. Damit sind abgezogene nacherfasste Rechnungen nach dem Storno der Schlussrechnung wieder änderbar und löschbar
+- `public.issue_invoice`: lehnt Abzüge stornierter oder schon gültig abgezogener Rechnungen ab (P0930); sonst unverändert
+- `private.protect_issued_children`: erlaubt nur die Positionen der Gutschrift im selben Vorgang und das Wegfallen von Abzügen einer stornierten Schlussrechnung (zweite Migration, aus dem Test „nacherfasste Rechnung löschen“)
+- `public.billed_cents(bookings)`: verrechnete Summe je Buchung als filterbares Feld (Rechte des Lesenden)
+
+**Server und App**
+- Schnittstelle `/api/rechnungen/[id]/gutschrift` ruft `issue_credit_note` ohne Umgehung; P0902/P0906/P0935 → „blocked“, P0934 → „alreadyCredited“ mit Link
+- Filter „ohne/mit Rechnung“ der Buchungsübersicht: `billed_cents = 0` bzw. `≠ 0` statt der Verknüpfung
+- Übergangslösungen aus dem Frontend entfernt (Spalten-Rückfall, Typ-Umgehungen, Meldung „wird eingerichtet“)
+
+**Abweichung vom Tech Design:** Statt einer Lesesicht ist die Summe je Buchung ein berechnetes Feld der Buchung (PostgREST kann danach filtern und zählen, ohne eigene Verknüpfung).
+
+**Bewusst offen:** `save_invoice_draft` nimmt am Formular vorbei weiterhin eine stornierte Teilrechnung als Abzug an; Ausstellen lehnt sie dann ab (P0930), die Oberfläche bietet sie nicht an.
+
+**Geprüft**
+- Integration nacheinander (`--no-file-parallelism --maxWorkers=1`): `invoice-credit` 15 neu grün; `invoice-issue`, `invoices`, `invoice-drafts`, `invoice-settings`, `operator`, `bookings` grün; `rls`: 60/61, rot nur der bekannte Test „Person ohne Mitgliedschaft“ (Testreste im Protokoll von Dev, nicht PROJ-44)
+- Unit 719 grün, Lint, Build ohne Fehler
+- E2E Desktop (gebauter Server): PROJ-44 Ablauf bis zur Gutschrift samt Rechnung „storniert“, Buchung wieder offen, Buchungsübersicht mit Filter und „(storniert)“; PROJ-37 Spalte und Filter (6 Tests) grün
+- Nicht geprüft: PDF und Ablage auf Vercel; Firefox, Safari, Tablet
 
 ## Open Questions
 - [ ] Steuerberater: Bezeichnung „Gutschrift“ für den Stornobeleg und Pflichtangaben darauf (Verweis auf Nummer und Datum der Rechnung) bestätigen

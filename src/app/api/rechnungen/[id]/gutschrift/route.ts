@@ -14,7 +14,6 @@ import { renderInvoice } from '@/lib/invoice-pdf/respond'
 import { INVOICE_BUCKET, invoiceHref } from '@/lib/invoices'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getTenantContext } from '@/lib/tenant'
-import { vatRateToDb } from '@/lib/vat'
 import type { Json } from '@/types/database'
 
 const schema = z.object({
@@ -32,21 +31,13 @@ export type CreditResponse =
   | { ok: true; id: string }
   | {
       ok: false
-      error: 'sessionExpired' | 'forbidden' | 'invalid' | 'blocked' | 'numberTaken' | 'alreadyCredited' | 'pdfFailed' | 'notReady' | 'unknown'
+      error: 'sessionExpired' | 'forbidden' | 'invalid' | 'blocked' | 'numberTaken' | 'alreadyCredited' | 'pdfFailed' | 'unknown'
       takenNumber?: string
       creditId?: string
     }
 
 const answer = (body: CreditResponse, status = 200) => Response.json(body, { status, headers: { 'cache-control': 'no-store' } })
 
-// Schreibschritt in der Datenbank (/backend PROJ-44). Bis zur Migration fehlt er in den erzeugten Typen.
-type CreditRpc = (
-  fn: 'issue_credit_note',
-  args: { p_input: Json },
-) => PromiseLike<{
-  data: unknown
-  error: { code: string; message: string } | null
-}>
 
 // Gutschrift zu einer ausgestellten Rechnung ausstellen (PROJ-44). Aufbau wie das Ausstellen einer Rechnung (PROJ-42): alle
 // Prüfungen laufen hier neu → PDF → Ablage → ein Datenbankschritt legt die Gutschrift samt Nummer an. Die Rechnung selbst bleibt
@@ -120,8 +111,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     smallBusinessNote: rendered.view.smallBusinessNote,
     footer: rendered.view.footer,
   })
-  const rpc = admin.rpc.bind(admin) as unknown as CreditRpc
-  const { data, error } = await rpc('issue_credit_note', {
+  const { data, error } = await admin.rpc('issue_credit_note', {
     p_input: {
       invoice_id: id,
       tenant_id: active.id,
@@ -130,11 +120,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       invoice_date: invoiceDate,
       reason: cleanCreditReason(reason) || null,
       total_cents: state.model.totals.totalCents,
-      lines: snapshot.lines.map((l) => ({
-        label: l.label,
-        amount_cents: l.amountCents,
-        vat_rate: vatRateToDb(l.vatBp),
-      })),
       pdf_path: path,
       pdf_sha256: createHash('sha256').update(rendered.pdf).digest('hex'),
       without_logo: rendered.meta.logoFailed,
@@ -144,8 +129,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (error) {
     await removeInvoiceFiles([path])
     switch (error.code) {
-      case 'PGRST202':
-        return answer({ ok: false, error: 'notReady' }, 503)
       case 'P0904':
         return answer({ ok: false, error: 'numberTaken', takenNumber: number }, 409)
       case 'P0934': {
@@ -159,6 +142,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
           409,
         )
       }
+      case 'P0902':
+      case 'P0906':
       case 'P0935':
         return answer({ ok: false, error: 'blocked' }, 409)
       case 'P0901':

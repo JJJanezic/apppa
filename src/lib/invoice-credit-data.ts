@@ -6,15 +6,7 @@ import { createClient } from '@/lib/supabase/server'
 // Lesefunktionen zum Rechnungsstorno (PROJ-44). „Storniert“ ist kein Feld an der Rechnung: Es gibt eine Gutschrift, die auf
 // sie verweist. Rechte prüft die Datenbank (RLS wie bei allen Rechnungen).
 
-// Fehlt die Spalte noch (Migration aus /backend PROJ-44 nicht eingespielt), gibt es keine Gutschriften
-const UNDEFINED_COLUMN = '42703'
 const CHUNK = 100
-
-type CreditDb = {
-  id: string
-  number: string | null
-  credited_invoice_id: string
-}
 
 // Gutschriften zu den angegebenen Rechnungen: Rechnung → Gutschrift
 export async function getCreditNotesFor(tenantId: string, invoiceIds: readonly string[]): Promise<Map<string, DocLink>> {
@@ -25,14 +17,14 @@ export async function getCreditNotesFor(tenantId: string, invoiceIds: readonly s
   for (let i = 0; i < ids.length; i += CHUNK) {
     const { data, error } = await supabase
       .from('invoices')
-      .select('id, number, credited_invoice_id' as 'id')
+      .select('id, number, credited_invoice_id')
       .eq('tenant_id', tenantId)
-      .in('credited_invoice_id' as 'id', ids.slice(i, i + CHUNK))
+      .in('credited_invoice_id', ids.slice(i, i + CHUNK))
     if (error) {
-      if (error.code !== UNDEFINED_COLUMN) console.error('[rechnungsstorno] Gutschriften nicht lesbar', error.message)
+      console.error('[rechnungsstorno] Gutschriften nicht lesbar', error.message)
       return result
     }
-    for (const r of (data ?? []) as unknown as CreditDb[]) result.set(r.credited_invoice_id, { id: r.id, number: r.number ?? '' })
+    for (const r of data ?? []) if (r.credited_invoice_id) result.set(r.credited_invoice_id, { id: r.id, number: r.number ?? '' })
   }
   return result
 }

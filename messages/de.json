@@ -2378,7 +2378,6 @@
       "alreadyCredited": "Rechnung wurde inzwischen storniert.",
       "toCredit": "Zur Gutschrift",
       "pdfFailed": "Das PDF konnte nicht erzeugt werden. Die Gutschrift wurde nicht ausgestellt, deine Eingaben bleiben erhalten. Bitte versuche es noch einmal.",
-      "notReady": "Das Ausstellen von Gutschriften wird gerade eingerichtet. Bitte versuche es später noch einmal.",
       "unknown": "Das hat nicht geklappt. Die Gutschrift wurde nicht ausgestellt, bitte versuche es noch einmal.",
       "network": "Keine Verbindung. Bitte versuche es noch einmal und prüfe danach, ob die Gutschrift schon ausgestellt ist.",
       "sessionExpired": "Deine Sitzung ist abgelaufen.",

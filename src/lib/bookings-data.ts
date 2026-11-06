@@ -215,10 +215,7 @@ export async function getBookingList(filters: BookingFilters): Promise<BookingLi
   const searching = query.length >= 2
 
   const invoiceFilter = filters.invoice !== null
-  // Filter über eine eigene Verknüpfung „billed“ (nur nacherfasste und ausgestellte Rechnungen, PROJ-40: Entwürfe zählen
-  // nicht als Rechnung). „mit Rechnung“: innerer Verbund; die Spalte zeigt trotzdem alle Rechnungen samt Entwürfen.
-  const columns =
-    filters.invoice === 'with' ? `${ROW_COLUMNS}, billed:invoices!inner(id)` : filters.invoice === 'without' ? `${ROW_COLUMNS}, billed:invoices(id)` : ROW_COLUMNS
+  const columns = ROW_COLUMNS
 
   // Suche: Gäste über den vereinheitlichten Suchtext (PROJ-7), dazu Buchungs- und Gästeblattnummer (PROJ-30)
   let searchFilter: string | null = null
@@ -237,10 +234,11 @@ export async function getBookingList(filters: BookingFilters): Promise<BookingLi
   // Alle Filter außer Zeitraum, Sortierung und Seite; head: nur die Gesamtzahl (Rechnungsfilter, Seite hinter dem Ende)
   const filtered = (head = false) => {
     let r = supabase.from('bookings').select(columns, { count: invoiceFilter ? 'exact' : undefined, head }).eq('tenant_id', tenantId)
-    // Rechnungsfilter (PROJ-37): Sperren bekommen nie eine Rechnung; „ohne Rechnung“ = keine verknüpfte Rechnung
-    // außer Entwürfen
-    if (invoiceFilter) r = r.neq('kind', 'block').neq('billed.origin' as 'id', 'draft')
-    if (filters.invoice === 'without') r = r.is('billed' as 'id', null)
+    // Rechnungsfilter (PROJ-37): Sperren bekommen nie eine Rechnung. Es zählt die Summe der nacherfassten und ausgestellten
+    // Belege (Feld billed_cents der Datenbank, PROJ-44): Rechnung und Gutschrift heben sich auf, Entwürfe zählen nicht.
+    if (invoiceFilter) r = r.neq('kind', 'block')
+    if (filters.invoice === 'without') r = r.eq('billed_cents', 0)
+    if (filters.invoice === 'with') r = r.neq('billed_cents', 0)
     if (filters.apartment) r = r.eq('apartment_id', filters.apartment)
     if (filters.kind) r = r.eq('kind', filters.kind)
     // Quelle nur bei Buchungen und Optionen (Sperren haben „none“)

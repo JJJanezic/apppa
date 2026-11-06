@@ -462,6 +462,7 @@ export type Database = {
           tourist_tax_mode: string
           updated_at: string
           updated_by: string | null
+          billed_cents: number | null
         }
         Insert: {
           adults?: number | null
@@ -1107,6 +1108,8 @@ export type Database = {
           company_salutation: string | null
           created_at: string
           created_by: string | null
+          credit_reason: string | null
+          credited_invoice_id: string | null
           deduction_removed: boolean
           deposit_days: number | null
           deposit_percent: number | null
@@ -1156,6 +1159,8 @@ export type Database = {
           company_salutation?: string | null
           created_at?: string
           created_by?: string | null
+          credit_reason?: string | null
+          credited_invoice_id?: string | null
           deduction_removed?: boolean
           deposit_days?: number | null
           deposit_percent?: number | null
@@ -1205,6 +1210,8 @@ export type Database = {
           company_salutation?: string | null
           created_at?: string
           created_by?: string | null
+          credit_reason?: string | null
+          credited_invoice_id?: string | null
           deduction_removed?: boolean
           deposit_days?: number | null
           deposit_percent?: number | null
@@ -1260,6 +1267,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "invoice_text_blocks"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_credited_fkey"
+            columns: ["credited_invoice_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id", "tenant_id"]
           },
           {
             foreignKeyName: "invoices_guest_fkey"
@@ -1724,6 +1738,12 @@ export type Database = {
       }
       anonymize_guest: { Args: { p_guest_id: string }; Returns: undefined }
       belongs_to_deactivated_tenant: { Args: never; Returns: boolean }
+      billed_cents: {
+        Args: { "": Database["public"]["Tables"]["bookings"]["Row"] }
+        Returns: {
+          error: true
+        } & "the function public.billed_cents with parameter or with a single unnamed json/jsonb parameter, but no matches were found in the schema cache"
+      }
       booking_invoices: { Args: { p_booking_id: string }; Returns: Json }
       booking_warnings: {
         Args: {
@@ -1827,6 +1847,7 @@ export type Database = {
       }
       invoice_numbers: { Args: { p_tenant_id: string }; Returns: string[] }
       invoice_preview_data: { Args: { p_tenant_id: string }; Returns: Json }
+      issue_credit_note: { Args: { p_input: Json }; Returns: string }
       issue_invoice: { Args: { p_input: Json }; Returns: string }
       merge_guests: {
         Args: { p_choice: Json; p_keep: string; p_remove: string }
