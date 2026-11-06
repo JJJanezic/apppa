@@ -1,6 +1,6 @@
 # PROJ-45: Zahlungserfassung
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-11-06
 **Last Updated:** 2026-11-06
 
@@ -643,4 +643,12 @@ Keine neuen Pakete (Bildumwandlung, Hochladen, Griff zum Ordnen und Monatsauswah
 - **Recommendation:** Deploy (beide Migrationen vor dem Code einspielen)
 
 ## Deployment
-_To be added by /deploy_
+
+- **Datum:** 2026-11-06
+- **Commit:** `9f55218`, Tag `v1.27.0-PROJ-45`
+- **Staging:** https://staging.apppa.at; vom Nutzer geprüft und freigegeben („liefere nach prod aus“). Staging hat derzeit keinen Kunden, die Standard-Zahlungsarten entstehen dort beim Anlegen eines Kunden
+- **Produktion:** https://app.apppa.at, vom Nutzer als „Ready“ und geprüft gemeldet. Beide Kunden haben je 6 Zahlungsarten („Überweisung“ Standard), noch keine Zahlungen; Speicherbereich `payment-receipts` angelegt
+- **Migrationen** in Staging und Produktion, in dieser Reihenfolge: `20261106171901_payments.sql`, `20261106173728_payments_save_invoice_check.sql`. `db advisors`: nur der bekannte Auth-Hinweis (OTP-Ablauf)
+- **Vorprüfung:** Lint, Unit 745, Build, Secret-Scan sauber. Integration: der gemeinsame Lauf von `npm test` scheiterte an Zeitüberschreitungen der Dev-Datenbank (96 Tests, nur Timeouts); einzeln liefen alle Dateien grün, rot blieb zeitweise nur der bekannte RLS-Test „Person ohne Mitgliedschaft“ (Testreste im Dev-Protokoll, ~19.800 Zeilen)
+- **Kein `config push`**, keine neuen Umgebungsvariablen
+- **Hinweis für den Betrieb:** Bestehende nacherfasste Rechnungen gelten als „offen“, bis eine Zahlung erfasst wird (Spec)
