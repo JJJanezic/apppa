@@ -14,7 +14,7 @@ Die App wird als Mehrmandanten-SaaS betrieben: Jeder Kunde (Vermieter) hat ein e
 - Haben keinen Überblick über Auslastung, Umsatz und Herkunft ihrer Gäste
 - Wollen ihre Gäste für Marketing (z. B. Stammgäste) nutzen, dürfen das aber nur mit DSGVO-Einwilligung
 
-**Mitarbeiter eines Vermieters:** Sehen und bearbeiten Buchungen und Kalender, ohne Zugriff auf Zahlungen und Auswertungen.
+**Mitarbeiter eines Vermieters:** Sehen und bearbeiten Buchungen und Kalender; sehen Zahlungen und erfassen sie (z. B. Barzahlung bei der Schlüsselübergabe), ändern oder löschen sie aber nicht; kein Zugriff auf Auswertungen.
 
 **Betreiber (Admin):** Legt Kundenkonten an, lädt Kunden ein und betreut sie.
 
@@ -27,7 +27,7 @@ Die App wird als Mehrmandanten-SaaS betrieben: Jeder Kunde (Vermieter) hat ein e
 | P0 (Pilot) | Kundenstammdaten (Adresse, UID, Steuer- und Registernummer) | Deployed (PROJ-28) |
 | P0 (Pilot) | Wohnungsverwaltung, Gäste-Datenbank, manuelle Buchungen, Belegungskalender | Deployed (PROJ-6, PROJ-7, PROJ-8, PROJ-9, PROJ-27); „Endreinigung“ statt „Reinigung“ (PROJ-8) |
 | P0 (Pilot) | Channex-Anbindung: Buchungsimport von booking.com/Airbnb und Verfügbarkeitssperren | Roadmap |
-| P0 (Pilot) | Zahlungserfassung je Rechnung (PROJ-45), Zahlungen aus Channex (PROJ-13), Dashboard | Roadmap |
+| P0 (Pilot) | Zahlungserfassung je Rechnung mit Provisionsabzug booking.com/Airbnb (PROJ-45), Zahlungen aus Channex (PROJ-13), Dashboard | Planned (PROJ-45); Roadmap (PROJ-13, PROJ-14) |
 | P0 (Pilot) | Ortstaxe je Wohnung: Tarife mit Stichtag, Altersbefreiung, persönliche Befreiung, automatische Position in der Buchung | Deployed (PROJ-15) |
 | P0 (Pilot) | Tourismusabgabe-Monatsbericht und Export | Roadmap (PROJ-16) |
 | P0 (Pilot) | Gast-Erweiterung: Titel, Geschlecht, Reisedokument | Deployed (PROJ-29) |

@@ -358,7 +358,7 @@ Keine neuen Pakete.
 
 ## Open Questions
 - [ ] Steuerberater: Bezeichnung „Gutschrift“ für den Stornobeleg und Pflichtangaben darauf (Verweis auf Nummer und Datum der Rechnung) bestätigen
-- [ ] Soll die Gutschrift in PROJ-45 automatisch als „Rückzahlung offen“ erscheinen, wenn die Rechnung schon bezahlt war? (Klärung in PROJ-45)
+- [x] Soll die Gutschrift in PROJ-45 automatisch als „Rückzahlung offen“ erscheinen, wenn die Rechnung schon bezahlt war? → Ja, mit dem tatsächlich eingegangenen Betrag als Guthaben; alternativ Zahlung auf eine andere Rechnung umhängen (PROJ-45, 2026-11-06)
 
 ## Decision Log
 
