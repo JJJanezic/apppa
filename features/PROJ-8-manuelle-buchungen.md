@@ -1,10 +1,10 @@
 # PROJ-8: Manuelle Buchungen
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-10-26
 **Last Updated:** 2026-11-05
 
-> Grundumfang in Produktion. Geplant (refine 2026-11-05): Bezeichnung „Endreinigung“ statt „Reinigung“ samt Umstellung bestehender Buchungen (Abschnitt „Endreinigung“).
+> Grundumfang in Produktion. Seit v1.24.0 (refine 2026-11-05): Bezeichnung „Endreinigung“ statt „Reinigung“ samt Umstellung bestehender Buchungen (Abschnitt „Endreinigung“).
 
 ## Dependencies
 - Requires: PROJ-1 (Supabase Infrastructure Setup): Mandanten-Abschottung, Änderungsprotokoll
@@ -974,3 +974,15 @@ _Stand 2026-10-25 (/deploy, Tag `v1.2.0`)_
 - **Test:** neuer E2E-Test „Anordnung Buchungsdetail“ in `tests/PROJ-8-manuelle-buchungen.spec.ts` (Spalten und Reihenfolge am Desktop, Reihenfolge untereinander auf Tablet und Handy); Layout/axe auf allen drei Breiten grün
 - **Regression grün:** PROJ-8 Detail, Mitreisende, Stornieren, Mitarbeiter (8), PROJ-9 Detailpanel (5), PROJ-30 (11), PROJ-35 Detail (3), PROJ-37 Rechnungsabschnitt (2)
 - **Ausgeliefert 2026-10-30, Tag `v1.15.1-PROJ-8`:** Commit `2113117` auf `staging` und `production`, Staging und Production vom Nutzer geprüft; keine Migration, keine neuen Umgebungsvariablen. Mit ausgeliefert: Buchhaltungs-Commit PROJ-30 (`c6dcfe3`)
+
+### Endreinigung (2026-11-05/06)
+- **Datum:** 2026-11-05 (Staging und Produktion), Version v1.24.0
+- **Commit:** `a872107` (Branches `staging` und `production`); Staging vom Nutzer geprüft und freigegeben, Production „Ready“ und Kurztest vom Nutzer bestätigt
+- **Staging:** https://staging.apppa.at
+- **Production:** https://app.apppa.at
+- **Migrationen:** `20261105213314_endreinigung.sql` (Staging und Produktion; Advisors je nur `auth_otp_long_expiry`, bekannt). Umbenennung beim Einspielen; die Anzahl je Umgebung wurde nicht vorab gezählt (Lesezugriff auf Produktion blockiert, Nutzer entschied ohne Zählung); nachvollziehbar im Änderungsprotokoll über Urheber „PROJ-8 Endreinigung“
+- **Neue Pakete, neue Umgebungsvariablen, `config push`:** keine
+- **Mit ausgeliefert:** Buchhaltungs-Commit PROJ-39 (`f50db28`)
+- **Vorabprüfung:** Lint sauber, Secret-Scan ohne Treffer, Unit 692/692, alle 16 Integrationsdateien gegen Dev grün
+- **Tag:** `v1.24.0-PROJ-8` auf `a872107`
+
