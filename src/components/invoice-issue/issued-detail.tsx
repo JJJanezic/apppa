@@ -7,12 +7,12 @@ import { Button } from '@/components/ui/button'
 import { bookingHref } from '@/lib/bookings'
 import { formatDate, formatDateTime, formatPeriod } from '@/lib/format'
 import { addressLines, guestDisplayName, guestHref } from '@/lib/guests'
-import { type Invoice, invoiceHref } from '@/lib/invoices'
+import type { Invoice } from '@/lib/invoices'
 import { formatVatRate } from '@/lib/vat'
 
 // Angaben einer ausgestellten Rechnung (PROJ-42): nur aus der festgeschriebenen Fassung. Spätere Änderungen an Buchung, Gast oder
 // Stammdaten wirken hier nicht; Links führen nur zu den noch verknüpften Datensätzen. Gutschriften (PROJ-44) zeigen dieselben Angaben mit
-// gespiegelten Beträgen, dazu Verweis und Grund, ohne Fälligkeit.
+// gespiegelten Beträgen, dazu den Grund, ohne Fälligkeit; den Verweis auf die Rechnung zeigt CreditStatus über den Angaben (QA BUG-1/2).
 export async function IssuedDetail({ invoice, issued }: { invoice: Invoice; issued: NonNullable<Invoice['issued']> }) {
   const t = await getTranslations('invoices.detail')
   const td = await getTranslations('invoiceDrafts')
@@ -33,14 +33,6 @@ export async function IssuedDetail({ invoice, issued }: { invoice: Invoice; issu
         <dl className="flex flex-col divide-y rounded-lg bg-ds-surface px-4">
           <Fact label={t('kind')}>{credit ? t('kindCredit') : td(`kind.${s.kind}`)}</Fact>
           <Fact label={t(credit ? 'creditDate' : 'date')}>{formatDate(invoice.invoiceDate)}</Fact>
-          {credit && (
-            <Fact label={t('creditFor')}>
-              <Link href={invoiceHref(credit.invoiceId)} className="text-ds-accent-700 underline-offset-[3px] hover:underline">
-                {credit.number}
-              </Link>
-              <span className="text-ds-neutral-800"> · {formatDate(credit.invoiceDate)}</span>
-            </Fact>
-          )}
           {credit && (
             <Fact label={t('creditReason')}>{credit.reason ? <span className="break-words">{credit.reason}</span> : <span className="text-ds-neutral-700">–</span>}</Fact>
           )}

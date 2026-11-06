@@ -469,7 +469,7 @@ Keine neuen Pakete.
 
 ### Bugs Found
 
-#### BUG-1: Link „Zu Rechnung“ in der Detailansicht der Gutschrift nur durch Farbe erkennbar
+#### BUG-1: Link „Zu Rechnung“ in der Detailansicht der Gutschrift nur durch Farbe erkennbar — behoben
 - **Severity:** Medium (WCAG 2.1 AA, 1.4.1; axe „link-in-text-block“)
 - **Steps to Reproduce:**
   1. Gutschrift ausstellen, ihre Detailseite am Desktop oder Tablet öffnen
@@ -479,12 +479,12 @@ Keine neuen Pakete.
 - **Test:** `Layout: Detailseiten …` mit `test.fail` für Desktop/Tablet markiert
 - **Priority:** Fix before deployment
 
-#### BUG-2: Verweis auf die Rechnung doppelt auf der Detailseite der Gutschrift
+#### BUG-2: Verweis auf die Rechnung doppelt auf der Detailseite der Gutschrift — behoben
 - **Severity:** Low
 - **Steps to Reproduce:** Detailseite der Gutschrift öffnen: oben „Gutschrift zu Rechnung … vom …“ und in „Angaben“ „Zu Rechnung“ mit denselben Angaben
 - **Priority:** Nice to have
 
-#### BUG-3: Zweiter Versuch derselben Anfrage meldet „inzwischen storniert“
+#### BUG-3: Zweiter Versuch derselben Anfrage meldet „inzwischen storniert“ — behoben
 - **Severity:** Low (aus dem Code; nicht im Browser nachgestellt)
 - **Steps to Reproduce:**
   1. „Gutschrift ausstellen“, die Antwort geht unterwegs verloren (Netz), der Inhaber versucht es erneut
@@ -507,3 +507,9 @@ Keine neuen Pakete.
 - **Security:** Pass
 - **Production Ready:** YES (keine Critical/High)
 - **Recommendation:** BUG-1 vor dem Deploy beheben (kleiner Eingriff), dann deployen
+
+### Bugfix (2026-11-06, alle drei Befunde)
+- **BUG-1 und BUG-2:** Die Zeile „Zu Rechnung“ in „Angaben“ entfällt; der Verweis steht nur noch über den Angaben als unterstrichener Link „Gutschrift zu Rechnung … vom …“ (`issued-detail.tsx`). Layout-Test ohne `test.fail`, grün auf Desktop, Tablet und Handy (axe ohne Verstöße)
+- **BUG-3:** Ist die Rechnung schon storniert und stammt die Gutschrift von derselben Person mit derselben Nummer, antwortet die Schnittstelle mit der vorhandenen Gutschrift (`ok`), auch bei gleichzeitigem Doppelversuch (P0934). Ein anderer Inhaber erhält weiter „Rechnung wurde inzwischen storniert.“ (E2E jetzt mit zweitem Inhaber in eigenem Browserkontext)
+- **Nachtest:** PROJ-44 E2E komplett grün (Desktop 15, Layout Tablet/Handy), Unit 719, Lint, Typen, Build
+- **Status:** bleibt Approved, keine offenen Befunde

@@ -1617,7 +1617,6 @@
       "eyebrowCredit": "Gutschrift",
       "kindCredit": "Gutschrift",
       "creditDate": "Gutschriftsdatum",
-      "creditFor": "Zu Rechnung",
       "creditReason": "Grund",
       "creditTotal": "Gutschriftsbetrag"
     },

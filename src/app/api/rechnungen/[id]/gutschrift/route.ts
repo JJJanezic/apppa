@@ -11,7 +11,7 @@ import { removeInvoiceFiles } from '@/lib/invoice-files'
 import { issueAllowed, isIssueDate } from '@/lib/invoice-issue'
 import { creditChecksFor, IssueDataError, loadCreditState } from '@/lib/invoice-issue-data'
 import { renderInvoice } from '@/lib/invoice-pdf/respond'
-import { INVOICE_BUCKET, invoiceHref } from '@/lib/invoices'
+import { INVOICE_BUCKET, invoiceHref, invoiceNumberKey } from '@/lib/invoices'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getTenantContext } from '@/lib/tenant'
 import type { Json } from '@/types/database'
@@ -35,6 +35,12 @@ export type CreditResponse =
       takenNumber?: string
       creditId?: string
     }
+
+// Gutschrift mit dieser Nummer, von dieser Person ausgestellt?
+async function isOwnCredit(creditId: string, number: string, userId: string) {
+  const { data } = await createAdminClient().from('invoices').select('number_key, issued_by').eq('id', creditId).maybeSingle()
+  return data?.issued_by === userId && data.number_key === invoiceNumberKey(number)
+}
 
 const answer = (body: CreditResponse, status = 200) => Response.json(body, { status, headers: { 'cache-control': 'no-store' } })
 
@@ -67,16 +73,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return answer({ ok: false, error: 'unknown' }, 500)
   }
   if (!state) return answer({ ok: false, error: 'blocked' }, 409)
-  // Schon storniert, auch durch einen zweiten Versuch derselben Anfrage: zur vorhandenen Gutschrift
-  if (state.invoice.cancelledBy)
-    return answer(
-      {
-        ok: false,
-        error: 'alreadyCredited',
-        creditId: state.invoice.cancelledBy.id,
-      },
-      409,
-    )
+  // Schon storniert. Zweiter Versuch derselben Anfrage (Antwort unterwegs verloren, QA BUG-3): dieselbe Person mit derselben Nummer
+  // landet bei ihrer Gutschrift; sonst die Meldung „inzwischen storniert“ mit Link
+  if (state.invoice.cancelledBy) {
+    const creditId = state.invoice.cancelledBy.id
+    if (await isOwnCredit(creditId, number, user.userId)) return answer({ ok: true, id: creditId })
+    return answer({ ok: false, error: 'alreadyCredited', creditId }, 409)
+  }
 
   let rendered
   try {
@@ -133,6 +136,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         return answer({ ok: false, error: 'numberTaken', takenNumber: number }, 409)
       case 'P0934': {
         const credits = await getCreditNotesFor(active.id, [id])
+        const creditId = credits.get(id)?.id
+        if (creditId && (await isOwnCredit(creditId, number, user.userId))) return answer({ ok: true, id: creditId })
         return answer(
           {
             ok: false,

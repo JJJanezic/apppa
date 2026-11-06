@@ -308,6 +308,13 @@ test.describe('Gutschrift ausstellen und Wirkung', () => {
     // Kein zweites Mal, auch nicht am Formular vorbei
     const again = await page.request.post(`/api/rechnungen/${id}/gutschrift`, { data: { invoiceDate: '2026-11-06', number: 'G-2', reason: '', acks: [] } })
     expect((await again.json()).error).toBe('alreadyCredited')
+    // BUG-3: derselbe Inhaber wiederholt dieselbe Anfrage (Antwort verloren) → seine Gutschrift, keine zweite
+    const { data: note } = await service().from('invoices').select('id').eq('credited_invoice_id', id).single()
+    const creditId = note!.id
+    const retry = await page.request.post(`/api/rechnungen/${id}/gutschrift`, { data: { invoiceDate: '2026-11-06', number, reason: '', acks: [] } })
+    expect(await retry.json()).toEqual({ ok: true, id: creditId })
+    const { count } = await service().from('invoices').select('id', { count: 'exact', head: true }).eq('credited_invoice_id', id)
+    expect(count).toBe(1)
 
     // Buchung: wieder nicht verrechnet
     await page.goto(`/buchungen/${s.bookingId}`)
@@ -429,7 +436,7 @@ test.describe('Gutschrift: QA', () => {
     await expect(page.getByText(/Abgezogene Rechnung existiert nicht mehr/).first()).toBeVisible()
   })
 
-  test('AC: Zweiter Inhaber schickt nach dem ersten ab: „Rechnung wurde inzwischen storniert“ mit Link, keine zweite Gutschrift', async ({ page, users }) => {
+  test('AC: Zweiter Inhaber schickt nach dem ersten ab: „Rechnung wurde inzwischen storniert“ mit Link, keine zweite Gutschrift', async ({ page, users, browser }) => {
     desktopOnly()
     const s = await setup(users)
     const id = await addDraft(s.owner, s.tenantId, s.bookingId)
@@ -437,7 +444,14 @@ test.describe('Gutschrift: QA', () => {
     await issueInvoice(page, id)
     await openCredit(page, id)
     await expect(submit(page)).toBeEnabled()
-    const first = await issueCredit(page, id, await page.getByLabel('Gutschriftsnummer').inputValue())
+    // Ein zweiter Inhaber stellt mit derselben Nummer aus
+    const other = await users()
+    await service().from('memberships').insert({ tenant_id: s.tenantId, user_id: other.id, role: 'owner' } as never)
+    const context = await browser.newContext({ storageState: { cookies: [], origins: [] } })
+    const second = await context.newPage()
+    await signInAs(second, other)
+    const first = await issueCredit(second, id, await page.getByLabel('Gutschriftsnummer').inputValue())
+    await context.close()
     await submit(page).click()
     const alert = page.getByRole('alert').filter({ hasText: 'Rechnung wurde inzwischen storniert.' })
     await expect(alert).toBeVisible({ timeout: 30_000 })
@@ -557,9 +571,8 @@ test.describe('Gutschrift: QA', () => {
     expect(await page.evaluate(() => (window as unknown as { __xss?: number }).__xss)).toBeUndefined()
   })
 
-  // BUG-1 (QA 2026-11-06): Link „Zu Rechnung“ in der Detailansicht der Gutschrift ohne Unterstreichung im Text (link-in-text-block)
+  // BUG-1 (QA 2026-11-06, behoben): Link „Zu Rechnung“ ohne Unterstreichung im Text (link-in-text-block)
   test('Layout: Detailseiten Gutschrift und stornierte Rechnung ohne seitliches Scrollen, keine WCAG-2.1-AA-Verstöße', async ({ page, users }) => {
-    test.fail(test.info().project.name !== 'mobile', 'BUG-1: link-in-text-block in der Detailansicht der Gutschrift (Desktop, Tablet)')
     const s = await setup(users)
     const id = await addDraft(s.owner, s.tenantId, s.bookingId)
     await signInAs(page, s.owner)
