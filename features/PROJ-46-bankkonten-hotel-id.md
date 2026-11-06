@@ -1,6 +1,6 @@
 # PROJ-46: Bankkonten und booking.com Hotel-ID
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-11-06
 **Last Updated:** 2026-11-06
 
@@ -379,7 +379,102 @@ Anlegen und Bearbeiten der Wohnung übernehmen die beiden neuen Felder in die be
   - Regression E2E desktop: PROJ-28 19/19, PROJ-36 10/10, PROJ-6 14/14 grün. Unit-Tests 765/765 grün. Integrationstests: im Gesamtlauf viele Zeitüberschreitungen der Dev-Datenbank (Last); alle betroffenen Dateien einzeln grün (Buchungen, Rechnungen, Entwürfe, Ausstellen, Gutschrift, Einstellungen, Zahlungen, Ortstaxe, Gäste, Team, Betreiber, Logo).
 
 ## QA Test Results
-_To be added by /qa_
+
+**Tested:** 2026-11-06
+**App URL:** http://localhost:3000 (gebauter Server; Safari gegen `npm run dev`)
+**Tester:** QA Engineer (AI)
+**Umgebung:** Dev („apppa-dev“); die Testhilfen brechen bei Staging/Produktion ab (`assertTestableProject`)
+
+### Acceptance Criteria Status
+
+#### Bankkonten: Anzeige und Zugang
+- [x] Abschnitt „Bankkonten“ nach „Umsatzsteuer“; Leerzustand mit „Bankkonto hinzufügen“ (E2E)
+- [x] Sortierung primär → aktive → archivierte, Kennzeichen „Primär“/„archiviert“ (Unit + E2E)
+- [x] IBAN in Viererblöcken (Unit + E2E)
+- [x] Betreiber bearbeitet auf der Kunden-Detailseite; deaktivierter Kunde nur lesbar (E2E)
+- [x] Mitarbeiter und fremde Inhaber lesen/ändern keine Konten (Datenbank-E2E)
+
+#### Bankkonten: Anlegen und Ändern
+- [x] Kontoinhaber mit Kundenname vorbelegt; erstes Konto automatisch primär (E2E)
+- [x] Primär wechseln, nur noch ein primäres (Datenbank- und Oberflächen-E2E)
+- [x] Änderungen nach Neuladen sichtbar und im Protokoll („Bankkonten“) (E2E)
+- [x] Ungespeicherte Änderungen gehen beim Neuladen verloren (Formularverhalten wie bisher)
+- [x] 20 Konten: Hinzufügen gesperrt mit Hinweis (E2E)
+
+#### Bankkonten: Validierung
+- [x] IBAN bereinigt, Prüfziffer/Länge/Land mit eigener Meldung, ausländische IBAN akzeptiert (Unit + E2E)
+- [x] Doppelte IBAN (auch archiviert) abgelehnt, Meldung an der späteren Karte; bei anderem Kunden erlaubt (Unit + E2E)
+- [x] Kontoinhaber Pflicht; BIC 8/11 bereinigt; BIC optional (Unit)
+- [x] Anzeigename-Ersatz (Unit); fehlerhafte Karte klappt auf, Eingaben bleiben (E2E)
+
+#### Bankkonten: Archivieren, Wiederherstellen, Löschen
+- [x] Primäres Konto weder archivier- noch löschbar (E2E, Menüeinträge gesperrt + Hinweis)
+- [x] Löschen ohne Zuordnung möglich, mit Zuordnung gesperrt samt Wohnungen (E2E)
+- [x] Archivieren mit Bestätigung nennt die Wohnungen; nach Speichern „Primäres Konto“ (E2E)
+- [x] Archivierte Konten nicht in der Auswahl; Wiederherstellen ohne Rückkehr der Zuordnung (E2E)
+- [x] Gleichzeitig zugeordnetes Konto löschen → 23503, nichts gelöscht (Datenbank-E2E)
+
+#### Wohnung: Hotel-ID
+- [x] Feld im Fenster (Anlegen und Bearbeiten); außen getrimmt, Schreibweise bleibt; ungültige Zeichen/Überlänge gemeldet; doppelte ID ohne Warnung; leeren möglich (Unit + E2E)
+
+#### Wohnung: Bankkonto
+- [x] „Primäres Konto (…)“ zuerst, dann aktive Konten mit IBAN und Bezeichnung; bestehende/neue Wohnungen auf „Primäres Konto“ (E2E)
+- [x] Wohnung folgt dem neuen primären Konto; feste Zuordnung bleibt (E2E)
+- [x] Ohne Konten gesperrt mit Hinweis und Link; Wohnung trotzdem speicherbar (E2E)
+- [x] Inzwischen archiviertes Konto abgelehnt mit Meldung (E2E); fremdes Konto P0020 (Datenbank-E2E)
+- [x] Mitarbeiter ändert Hotel-ID/Konto nicht (Datenbank-E2E); liest höchstens Hotel-ID und Kontokennung (bewusste Ausnahme)
+
+#### Allgemein
+- [x] Konfliktschutz bei reiner Kontenänderung (P0017, Datenbank-E2E; Hinweis im Formular wie PROJ-28)
+- [x] Protokoll, Handy 375 px ohne seitliches Scrollen, Bestandsdaten unverändert (E2E)
+
+### Edge Cases Status
+- [x] Primär setzen und altes archivieren in einem Speichervorgang
+- [x] Neues Konto anlegen und gleich primär setzen (Kennung im Formular, Datenbank hängt hinten an)
+- [x] Archivierte Wohnung zählt als Zuordnung (Datenbank: Fremdschlüssel und Rückstellung gelten für alle Wohnungen)
+- [x] IBAN mit Bindestrichen → Formatmeldung (Unit)
+- [x] Lange Bezeichnung am Handy: Umbruch, kein seitliches Scrollen (E2E Handy/Tablet/Desktop)
+- [x] Archivierungszeitpunkt bleibt bei weiterem Speichern; Position bestehender Konten ändert sich nie
+
+### Cross-Browser und Responsive
+- [x] Chrome: alle Tests (desktop)
+- [x] Firefox: Erfassen, Archivieren, Wohnungsfelder
+- [x] Safari (WebKit, gegen `npm run dev`): Erfassen, Archivieren
+- [x] 375 px / 768 px / 1440 px: Stammdaten und Wohnungs-Fenster ohne seitliches Scrollen, axe ohne WCAG-2.1-AA-Verstöße
+
+### Security Audit Results
+- [x] Authentifizierung/Autorisierung: Konten nur für Inhaber und Admin lesbar; Mitarbeiter und fremde Inhaber erhalten leere Liste bzw. 42501
+- [x] Direktes Schreiben in `bank_accounts` gesperrt (42501); Schreiben nur über die Speicherfunktion
+- [x] Mandantentrennung: fremde Kontokennung in der Liste → 22023; Wohnung auf fremdes Konto → P0020 (zusätzlich zusammengesetzter Fremdschlüssel)
+- [x] Eingaben: Prüfregeln in Formular, Server-Aktion und Datenbank (inkl. IBAN-Prüfziffer); Texte werden von React maskiert, kein HTML
+- [x] Änderungsprotokoll mit IBAN nur für Inhaber und Admin lesbar (gleiche Regel wie die Konten)
+- [x] Fehlertexte der Datenbank werden auf Meldungscodes abgebildet, nicht an den Browser durchgereicht
+- [x] Bewusste Ausnahme (Technical Decisions): Mitarbeiter können Hotel-ID und Kontokennung der Wohnung lesen, keine Kontodaten
+
+### Regression
+- [x] Unit 765/765; E2E desktop PROJ-28 19/19, PROJ-36 10/10, PROJ-6 14/14 (Backend-Lauf, Code seither unverändert)
+- [x] Integrationstests: alle Dateien einzeln grün (Zeitüberschreitungen nur im parallelen Gesamtlauf)
+- [ ] PROJ-38 13/14: Test „Reiter in der Reihenfolge …“ erwartet die Reiter ohne „Zahlungen“ (seit PROJ-45 vorhanden) → veralteter Test, siehe BUG-1
+
+### Bugs Found
+
+#### BUG-1: Veralteter E2E-Test in PROJ-38 (nicht durch PROJ-46 verursacht)
+- **Severity:** Low
+- **Steps to Reproduce:**
+  1. `npx playwright test tests/PROJ-38-stammdaten-logo.spec.ts --project=desktop -g "Reiter in der Reihenfolge"`
+  2. Expected: Test grün
+  3. Actual: Erwartete Reiterliste ohne „Zahlungen“; die App zeigt seit PROJ-45 zusätzlich „Zahlungen“
+- **Priority:** Nice to have (Test nachziehen; die App ist korrekt)
+
+#### Beobachtung (kein Bug, bereits dokumentiert)
+- Anlegen einer Wohnung **mit neuem Objekt**: Hotel-ID und Konto werden nach dem Anlegen nachgetragen. Wird das gewählte Konto genau in diesem Moment archiviert, ist die Wohnung angelegt und es erscheint die Meldung. Sehr unwahrscheinlich, bisheriges Muster (PROJ-8/27).
+
+### Summary
+- **Acceptance Criteria:** 60/60 passed
+- **Bugs Found:** 1 total (0 critical, 0 high, 0 medium, 1 low – veralteter Test einer anderen Funktion)
+- **Security:** Pass
+- **Production Ready:** YES
+- **Recommendation:** Deploy; BUG-1 bei Gelegenheit nachziehen
 
 ## Deployment
 _To be added by /deploy_

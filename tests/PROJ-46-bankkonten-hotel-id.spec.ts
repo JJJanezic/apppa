@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto'
 import AxeBuilder from '@axe-core/playwright'
 import { expect, type Page, test as base } from '@playwright/test'
 
-import { anon, createTenant, createUser, deleteUser, type E2EUser, hasSupabaseEnv, service, signInAs } from './support/supabase'
+import { anon, createTenant, createUser, deleteUser, type E2EUser, hasSupabaseEnv, service, signInAs, signInAsAdmin } from './support/supabase'
 
 // PROJ-46: Bankkonten und booking.com Hotel-ID. Datenbank-Regeln direkt gegen Speicherfunktion und Wohnungstabelle,
 // dazu die Abläufe in Stammdaten und Wohnungs-Fenster. Abläufe im Desktop-Projekt, Layout auch auf Tablet und Handy.
@@ -101,19 +101,44 @@ async function logFields(tenantId: string) {
 }
 
 async function apartment(tenantId: string, name = 'Top 1') {
-  const { data: property, error } = await service()
-    .from('properties')
-    .insert({ tenant_id: tenantId, name: 'Haus See', street: 'Seeweg 12', postal_code: '5340', city: 'St. Gilgen', municipality_code: '50330' })
-    .select('id')
-    .single()
-  if (error) throw error
+  const existing = await service().from('properties').select('id').eq('tenant_id', tenantId).maybeSingle()
+  let propertyId = existing.data?.id
+  if (!propertyId) {
+    const { data: property, error } = await service()
+      .from('properties')
+      .insert({ tenant_id: tenantId, name: 'Haus See', street: 'Seeweg 12', postal_code: '5340', city: 'St. Gilgen', municipality_code: '50330' })
+      .select('id')
+      .single()
+    if (error) throw error
+    propertyId = property.id
+  }
   const { data, error: aptError } = await service()
     .from('apartments')
-    .insert({ tenant_id: tenantId, property_id: property.id, name, max_guests: 4 })
+    .insert({ tenant_id: tenantId, property_id: propertyId, name, max_guests: 4 })
     .select('id')
     .single()
   if (aptError) throw aptError
   return data.id
+}
+
+// Gültige österreichische IBAN mit berechneter Prüfziffer (für viele verschiedene Konten)
+function atIban(n: number): string {
+  const bban = `19043${String(n).padStart(11, '0')}`
+  const digits = `${bban}102900`
+  let rest = 0
+  for (const d of digits) rest = (rest * 10 + Number(d)) % 97
+  return `AT${String(98 - rest).padStart(2, '0')}${bban}`
+}
+
+async function seed(tenantId: string, owner: E2EUser, list: Account[]) {
+  const client = await signedIn(owner)
+  const { error } = await client.rpc('update_tenant_master_data', await payload(tenantId, list))
+  if (error) throw error
+}
+
+async function setApartmentAccount(apartmentId: string, accountId: string | null) {
+  const { error } = await service().from('apartments').update({ bank_account_id: accountId }).eq('id', apartmentId)
+  if (error) throw error
 }
 
 async function apartmentAccount(id: string) {
@@ -404,3 +429,190 @@ test.describe('Oberfläche', () => {
     expect(results.violations).toEqual([])
   })
 })
+
+test.describe('QA: Oberfläche', () => {
+  test.skip(!hasSupabaseEnv, 'keine .env.local')
+
+  const actions = (page: Page, name: string) => page.getByRole('button', { name: `Aktionen für ${name}` })
+  const item = (page: Page, name: string) => page.getByRole('menuitem', { name, exact: true })
+  const save = (page: Page) => page.getByRole('button', { name: 'Speichern', exact: true }).first()
+
+  test('AC: Archivieren mit Bestätigung stellt die Wohnung zurück; primäres und zugeordnetes Konto nicht löschbar', async ({ page, users }) => {
+    desktopOnly()
+    const owner = await users()
+    const tenant = await createTenant(unique('Archivieren'), [{ user: owner, role: 'owner' }])
+    const a = acc(AT, true, { label: 'Hauptkonto' })
+    const b = acc(DE, false, { label: 'Zweitkonto' })
+    await seed(tenant, owner, [a, b])
+    const apt = await apartment(tenant)
+    await setApartmentAccount(apt, b.id)
+    await signInAs(page, owner)
+    await page.goto('/einstellungen/stammdaten')
+    await ready(page)
+
+    const cardB = page.getByRole('list', { name: 'Bankkonten des Kunden' }).getByRole('listitem').filter({ hasText: 'Zweitkonto' })
+    await expect(cardB).toContainText('Fest zugeordnet: Haus See · Top 1')
+
+    await actions(page, 'Hauptkonto').click()
+    await expect(item(page, 'Archivieren')).toHaveAttribute('aria-disabled', 'true')
+    await expect(item(page, 'Löschen')).toHaveAttribute('aria-disabled', 'true')
+    await page.keyboard.press('Escape')
+
+    await actions(page, 'Zweitkonto').click()
+    await expect(item(page, 'Löschen')).toHaveAttribute('aria-disabled', 'true')
+    await item(page, 'Archivieren').click()
+    const dialog = page.getByRole('alertdialog')
+    await expect(dialog).toContainText('Konto „Zweitkonto“ archivieren?')
+    await expect(dialog).toContainText('Haus See · Top 1')
+    await dialog.getByRole('button', { name: 'Archivieren' }).click()
+    await expect(cardB).toContainText('archiviert')
+    await save(page).click()
+    await expect(page.getByText('Kundendaten gespeichert.')).toBeVisible()
+
+    expect(await apartmentAccount(apt)).toBeNull()
+    expect((await accounts(tenant)).find((r) => r.id === b.id)?.archived_at).not.toBeNull()
+    expect((await logFields(tenant)).at(-1)).toContain('bank_accounts')
+  })
+
+  test('AC: Primär wechseln: Wohnung mit „Primäres Konto“ folgt, feste Zuordnung bleibt', async ({ page, users }) => {
+    desktopOnly()
+    const owner = await users()
+    const tenant = await createTenant(unique('Folgen'), [{ user: owner, role: 'owner' }])
+    const a = acc(AT, true, { label: 'Hauptkonto' })
+    const b = acc(DE, false, { label: 'Zweitkonto' })
+    await seed(tenant, owner, [a, b])
+    await apartment(tenant, 'Top 1')
+    const fixed = await apartment(tenant, 'Top 2')
+    await setApartmentAccount(fixed, a.id)
+    await signInAs(page, owner)
+    await page.goto('/einstellungen/stammdaten')
+    await ready(page)
+
+    await actions(page, 'Zweitkonto').click()
+    await item(page, 'Als primär festlegen').click()
+    await save(page).click()
+    await expect(page.getByText('Kundendaten gespeichert.')).toBeVisible()
+    expect((await accounts(tenant)).filter((r) => r.is_primary).map((r) => r.id)).toEqual([b.id])
+
+    await page.goto('/einstellungen/wohnungen')
+    await ready(page)
+    await page.getByRole('button', { name: /Top 1/ }).first().click()
+    await expect(page.getByRole('combobox', { name: 'Bankkonto' })).toContainText('Primäres Konto (DE89 3704 … 3000)')
+    await page.keyboard.press('Escape')
+    await page.getByRole('button', { name: /Top 2/ }).first().click()
+    await expect(page.getByRole('combobox', { name: 'Bankkonto' })).toContainText('AT61 1904 3002 3457 3201')
+    expect(await apartmentAccount(fixed)).toBe(a.id)
+  })
+
+  test('AC: Wohnung: Hotel-ID und festes Konto speichern; ungültige Hotel-ID; inzwischen archiviertes Konto abgelehnt', async ({ page, users }) => {
+    desktopOnly()
+    const owner = await users()
+    const tenant = await createTenant(unique('Wohnungsfelder'), [{ user: owner, role: 'owner' }])
+    const a = acc(AT, true, { label: 'Hauptkonto' })
+    const b = acc(DE, false, { label: 'Zweitkonto' })
+    await seed(tenant, owner, [a, b])
+    const apt = await apartment(tenant)
+    await signInAs(page, owner)
+    await page.goto('/einstellungen/wohnungen')
+    await ready(page)
+    await page.getByRole('button', { name: /Top 1/ }).first().click()
+
+    const hotel = page.getByLabel('booking.com Hotel-ID')
+    await hotel.fill('123/45')
+    await page.getByRole('button', { name: 'Speichern', exact: true }).click()
+    await expect(page.getByText('Bitte nur Buchstaben, Ziffern und Bindestrich eingeben')).toBeVisible()
+
+    await hotel.fill(' AB-12345x ')
+    await page.getByRole('combobox', { name: 'Bankkonto' }).click()
+    await page.getByRole('option', { name: /DE89 3704 0044 0532 0130 00/ }).click()
+    await page.getByRole('button', { name: 'Speichern', exact: true }).click()
+    await expect(page.getByText('Änderungen gespeichert.')).toBeVisible()
+    await expect
+      .poll(async () => (await service().from('apartments').select('booking_hotel_id, bank_account_id').eq('id', apt).single()).data)
+      .toEqual({ booking_hotel_id: 'AB-12345x', bank_account_id: b.id })
+
+    // Zweitkonto wird in einem anderen Fenster archiviert, die Wohnung soll es wieder fest bekommen
+    await setApartmentAccount(apt, null)
+    await page.reload()
+    await ready(page)
+    await page.getByRole('button', { name: /Top 1/ }).first().click()
+    await page.getByRole('combobox', { name: 'Bankkonto' }).click()
+    await page.getByRole('option', { name: /DE89 3704 0044 0532 0130 00/ }).click()
+    await seed(tenant, owner, [a, { ...b, archived: true }])
+    await page.getByRole('button', { name: 'Speichern', exact: true }).click()
+    await expect(page.getByText('Das gewählte Bankkonto wurde inzwischen archiviert oder gelöscht.', { exact: false })).toBeVisible()
+    expect(await apartmentAccount(apt)).toBeNull()
+  })
+
+  test('AC: Doppelte IBAN im Formular an der späteren Karte; 20 Konten: Hinzufügen gesperrt mit Hinweis', async ({ page, users }) => {
+    desktopOnly()
+    const owner = await users()
+    const tenant = await createTenant(unique('Grenzen'), [{ user: owner, role: 'owner' }])
+    await seed(tenant, owner, [acc(AT, true, { label: 'Hauptkonto' })])
+    await signInAs(page, owner)
+    await page.goto('/einstellungen/stammdaten')
+    await ready(page)
+
+    await page.getByRole('button', { name: 'Bankkonto hinzufügen' }).click()
+    const list = page.getByRole('list', { name: 'Bankkonten des Kunden' })
+    const second = list.getByRole('listitem').nth(1)
+    await second.getByLabel('IBAN').fill('AT61 1904 3002 3457 3201')
+    await save(page).click()
+    await expect(second.getByText('Diese IBAN ist bereits erfasst.')).toBeVisible()
+    expect(await accounts(tenant)).toHaveLength(1)
+
+    await seed(tenant, owner, Array.from({ length: 20 }, (_, i) => acc(atIban(i + 1), i === 0)))
+    await page.reload()
+    await ready(page)
+    await expect(page.getByRole('button', { name: 'Bankkonto hinzufügen' })).toBeDisabled()
+    await expect(page.getByText('Höchstens 20 Bankkonten sind möglich (aktive und archivierte).')).toBeVisible()
+  })
+
+  test('AC: Betreiber erfasst ein Konto; Protokoll „Bankkonten“; deaktivierter Kunde nur lesbar', async ({ page, users }) => {
+    desktopOnly()
+    const owner = await users()
+    const tenant = await createTenant(unique('Betreiber'), [{ user: owner, role: 'owner' }])
+    const admin = await users({ displayName: 'Ada Admin', admin: true })
+    await signInAsAdmin(page, admin)
+    await page.goto(`/betreiber/kunden/${tenant}`)
+    await ready(page)
+
+    await page.getByRole('button', { name: 'Bankkonto hinzufügen' }).click()
+    const list = page.getByRole('list', { name: 'Bankkonten des Kunden' })
+    await list.getByLabel('IBAN').fill(DE)
+    await save(page).click()
+    await expect(page.getByText('Kundendaten gespeichert.')).toBeVisible()
+    await expect(page.getByRole('listitem').filter({ hasText: /Stammdaten geändert: .*Bankkonten/ })).toBeVisible()
+    expect((await accounts(tenant)).map((r) => [r.iban, r.is_primary])).toEqual([[DE, true]])
+
+    const { error } = await service().from('tenants').update({ status: 'deactivated' }).eq('id', tenant)
+    expect(error).toBeNull()
+    await page.reload()
+    await ready(page)
+    await expect(list.getByLabel('IBAN')).toBeDisabled()
+    await expect(page.getByRole('button', { name: 'Bankkonto hinzufügen' })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: /^Aktionen für/ })).toHaveCount(0)
+  })
+
+  test('Layout: Wohnungs-Fenster mit Konten ohne seitliches Scrollen, ohne WCAG-2.1-AA-Verstöße', async ({ page, users }) => {
+    const owner = await users()
+    const tenant = await createTenant(unique('Fenster'), [{ user: owner, role: 'owner' }])
+    await seed(tenant, owner, [acc(AT, true, { label: 'Geschäftskonto Raiffeisen Salzkammergut Mitte' }), acc(DE, false)])
+    await apartment(tenant)
+    await signInAs(page, owner)
+    await page.goto('/einstellungen/wohnungen')
+    await ready(page)
+    await page.getByRole('button', { name: /Top 1/ }).first().click()
+    await expect(page.getByRole('combobox', { name: 'Bankkonto' })).toBeVisible()
+    await page.getByRole('combobox', { name: 'Bankkonto' }).scrollIntoViewIfNeeded()
+
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
+    expect(overflow).toBeLessThanOrEqual(0)
+    const dialog = page.getByRole('dialog')
+    const wide = await dialog.evaluate((el) => el.scrollWidth - el.clientWidth)
+    expect(wide).toBeLessThanOrEqual(0)
+    const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze()
+    expect(results.violations).toEqual([])
+  })
+})
+
