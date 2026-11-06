@@ -1,6 +1,6 @@
 # PROJ-45: Zahlungserfassung
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-11-06
 **Last Updated:** 2026-11-06
 
@@ -302,12 +302,159 @@ Bezahlt (beglichen) = Summe aller Zahlungen einschließlich Provision und Zahlun
 ### Technical Decisions
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Zahlungsstatus, Summen, Guthaben und „überfällig“ beim Lesen in einer Lesesicht der Datenbank gebildet, nicht gespeichert | Nie widersprüchlich; eine Quelle für Rechnungsliste, Buchung, PROJ-43, PROJ-14 und PROJ-18 | 2026-11-06 |
+| Fälligkeit aus dem Zahlungsplan der festgeschriebenen Fassung | Ist beim Ausstellen schon berechnet und gespeichert; passt zur Spec (Stand beim Ausstellen) | 2026-11-06 |
+| Rückzahlungen als eigene Art in derselben Zahlungstabelle, an der Gutschrift | Eine Liste, eine Summenlogik, ein Dialog; Zahlungsliste zieht Rückzahlungen ab | 2026-11-06 |
+| Schreiben nur über Datenbankfunktionen, direktes Schreiben gesperrt | Mitarbeiter dürfen anlegen, aber nicht ändern; Regeln (zahlbar, Plattform, Zahlungsart) gelten auch am Formular vorbei | 2026-11-06 |
+| Funktion sperrt die Rechnung wie das Ausstellen der Gutschrift | Keine Zahlung auf eine gerade stornierte Rechnung | 2026-11-06 |
+| Hinweise (Überzahlung, Doppelerfassung) kommen aus der Datenbank und werden bestätigt | Gleicher Stand wie beim Speichern, auch bei gleichzeitiger Erfassung | 2026-11-06 |
+| „Bereits bezahlt“: Rechnung und Zahlung in einem Datenbankschritt | Keine halbe Erfassung bei Abbruch | 2026-11-06 |
+| Löschsperre für Rechnungen mit Zahlungen in der Datenbank | Kein stilles Mitlöschen, auch nicht über andere Wege | 2026-11-06 |
+| Belege in eigenem privatem Speicherbereich, Upload vom Browser, Bildumwandlung aus PROJ-29, nächtliche Aufräumaufgabe erweitert | Bewährter Weg; Vercel-Grenze für Anfragen; keine neuen Pakete | 2026-11-06 |
+| Betreiber ohne Leseausnahme auf Zahlungen | Spec: kein Zugriff des Betreibers; anders als bei Rechnungen | 2026-11-06 |
+| Zahlungsarten als eigene Tabelle mit Verweis, Standardarten per Migration und beim Anlegen neuer Kunden | Umbenennen wirkt auf alte Zahlungen; Löschen benutzter Arten technisch ausgeschlossen | 2026-11-06 |
+| Bestehender, ausgeblendeter Menüpunkt „Zahlungen“ wird freigeschaltet und für alle Rollen geöffnet | War schon vorgesehen; Spec: Mitarbeiter sehen die Liste | 2026-11-06 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### Ausgangslage (bereits vorhanden)
+- **Rechnungstabelle** mit nacherfassten Rechnungen, Entwürfen, ausgestellten Rechnungen und Gutschriften; „storniert“ ergibt sich aus einer Gutschrift, die auf die Rechnung verweist (PROJ-44).
+- **Festgeschriebene Fassung** jeder ausgestellten Rechnung enthält schon den **Zahlungsplan** (Anzahlung, Anzahlung fällig, Rest, fällig am), berechnet beim Ausstellen. Die Fälligkeit muss also nicht neu gerechnet werden und ändert sich nicht, wenn sich die Buchung später ändert.
+- **Rechnungen dieser Buchung** liefert die Datenbank über eine eigene Lesefunktion; die Rechnungsliste liest direkt aus der Tabelle.
+- **Bilder umwandeln** (HEIC → JPEG, drehen, verkleinern) und **direktes Hochladen vom Browser in einen privaten Speicher je Kunde** gibt es seit PROJ-29; eine nächtliche Aufräumaufgabe entfernt dort liegengebliebene Dateien.
+- **Navigation:** Der Menüpunkt „Zahlungen“ ist schon vorgesehen, aber noch ausgeblendet und nur für Inhaber.
+- **Protokoll:** Eine bestehende Protokollfunktion lässt sich an neue Tabellen hängen.
+
+### Grundidee
+Zwei neue Tabellen: **Zahlungen** und **Zahlungsarten**. Zahlungsstatus, Bezahlt, Offen, Guthaben und „überfällig“ werden **nicht gespeichert**, sondern beim Lesen aus den Zahlungen gebildet, in einer gemeinsamen Lesesicht der Datenbank. So können sie nie auseinanderlaufen, und PROJ-43 (Filter), PROJ-14 (Dashboard) und PROJ-18 (Auswertung) nutzen dieselbe Quelle.
+
+Rückzahlungen sind ebenfalls Einträge in der Zahlungstabelle, gekennzeichnet als „Rückzahlung“ und an der Gutschrift statt an der Rechnung.
+
+### Seiten und Bausteine der Oberfläche
+```
+Rechnungsdetail (besteht)
++-- NEU Abschnitt „Zahlungen“ (zahlbare und stornierte Rechnungen)
+|   +-- Liste: Datum · Art · Betrag (+ Provision + Gebühr) · Notiz · Beleg · erfasst von
+|   |   +-- je Zahlung „Bearbeiten“ / „Löschen“ (nur Inhaber)
+|   +-- Summenblock: Rechnungsbetrag · Eingegangen · Provision · Zahlungsgebühr · Beglichen · Offen
+|   +-- Status-Kennzeichen (offen/teilweise/bezahlt/überzahlt, „überfällig“ rot)
+|   +-- Fälligkeit (App-Rechnungen): „fällig am …“ bzw. „Anzahlung … / Rest …“
+|   +-- Knopf „Zahlung erfassen“ (nicht bei storniert)
+|   +-- storniert: „storniert · Guthaben € …“
++-- NEU Abschnitt „Rückzahlungen“ (Gutschriften)
+    +-- Liste, „Rückzahlung offen € …“ bzw. „erstattet“, Knopf „Rückzahlung erfassen“
+
+Zahlungs-Dialog (neu, ein Baustein für Erfassen, Bearbeiten, Rückzahlung)
++-- Rechnung: fest, oder Auswahl (aus der Buchung; beim Umhängen mit Suche, gleiche Buchung zuerst)
++-- Zahlungsdatum · Betrag bzw. „Ausbezahlt“
++-- Provision · Zahlungsgebühr (nur Plattform-Buchung; Vorschlag für „Ausbezahlt“ folgt)
++-- Zahlungsart (aktive Arten, Standard vorbelegt) · Notiz mit Zähler
++-- Beleg: Datei wählen / am Handy fotografieren, Vorschau, ersetzen/entfernen (Inhaber)
++-- Hinweise vor dem Speichern: Überzahlung, gleiche Zahlung schon erfasst, Rückzahlung über Guthaben
+    (Bestätigen und trotzdem speichern)
+
+Buchungsdetail, Abschnitt „Rechnungen“ (besteht)
++-- je Rechnung NEU Status-Kennzeichen und Offen-Betrag
++-- NEU „Bezahlt: € …“ und „Offen: € …“ über alle nicht stornierten Rechnungen
++-- NEU Knopf „Zahlung erfassen“ (öffnet den Dialog mit Rechnungsauswahl)
+
+Rechnungsliste (besteht)
++-- NEU Spalte „Zahlung“ mit Status-Kennzeichen (Handy: Zeile in der Karte)
+
+Formular „Rechnung nacherfassen“ (besteht, nur beim Anlegen)
++-- NEU Schalter „Bereits bezahlt“ → Datum, Zahlungsart, bei Plattform-Buchung Provision/Gebühr
+
+Menüpunkt „Zahlungen“ (neu, /zahlungen, Inhaber und Mitarbeiter)
++-- Kopf: Monats-Sprungauswahl (wie Buchungsübersicht) · „Alle Monate“ · Zahlungsart · Suche
++-- Tabelle (Desktop) bzw. Karten (Handy): Datum · Rechnung · Empfänger · Buchung · Art ·
+|   Betrag · Provision · Gebühr · Beleg  (nur die Rechnungsnummer ist der Link – Safari)
++-- Summenzeile: Eingegangen (Rückzahlungen abgezogen) · Provision · Zahlungsgebühr
++-- Blättern je 50, Gesamtzahl; leerer Zustand mit Hinweis
+
+Einstellungen → Zahlungen (neuer Reiter hinter „Rechnungen“, nur Inhaber)
++-- Liste der Zahlungsarten mit Griff zum Ordnen (wie Preispositionen, PROJ-34)
+|   +-- je Art: Name · „Standard“ · aktiv/deaktiviert · Umbenennen · Löschen (nur unbenutzt)
++-- „Zahlungsart hinzufügen“
+
+Buchungsformular und -filter (bestehen)
++-- Buchungsquelle NEU „Airbnb“ hinter „booking.com“ (ohne Kalenderfarbe)
+```
+
+### Datenmodell (in Worten)
+**Zahlungsart** (je Kunde):
+- Name (bis 50 Zeichen, je Kunde eindeutig ohne Groß-/Kleinschreibung), Reihenfolge, aktiv ja/nein, Standard ja/nein (höchstens eine je Kunde)
+- Bestehende Kunden bekommen die sechs Standardarten mit der Migration, neue Kunden beim Anlegen automatisch
+
+**Zahlung** (je Kunde):
+- Art des Eintrags: **Zahlung** oder **Rückzahlung**
+- Rechnung (Pflicht): bei Zahlungen eine zahlbare oder stornierte Rechnung, bei Rückzahlungen eine Gutschrift
+- Zahlungsdatum, Betrag in Cent (> 0), Provision und Zahlungsgebühr in Cent (≥ 0, Standard 0; bei Rückzahlungen immer 0)
+- Zahlungsart (Verweis; eine Art mit Zahlungen kann nicht gelöscht werden)
+- Notiz (bis 300 Zeichen), Beleg (Dateiname im Speicher, Dateityp)
+- erfasst von, erfasst am; zuletzt geändert von/am
+- Eine Rechnung mit Zahlungen kann nicht gelöscht werden (Datenbanksperre; die Oberfläche zeigt die Meldung aus der Spec)
+
+**Lesesicht „Zahlungsstand je Rechnung“** (mit den Rechten des Lesenden):
+- Eingegangen, Provision, Zahlungsgebühr, Beglichen, Offen, Status (offen/teilweise/bezahlt/überzahlt bzw. „–“), überfällig ja/nein (aus dem Zahlungsplan der Fassung und dem heutigen Tag in Wien)
+- Bei stornierten Rechnungen und Gutschriften: Guthaben = Eingegangen an der Rechnung − Rückzahlungen an der Gutschrift; Gutschrift „Rückzahlung offen“/„erstattet“/„–“
+
+**Buchungsquelle:** erlaubte Werte um „Airbnb“ erweitert. Eine **Plattform-Buchung** ist eine mit Quelle booking.com oder Airbnb (später zusätzlich der Kanal aus dem Import).
+
+### Schreiben: über Datenbankfunktionen
+Erfassen, Bearbeiten/Umhängen und Löschen laufen über **eigene Datenbankfunktionen**, die Server-Aktionen der App aufrufen. Jede Funktion:
+1. prüft Person und Rolle (Erfassen: Inhaber und Mitarbeiter; Ändern/Löschen: nur Inhaber), Kunde aktiv
+2. **sperrt die Rechnung** für die Dauer des Schritts. Das Ausstellen einer Gutschrift (PROJ-44) sperrt dieselbe Rechnung. Damit kann eine Zahlung nie auf eine gerade stornierte Rechnung fallen („Diese Rechnung wurde inzwischen storniert“)
+3. prüft alle Regeln der Spec: Rechnung zahlbar (bzw. Gutschrift bei Rückzahlung), Datum nicht in der Zukunft, Beträge, Provision nur bei Plattform-Buchung, Zahlungsart aktiv (beim Bearbeiten bleibt die bisherige erlaubt), Beleg gehört zum Kunden
+4. liefert Hinweise (Überzahlung, gleiche Zahlung schon erfasst, Rückzahlung über Guthaben) zurück, solange sie nicht bestätigt sind; mit Bestätigung wird gespeichert
+5. schreibt das Protokoll
+
+Lesen ist über die Zugriffsregeln (RLS) für alle Mitglieder des Kunden erlaubt; direktes Schreiben in die Tabelle ist gesperrt. So kann ein Mitarbeiter auch am Formular vorbei nichts ändern oder löschen.
+
+**„Bereits bezahlt“ beim Nacherfassen:** Rechnung und Zahlung entstehen in **einem** Datenbankschritt, damit nie eine halbe Erfassung übrig bleibt.
+
+**Zahlungsarten** schreibt nur der Inhaber, direkt über Zugriffsregeln; die Regeln „mindestens eine aktiv“, „Standard nicht deaktivierbar“ und „löschen nur unbenutzt“ prüft die Datenbank zusätzlich.
+
+### Belege
+- Neuer **privater Speicherbereich** je Kunde, nur PDF und JPEG, bis 10 MB. Bilder werden wie beim Reisedokument im Browser umgewandelt (bestehender Baustein), PDFs unverändert hochgeladen.
+- Hochladen direkt vom Browser in den Speicher (Grenze der Server-Anfragen auf Vercel), unter zufälligem Namen; Mitglieder dürfen hochladen, nur Inhaber löschen.
+- Ansehen über kurzlebige, signierte Links, nur für Mitglieder des Kunden.
+- Wird ein Beleg ersetzt, entfernt oder die Zahlung gelöscht, löscht der Server die alte Datei. Liegengebliebene Dateien (Hochladen gelungen, Speichern nicht) entfernt die **bestehende nächtliche Aufräumaufgabe**, erweitert um diesen Bereich.
+
+### Zahlungsstatus, Fälligkeit und Vorschläge
+- Die **Datenbank** bildet Status und Summen (Lesesicht). Eine **gleichlautende Regel in der App** berechnet nur Vorschläge und Hinweise im Dialog (Offen-Betrag, „Ausbezahlt“ nach Abzug von Provision und Gebühr, Überzahlung). Gespeichert und angezeigt wird immer das Ergebnis der Datenbank.
+- „Überfällig“: heute (Wien) nach einem Fälligkeitstag, und Beglichen kleiner als bis dahin fällig. Nacherfasste Rechnungen haben keinen Zahlungsplan.
+
+### Listen
+- **Rechnungsliste** und **Rechnungen dieser Buchung** lesen den Zahlungsstand zusätzlich aus der Lesesicht; die Buchungssummen „Bezahlt/Offen“ ergeben sich daraus.
+- **Zahlungsliste:** eigene Lesesicht (Zahlung mit Rechnung, Empfänger, Buchung, Zahlungsart), gefiltert nach Monat, Art und Suche, je 50; die Summen kommen aus einer eigenen Abfrage über denselben Filter, damit sie alle Seiten umfassen. Passende Datenbank-Indizes für Kunde + Datum halten die Liste unter einer Sekunde.
+
+### Rechte (Zusammenfassung)
+| | Inhaber | Mitarbeiter | Betreiber |
+|---|---|---|---|
+| Lesen (RLS) | ja | ja | nein (keine Ausnahme für den Betreiber, anders als bei Rechnungen) |
+| Erfassen (Funktion) | ja | ja | nein |
+| Ändern, Umhängen, Löschen (Funktion) | ja | nein | nein |
+| Belege hochladen / löschen | ja / ja | ja / nein | nein |
+| Zahlungsarten | ja | nein | nein |
+| Seiten | alle | „Zahlungen“, Dialoge; nicht Einstellungen → Zahlungen | – |
+
+### Für /frontend und /backend
+- **/frontend:** Abschnitte in Rechnungsdetail und Buchungsdetail, Zahlungs-Dialog (inkl. Umhängen, Rückzahlung, Belege, Hinweise), Spalte „Zahlung“, Schalter „Bereits bezahlt“, Seite „Zahlungen“, Reiter „Einstellungen → Zahlungen“, Menüpunkt freischalten (alle Rollen), Buchungsquelle „Airbnb“ in Formular, Detail und Filter, Texte in der Übersetzungsdatei, Regel-Datei mit Tests. Bis zur Migration zeigen die Seiten leere Zustände, Speichern meldet „wird eingerichtet“.
+- **/backend:** Tabellen, Standardarten (Migration + neue Kunden), Buchungsquelle „Airbnb“, Zugriffsregeln, Schreibfunktionen mit Sperre, Lesesichten, Löschsperre für Rechnungen mit Zahlungen, Speicherbereich mit Regeln, Aufräumaufgabe erweitern, Protokoll, Indizes.
+
+### Für /qa
+- Gleichzeitig: Zahlung erfassen, während die Rechnung storniert wird; zwei Personen erfassen dieselbe Zahlung
+- Am Formular vorbei: Mitarbeiter ändert/löscht, Betreiber liest, fremder Kunde, Zahlung an Entwurf/Gutschrift/negative Altrechnung, Provision bei Nicht-Plattform-Buchung, deaktivierte Zahlungsart, Datum in der Zukunft
+- Rechenregeln: Status-Grenzen, Schlussrechnung nach Abzug, Überzahlung, Guthaben ohne Provision, „überfällig“ am und nach dem Fälligkeitstag
+- Belege: HEIC aus dem iPhone, PDF über 10 MB, fremder Link, Ersetzen löscht alte Datei
+- Löschsperre der nacherfassten Rechnung; „Bereits bezahlt“ in einem Schritt
+- Layout und axe auf drei Breiten, Safari-Zeilenklick in der Zahlungsliste
+
+### Abhängigkeiten
+Keine neuen Pakete (Bildumwandlung, Hochladen, Griff zum Ordnen und Monatsauswahl sind vorhanden).
 
 ## QA Test Results
 _To be added by /qa_
