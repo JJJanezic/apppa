@@ -1,10 +1,11 @@
 import { randomUUID } from 'node:crypto'
+import { renameSync } from 'node:fs'
 
 import AxeBuilder from '@axe-core/playwright'
 import { expect, type Page, test as base } from '@playwright/test'
 
 import type { Json } from '../src/types/database'
-import { anon, createTenant, createUser, deleteUser, type E2EUser, hasSupabaseEnv, service, signInAs } from './support/supabase'
+import { anon, createTenant, createUser, deleteUser, type E2EUser, hasSupabaseEnv, service, signInAs, signInAsAdmin } from './support/supabase'
 
 // PROJ-44: Gutschrift zu Rechnung. Regeln: src/lib/invoice-credit.test.ts. Datenbank: supabase/tests/invoice-credit.integration.test.ts.
 
@@ -88,7 +89,7 @@ async function setup(users: Users, { staff = false } = {}) {
   return { owner, staff: staffUser, tenantId, bookingId }
 }
 
-async function addDraft(owner: E2EUser, tenantId: string, bookingId: string) {
+async function addDraft(owner: E2EUser, tenantId: string, bookingId: string, over: Record<string, unknown> = {}) {
   const client = anon()
   await client.auth.signInWithPassword({ email: owner.email, password: owner.password })
   const { data, error } = await client.rpc('save_invoice_draft', {
@@ -109,6 +110,7 @@ async function addDraft(owner: E2EUser, tenantId: string, bookingId: string) {
       texts: { intro: { block_id: null, body: null }, payment: { block_id: null, body: null }, closing: { block_id: null, body: null } },
       payment: { deposit_percent: null, deposit_days: null, due_days: 0, due_basis: 'after_invoice' },
       booking_fingerprint: null,
+      ...over,
     } as unknown as Json,
   })
   if (error) throw error
@@ -121,6 +123,33 @@ async function issueInvoice(page: Page, id: string, number = '2026-0001') {
   const res = await page.request.post(`/api/rechnungen/${id}/ausstellen`, { data: { invoiceDate: '2026-10-20', number, updatedAt: data!.updated_at, acks: [] } })
   expect(await res.json()).toEqual({ ok: true, id })
 }
+
+async function pdfText(pdf: Uint8Array) {
+  const { getDocument } = await import('pdfjs-dist/legacy/build/pdf.mjs')
+  const doc = await getDocument({ data: pdf }).promise
+  const out: string[] = []
+  for (let n = 1; n <= doc.numPages; n++) {
+    const content = await (await doc.getPage(n)).getTextContent()
+    out.push(content.items.map((i) => ('str' in i ? i.str : '')).join(''))
+  }
+  return plain(out.join(' '))
+}
+
+async function storedPdf(id: string) {
+  const { data: r } = await service().from('invoices').select('pdf_path').eq('id', id).single()
+  const { data: file } = await service().storage.from('invoices').download(r!.pdf_path as string)
+  return pdfText(new Uint8Array(await file!.arrayBuffer()))
+}
+
+// Gutschrift über die Schnittstelle (angemeldet als Inhaber); liefert die Kennung
+async function issueCredit(page: Page, id: string, number: string, reason = '') {
+  const res = await page.request.post(`/api/rechnungen/${id}/gutschrift`, { data: { invoiceDate: '2026-10-20', number, reason, acks: [] } })
+  const body = await res.json()
+  expect(body.ok, JSON.stringify(body)).toBe(true)
+  return body.id as string
+}
+
+const PARTIAL = { kind: 'partial', partial: { mode: 'amount', percent: null, amount_cents: 20000 }, lines: [{ label: 'Anteil', amount_cents: 20000, vat_rate: '10.00', source_kind: null, source_charge_id: null }] }
 
 async function addBackfilled(owner: E2EUser, tenantId: string) {
   const client = anon()
@@ -318,5 +347,232 @@ test.describe('Gutschrift: Layout', () => {
     await expect(page.getByRole('link', { name: 'Gutschrift erstellen' })).toBeVisible()
     expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0)
     await page.screenshot({ path: `test-results/proj44-detail-${test.info().project.name}.png`, fullPage: true })
+  })
+})
+
+test.describe('Gutschrift: QA', () => {
+  test('QA: Abgelegtes PDF: ohne Aufdruck, Überschrift, Nummer, Verweis, Grund, negative Beträge; Aussteller aktuell, Empfänger aus der Rechnung', async ({ page, users }) => {
+    desktopOnly()
+    const s = await setup(users)
+    const id = await addDraft(s.owner, s.tenantId, s.bookingId)
+    await signInAs(page, s.owner)
+    await issueInvoice(page, id)
+    // Stammdaten und Gast ändern sich nach der Rechnung
+    await service().from('tenants').update({ address_line1: 'Neuer Weg 99' } as never).eq('id', s.tenantId)
+    const { data: b } = await service().from('bookings').select('guest_id').eq('id', s.bookingId).single()
+    await service().from('guests').update({ last_name: 'Umbenannt' } as never).eq('id', b!.guest_id as string)
+    const credit = await issueCredit(page, id, '2026-0002', 'Falscher Empfänger')
+    const text = await storedPdf(credit)
+    expect(text).toContain('Gutschrift')
+    expect(text).toContain('Gutschriftsnummer: 2026-0002')
+    expect(text).toContain('zu Rechnung 2026-0001 vom 20.10.2026')
+    expect(text).toContain('Grund: Falscher Empfänger')
+    expect(text).toContain('Übernachtung · (inkl. 10 % USt.) -€ 900,00')
+    expect(text).toContain('Gutschriftsbetrag (inkl. USt.) -€ 900,00')
+    expect(text).toContain('10 % aus -€ 818,18 -€ 81,82')
+    expect(text).toContain('Neuer Weg 99')
+    expect(text).toContain('Maria Huber')
+    expect(text).not.toContain('Umbenannt')
+    expect(text).not.toContain('Entwurf')
+    // Prüfsumme und Datenbank
+    const { data: row } = await service().from('invoices').select('kind, origin, total_cents, credited_invoice_id, credit_reason, issued_by').eq('id', credit).single()
+    expect(row).toEqual({ kind: 'credit_note', origin: 'issued', total_cents: -90000, credited_invoice_id: id, credit_reason: 'Falscher Empfänger', issued_by: s.owner.id })
+    // Detailseite der Gutschrift
+    await page.goto(`/rechnungen/${credit}`)
+    await ready(page)
+    await expect(page.getByText('Gutschrift', { exact: true }).first()).toBeVisible()
+    await expect(page.getByText('Falscher Empfänger')).toBeVisible()
+    await expect(page.getByText('Gutschriftsbetrag')).toBeVisible()
+    await expect(page.getByText('Fällig am')).toHaveCount(0)
+    await expect(page.getByRole('link', { name: 'Gutschrift erstellen' })).toHaveCount(0)
+    await expect(page).toHaveTitle(/Gutschrift 2026-0002/)
+  })
+
+  test('AC: Teilrechnung in gültiger Schlussrechnung: gesperrt mit Link; nach Storno der Schlussrechnung frei; offener Entwurf verliert den Abzug mit Hinweis', async ({ page, users }) => {
+    desktopOnly()
+    const s = await setup(users)
+    await signInAs(page, s.owner)
+    const partial = await addDraft(s.owner, s.tenantId, s.bookingId, PARTIAL)
+    await issueInvoice(page, partial, '2026-0001')
+    const final = await addDraft(s.owner, s.tenantId, s.bookingId, { kind: 'final', deduction_ids: [partial] })
+    await issueInvoice(page, final, '2026-0002')
+
+    await page.goto(`/rechnungen/${partial}`)
+    await ready(page)
+    await expect(page.getByRole('button', { name: 'Gutschrift erstellen' })).toBeDisabled()
+    await expect(page.getByText('Zuerst die Schlussrechnung 2026-0002 stornieren.')).toBeVisible()
+    await page.getByRole('link', { name: 'Zur Schlussrechnung' }).click()
+    await expect(page).toHaveURL(new RegExp(`/rechnungen/${final}$`))
+    // Seite und Schnittstelle am Knopf vorbei: gesperrt
+    await page.goto(`/rechnungen/${partial}/gutschrift`)
+    await expect(page).toHaveURL(new RegExp(`/rechnungen/${partial}$`))
+    const blocked = await page.request.post(`/api/rechnungen/${partial}/gutschrift`, { data: { invoiceDate: '2026-10-20', number: 'G-9', reason: '', acks: [] } })
+    expect((await blocked.json()).error).toBe('blocked')
+
+    // Schlussrechnung über die Seite stornieren: Abzugszeile gespiegelt
+    await openCredit(page, final)
+    await expect(previewText(page)).toContainText(/abzüglich Teilrechnung 2026-0001 vom 20\.10\.2026\s*darin USt 10\s%\s€\s18,18\s*€\s200,00/, { timeout: 20_000 })
+    await expect(previewText(page)).toContainText(/Gutschriftsbetrag \(inkl\. USt\.\)\s*-€\s700,00/)
+    await submit(page).click()
+    await expect(page).toHaveURL(/ausgestellt=1/, { timeout: 30_000 })
+
+    // Neuer Entwurf zieht die Teilrechnung wieder ab; dann Teilrechnung stornieren → Entwurf verliert den Abzug
+    await page.goto(`/rechnungen/${partial}`)
+    await ready(page)
+    await expect(page.getByRole('link', { name: 'Gutschrift erstellen' })).toBeVisible()
+    const draft = await addDraft(s.owner, s.tenantId, s.bookingId, { kind: 'final', deduction_ids: [partial] })
+    await issueCredit(page, partial, '2026-0004')
+    const { data: d } = await service().from('invoices').select('deduction_removed, total_cents').eq('id', draft).single()
+    expect(d).toEqual({ deduction_removed: true, total_cents: 90000 })
+    await page.goto(`/rechnungen/${draft}`)
+    await ready(page)
+    await expect(page.getByText(/Abgezogene Rechnung existiert nicht mehr/).first()).toBeVisible()
+  })
+
+  test('AC: Zweiter Inhaber schickt nach dem ersten ab: „Rechnung wurde inzwischen storniert“ mit Link, keine zweite Gutschrift', async ({ page, users }) => {
+    desktopOnly()
+    const s = await setup(users)
+    const id = await addDraft(s.owner, s.tenantId, s.bookingId)
+    await signInAs(page, s.owner)
+    await issueInvoice(page, id)
+    await openCredit(page, id)
+    await expect(submit(page)).toBeEnabled()
+    const first = await issueCredit(page, id, await page.getByLabel('Gutschriftsnummer').inputValue())
+    await submit(page).click()
+    const alert = page.getByRole('alert').filter({ hasText: 'Rechnung wurde inzwischen storniert.' })
+    await expect(alert).toBeVisible({ timeout: 30_000 })
+    await alert.getByRole('link', { name: 'Zur Gutschrift' }).click()
+    await expect(page).toHaveURL(new RegExp(`/rechnungen/${first}$`))
+    const { count } = await service().from('invoices').select('id', { count: 'exact', head: true }).eq('credited_invoice_id', id)
+    expect(count).toBe(1)
+  })
+
+  test('AC: PDF-Erzeugung scheitert: keine Gutschrift, keine Nummer verbraucht, Eingaben erhalten; neuer Versuch gelingt', async ({ page, users }) => {
+    desktopOnly()
+    const s = await setup(users)
+    const id = await addDraft(s.owner, s.tenantId, s.bookingId)
+    await signInAs(page, s.owner)
+    await issueInvoice(page, id)
+    await openCredit(page, id)
+    await page.getByLabel('Grund (optional)').fill('Doppelt verrechnet')
+    await expect(previewText(page)).toContainText('Grund: Doppelt verrechnet', { timeout: 20_000 })
+    const number = await page.getByLabel('Gutschriftsnummer').inputValue()
+    const worker = 'pdf-worker-build/render-worker.mjs'
+    renameSync(worker, `${worker}.weg`)
+    try {
+      await submit(page).click()
+      await expect(page.getByRole('alert').filter({ hasText: 'Das PDF konnte nicht erzeugt werden' })).toBeVisible({ timeout: 30_000 })
+    } finally {
+      renameSync(`${worker}.weg`, worker)
+    }
+    const { count } = await service().from('invoices').select('id', { count: 'exact', head: true }).eq('tenant_id', s.tenantId).eq('kind', 'credit_note')
+    expect(count).toBe(0)
+    const { data: files } = await service().storage.from('invoices').list(s.tenantId)
+    expect(files ?? []).toHaveLength(1)
+    await expect(page.getByLabel('Grund (optional)')).toHaveValue('Doppelt verrechnet')
+    await expect(page.getByLabel('Gutschriftsnummer')).toHaveValue(number)
+    await submit(page).click()
+    await expect(page).toHaveURL(/ausgestellt=1/, { timeout: 30_000 })
+    await expect(page.getByRole('heading', { name: number })).toBeVisible({ timeout: 20_000 })
+  })
+
+  test('AC: Mitarbeiter sieht Gutschrift in Liste, Buchung und Detail samt PDF; Rechnung als storniert', async ({ page, users }) => {
+    desktopOnly()
+    const s = await setup(users, { staff: true })
+    const id = await addDraft(s.owner, s.tenantId, s.bookingId)
+    await signInAs(page, s.owner)
+    await issueInvoice(page, id)
+    const credit = await issueCredit(page, id, '2026-0002')
+    await page.context().clearCookies()
+    await signInAs(page, s.staff!)
+    await page.goto('/rechnungen')
+    await ready(page)
+    const row = page.getByRole('row').filter({ hasText: '2026-0002' })
+    await expect(row.getByText('Gutschrift')).toBeVisible()
+    await expect(page.getByRole('row').filter({ hasText: '2026-0001' }).getByText('storniert')).toBeVisible()
+    await page.goto(`/buchungen/${s.bookingId}`)
+    await ready(page)
+    await expect(page.getByRole('link', { name: '2026-0002' })).toBeVisible()
+    await page.goto(`/rechnungen/${credit}`)
+    await ready(page)
+    await expect(page.getByRole('link', { name: 'PDF öffnen' })).toBeVisible()
+    await page.goto(`/rechnungen/${id}`)
+    await ready(page)
+    await expect(page.getByText('Diese Rechnung ist storniert.')).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Zur Gutschrift 2026-0002' })).toBeVisible()
+  })
+
+  test('QA: Schnittstellen: ohne Anmeldung, fremder Inhaber, Betreiber, deaktivierter Kunde, ungültige Eingaben, XSS im Grund', async ({ page, users, request }) => {
+    desktopOnly()
+    const s = await setup(users)
+    const id = await addDraft(s.owner, s.tenantId, s.bookingId)
+    await signInAs(page, s.owner)
+    await issueInvoice(page, id)
+    await page.context().clearCookies()
+    const body = { invoiceDate: '2026-10-20', number: 'G-1', reason: '', acks: [] }
+    const preview = { creditFor: id, credit: { invoiceDate: '2026-10-20', number: 'G-1', reason: '' } }
+
+    expect((await request.post(`/api/rechnungen/${id}/gutschrift`, { data: body, headers: { cookie: '' } })).status()).toBe(401)
+    expect((await request.post('/api/rechnungen/vorschau', { data: preview, headers: { cookie: '' } })).status()).toBe(403)
+
+    const stranger = await users()
+    await createTenant(`QA44 Fremd ${randomUUID().slice(0, 8)}`, [{ user: stranger, role: 'owner' }])
+    await signInAs(page, stranger)
+    expect((await page.request.post(`/api/rechnungen/${id}/gutschrift`, { data: body })).status()).toBe(404)
+    expect((await page.request.post('/api/rechnungen/vorschau', { data: preview })).status()).toBe(404)
+    await page.goto(`/rechnungen/${id}/gutschrift`)
+    await expect(page.getByRole('heading', { name: /nicht gefunden/i })).toBeVisible()
+    await page.context().clearCookies()
+
+    await signInAsAdmin(page, await users({ admin: true }))
+    expect((await page.request.post(`/api/rechnungen/${id}/gutschrift`, { data: body })).status()).toBe(403)
+    expect((await page.request.post('/api/rechnungen/vorschau', { data: preview })).status()).toBe(403)
+    await page.context().clearCookies()
+
+    await signInAs(page, s.owner)
+    for (const data of [{ ...body, invoiceDate: 'heute' }, { ...body, invoiceDate: '1980-01-01' }, { ...body, number: 'x'.repeat(201) }, { ...body, reason: 'x'.repeat(2001) }, { ...body, acks: 'alle' }, {}]) {
+      expect((await page.request.post(`/api/rechnungen/${id}/gutschrift`, { data })).status(), JSON.stringify(data)).toBe(400)
+    }
+    expect((await page.request.post('/api/rechnungen/not-a-uuid/gutschrift', { data: body })).status()).toBe(400)
+    // Grund über 300 Zeichen am Formular vorbei: gesperrt
+    expect((await (await page.request.post(`/api/rechnungen/${id}/gutschrift`, { data: { ...body, reason: 'x'.repeat(301) } })).json()).error).toBe('blocked')
+    // Datum vor der Rechnung bzw. in der Zukunft am Formular vorbei: gesperrt
+    expect((await (await page.request.post(`/api/rechnungen/${id}/gutschrift`, { data: { ...body, invoiceDate: '2026-10-19' } })).json()).error).toBe('blocked')
+    expect((await (await page.request.post(`/api/rechnungen/${id}/gutschrift`, { data: { ...body, invoiceDate: '2099-01-01' } })).json()).error).toBe('blocked')
+
+    // Deaktivierter Kunde: abgelehnt
+    await service().from('tenants').update({ status: 'deactivated' } as never).eq('id', s.tenantId)
+    const deactivated = await page.request.post(`/api/rechnungen/${id}/gutschrift`, { data: body })
+    await service().from('tenants').update({ status: 'active' } as never).eq('id', s.tenantId)
+    expect(deactivated.ok()).toBe(false)
+    const { count } = await service().from('invoices').select('id', { count: 'exact', head: true }).eq('credited_invoice_id', id)
+    expect(count).toBe(0)
+
+    // XSS im Grund: nur Text
+    const xss = '<img src=x onerror="window.__xss=1">'
+    const credit = await issueCredit(page, id, '2026-0002', xss)
+    await page.goto(`/rechnungen/${credit}`)
+    await ready(page)
+    await expect(page.getByText(xss)).toBeVisible()
+    expect(await page.evaluate(() => (window as unknown as { __xss?: number }).__xss)).toBeUndefined()
+  })
+
+  // BUG-1 (QA 2026-11-06): Link „Zu Rechnung“ in der Detailansicht der Gutschrift ohne Unterstreichung im Text (link-in-text-block)
+  test('Layout: Detailseiten Gutschrift und stornierte Rechnung ohne seitliches Scrollen, keine WCAG-2.1-AA-Verstöße', async ({ page, users }) => {
+    test.fail(test.info().project.name !== 'mobile', 'BUG-1: link-in-text-block in der Detailansicht der Gutschrift (Desktop, Tablet)')
+    const s = await setup(users)
+    const id = await addDraft(s.owner, s.tenantId, s.bookingId)
+    await signInAs(page, s.owner)
+    await issueInvoice(page, id)
+    const credit = await issueCredit(page, id, '2026-0002', 'Falscher Empfänger')
+    for (const target of [credit, id]) {
+      await page.goto(`/rechnungen/${target}`)
+      await ready(page)
+      await expect(page.getByRole('link', { name: 'PDF öffnen' })).toBeVisible()
+      expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0)
+      const a11y = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze()
+      expect(a11y.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target).join(', ')}`)).toEqual([])
+      await page.screenshot({ path: `test-results/proj44-qa-${target === id ? 'storniert' : 'gutschrift'}-${test.info().project.name}.png`, fullPage: true })
+    }
   })
 })

@@ -1,6 +1,6 @@
 # PROJ-44: Rechnungsstorno (Gutschrift zu Rechnung)
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-11-06
 **Last Updated:** 2026-11-06
 
@@ -391,3 +391,119 @@ Keine neuen Pakete.
 | Filter „ohne Rechnung“: keine Belege oder Summe der verrechneten Belege € 0,00; Summe je Buchung als Lesesicht | Folgt der Spec („es zählt die Summe“); auch nacherfasste Gutschriften nach dem alten Weg zählen richtig. Folge: eine Rechnung über € 0,00 gilt ebenfalls als „ohne Rechnung“ | 2026-11-06 |
 | Ausstellen über eigene Schnittstelle `/api/rechnungen/[id]/gutschrift`, Schreibschritt nur für den Server | Wie PROJ-42: Arbeitsprozess und Schriften nur unter /api; kein Festschreiben mit fremdem PDF | 2026-11-06 |
 | Bestehende Vorschau-Schnittstelle und Vorlage um die Art „Gutschrift“ erweitert, eigene schlanke Prüfregel aus den Teilen von PROJ-42 | Ein PDF-Weg für alle Belege; Gutschrift braucht keine Buchungs- und Pflichtangaben-Prüfung | 2026-11-06 |
+
+---
+
+## QA Test Results
+
+**Tested:** 2026-11-06
+**App URL:** http://localhost:3000 (gebauter Server, Dev „apppa-dev“); Safari gegen `npm run dev`
+**Tester:** QA Engineer (AI)
+**Automatisiert:** `tests/PROJ-44-rechnungsstorno.spec.ts` (15 Tests), `supabase/tests/invoice-credit.integration.test.ts` (15), `src/lib/invoice-credit.test.ts` (23)
+
+### Acceptance Criteria Status
+
+#### Einstieg (5/5)
+- [x] Knopf „Gutschrift erstellen“ auf in der App ausgestellter Rechnung (Inhaber)
+- [x] Kein Knopf bei Entwurf, nacherfasster Rechnung, stornierter Rechnung, Gutschrift; Seite führt zurück
+- [x] Nacherfasste Rechnung: Hinweis auf den bisherigen Weg
+- [x] Abgezogene Teilrechnung: Knopf gesperrt, „Zuerst die Schlussrechnung [Nummer] stornieren.“ mit Link; Seite und Schnittstelle gesperrt
+- [x] Mitarbeiter: kein Knopf, Seite leitet zur Rechnung, Schnittstellen 403
+
+#### Seite „Gutschrift ausstellen“ (9/9)
+- [x] Verweis, Empfänger, Zeitraum, Positionen negativ, nicht änderbar (nur Datum, Grund, Nummer)
+- [x] Datum heute, Nummer = nächster Vorschlag aus dem gemeinsamen Kreis
+- [x] Grund auf der Vorschau; ohne Grund keine Zeile
+- [x] Grund über 300 Zeichen: Meldung, Ausstellen gesperrt (auch am Formular vorbei)
+- [x] Datum vor der Rechnung / in der Zukunft: Meldung am Datum, gesperrt (auch am Formular vorbei)
+- [x] Datum passt nicht zur Folge: Hinweis (gemeinsame Regel mit PROJ-42, Unit)
+- [x] Vergebene Nummer: gesperrt; beim Absenden neue Nummer (Regel aus PROJ-42)
+- [x] Nummer über dem Vorschlag / anderes Format: erst mit Häkchen
+- [x] Keine Einleitung, Zahlungsmodalitäten, Schlusstext
+
+#### Dokument (5/5)
+- [x] Beispiel der Spec exakt (Zeilen, „Gutschriftsbetrag (inkl. USt.)“, USt-Tabelle; Unit); abgelegtes PDF mit -€ 900,00 / „10 % aus -€ 818,18 -€ 81,82“
+- [x] Überschrift „Gutschrift“, „Gutschriftsnummer: …“, „zu Rechnung … vom …“, „Grund: …“, ohne Aufdruck
+- [x] Kleinunternehmer: Hinweis, ohne USt-Tabelle und Zusatz (Unit)
+- [x] Schlussrechnung: Positionen, Abzugszeile (inkl. „darin USt“) und Summen gespiegelt, Gutschriftsbetrag = −Rechnungsbetrag
+- [x] Teilrechnung nach Betrag: Anzahlungszeile und Anteile gespiegelt (Unit)
+
+#### Ausstellen und Wirkung (10/10)
+- [x] Festgeschrieben, PDF abgelegt, Detailseite der Gutschrift
+- [x] Rechnung „storniert“ mit Link zur Gutschrift, Gutschrift mit Link zur Rechnung
+- [x] Buchungsübersicht: „ohne Rechnung“ zeigt die Buchung, „mit Rechnung“ nicht; Spalte zeigt beide Belege, „(storniert)“
+- [x] Knopf „Rechnung“ in der Buchung wieder aktiv
+- [x] Schlussrechnung storniert → neue Schlussrechnung zieht dieselbe Teilrechnung ab; nach deren Storno Teilrechnung selbst stornierbar (Integration, E2E)
+- [x] Offener Entwurf verliert den Abzug, Hinweis „Abgezogene Rechnung existiert nicht mehr“, Betrag neu
+- [x] Zweites Stornieren abgelehnt (Oberfläche, Schnittstelle, Datenbank)
+- [x] Gutschrift nicht änderbar, löschbar oder stornierbar (auch mit Systemrechten)
+- [x] Gleichzeitig: genau eine Gutschrift; zweiter Inhaber erhält „Rechnung wurde inzwischen storniert.“ mit Link
+- [x] PDF-Erzeugung scheitert: keine Gutschrift, keine Nummer, keine Datei, Eingaben erhalten; neuer Versuch gelingt
+
+#### Rechte (3/3)
+- [x] Mitarbeiter, fremder Inhaber (404), Betreiber (403), ohne Anmeldung (401): abgelehnt; Datenbankfunktion nur für den Server (42501)
+- [x] Deaktivierter Kunde: abgelehnt
+- [x] Mitarbeiter sieht Gutschrift in Liste, Buchung und Detail samt PDF
+
+#### Allgemein (1/1)
+- [x] 375 px, 768 px, 1440 px ohne seitliches Scrollen; Bedienelemente ≥ 44 px; Chrome, Firefox (3 Kernabläufe), Safari (2 Kernabläufe) grün
+
+### Edge Cases Status
+- [x] Buchung nach der Rechnung geändert: Gutschrift spiegelt die Rechnung (Fassung)
+- [x] Stammdaten und Gast geändert: Aussteller aktuell, Empfänger aus der Rechnung (abgelegtes PDF)
+- [x] Rechnung mit 0 oder negativem Betrag: Hinweis, kein Sperren (Unit)
+- [x] Gutschrift zählt für die Löschsperre beim Kunden (Herkunft „ausgestellt“); Kaskade beim Löschen des Kunden funktioniert
+- [x] Logo, Zeichen ohne Glyph, gekürzte Fußzeile, Aussteller-Block: dieselbe Prüfung wie PROJ-42 (Unit, gemeinsamer Code)
+- [x] Nacherfasste Rechnung einer stornierten Schlussrechnung wieder änderbar und löschbar (Integration)
+- [x] Am Formular vorbei: Schlussrechnung mit stornierter oder schon gültig abgezogener Teilrechnung lässt sich nicht ausstellen (P0930)
+- [ ] Nicht geprüft: Gutschriftsdatum im neuen Jahr (Regel aus PROJ-39/42 unverändert); Logo-Fehler im Browser
+
+### Security Audit Results
+- [x] Authentifizierung: ohne Anmeldung 401 (Ausstellen) bzw. 403 (Vorschau)
+- [x] Autorisierung: fremder Kunde 404 auf Seite, Vorschau und Schnittstelle; Mitarbeiter und Betreiber 403; Datenbankfunktion nur `service_role`
+- [x] Positionen und Betrag kommen aus der Rechnung in der Datenbank; ein manipulierter Betrag wird abgelehnt (P0903)
+- [x] Eingaben: ungültiges Datum, zu lange Nummer/Grund, falsche Typen, ungültige Kennung → 400
+- [x] XSS im Grund: nur als Text angezeigt
+- [x] Unveränderlichkeit in der Datenbank (Trigger), auch mit Systemrechten; direkte Inserts durch Inhaber abgelehnt
+- [x] Rate-Limiting: wie PROJ-42 (Begrenzung je Instanz für PDF-Erzeugung)
+
+### Bugs Found
+
+#### BUG-1: Link „Zu Rechnung“ in der Detailansicht der Gutschrift nur durch Farbe erkennbar
+- **Severity:** Medium (WCAG 2.1 AA, 1.4.1; axe „link-in-text-block“)
+- **Steps to Reproduce:**
+  1. Gutschrift ausstellen, ihre Detailseite am Desktop oder Tablet öffnen
+  2. In „Angaben“ steht „Zu Rechnung: 2026-0001 · Di, 20.10.2026“
+  3. Expected: Link unterstrichen (wie „Rechnung … vom …“ oben)
+  4. Actual: Link ohne Unterstreichung direkt neben Text; axe meldet einen Verstoß (am Handy nicht)
+- **Test:** `Layout: Detailseiten …` mit `test.fail` für Desktop/Tablet markiert
+- **Priority:** Fix before deployment
+
+#### BUG-2: Verweis auf die Rechnung doppelt auf der Detailseite der Gutschrift
+- **Severity:** Low
+- **Steps to Reproduce:** Detailseite der Gutschrift öffnen: oben „Gutschrift zu Rechnung … vom …“ und in „Angaben“ „Zu Rechnung“ mit denselben Angaben
+- **Priority:** Nice to have
+
+#### BUG-3: Zweiter Versuch derselben Anfrage meldet „inzwischen storniert“
+- **Severity:** Low (aus dem Code; nicht im Browser nachgestellt)
+- **Steps to Reproduce:**
+  1. „Gutschrift ausstellen“, die Antwort geht unterwegs verloren (Netz), der Inhaber versucht es erneut
+  2. Expected: Weiterleitung zur eigenen Gutschrift (wie bei Rechnungen in PROJ-42)
+  3. Actual: Meldung „Rechnung wurde inzwischen storniert.“ mit Link „Zur Gutschrift“ (Abhilfe vorhanden)
+- **Priority:** Nice to have
+
+### Hinweise (keine PROJ-44-Fehler)
+- `rls.integration.test.ts` „Person ohne Mitgliedschaft“ rot: bekannte Testreste im Protokoll von Dev
+- PROJ-42 „Runde 2: BUG-2 in der Oberfläche“ einmal rot im Paket, einzeln grün (Zeitverhalten der Vorschau)
+- Offen vor echter Nutzung: Steuerberater (Bezeichnung „Gutschrift“, Pflichtangaben); PDF-Erzeugung und Ablage auf Vercel (Staging)
+
+### Regression
+- PROJ-42 (30 Tests), PROJ-37 (28), PROJ-40 (Knopf, Schluss-/Teilrechnung, BUG-5: 13), PROJ-15 (verrechnete Rechnung): grün
+- Integration: invoice-credit, invoice-issue, invoices, invoice-drafts, invoice-settings, operator, bookings grün; Unit 719 grün; Lint und Typen ohne Fehler
+
+### Summary
+- **Acceptance Criteria:** 33/33 passed
+- **Bugs Found:** 3 total (0 critical, 0 high, 1 medium, 2 low)
+- **Security:** Pass
+- **Production Ready:** YES (keine Critical/High)
+- **Recommendation:** BUG-1 vor dem Deploy beheben (kleiner Eingriff), dann deployen
