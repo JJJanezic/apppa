@@ -1,6 +1,6 @@
 # PROJ-46: Bankkonten und booking.com Hotel-ID
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-11-06
 **Last Updated:** 2026-11-06
 
@@ -477,4 +477,13 @@ Anlegen und Bearbeiten der Wohnung übernehmen die beiden neuen Felder in die be
 - **Recommendation:** Deploy; BUG-1 bei Gelegenheit nachziehen
 
 ## Deployment
-_To be added by /deploy_
+
+- **Datum:** 2026-11-06
+- **Commit:** `c3a27e3`, Tag `v1.28.0-PROJ-46`
+- **Staging:** https://staging.apppa.at; vom Nutzer geprüft und freigegeben („liefere nach prod aus“)
+- **Produktion:** https://app.apppa.at, vom Nutzer als „Ready“ und geprüft gemeldet („es passt alles“)
+- **Migration** in Staging und Produktion: `20261106211451_bank_accounts.sql`. `db advisors`: nur der bekannte Auth-Hinweis (OTP-Ablauf)
+- **Vorprüfung:** Secret-Scan, Lint, Build, Unit 765/765, Paketprüfung ohne `legacy-peer-deps` sauber (`ibantools` ohne Abhängigkeiten). Integrationstests im Backend-Schritt dateiweise grün
+- **Kein `config push`**, keine neuen Umgebungsvariablen
+- **Mitgeliefert:** Spec PROJ-47 (nur Dokumentation), Deploy-Notiz PROJ-45, `/clean-dev` mit Speicherbereich für Zahlungsbelege
+- **Hinweis für den Betrieb:** Bestehende Kunden haben noch keine Bankkonten; Wohnungen stehen auf „Primäres Konto“. Die Bankverbindung in der Rechnungs-Fußzeile bleibt Freitext, bis ein Rechnungs-Paket die Konten verwendet
