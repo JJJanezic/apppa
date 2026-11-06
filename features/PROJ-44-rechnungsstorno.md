@@ -1,6 +1,6 @@
 # PROJ-44: Rechnungsstorno (Gutschrift zu Rechnung)
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-11-06
 **Last Updated:** 2026-11-06
 
@@ -156,6 +156,147 @@ Gestaltung wie eine Rechnung (Briefpapier, Adressfeld, Aussteller-Block, Fußzei
 - Nummer eindeutig im gemeinsamen Nummernkreis mit Rechnungen
 - Deutsche Texte über die bestehende i18n-Struktur; responsiv ab 375 px; Chrome, Firefox, Safari
 
+## Tech Design (Solution Architect)
+
+### Ausgangslage (bereits vorhanden)
+- **Rechnungstabelle:** Nacherfasste Rechnungen, Entwürfe und ausgestellte Rechnungen liegen in einer Tabelle, mit Art (Rechnung, Teilrechnung, Schlussrechnung) und Herkunft. Nummern sind je Kunde eindeutig, über alle Belege hinweg.
+- **Festgeschriebene Fassung:** Jede ausgestellte Rechnung trägt eine vollständige Kopie dessen, was auf ihr steht: Empfänger, Zeitraum, Gastnamen, Positionen, Abzüge, USt je Satz, Kleinunternehmer samt Hinweis (PROJ-42). Daraus lässt sich die Gutschrift bilden, ohne die Buchung anzufassen.
+- **Ausstellen in einem Schritt:** Prüfen → PDF → ablegen → in einem Datenbankschritt Nummer vergeben und festschreiben, nur über den Server (PROJ-42). Unveränderlichkeit, Löschsperre beim Kunden und Bereinigung liegengebliebener Dateien gelten für alles mit Herkunft „ausgestellt“.
+- **Summen:** „Verrechnet“ ist die Summe aller nacherfassten und ausgestellten Belege einer Buchung. Der Knopf „Rechnung“ ist aktiv, solange sie unter dem Gesamtpreis liegt.
+- **Weggefallener Abzug:** Für gelöschte abgezogene Rechnungen gibt es schon den Hinweis im Entwurf samt neu gebildetem Betrag (PROJ-40).
+
+### Grundidee
+Die Gutschrift ist **ein eigener Beleg in derselben Rechnungstabelle**: Herkunft „ausgestellt“, neue Art **„Gutschrift“**, mit Verweis auf die stornierte Rechnung und derselben Buchung. Die Rechnung selbst wird **nicht verändert**. „Storniert“ ist kein gespeichertes Feld, sondern ergibt sich daraus, dass eine Gutschrift auf sie verweist.
+
+Damit fällt fast alles Übrige von selbst ab:
+- Gutschriften sind unveränderlich, nicht löschbar und zählen für die Löschsperre beim Kunden, ohne neue Regeln.
+- Gemeinsamer Nummernkreis: Die Nummer steht in derselben Spalte, Eindeutigkeit und „nächste Nummer“ berücksichtigen Gutschriften automatisch.
+- Rechnung und Gutschrift erscheinen in „Rechnungen“ und „Rechnungen dieser Buchung“. Ihre Summe ist € 0,00, damit wird der Knopf „Rechnung“ wieder aktiv.
+- Die Schutzregel der Datenbank für ausgestellte Rechnungen braucht keine Ausnahme, weil niemand die Rechnung ändert.
+
+### Ablauf des Ausstellens
+```
+Inhaber drückt „Gutschrift ausstellen“
+  |
+  v
+1. Server prüft Anmeldung, Rolle, Kunde aktiv, Rechnung noch nicht storniert,
+   keine gültige Schlussrechnung zieht sie ab, Datum, Grund, Nummer, Häkchen
+  |
+  v
+2. Server bildet die Gutschrift aus der festgeschriebenen Fassung der Rechnung
+   (gespiegelt) und dem aktuellen Briefpapier, erzeugt das PDF ohne Aufdruck
+   und prüft dessen Meldungen
+  |
+  v
+3. Server legt das PDF unter zufälligem Namen ab
+  |
+  v
+4. Datenbank in einem einzigen Schritt: Rechnung sperren, alles nochmals
+   prüfen, Gutschrift mit Nummer, Datum, Grund, Verweis, Positionen, PDF,
+   Fassung und Protokoll anlegen; offene Entwürfe verlieren den Abzug
+   einer jetzt stornierten Teilrechnung
+  |
+  +-- gelingt  --> Detailseite der Gutschrift
+  +-- scheitert --> Datei wird entfernt, nichts angelegt, Meldung auf der Seite
+```
+Gleichzeitige Anfragen: Die Datenbank erlaubt **höchstens eine Gutschrift je Rechnung**. Der zweite Inhaber erhält „Rechnung wurde inzwischen storniert“ mit Link zur Gutschrift. Ein zweiter Versuch derselben Anfrage (Antwort unterwegs verloren) führt zur schon ausgestellten Gutschrift.
+
+### Seiten und Bausteine der Oberfläche
+```
+Rechnungs-Detailseite (besteht)
++-- ausgestellte Rechnung, nicht storniert, Inhaber
+|   +-- Knopf „Gutschrift erstellen“ (neu, ersetzt den Übergangshinweis)
+|   +-- gesperrt: „Zuerst die Schlussrechnung [Nummer] stornieren“ mit Link
++-- ausgestellte Rechnung, storniert
+|   +-- Status „storniert“ mit Link zur Gutschrift
++-- Gutschrift (neue Darstellung, aus ihrer Fassung)
+|   +-- Überschrift „Gutschrift [Nummer]“, „zu Rechnung [Nummer] vom [Datum]“ mit Link
+|   +-- Grund, Positionen, Summen und USt je Satz negativ
+|   +-- „PDF öffnen“; keine Knöpfe zum Ändern, Löschen oder Stornieren
++-- nacherfasste Rechnung, Inhaber
+    +-- Hinweis auf den bisherigen Weg (außerhalb erstellen, nacherfassen)
+
+Seite „Gutschrift ausstellen“ (neu, /rechnungen/[id]/gutschrift, nur Inhaber)
++-- Formularbereich
+|   +-- Verweis, Empfänger, Zeitraum, Gastnamen, Positionen (nur lesen)
+|   +-- Gutschriftsdatum mit „Datum auf heute setzen“
+|   +-- Grund (eine Zeile, Zeichenzähler bis 300)
+|   +-- Gutschriftsnummer mit „Vorschlag übernehmen“ und Hinweis zur Folge
+|   +-- Prüfungen: Sperren, Häkchen, Hinweise (wie PROJ-42)
+|   +-- Knopf „Gutschrift ausstellen“ mit Fortschritt und Hinweis auf die Endgültigkeit
+|   +-- „Zurück zur Rechnung“
++-- PDF-Vorschau mit Aufdruck „Entwurf“ (besteht, PROJ-41/42), übernimmt Datum, Grund und Nummer
+
+Rechnungsliste, „Rechnungen dieser Buchung“, Spalte „Rechnungen“ der Buchungsübersicht (bestehen)
++-- Gutschriften mit Art „Gutschrift“ und negativem Betrag
++-- stornierte Rechnungen mit Kennzeichen „storniert“
+```
+Die Seite „Gutschrift ausstellen“ folgt im Aufbau der Seite „Rechnung ausstellen“ (PROJ-42), auch am Handy. Dieselben Bausteine für Datum, Nummer, Prüfliste und Vorschau werden wiederverwendet.
+
+### Gutschrift bilden (Spiegelung)
+- **Quelle ist die festgeschriebene Fassung der Rechnung**, nicht die Buchung. Spätere Änderungen an Buchung, Gast oder Preisen wirken nicht.
+- **Gespiegelt** werden Positionen, Anzahlungszeile und Anteile je Satz (Teilrechnung), Zwischensumme, Abzugszeilen und Gesamtbetrag (Schlussrechnung) sowie die USt je Satz. Die Beträge werden **genau umgekehrt übernommen, nicht neu berechnet**. So ergibt die Summe aus Rechnung und Gutschrift auch nach Rundung je Satz exakt € 0,00.
+- **Aus der Rechnung:** Empfänger, Zeitraum, Wohnung, Gastnamen, Kleinunternehmer-Status samt Hinweistext.
+- **Aktuell:** Aussteller-Block, Briefpapier, Logo, Fußzeile (Nutzerentscheidung in der Spec).
+- **Entfällt:** Einleitung, Zahlungsmodalitäten, Fristen, Schlusstext.
+
+### Dokument
+Eine Vorlage für alle Belege (PROJ-41). Die Gutschrift ist eine weitere Art darin, mit eigenen Texten: Überschrift „Gutschrift“, Zeile „Gutschriftsnummer: …“, Zeile „zu Rechnung … vom …“, optional „Grund: …“, Summe „Gutschriftsbetrag (inkl. USt.)“ bzw. „Gutschriftsbetrag“ (Regel aus PROJ-40). Abschnitte ohne Inhalt (Einleitung, Zahlung, Schluss) fallen weg wie heute schon leere Bausteine. Alle Texte kommen aus der bestehenden Übersetzungsdatei.
+
+### Prüfregel
+Eine eigene, schlanke Prüfregel für Gutschriften, die dieselben Teile wie PROJ-42 nutzt:
+- **Sperren:** Datum vor dem Rechnungsdatum oder in der Zukunft; Grund zu lang; Nummer vergeben; Rechnung inzwischen storniert; Teilrechnung in gültiger Schlussrechnung abgezogen; Logo nicht ladbar, gekürzte Fußzeile (wie PROJ-42)
+- **Häkchen:** Nummer über dem Vorschlag, anderes Format oder anderes Jahr; Zeichen ohne Glyph, übergroßer Aussteller-Block (wie PROJ-42)
+- **Hinweise:** Datum passt nicht zur Nummernfolge; Gutschriftsbetrag € 0,00 oder positiv
+
+Nicht geprüft werden Buchungsstand, Pflichtangaben des Entwurfs und Überverrechnung: Die Gutschrift hängt nur an der Rechnung. Seite und Server nutzen dieselbe Regel; sie läuft beim Ausstellen auf dem Server neu.
+
+### Datenmodell (in Worten)
+Neu an der Rechnungstabelle:
+- **Art „Gutschrift“** zusätzlich zu Rechnung, Teilrechnung und Schlussrechnung
+- **Storniert Rechnung:** Verweis von der Gutschrift auf die Rechnung. Höchstens eine Gutschrift je Rechnung (in der Datenbank eindeutig). Nur bei Gutschriften gesetzt, und dort immer
+- **Grund:** optional, bis 300 Zeichen, nur bei Gutschriften
+
+Eine Gutschrift übernimmt von der Rechnung: Buchung, Gastverknüpfung, Empfängerfelder, Kleinunternehmer-Status. Ihre Positionen stehen negativ in der Positionstabelle (ohne Verknüpfung zu Zusatzkosten der Buchung). **Abzugszeilen** stehen nur in der Fassung und im PDF, **nicht** als Abzug in der Abzugstabelle; sonst würde die Gutschrift die Teilrechnung selbst „abziehen“. Der Gesamtbetrag ist das Negative des Rechnungsbetrags. Felder, die nur Entwürfe und Rechnungen brauchen (Fristen, Bausteine, Teilung), bleiben leer; die bestehenden Prüfregeln der Tabelle bekommen dafür eine Ausnahme für die Art „Gutschrift“.
+
+Für bestehende Belege ändert sich nichts, eine Datenmigration ist nicht nötig.
+
+### „Storniert“ und „abgezogen“ an allen Stellen
+- **Status „storniert“** wird beim Lesen ermittelt (Gutschrift vorhanden) und mit Nummer und Link der Gutschrift geliefert: Rechnungsliste, Detailseite, „Rechnungen dieser Buchung“, Spalte „Rechnungen“.
+- **„Abgezogen“ zählt nur noch durch gültige Schlussrechnungen**, also ausgestellte und nicht stornierte. Das betrifft die Sperre „Zuerst die Schlussrechnung stornieren“, die bestehende Sperre für abgezogene nacherfasste Rechnungen (PROJ-42) und das Ausstellen einer neuen Schlussrechnung. Die Abzüge der stornierten Schlussrechnung bleiben als Geschichte erhalten.
+- **Abziehbar in neuen Schlussrechnungen:** stornierte Rechnungen und Gutschriften nicht mehr; Teilrechnungen einer stornierten Schlussrechnung wieder. Das Ausstellen einer Schlussrechnung prüft zusätzlich in der Datenbank, dass keine ihrer Teilrechnungen storniert oder schon in einer gültigen Schlussrechnung abgezogen ist.
+- **Offener Entwurf:** Beim Storno einer Teilrechnung entfernt der Datenbankschritt ihre Abzüge aus Entwürfen über die bestehende Funktion. Der Entwurf zeigt den bekannten Hinweis und einen neu gebildeten Betrag.
+
+### Buchungsübersicht: Filter „ohne Rechnung“
+Bisher gilt: keine verknüpfte Rechnung außer Entwürfen. Neu zählt **die Summe der verrechneten Belege**: Die Buchung gilt als „ohne Rechnung“, wenn sie keine hat oder deren Summe € 0,00 ist (Rechnung + Gutschrift). „Mit Rechnung“ ist das Gegenteil. Die Datenbank liefert dazu je Buchung die verrechnete Summe als Lesesicht mit den Rechten des Lesenden, und der Filter nutzt sie statt der bisherigen Verknüpfung. Er wirkt weiter über alle Monate, mit Seiten zu je 50.
+
+### Rechte
+- **Ausstellen:** nur über die neue Schnittstelle. Der Schreibschritt in der Datenbank ist nur für den Server freigegeben. Er prüft Person (Inhaber des Kunden), Kunde aktiv, Rechnung und Datei selbst und nennt die handelnde Person im Protokoll.
+- **Lesen:** unverändert. Alle Mitglieder des Kunden sehen Gutschriften samt PDF; die RLS-Regeln bleiben, wie sie sind.
+- **Seite „Gutschrift ausstellen“:** für Mitarbeiter und Betreiber nicht erreichbar (Weiterleitung zur Rechnung).
+
+### Schnittstellen
+- **Vorschau und Prüfung:** Die bestehende Vorschau-Schnittstelle nimmt zusätzlich „Gutschrift zu Rechnung X“ mit Datum, Grund und Nummer an und liefert PDF und Prüfliste. Nichts wird gespeichert. Veraltete Anfragen werden abgebrochen (PROJ-41).
+- **Ausstellen:** eigene Schnittstelle unter `/api/rechnungen/[id]/gutschrift`, gebaut wie das Ausstellen in PROJ-42, weil Arbeitsprozess und Schriften nur dort mitgeliefert werden. Danach folgt ein vollständiger Seitenaufruf der Gutschrift.
+
+### Übergangshinweis aus PROJ-42
+Der Hinweis „Erstelle außerhalb der App eine Gutschrift …“ steht künftig nur noch bei **nacherfassten** Rechnungen (Inhaber), angepasst auf diesen Fall. Bei ausgestellten Rechnungen steht stattdessen der Knopf.
+
+### Für /frontend und /backend
+- **/frontend:** Seite „Gutschrift ausstellen“, Spiegelung aus der Fassung, Prüfregel, Art „Gutschrift“ in Vorlage und Texten, Knopf samt Sperre auf der Detailseite, Detailansicht der Gutschrift, Kennzeichen „storniert“ in Liste, Buchungsdetail und Spalte, Abziehbarkeit im Entwurf, Hinweis bei nacherfassten Rechnungen. Bis zur Migration zeigt die Seite die Prüfungen, und das Ausstellen meldet „wird eingerichtet“.
+- **/backend:** Neue Felder, Art „Gutschrift“ und Ausnahmen in den Tabellenregeln, Schreibfunktion mit Sperre gegen Gleichzeitigkeit, Abzugsregeln mit gültigen Schlussrechnungen (Sperre, Ausstellen, nacherfasste Rechnungen), Lesefunktionen mit Status „storniert“, Summe je Buchung für den Filter, Schnittstelle mit Ablage.
+
+### Für /qa
+- Gleichzeitiges Stornieren derselben Rechnung, Doppelklick, Abbruch nach der Ablage
+- Direkte Versuche am Formular vorbei: zweite Gutschrift, Gutschrift zu Gutschrift, nacherfasster Rechnung oder Entwurf, abgezogene Teilrechnung, Mitarbeiter, Betreiber, fremder Kunde, deaktivierter Kunde
+- Spiegelung exakt: Summe Rechnung + Gutschrift = € 0,00 je Satz, auch bei Rundung, Schlussrechnung mit Abzug und Teilrechnung nach Betrag
+- Ablauf Schlussrechnung stornieren → neue Schlussrechnung mit derselben Teilrechnung → Teilrechnung stornieren
+- Filter „ohne/mit Rechnung“ mit stornierten Rechnungen, nacherfassten Gutschriften und Seitenwechsel
+- PDF und Ablage auf Staging unter Vercel
+
+### Abhängigkeiten
+Keine neuen Pakete.
+
 ## Open Questions
 - [ ] Steuerberater: Bezeichnung „Gutschrift“ für den Stornobeleg und Pflichtangaben darauf (Verweis auf Nummer und Datum der Rechnung) bestätigen
 - [ ] Soll die Gutschrift in PROJ-45 automatisch als „Rückzahlung offen“ erscheinen, wenn die Rechnung schon bezahlt war? (Klärung in PROJ-45)
@@ -181,4 +322,13 @@ Gestaltung wie eine Rechnung (Briefpapier, Adressfeld, Aussteller-Block, Fußzei
 ### Technical Decisions
 | Decision | Rationale | Date |
 |----------|-----------|------|
-| _(von /architecture)_ | | |
+| Gutschrift als eigener Beleg in der Rechnungstabelle (Herkunft „ausgestellt“, neue Art „Gutschrift“) | Unveränderlichkeit, Löschsperre, Nummernkreis, Listen und Summen gelten ohne neue Regeln | 2026-11-06 |
+| „Storniert“ wird aus der verweisenden Gutschrift ermittelt, nicht an der Rechnung gespeichert | Die ausgestellte Rechnung bleibt unberührt; die Schutzregel braucht keine Ausnahme | 2026-11-06 |
+| Höchstens eine Gutschrift je Rechnung, eindeutig in der Datenbank; Rechnung im Schreibschritt gesperrt | Gleichzeitige Anfragen ergeben genau eine Gutschrift | 2026-11-06 |
+| Gutschrift aus der festgeschriebenen Fassung der Rechnung, Beträge und USt je Satz exakt umgekehrt übernommen | Unabhängig von späteren Änderungen an der Buchung; Summe aus beiden ist auch nach Rundung € 0,00 | 2026-11-06 |
+| Abzugszeilen der Schlussrechnung nur in Fassung und PDF der Gutschrift, nicht in der Abzugstabelle | Die Gutschrift würde sonst selbst als abziehende Rechnung gelten | 2026-11-06 |
+| „Abgezogen“ zählt nur durch ausgestellte, nicht stornierte Schlussrechnungen; Abzüge der stornierten bleiben als Geschichte | Teilrechnungen werden nach dem Storno frei, ohne Daten zu löschen | 2026-11-06 |
+| Ausstellen einer Schlussrechnung prüft in der Datenbank, dass keine Teilrechnung storniert oder schon gültig abgezogen ist | Bisher sicherte das nur die Oberfläche | 2026-11-06 |
+| Filter „ohne Rechnung“: keine Belege oder Summe der verrechneten Belege € 0,00; Summe je Buchung als Lesesicht | Folgt der Spec („es zählt die Summe“); auch nacherfasste Gutschriften nach dem alten Weg zählen richtig. Folge: eine Rechnung über € 0,00 gilt ebenfalls als „ohne Rechnung“ | 2026-11-06 |
+| Ausstellen über eigene Schnittstelle `/api/rechnungen/[id]/gutschrift`, Schreibschritt nur für den Server | Wie PROJ-42: Arbeitsprozess und Schriften nur unter /api; kein Festschreiben mit fremdem PDF | 2026-11-06 |
+| Bestehende Vorschau-Schnittstelle und Vorlage um die Art „Gutschrift“ erweitert, eigene schlanke Prüfregel aus den Teilen von PROJ-42 | Ein PDF-Weg für alle Belege; Gutschrift braucht keine Buchungs- und Pflichtangaben-Prüfung | 2026-11-06 |
