@@ -44,7 +44,7 @@ const ready = (page: Page) =>
 test.describe('Einstellungen → Stammdaten', () => {
   test.skip(!hasSupabaseEnv, 'keine .env.local')
 
-  test('AC: Reiter in der Reihenfolge Stammdaten, Team, Wohnungen (seit PROJ-39 + Rechnungen); /einstellungen öffnet Stammdaten', async ({ page, users }) => {
+  test('AC: Reiter in der Reihenfolge Stammdaten, Team, Wohnungen (seit PROJ-39/41/45 + Briefpapier, Rechnungen, Zahlungen); /einstellungen öffnet Stammdaten', async ({ page, users }) => {
     desktopOnly()
     const owner = await users()
     await createTenant('QA38 Reiter', [{ user: owner, role: 'owner' }])
@@ -53,7 +53,7 @@ test.describe('Einstellungen → Stammdaten', () => {
     await ready(page)
     await expect(page).toHaveURL(/\/einstellungen\/stammdaten$/)
     const tabs = page.getByRole('navigation', { name: 'Einstellungsbereiche' }).getByRole('link')
-    await expect(tabs).toHaveText(['Stammdaten', 'Team', 'Wohnungen', 'Briefpapier', 'Rechnungen'])
+    await expect(tabs).toHaveText(['Stammdaten', 'Team', 'Wohnungen', 'Briefpapier', 'Rechnungen', 'Zahlungen'])
     await expect(tabs.first()).toHaveAttribute('aria-current', 'page')
     await expect(page).toHaveTitle(/Stammdaten/)
     await expect(page.getByRole('link', { name: 'Kunde', exact: true })).toHaveCount(0)

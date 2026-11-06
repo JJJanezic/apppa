@@ -465,6 +465,7 @@ Anlegen und Bearbeiten der Wohnung übernehmen die beiden neuen Felder in die be
   2. Expected: Test grün
   3. Actual: Erwartete Reiterliste ohne „Zahlungen“; die App zeigt seit PROJ-45 zusätzlich „Zahlungen“
 - **Priority:** Nice to have (Test nachziehen; die App ist korrekt)
+- **Behoben (2026-11-06):** Test erwartet jetzt auch „Zahlungen“; grün (desktop)
 
 #### Beobachtung (kein Bug, bereits dokumentiert)
 - Anlegen einer Wohnung **mit neuem Objekt**: Hotel-ID und Konto werden nach dem Anlegen nachgetragen. Wird das gewählte Konto genau in diesem Moment archiviert, ist die Wohnung angelegt und es erscheint die Meldung. Sehr unwahrscheinlich, bisheriges Muster (PROJ-8/27).
