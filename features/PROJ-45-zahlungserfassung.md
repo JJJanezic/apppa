@@ -1,6 +1,6 @@
 # PROJ-45: Zahlungserfassung
 
-## Status: In Progress
+## Status: In Review
 **Created:** 2026-11-06
 **Last Updated:** 2026-11-06
 
@@ -505,7 +505,133 @@ Keine neuen Pakete (Bildumwandlung, Hochladen, Griff zum Ordnen und Monatsauswah
 - **Für /deploy:** beide Migrationen vor dem Code einspielen; danach legt die Migration bei jedem Kunden die Standardarten an.
 
 ## QA Test Results
-_To be added by /qa_
+
+**Tested:** 2026-11-06
+**App URL:** http://localhost:3000 (Produktions-Build, Supabase „apppa-dev“)
+**Tester:** QA Engineer (AI)
+**Automatisiert:** `tests/PROJ-45-zahlungserfassung.spec.ts` (15 E2E-Tests, Abläufe Desktop, Layout/axe Desktop/Tablet/Handy), `supabase/tests/payments.integration.test.ts` (18), `src/lib/payments.test.ts` (18), neu `src/lib/validation/payments.test.ts` (7)
+
+### Acceptance Criteria Status
+
+#### Zahlung erfassen
+- [x] Vorbelegung Datum heute, Betrag = Offen-Betrag, Standard-Zahlungsart; ohne Plattform-Buchung keine Provisionsfelder (E2E)
+- [x] Pflichtfelder, Datum in der Zukunft, Betrag 0, Notiz > 300 Zeichen: Meldungen, nichts gespeichert (E2E, Unit)
+- [x] Datum vor dem Rechnungsdatum ohne Hinweis (Integration)
+- [x] Nur aktive Zahlungsarten in der Reihenfolge der Einstellungen (E2E, Integration)
+- [x] Liste mit Datum, Art, Betrag, Notiz, „erfasst von [Name] am [Datum]“ (E2E)
+- [x] Fehlermeldung bei Server-Fehler, Eingaben bleiben (Dialog bleibt offen; geprüft mit „nicht gefunden“ während der Fehlersuche)
+
+#### Beleg
+- [x] PDF anhängen, Beleg-Symbol öffnet ihn (E2E; Ablage `<Kunde>/<zufällig>.pdf`)
+- [x] Bild (PNG) wird als JPEG gespeichert; falsches Format (.docx) abgelehnt (E2E)
+- [x] Fremder Kunde liest den Beleg nicht, lädt nicht in fremde Ordner (Integration)
+- [x] Ersetzen/Entfernen meldet den alten Beleg zum Löschen (Integration)
+- [ ] Nicht automatisiert: PDF über 10 MB im Browser, HEIC vom iPhone (Umwandlung = Baustein aus PROJ-29, dort getestet)
+
+#### Status und Offen-Betrag
+- [x] offen → teilweise → bezahlt → überzahlt mit Offen „-€ 50,00“ (E2E, Integration)
+- [x] Hinweis „um € … überzahlt“ und „gleiche Zahlung“, nach Bestätigung gespeichert (E2E, Integration)
+- [x] Schlussrechnung nach Abzug, Löschen/Ändern berechnet neu (Integration, Regel-Tests)
+- [x] Bezahlt: Betrag leer (E2E); Entwurf und Altrechnung ≤ 0 ohne Status/Knopf (Integration)
+
+#### Fälligkeit
+- [x] Überfällig nach dem Fälligkeitstag, nicht am Tag selbst; Anzahlung überfällig, nach Zahlung nicht mehr (Integration); „überfällig“ im Rechnungsdetail (E2E)
+- [x] Nacherfasste Rechnungen nie überfällig (Regel-Tests)
+
+#### Buchungsdetail und Rechnungsliste
+- [x] Status je Rechnung, „Bezahlt“/„Offen“, „Zahlung erfassen“ mit vorausgewählter Rechnung (E2E)
+- [x] Spalte „Zahlung“ in der Rechnungsliste (E2E)
+
+#### Storno, Umhängen, Rückzahlung
+- [x] Stornierte Rechnung „Guthaben € …“, kein „Zahlung erfassen“; Gutschrift „Rückzahlung offen“, Rückzahlung vorbelegt, danach „erstattet“, Betrag „-€ …“ (E2E)
+- [x] Umhängen auf andere Rechnung, Rückweg auf stornierte Rechnung gesperrt, Provision nur auf Plattform-Buchung, Suche gleiche Buchung zuerst (Integration)
+- [x] Rückzahlung über Guthaben mit Hinweis (Integration)
+
+#### Bearbeiten und Löschen
+- [x] Inhaber ändert (inkl. Zahlungsart) und löscht mit Bestätigung (E2E)
+- [x] Löschsperre der nacherfassten Rechnung mit Zahlungen, Meldung wie in der Spec (E2E)
+- [ ] BUG-2: Nach dem Löschen einer nacherfassten Rechnung ohne Zahlungen bleibt die Seite sporadisch auf „Seite nicht gefunden“ (Regression)
+
+#### Nacherfassen mit „Bereits bezahlt“
+- [x] Datenbank: Zahlung über den vollen Betrag im selben Schritt, mit Provision, Zurückrollen bei ungültiger Zahlungsart (Integration)
+- [ ] BUG-1: Einschalten des Schalters bringt die Seite zum Absturz
+
+#### Zahlungsliste
+- [x] Monat mit Summen (eingegangen, Provision, Gebühr), Filter Zahlungsart (in der Adresse), Suche nach Notiz, „Alle Monate“, leerer Zeitraum, leere Liste (E2E, Integration)
+- [x] Handy: Karten ohne waagrechtes Scrollen, ohne axe-Fehler (E2E Layout); Tipp auf Karte nicht eigens automatisiert
+
+#### Einstellungen → Zahlungen
+- [x] Standardarten, anlegen, doppelter Name, Standard nicht deaktivierbar, Deaktivieren nimmt die Art aus der Auswahl (E2E); Reihenfolge, Standard wechseln, letzte aktive Art, benutzte Art nicht löschbar (Integration)
+
+#### Rechte
+- [x] Mitarbeiter sehen und erfassen mit Beleg, keine Knöpfe zum Ändern, Einstellungen → Zahlungen nicht erreichbar, Menüpunkt „Zahlungen“ vorhanden (E2E); Ändern/Löschen auch direkt abgelehnt (Integration)
+- [x] Betreiber und fremder Kunde: keine Zahlungen, keine Zahlungsarten, kein Zahlungsstand, kein Erfassen (Integration)
+
+#### Allgemein
+- [x] Rechnungsdetail, Zahlungsliste, Einstellungen → Zahlungen auf 375/768/1440 px ohne waagrechtes Scrollen und ohne axe-Fehler (E2E)
+- [x] Formate „€ 1.234,56“, „-€ 50,00“ rot, „Fr, 06.11.2026“
+
+### Edge Cases Status
+- [x] Gleiche Zahlung zweimal: Hinweis, Speichern möglich (Integration, E2E)
+- [x] Rechnung storniert, dann Zahlung: abgelehnt „inzwischen storniert“ (Integration); echte Gleichzeitigkeit durch die Sperre auf der Rechnung (Code geprüft, kein Lasttest)
+- [x] Teilrechnung bezahlt + Schlussrechnung: keine Verrechnung (Regel)
+- [x] Zahlungsart deaktiviert: Speichern abgelehnt (Integration)
+- [x] Überzahlt, dann storniert: Guthaben = eingegangen ohne Provision (Integration)
+- [x] Buchungsquelle „Airbnb“: Formular/Filter (E2E), Datenbank (Integration)
+
+### Security Audit Results
+- [x] Ohne Anmeldung: Tabellen, Lesesichten und Funktionen abgelehnt (42501), internes Schema nicht erreichbar (PGRST106)
+- [x] Mandantentrennung: fremder Inhaber liest und schreibt nichts, auch nicht mit eigenem Kunden in der Eingabe (P0951); Summen für fremden Kunden leer
+- [x] Betreiber ohne Mitgliedschaft: keine Zahlungen, Zahlungsarten, kein Zahlungsstand
+- [x] Rollen: Mitarbeiter ändern/löschen weder über die Oberfläche noch direkt (P0950); kein direktes Schreiben in `payments`, auch nicht für Inhaber
+- [x] Belege: nur eigener Ordner, nur verwendete Belege lesbar, Beleg nicht an zwei Zahlungen, Pfadformat geprüft
+- [x] Eingaben: Beträge, Datum, Notiz in Datenbank und Server geprüft; Notiz wird als Text dargestellt (kein HTML)
+- [ ] Hinweis (Low, kein Bug): Mitglieder können beliebig viele Dateien in den eigenen Beleg-Ordner laden; ungenutzte räumt die tägliche Bereinigung nach 24 Stunden weg
+
+### Bugs Found
+
+#### BUG-1: „Bereits bezahlt“ lässt die Seite abstürzen
+- **Severity:** High
+- **Steps to Reproduce:**
+  1. Rechnungen → „Rechnung nacherfassen“, Nummer, Datum, Empfänger und eine Position mit Betrag > 0 eintragen
+  2. Schalter „Bereits bezahlt“ einschalten
+  3. Expected: Zahlungsdatum, Zahlungsart und Hinweis „Betrag der Zahlung: € …“ erscheinen
+  4. Actual: „Da ist etwas schiefgelaufen. Die Seite konnte nicht geladen werden.“
+- **Ursache:** `src/components/payments/already-paid-fields.tsx` setzt `<FormDescription>` außerhalb eines `FormField`/`FormItem`; `useFormField` wirft „should be used within <FormField>“, sobald der Betrag angezeigt wird. Abhilfe: einfacher Absatz statt `FormDescription`.
+- **Test:** E2E „Nacherfassen mit ‚Bereits bezahlt‘“ schlägt fehl
+- **Priority:** Fix before deployment
+
+#### BUG-2: Nach „Rechnung löschen“ bleibt die Seite sporadisch auf „Seite nicht gefunden“ (Regression PROJ-37)
+- **Severity:** High (bestehender E2E-Test schlägt fehl)
+- **Steps to Reproduce:**
+  1. Nacherfasste Rechnung ohne Zahlungen öffnen, „Löschen“ → „Endgültig löschen“
+  2. Expected: Wechsel zur Rechnungsliste mit „Rechnung gelöscht.“
+  3. Actual: in etwa jedem zweiten Lauf bleibt die Adresse auf `/rechnungen/<id>` und die Seite zeigt „Seite nicht gefunden“ (die Rechnung ist gelöscht)
+- **Nachweis:** PROJ-37-Test „Löschen – Abbrechen behält, Bestätigen entfernt …“ 2 von 4 bzw. 1 von 2 Läufen rot; mit vorübergehend ausgeblendetem Abschnitt „Zahlungen“ 4 von 4 grün. Vermutlich überholt das Neuladen der Detailseite (zusätzliche Abfragen des Zahlungsabschnitts) die Weiterleitung aus `deleteInvoice` (bekanntes Next-16-Verhalten, siehe `router-push`-Notiz); die Rückfall-Weiterleitung nach 4 s kommt nicht rechtzeitig.
+- **Priority:** Fix before deployment
+
+#### BUG-3: Gutschrift ohne Zahlungen zeigt einen leeren Abschnitt „Rückzahlungen“
+- **Severity:** Low
+- **Steps to Reproduce:** Rechnung ohne Zahlungen stornieren, Gutschrift öffnen
+- **Expected (Spec):** Zahlungsstatus „–“, kein Knopf
+- **Actual:** kein Knopf (richtig), aber Abschnitt mit „Noch keine Rückzahlung erfasst.“ und Summen € 0,00
+- **Priority:** Nice to have
+
+### Testpflege (keine Bugs, durch die Spec beabsichtigt)
+- `tests/PROJ-37-rechnungen-nacherfassen.spec.ts`: Spaltenköpfe mit „Zahlung“; „Zahlungen“ steht zwischen „Rechnungen“ und „Einstellungen“
+- `tests/PROJ-2-app-shell.spec.ts`: „Zahlungen“ ist fertig (nicht mehr unter den fehlenden Bereichen, nicht mehr 404), Tastaturtest mit einem Tab mehr
+
+### Regression
+- PROJ-37 (Liste, Nacherfassen, Rollen, Layout), PROJ-44 (Ausstellen und Wirkung, QA-Fälle), PROJ-30 (Quelle), PROJ-2 (Desktop und Handy): grün außer BUG-2
+- Integrationstests aller Bereiche grün (außer Anmelde-Dateien, wegen Anmeldegrenzen nicht gelaufen); 745 Unit-Tests grün
+- Nicht geprüft: Firefox und Safari (optional, nicht gelaufen)
+
+### Summary
+- **Acceptance Criteria:** alle Gruppen bestanden außer „Bereits bezahlt“ in der Oberfläche (BUG-1) und dem Löschen einer Rechnung (BUG-2)
+- **Bugs Found:** 3 total (0 critical, 2 high, 0 medium, 1 low)
+- **Security:** Pass
+- **Production Ready:** NO
+- **Recommendation:** BUG-1 und BUG-2 beheben, dann `/qa` erneut
 
 ## Deployment
 _To be added by /deploy_

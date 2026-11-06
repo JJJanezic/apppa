@@ -228,7 +228,8 @@ test.describe('Menüpunkt und Liste', () => {
     const links = await page.getByRole('navigation', { name: 'Hauptnavigation' }).getByRole('link').allInnerTexts()
     const names = links.map((l) => l.trim())
     expect(names.indexOf('Rechnungen')).toBe(names.indexOf('Gäste') + 1)
-    expect(names.indexOf('Einstellungen')).toBe(names.indexOf('Rechnungen') + 1)
+    // Seit PROJ-45 steht „Zahlungen“ zwischen „Rechnungen“ und „Einstellungen“
+    expect(names.indexOf('Zahlungen')).toBe(names.indexOf('Rechnungen') + 1)
   })
 
   test('AC: Leere Liste – Inhaber mit Knopf, Mitarbeiter ohne Knopf', async ({ page, users }) => {
@@ -260,7 +261,7 @@ test.describe('Menüpunkt und Liste', () => {
 
     await expect(page.getByText('3 Rechnungen')).toBeVisible()
     const rows = page.getByRole('table').getByRole('row')
-    await expect(rows.nth(0)).toContainText('NummerDatumEmpfängerBuchungBetragStatus')
+    await expect(rows.nth(0)).toContainText('NummerDatumEmpfängerBuchungBetragStatusZahlung')
     // Datum absteigend, bei gleichem Datum Nummer absteigend
     await expect(rows.nth(1)).toContainText('2026-0002')
     await expect(rows.nth(2)).toContainText('2026-0001')
