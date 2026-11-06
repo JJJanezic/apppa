@@ -50,7 +50,7 @@ export function InvoiceList({ page }: { page: InvoicePage }) {
                 <Amount cents={r.totalCents} />
               </TableCell>
               <TableCell>
-                <InvoiceStatus origin={r.origin} kind={r.kind} hasPdf={r.hasPdf} />
+                <InvoiceStatus origin={r.origin} kind={r.kind} hasPdf={r.hasPdf} cancelled={r.cancelledBy !== null} />
               </TableCell>
             </TableRow>
           ))}
@@ -71,7 +71,7 @@ export function InvoiceList({ page }: { page: InvoicePage }) {
                 {formatDate(r.invoiceDate)}
                 {r.booking && <> · {t('list.bookingShort', { number: r.booking.number ?? '–' })}</>}
               </span>
-              <InvoiceStatus origin={r.origin} kind={r.kind} hasPdf={r.hasPdf} />
+              <InvoiceStatus origin={r.origin} kind={r.kind} hasPdf={r.hasPdf} cancelled={r.cancelledBy !== null} />
             </Link>
           </li>
         ))}

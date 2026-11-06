@@ -8,7 +8,8 @@ import { DraftDetail } from '@/components/invoice-drafts/draft-detail'
 import { InvoiceActions } from '@/components/invoices/invoice-buttons'
 import { InvoiceStatus } from '@/components/invoices/invoice-status'
 import { IssuedDetail } from '@/components/invoice-issue/issued-detail'
-import { IssuedNotes } from '@/components/invoice-issue/issued-notes'
+import { CreditStatus } from '@/components/invoice-credit/credit-status'
+import { BackfilledCreditHint, IssuedNotes } from '@/components/invoice-issue/issued-notes'
 import { PageHeader } from '@/components/page-header'
 import { Button } from '@/components/ui/button'
 import { requireArea } from '@/lib/areas'
@@ -27,12 +28,12 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   const { id } = await params
   if ((await getInvoiceOrigin(id)) === 'draft') return { title: (await getTranslations('invoiceDrafts'))('detail.metaTitle') }
   const [t, invoice] = await Promise.all([getTranslations('invoices'), getInvoice(id)])
-  return { title: t('detail.metaTitle', { number: invoice.number }) }
+  return { title: t(invoice.kind === 'credit_note' ? 'detail.metaTitleCredit' : 'detail.metaTitle', { number: invoice.number }) }
 }
 
 // Rechnungsdetail (PROJ-37) für alle Mitglieder; Bearbeiten und Löschen nur für Inhaber.
 // Positionen sind eine Kopie: spätere Änderungen an der Buchung wirken nicht auf die Rechnung.
-// Entwürfe (PROJ-40) und ausgestellte Rechnungen (PROJ-42) haben eine eigene Darstellung.
+// Entwürfe (PROJ-40) und ausgestellte Rechnungen (PROJ-42) haben eine eigene Darstellung, ebenso Gutschriften (PROJ-44).
 export default async function InvoiceDetailPage({ params, searchParams }: { params: Params; searchParams: Promise<{ ausgestellt?: string }> }) {
   await requireArea('invoices')
   const { id } = await params
@@ -53,10 +54,11 @@ export default async function InvoiceDetailPage({ params, searchParams }: { para
           <CaretLeft size={16} weight="bold" aria-hidden="true" />
           {t('detail.back')}
         </Link>
-        <PageHeader eyebrow={t('detail.eyebrow')} title={<span className="break-words">{invoice.number}</span>} />
+        <PageHeader eyebrow={t(invoice.kind === 'credit_note' ? 'detail.eyebrowCredit' : 'detail.eyebrow')} title={<span className="break-words">{invoice.number}</span>} />
         <div className="-mt-4 flex flex-col gap-4">
-          <InvoiceStatus origin={invoice.origin} kind={invoice.issued.snapshot.kind} hasPdf />
-          <IssuedNotes done={ausgestellt === '1'} owner={owner} />
+          <InvoiceStatus origin={invoice.origin} kind={invoice.kind ?? invoice.issued.snapshot.kind} hasPdf cancelled={invoice.cancelledBy !== null} />
+          <IssuedNotes done={ausgestellt === '1'} credit={invoice.kind === 'credit_note'} />
+          <CreditStatus invoice={invoice} owner={owner} />
         </div>
         <IssuedDetail invoice={invoice} issued={invoice.issued} />
       </>
@@ -74,6 +76,7 @@ export default async function InvoiceDetailPage({ params, searchParams }: { para
       <div className="-mt-4 flex flex-col gap-4">
         <InvoiceStatus origin={invoice.origin} hasPdf={invoice.pdfPath !== null} />
         {owner && <InvoiceActions invoice={invoice} today={todayIso()} />}
+        {owner && <BackfilledCreditHint />}
       </div>
 
       <div className="grid gap-8 lg:grid-cols-2">

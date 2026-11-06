@@ -1,6 +1,6 @@
 # PROJ-44: Rechnungsstorno (Gutschrift zu Rechnung)
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-11-06
 **Last Updated:** 2026-11-06
 
@@ -296,6 +296,38 @@ Der Hinweis „Erstelle außerhalb der App eine Gutschrift …“ steht künftig
 
 ### Abhängigkeiten
 Keine neuen Pakete.
+
+## Implementation Notes (Frontend)
+
+**Gebaut:** Seite `/rechnungen/[id]/gutschrift` mit dem gespiegelten Inhalt der Rechnung (nur lesen), Datum, Grund mit Zähler, Nummer mit Vorschlag, Prüfliste, Häkchen und PDF-Vorschau mit Aufdruck „Entwurf“. Dazu der Knopf „Gutschrift erstellen“ auf der Detailseite, gesperrt bei abgezogener Teilrechnung mit Link zur Schlussrechnung. Eine stornierte Rechnung zeigt den Hinweis samt Link zur Gutschrift, die Gutschrift ihren Verweis auf die Rechnung. Neu ist auch die Detailansicht der Gutschrift (Art, Gutschriftsdatum, Rechnung, Grund, ohne Fälligkeit, „Gutschriftsbetrag“). Kennzeichen „Gutschrift“ und „storniert“ stehen in der Rechnungsliste, unter „Rechnungen dieser Buchung“ und in der Spalte „Rechnungen“ der Buchungsübersicht („(storniert)“). Der Korrekturhinweis aus PROJ-42 steht nur noch bei nacherfassten Rechnungen (Inhaber). Stornierte Rechnungen und Gutschriften sind in neuen Schlussrechnungen nicht abziehbar.
+
+**Regeln und Dateien**
+- `src/lib/invoice-credit.ts`: `mirrorAmounts`, `creditPreviewModel`, `creditSnapshot`, `creditChecks`, `creditEntry`, `cleanCreditReason` (Tests: `invoice-credit.test.ts`, 23)
+- `src/lib/invoice-issue.ts`: Nummern- und PDF-Prüfung als `addNumberChecks`/`addPdfChecks` herausgelöst (gleiches Ergebnis für Rechnungen); neue Sperren und Hinweis; `IssuedSnapshot.credit`
+- `src/lib/invoice-credit-data.ts`: `getCreditNotesFor` (Rechnung → Gutschrift), `getValidFinalDeducting`
+- `src/lib/invoice-issue-data.ts`: `loadCreditState`, `creditChecksFor`
+- PDF: `InvoicePreviewModel.credit`, `PdfView.references`; Überschrift, Nummer, Verweis, Grund, „Gutschriftsbetrag“ in `view.ts`/`document.tsx`
+- `src/app/api/rechnungen/vorschau/route.ts`: Anfrage `{ creditFor, credit: { invoiceDate, number, reason } }`, nur Inhaber
+- `src/app/api/rechnungen/[id]/gutschrift/route.ts`: Ausstellen; antwortet `notReady`, solange die Datenbankfunktion fehlt
+- `src/components/invoice-credit/`: `credit-form.tsx`, `credit-status.tsx`
+
+**Abweichungen vom Tech Design**
+- Die Spiegelung lebt in der Fassung: `kind` der Gutschrift-Fassung ist die Art der stornierten Rechnung (für die Anzahlungszeile), die Gutschrift erkennt man an `credit` in der Fassung und an der Spalte `kind = 'credit_note'`.
+- „Verrechnet“ im Buchungsformular (Ortstaxe automatisch, PROJ-15) zählt jetzt nach der Summe der Belege statt „irgendein Beleg“, passend zur Buchung „wieder offen“.
+
+**Offen für /backend** (Schnittstelle, die das Frontend erwartet)
+- `invoices.kind` erlaubt `'credit_note'`; neue Spalten `credited_invoice_id` (Fremdschlüssel auf die Rechnung desselben Kunden, eindeutig, nur und immer bei Gutschriften) und `credit_reason` (bis 300 Zeichen); Prüfregeln der Tabelle mit Ausnahme für Gutschriften (keine Fristen, Bausteine, Teilung)
+- RPC `public.issue_credit_note(p_input jsonb)`, nur `service_role`, liefert die ID der Gutschrift. Eingabe: `invoice_id, tenant_id, actor_id, number, invoice_date, reason, total_cents, lines [{label, amount_cents, vat_rate}], pdf_path, pdf_sha256, without_logo, snapshot`. Prüft Person (Inhaber), Kunde aktiv, Rechnung ausgestellt und keine Gutschrift, keine gültige Schlussrechnung zieht sie ab, Datum (nicht vor der Rechnung, nicht in der Zukunft), Nummer, Betrag = −Rechnungsbetrag, Datei. Sperrt die Rechnung, legt die Gutschrift an (Buchung, Gast, Empfängerfelder, Kleinunternehmer aus der Rechnung), entfernt Abzüge einer stornierten Teilrechnung aus Entwürfen (`detach_deductions`), Protokoll. Fehlercodes, die die Schnittstelle auswertet: P0904 Nummer vergeben, **P0934** schon storniert, **P0935** abgezogen, P0901/P0016 keine Rechte bzw. Kunde deaktiviert
+- „Abgezogen“ nur durch gültige Schlussrechnungen: `issued_final_deducting`, `check_deducted_invoice`/`save_invoice`/`delete_invoice`; `issue_invoice` lehnt stornierte und schon gültig abgezogene Teilrechnungen ab
+- `booking_invoices` darf so bleiben (Kennzeichen „storniert“ ergänzt die App); Filter „ohne/mit Rechnung“ in `src/lib/bookings-data.ts` auf die Summe je Buchung umstellen (Lesesicht), bisher noch die alte Verknüpfung
+- Danach: Typen neu erzeugen, Umgehungen entfernen (`as 'id'` in `invoice-credit-data.ts`, `CreditRpc` in der Schnittstelle), Rückfall für die fehlende Spalte (`42703`) entfernen
+
+**Geprüft**
+- `npm run lint`, `tsc`, `npm run build`: ohne Fehler; Unit-Tests 719 grün (+23 neu)
+- E2E `tests/PROJ-44-rechnungsstorno.spec.ts` (gebauter Server): Einstieg und Seite, Grund/Datum/Nummer, Mitarbeiter, nacherfasste Rechnung und Entwurf grün (Desktop); Layout grün (Desktop, Handy). Die Abläufe mit ausgestellter Gutschrift überspringen sich, bis die Spalte existiert
+- PROJ-42-E2E angepasst (Knopf statt Hinweis; Schalter-Hinweis bei der nacherfassten Rechnung): betroffene Tests grün
+- Am Bild geprüft: Seite am Handy, Detailseite am Desktop
+- Nicht geprüft: Ausstellen selbst (Backend fehlt), Tablet, Firefox, Safari
 
 ## Open Questions
 - [ ] Steuerberater: Bezeichnung „Gutschrift“ für den Stornobeleg und Pflichtangaben darauf (Verweis auf Nummer und Datum der Rechnung) bestätigen

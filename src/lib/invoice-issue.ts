@@ -75,6 +75,11 @@ export type IssueBlock =
   | { key: 'missingChars'; chars: string }
   | { key: 'issuerOverflow' }
   | { key: 'footerCut' }
+  // Gutschrift (PROJ-44)
+  | { key: 'dateBeforeInvoice'; date: string }
+  | { key: 'reasonTooLong' }
+  | { key: 'alreadyCredited'; id: string; number: string }
+  | { key: 'deductedByFinal'; id: string; number: string }
 
 // Häkchen: id gilt nur für genau diesen Fall; ändert er sich (andere Nummer), ist das Häkchen wieder leer
 export type IssueAck =
@@ -94,6 +99,8 @@ export type IssueNote =
   | { key: 'totalNotPositive' }
   | { key: 'logoBlurry' }
   | { key: 'smallBusinessDiffers' }
+  // Gutschrift (PROJ-44): Gutschriftsbetrag 0 oder positiv (Rechnung mit 0 oder negativem Betrag)
+  | { key: 'creditNotNegative' }
 
 export type IssueChecks = {
   // Stand, für den die Liste gilt (die Seite erkennt so eine veraltete Antwort)
@@ -121,7 +128,38 @@ export type IssueChecksInput = {
   billedCents: number
   totalCents: number
   billableCents: number
-  pdf: { missingChars: readonly string[]; issuerOverflow: boolean; footerCut: boolean; footerReduced: boolean; logoFailed: boolean; logoBlurry: boolean }
+  pdf: PdfIssueMeta
+}
+
+// Meldungen des erzeugten PDFs, die das Ausstellen betreffen
+export type PdfIssueMeta = { missingChars: readonly string[]; issuerOverflow: boolean; footerCut: boolean; footerReduced: boolean; logoFailed: boolean; logoBlurry: boolean }
+
+type CheckLists = { blocks: IssueBlock[]; acks: IssueAck[]; notes: IssueNote[] }
+
+// Nummer und Datum gegen die Nummernfolge (Rechnungen und Gutschriften, PROJ-44: gemeinsamer Kreis)
+export function addNumberChecks(out: CheckLists, p: { number: string; invoiceDate: string; numbering: NumberingSettings; existing: readonly NumberedInvoice[] }) {
+  const number = p.number.trim()
+  const cls = classifyInvoiceNumber(p.numbering, p.existing.map((e) => e.number), number, p.invoiceDate)
+  if (cls.kind === 'invalid') out.blocks.push({ key: 'numberInvalid' })
+  if (cls.kind === 'taken') out.blocks.push({ key: 'numberTaken', number })
+  if (cls.kind === 'gap') out.notes.push({ key: 'gap' })
+  if (cls.kind === 'above') out.acks.push({ id: `number:${number}`, key: 'numberAbove', next: cls.next })
+  if (cls.kind === 'otherFormat') out.acks.push({ id: `number:${number}`, key: 'numberOtherFormat' })
+  if (cls.kind === 'otherYear') out.acks.push({ id: `number:${number}`, key: 'numberOtherYear', year: cls.year })
+  if (cls.kind !== 'invalid' && cls.kind !== 'taken') {
+    const conflict = dateConflict(p.numbering, p.existing, number, p.invoiceDate)
+    if (conflict) out.notes.push({ key: conflict.direction === 'later' ? 'dateLater' : 'dateEarlier', number: conflict.number, date: conflict.invoiceDate })
+  }
+}
+
+// Meldungen des PDFs: Zeichen, Aussteller-Block, Fußzeile, Logo
+export function addPdfChecks(out: CheckLists, pdf: PdfIssueMeta) {
+  if (pdf.missingChars.length) out.blocks.push({ key: 'missingChars', chars: pdf.missingChars.join(' ') })
+  if (pdf.issuerOverflow) out.blocks.push({ key: 'issuerOverflow' })
+  if (pdf.footerCut) out.blocks.push({ key: 'footerCut' })
+  else if (pdf.footerReduced) out.notes.push({ key: 'footerReduced' })
+  if (pdf.logoFailed) out.acks.push({ id: 'logo', key: 'logo' })
+  if (pdf.logoBlurry) out.notes.push({ key: 'logoBlurry' })
 }
 
 export function issueChecks(p: IssueChecksInput): IssueChecks {
@@ -131,20 +169,7 @@ export function issueChecks(p: IssueChecksInput): IssueChecks {
   const notes: IssueNote[] = []
 
   if (p.invoiceDate > p.today) blocks.push({ key: 'futureDate' })
-
-  const numbers = p.existing.map((e) => e.number)
-  const cls = classifyInvoiceNumber(p.numbering, numbers, number, p.invoiceDate)
-  if (cls.kind === 'invalid') blocks.push({ key: 'numberInvalid' })
-  if (cls.kind === 'taken') blocks.push({ key: 'numberTaken', number })
-  if (cls.kind === 'gap') notes.push({ key: 'gap' })
-  if (cls.kind === 'above') acks.push({ id: `number:${number}`, key: 'numberAbove', next: cls.next })
-  if (cls.kind === 'otherFormat') acks.push({ id: `number:${number}`, key: 'numberOtherFormat' })
-  if (cls.kind === 'otherYear') acks.push({ id: `number:${number}`, key: 'numberOtherYear', year: cls.year })
-
-  if (cls.kind !== 'invalid' && cls.kind !== 'taken') {
-    const conflict = dateConflict(p.numbering, p.existing, number, p.invoiceDate)
-    if (conflict) notes.push({ key: conflict.direction === 'later' ? 'dateLater' : 'dateEarlier', number: conflict.number, date: conflict.invoiceDate })
-  }
+  addNumberChecks({ blocks, acks, notes }, p)
 
   for (const d of p.deductions) if (d.origin === 'draft') blocks.push({ key: 'deductionDraft', id: d.id })
   if (p.missingDeductions > 0) blocks.push({ key: 'deductionRemoved' })
@@ -155,12 +180,7 @@ export function issueChecks(p: IssueChecksInput): IssueChecks {
   else if (p.bookingChanged) acks.push({ id: 'bookingChanged', key: 'bookingChanged' })
   if (p.bookingIsOption) acks.push({ id: 'option', key: 'option' })
 
-  if (p.pdf.missingChars.length) blocks.push({ key: 'missingChars', chars: p.pdf.missingChars.join(' ') })
-  if (p.pdf.issuerOverflow) blocks.push({ key: 'issuerOverflow' })
-  if (p.pdf.footerCut) blocks.push({ key: 'footerCut' })
-  else if (p.pdf.footerReduced) notes.push({ key: 'footerReduced' })
-  if (p.pdf.logoFailed) acks.push({ id: 'logo', key: 'logo' })
-  if (p.pdf.logoBlurry) notes.push({ key: 'logoBlurry' })
+  addPdfChecks({ blocks, acks, notes }, p.pdf)
 
   if (p.totalCents <= 0) notes.push({ key: 'totalNotPositive' })
   if (p.billedCents + p.totalCents > p.billableCents) notes.push({ key: 'overBilled' })
@@ -189,7 +209,12 @@ export type IssuedSnapshot = {
   smallBusiness: boolean
   schedule: PaymentSchedule
   texts: { intro: RichDoc | null; smallBusinessNote: RichDoc | null; payment: RichDoc | null; closing: RichDoc | null; footer: RichDoc | null }
+  // Nur bei Gutschriften (PROJ-44): die stornierte Rechnung und der Grund. Beträge, Abzüge und USt sind dann schon gespiegelt,
+  // kind ist die Art der stornierten Rechnung.
+  credit?: CreditRef
 }
+
+export type CreditRef = { invoiceId: string; number: string; invoiceDate: string; reason: string | null }
 
 // Frist für die Löschsperre beim Kunden: 7 Jahre ab dem Ende des Kalenderjahres des Rechnungsdatums. Liefert das früheste
 // Rechnungsdatum, das heute noch aufbewahrt werden muss.

@@ -16,6 +16,8 @@ import type { LetterheadValues } from '@/lib/letterhead'
 // Rechnung (Positionen), Teilrechnung (Anzahlung über Prozent/Betrag), Schlussrechnung (Positionen minus Abzüge)
 export const INVOICE_KINDS = ['invoice', 'partial', 'final'] as const
 export type InvoiceKind = (typeof INVOICE_KINDS)[number]
+// Art eines Belegs: zusätzlich die Gutschrift (PROJ-44), die nur beim Stornieren entsteht, nie als Entwurf
+export type InvoiceDocKind = InvoiceKind | 'credit_note'
 
 // Empfänger: Gast oder Firma des Hauptgasts (Kopie, alle Felder überschreibbar)
 export const RECIPIENT_KINDS = ['guest', 'company'] as const
@@ -136,9 +138,11 @@ export type BookingInvoiceSummary = {
   number: string | null
   origin: InvoiceOriginKind
   // nur bei Entwürfen und ausgestellten Rechnungen
-  kind: InvoiceKind | null
+  kind: InvoiceDocKind | null
   invoiceDate: string
   totalCents: number
+  // Durch eine Gutschrift storniert (PROJ-44)
+  cancelled?: boolean
   // Ohne Umsatzsteuer ausgestellt bzw. nacherfasst (PROJ-42: Hinweis, wenn Abzug und Schlussrechnung abweichen)
   smallBusiness?: boolean
   lines: (VatLine & { source: LineSource | null })[]
@@ -258,12 +262,13 @@ export const partialLabel = (b: Pick<DraftBooking, 'apartmentLabel' | 'arrival' 
 
 // ---- Schlussrechnung: Abzüge --------------------------------------------------------------------
 
-// Abziehbar: Teilrechnungen aus der App (vorausgewählt) und nacherfasste Rechnungen (abgewählt) derselben Buchung
+// Abziehbar: Teilrechnungen aus der App (vorausgewählt) und nacherfasste Rechnungen (abgewählt) derselben Buchung;
+// stornierte Rechnungen nicht (PROJ-44)
 export type DeductionCandidate = BookingInvoiceSummary & { preselected: boolean }
 
 export function deductionCandidates(others: readonly BookingInvoiceSummary[], selfId?: string): DeductionCandidate[] {
   return others
-    .filter((o) => o.id !== selfId && (o.origin === 'backfilled' || o.kind === 'partial'))
+    .filter((o) => o.id !== selfId && !o.cancelled && (o.origin === 'backfilled' || o.kind === 'partial'))
     .map((o) => ({ ...o, preselected: o.origin !== 'backfilled' }))
     .sort((a, b) => a.invoiceDate.localeCompare(b.invoiceDate) || (a.number ?? '').localeCompare(b.number ?? '', 'de', { numeric: true }))
 }

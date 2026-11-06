@@ -11,7 +11,7 @@ import { getBookingInvoices } from '@/lib/invoices-data'
 // Abschnitt „Rechnungen“ im Buchungsdetail (PROJ-37), Seite und Kalender-Panel, für alle Mitglieder.
 // Nur sichtbar, wenn mindestens eine Rechnung verknüpft ist. Verrechnet mehr als den Gesamtpreis: nur ein Hinweis.
 // Entwürfe (PROJ-40) stehen mit Status „Entwurf“ in der Liste; „Verrechnet“ zählt sie nicht, sie stehen darunter als
-// „In Entwürfen“.
+// „In Entwürfen“. Gutschriften (PROJ-44) stehen mit negativem Betrag darin, stornierte Rechnungen gekennzeichnet.
 export async function BookingInvoicesSection({ bookingId, headingSize }: { bookingId: string; headingSize: string }) {
   const { invoices, billedCents, draftCents, bookingTotalCents } = await getBookingInvoices(bookingId)
   if (invoices.length === 0) return null
@@ -33,7 +33,7 @@ export async function BookingInvoicesSection({ bookingId, headingSize }: { booki
             <span className="break-words text-[13px] text-ds-neutral-800">
               {formatDate(i.invoiceDate)} · {i.recipient}
             </span>
-            <InvoiceStatus origin={i.origin} kind={i.kind} hasPdf={i.hasPdf} />
+            <InvoiceStatus origin={i.origin} kind={i.kind} hasPdf={i.hasPdf} cancelled={i.cancelledBy !== null} />
           </li>
         ))}
       </ul>

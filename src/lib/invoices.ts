@@ -2,7 +2,7 @@
 // für Browser und Server, ohne Datenbankzugriff.
 
 import { addDays, isIsoDate, LIMITS as BOOKING_LIMITS, todayIso } from '@/lib/bookings'
-import type { InvoiceKind } from '@/lib/invoice-drafts'
+import type { InvoiceDocKind, InvoiceKind } from '@/lib/invoice-drafts'
 import type { IssuedSnapshot } from '@/lib/invoice-issue'
 import { vatBreakdown, type VatShare } from '@/lib/vat'
 
@@ -36,6 +36,11 @@ export const isBilled = (origin: InvoiceOrigin) => origin !== 'draft'
 export const invoiceOriginFromDb = (value: string): InvoiceOrigin => (value === 'draft' || value === 'issued' ? value : 'backfilled')
 export const invoiceKindFromDb = (value: string | null): InvoiceKind | null =>
   value === 'invoice' || value === 'partial' || value === 'final' ? value : null
+// Art eines Belegs in Listen und Detail: auch die Gutschrift (PROJ-44)
+export const invoiceDocKindFromDb = (value: string | null): InvoiceDocKind | null => (value === 'credit_note' ? value : invoiceKindFromDb(value))
+
+// Verweis zwischen Rechnung und Gutschrift (PROJ-44): Nummer und Link
+export type DocLink = { id: string; number: string }
 
 export const INVOICE_LIMITS = {
   numberMax: 30,
@@ -68,9 +73,11 @@ export type InvoiceRow = {
   totalCents: number
   origin: InvoiceOrigin
   // Art bei Entwürfen und ausgestellten Rechnungen
-  kind: InvoiceKind | null
+  kind: InvoiceDocKind | null
   hasPdf: boolean
   booking: { id: string; number: string | null } | null
+  // Gutschrift, die diese Rechnung storniert (PROJ-44)
+  cancelledBy: DocLink | null
 }
 
 export type InvoiceFilters = { query: string; page: number }
@@ -107,6 +114,7 @@ export type Invoice = {
   number: string
   invoiceDate: string
   origin: InvoiceOrigin
+  kind: InvoiceDocKind | null
   recipient: string
   smallBusiness: boolean
   totalCents: number
@@ -118,12 +126,16 @@ export type Invoice = {
   updatedAt: string
   // Nur bei ausgestellten Rechnungen (PROJ-42)
   issued: { at: string; byName: string | null; withoutLogo: boolean; snapshot: IssuedSnapshot } | null
+  // Gutschrift, die diese Rechnung storniert (PROJ-44)
+  cancelledBy: DocLink | null
+  // Gültige (ausgestellte, nicht stornierte) Schlussrechnung, die diese Teilrechnung abzieht (PROJ-44)
+  deductedBy: DocLink | null
 }
 
 // Abschnitt „Rechnungen“ im Buchungsdetail: Rechnungen, verrechnete Summe, Summe der Entwürfe und Gesamtpreis
 // (auch für Mitarbeiter)
 export type BookingInvoices = {
-  invoices: Pick<InvoiceRow, 'id' | 'number' | 'invoiceDate' | 'recipient' | 'totalCents' | 'origin' | 'kind' | 'hasPdf'>[]
+  invoices: Pick<InvoiceRow, 'id' | 'number' | 'invoiceDate' | 'recipient' | 'totalCents' | 'origin' | 'kind' | 'hasPdf' | 'cancelledBy'>[]
   // nacherfasst und ausgestellt
   billedCents: number
   // Entwürfe (PROJ-40)
@@ -150,6 +162,8 @@ export type InvoiceBookingDetails = {
 }
 
 export const invoiceHref = (id: string) => `/rechnungen/${id}`
+// Seite „Gutschrift ausstellen“ zu einer Rechnung (PROJ-44)
+export const creditNoteHref = (invoiceId: string) => `/rechnungen/${invoiceId}/gutschrift`
 
 // Vergleichsschlüssel der Rechnungsnummer: ohne Rand-Leerzeichen, Kleinschreibung (gleiche Regel in der Datenbank)
 export const invoiceNumberKey = (value: string) => value.trim().toLocaleLowerCase('de')

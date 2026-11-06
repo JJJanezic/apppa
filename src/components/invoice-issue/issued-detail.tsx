@@ -7,11 +7,12 @@ import { Button } from '@/components/ui/button'
 import { bookingHref } from '@/lib/bookings'
 import { formatDate, formatDateTime, formatPeriod } from '@/lib/format'
 import { addressLines, guestDisplayName, guestHref } from '@/lib/guests'
-import type { Invoice } from '@/lib/invoices'
+import { type Invoice, invoiceHref } from '@/lib/invoices'
 import { formatVatRate } from '@/lib/vat'
 
 // Angaben einer ausgestellten Rechnung (PROJ-42): nur aus der festgeschriebenen Fassung. Spätere Änderungen an Buchung, Gast oder
-// Stammdaten wirken hier nicht; Links führen nur zu den noch verknüpften Datensätzen.
+// Stammdaten wirken hier nicht; Links führen nur zu den noch verknüpften Datensätzen. Gutschriften (PROJ-44) zeigen dieselben Angaben mit
+// gespiegelten Beträgen, dazu Verweis und Grund, ohne Fälligkeit.
 export async function IssuedDetail({ invoice, issued }: { invoice: Invoice; issued: NonNullable<Invoice['issued']> }) {
   const t = await getTranslations('invoices.detail')
   const td = await getTranslations('invoiceDrafts')
@@ -23,14 +24,26 @@ export async function IssuedDetail({ invoice, issued }: { invoice: Invoice; issu
   const recipientLines = addressLines({ lines: [r.line1, r.line2], postalCode: r.postalCode || null, city: r.city || null, country: r.country || null }, locale)
   const issuerLines = i ? addressLines({ lines: [i.addressLine1 ?? '', i.addressLine2 ?? ''], postalCode: i.postalCode, city: i.city, country: i.country }, locale) : []
   const rate = (bp: number) => (s.smallBusiness ? null : formatVatRate(bp))
+  const credit = s.credit ?? null
 
   return (
     <div className="grid gap-8 lg:grid-cols-2">
       <section className="flex flex-col gap-3">
         <h2 className="text-2xl">{t('data')}</h2>
         <dl className="flex flex-col divide-y rounded-lg bg-ds-surface px-4">
-          <Fact label={t('kind')}>{td(`kind.${s.kind}`)}</Fact>
-          <Fact label={t('date')}>{formatDate(invoice.invoiceDate)}</Fact>
+          <Fact label={t('kind')}>{credit ? t('kindCredit') : td(`kind.${s.kind}`)}</Fact>
+          <Fact label={t(credit ? 'creditDate' : 'date')}>{formatDate(invoice.invoiceDate)}</Fact>
+          {credit && (
+            <Fact label={t('creditFor')}>
+              <Link href={invoiceHref(credit.invoiceId)} className="text-ds-accent-700 underline-offset-[3px] hover:underline">
+                {credit.number}
+              </Link>
+              <span className="text-ds-neutral-800"> · {formatDate(credit.invoiceDate)}</span>
+            </Fact>
+          )}
+          {credit && (
+            <Fact label={t('creditReason')}>{credit.reason ? <span className="break-words">{credit.reason}</span> : <span className="text-ds-neutral-700">–</span>}</Fact>
+          )}
           <Fact label={t('issuedAt')}>{formatDateTime(issued.at)}</Fact>
           {issued.byName && <Fact label={t('issuedBy')}>{issued.byName}</Fact>}
           <Fact label={t('recipient')}>
@@ -71,16 +84,18 @@ export async function IssuedDetail({ invoice, issued }: { invoice: Invoice; issu
               </Link>
             </Fact>
           )}
-          <Fact label={t('due')}>
-            <span className="flex flex-col">
-              <span>{formatDate(s.schedule.due)}</span>
-              {s.schedule.depositCents !== null && s.schedule.depositDue && (
-                <span className="text-[13px] text-ds-neutral-800">
-                  {t('depositDue', { date: formatDate(s.schedule.depositDue) })} <Amount cents={s.schedule.depositCents} />
-                </span>
-              )}
-            </span>
-          </Fact>
+          {!credit && (
+            <Fact label={t('due')}>
+              <span className="flex flex-col">
+                <span>{formatDate(s.schedule.due)}</span>
+                {s.schedule.depositCents !== null && s.schedule.depositDue && (
+                  <span className="text-[13px] text-ds-neutral-800">
+                    {t('depositDue', { date: formatDate(s.schedule.depositDue) })} <Amount cents={s.schedule.depositCents} />
+                  </span>
+                )}
+              </span>
+            </Fact>
+          )}
         </dl>
 
         <h2 className="mt-5 text-2xl">{t('pdf')}</h2>
@@ -120,7 +135,7 @@ export async function IssuedDetail({ invoice, issued }: { invoice: Invoice; issu
           {s.deductions.map((d, index) => (
             <Row key={index} label={t(d.origin === 'backfilled' ? 'deductionBackfilled' : 'deductionPartial', { number: d.number ?? '–' })} cents={-d.totalCents} />
           ))}
-          <Row label={t('total')} cents={s.totals.totalCents} strong />
+          <Row label={t(credit ? 'creditTotal' : 'total')} cents={s.totals.totalCents} strong />
         </dl>
         {s.smallBusiness && <p className="text-[13px] text-ds-neutral-800">{t('noVat')}</p>}
         {s.totals.vatShares.length > 0 && (

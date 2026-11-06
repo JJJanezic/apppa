@@ -1426,7 +1426,8 @@
       "next": "Weiter",
       "pageOf": "Seite {page} von {pageCount}"
     },
-    "invoiceDraft": "Entwurf"
+    "invoiceDraft": "Entwurf",
+    "invoiceCancelled": "(storniert)"
   },
   "calendar": {
     "title": "Belegung",
@@ -1482,6 +1483,7 @@
     "emptyTextOwner": "Erfasse Rechnungen aus deinem bisherigen System, damit die Nummernfolge vollständig ist und du im Buchungsdetail siehst, was schon verrechnet ist.",
     "emptyTextStaff": "Sobald ein Inhaber Rechnungen erfasst, stehen sie hier.",
     "withoutPdf": "ohne PDF",
+    "cancelled": "storniert",
     "origin": {
       "backfilled": "nacherfasst",
       "draft": "Entwurf",
@@ -1575,7 +1577,8 @@
         "pdfNotPdf": "Bitte wähle eine PDF-Datei.",
         "pdfTooLarge": "Die Datei ist größer als 10 MB. Bitte wähle eine kleinere PDF-Datei.",
         "uploadFailed": "Das PDF konnte nicht hochgeladen werden. Bitte prüfe deine Verbindung und versuche es erneut. Deine übrigen Eingaben bleiben erhalten."
-      }
+      },
+      "fileNameCredit": "Gutschrift"
     },
     "detail": {
       "metaTitle": "Rechnung {number}",
@@ -1609,7 +1612,14 @@
       "linesTotal": "Summe der Positionen",
       "deductionPartial": "abzüglich Teilrechnung {number}",
       "deductionBackfilled": "abzüglich Rechnung {number}",
-      "withoutLogo": "Ohne Logo ausgestellt"
+      "withoutLogo": "Ohne Logo ausgestellt",
+      "metaTitleCredit": "Gutschrift {number}",
+      "eyebrowCredit": "Gutschrift",
+      "kindCredit": "Gutschrift",
+      "creditDate": "Gutschriftsdatum",
+      "creditFor": "Zu Rechnung",
+      "creditReason": "Grund",
+      "creditTotal": "Gutschriftsbetrag"
     },
     "delete": {
       "title": "Rechnung „{number}“ löschen?",
@@ -1680,7 +1690,8 @@
     "kind": {
       "invoice": "Rechnung",
       "partial": "Teilrechnung",
-      "final": "Schlussrechnung"
+      "final": "Schlussrechnung",
+      "credit_note": "Gutschrift"
     }
   },
   "invoiceSettings": {
@@ -2150,7 +2161,16 @@
       "deductionVat": "darin USt {rate}",
       "deductionMissing": "Abgezogene Rechnung existiert nicht mehr.",
       "vatIncluded": "Darin enthaltene Umsatzsteuer",
-      "pageTitle": "Vorschau"
+      "pageTitle": "Vorschau",
+      "credit": {
+        "title": "Gutschrift",
+        "number": "Gutschriftsnummer: {number}",
+        "reference": "zu Rechnung {number} vom {date}",
+        "reason": "Grund: {reason}",
+        "period": "Gutschrift für {apartment} vom {arrival} bis {departure}",
+        "total": "Gutschriftsbetrag",
+        "totalVat": "Gutschriftsbetrag (inkl. USt.)"
+      }
     },
     "detail": {
       "metaTitle": "Rechnungsentwurf",
@@ -2252,7 +2272,11 @@
       "toPartial": "Zur Teilrechnung",
       "toMasterData": "Zu den Stammdaten",
       "toLetterhead": "Zum Briefpapier",
-      "toFooter": "Zur Fußzeile"
+      "toFooter": "Zur Fußzeile",
+      "dateBeforeInvoice": "Das Gutschriftsdatum liegt vor dem Rechnungsdatum.",
+      "reasonTooLong": "Der Grund ist zu lang.",
+      "alreadyCredited": "Die Rechnung wurde inzwischen durch die Gutschrift {number} storniert.",
+      "deductedByFinal": "Zuerst die Schlussrechnung {number} stornieren."
     },
     "acks": {
       "title": "Bitte bestätigen",
@@ -2272,7 +2296,8 @@
       "overBilled": "Mit dieser Rechnung liegt die verrechnete Summe über dem Gesamtpreis der Buchung.",
       "totalNotPositive": "Der Rechnungsbetrag ist 0 oder negativ.",
       "logoBlurry": "Das Logo könnte im Druck unscharf wirken.",
-      "smallBusinessDiffers": "Der Kleinunternehmer-Status der abgezogenen Rechnung weicht von dieser Rechnung ab. Kläre das im Zweifel mit der Steuerberatung."
+      "smallBusinessDiffers": "Der Kleinunternehmer-Status der abgezogenen Rechnung weicht von dieser Rechnung ab. Kläre das im Zweifel mit der Steuerberatung.",
+      "creditNotNegative": "Der Gutschriftsbetrag ist 0 oder positiv, weil die Rechnung 0 oder einen negativen Betrag hatte."
     },
     "errors": {
       "forbidden": "Nur Inhaber können Rechnungen ausstellen.",
@@ -2289,10 +2314,86 @@
     },
     "detail": {
       "issuedDone": "Die Rechnung wurde ausgestellt.",
+      "creditDone": "Die Gutschrift wurde ausgestellt. Die Rechnung ist damit storniert; aus der Buchung kannst du jetzt eine neue Rechnung erstellen.",
       "correctionTitle": "Rechnung falsch?",
-      "correction": "Eine ausgestellte Rechnung lässt sich nicht ändern. Erstelle außerhalb der App eine Gutschrift, erfasse sie mit negativen Beträgen nach und stelle danach eine neue Rechnung aus.",
+      "correctionBackfilled": "Eine nacherfasste Rechnung lässt sich nicht per Gutschrift aus der App stornieren. Erstelle die Gutschrift außerhalb der App und erfasse sie mit negativen Beträgen nach.",
       "correctionSwitch": "Dafür muss der Schalter „Rechnungen nacherfassen“ in den Einstellungen eingeschaltet sein.",
       "toSettings": "Zu den Rechnungseinstellungen"
+    }
+  },
+  "invoiceCredit": {
+    "metaTitle": "Gutschrift ausstellen",
+    "eyebrow": "Rechnung {number}",
+    "title": "Gutschrift ausstellen",
+    "back": "Zurück zur Rechnung",
+    "dataTitle": "Datum, Grund und Nummer",
+    "submitTitle": "Ausstellen",
+    "previewLabel": "Vorschau der Gutschrift",
+    "final": "Die Gutschrift hebt die Rechnung vollständig auf. Nach dem Ausstellen lässt sie sich nicht mehr ändern, löschen oder rückgängig machen.",
+    "submit": "Gutschrift ausstellen",
+    "submitting": "Gutschrift wird ausgestellt …",
+    "date": {
+      "label": "Gutschriftsdatum",
+      "beforeInvoice": "Das Gutschriftsdatum darf nicht vor dem Rechnungsdatum ({date}) liegen.",
+      "future": "Das Gutschriftsdatum liegt in der Zukunft. Stelle die Gutschrift an diesem Tag aus oder ändere das Datum."
+    },
+    "reason": {
+      "label": "Grund (optional)",
+      "placeholder": "z. B. falscher Rechnungsempfänger",
+      "hint": "Steht als eigene Zeile auf der Gutschrift. {count} von {max} Zeichen.",
+      "tooLong": "Der Grund darf höchstens {max} Zeichen haben (jetzt {count}). Bitte kürze ihn."
+    },
+    "number": {
+      "label": "Gutschriftsnummer",
+      "hint": "Aus dem Nummernkreis der Rechnungen."
+    },
+    "summary": {
+      "title": "Inhalt der Gutschrift",
+      "lead": "Alles aus der Rechnung, mit umgekehrten Beträgen. Diese Angaben lassen sich nicht ändern.",
+      "reference": "Storniert",
+      "invoiceRef": "Rechnung {number} vom {date}",
+      "recipient": "Empfänger",
+      "period": "Aufenthalt",
+      "guestNames": "Gastnamen",
+      "lines": "Positionen",
+      "linesTotal": "Summe der Positionen",
+      "deductionPartial": "abzüglich Teilrechnung {number}",
+      "deductionBackfilled": "abzüglich Rechnung {number}",
+      "total": "Gutschriftsbetrag",
+      "noVat": "Keine Umsatzsteuer (Kleinunternehmer)",
+      "vatIncluded": "Darin enthaltene Umsatzsteuer",
+      "vatShare": "darin USt {rate}"
+    },
+    "blocks": {
+      "alreadyCredited": "Die Rechnung wurde inzwischen durch die Gutschrift {number} storniert.",
+      "toCredit": "Zur Gutschrift",
+      "deductedByFinal": "Diese Teilrechnung ist in der Schlussrechnung {number} abgezogen. Zuerst die Schlussrechnung {number} stornieren.",
+      "toFinal": "Zur Schlussrechnung"
+    },
+    "errors": {
+      "forbidden": "Nur Inhaber können Gutschriften ausstellen.",
+      "invalid": "Die Eingaben sind nicht gültig. Bitte prüfe Datum, Grund und Nummer.",
+      "blocked": "Der Stand hat sich geändert. Bitte prüfe die Angaben oben und versuche es dann noch einmal.",
+      "numberTaken": "Die Nummer ist inzwischen vergeben. Die nächste freie Nummer ist eingetragen, bitte prüfe sie und stelle dann erneut aus.",
+      "alreadyCredited": "Rechnung wurde inzwischen storniert.",
+      "toCredit": "Zur Gutschrift",
+      "pdfFailed": "Das PDF konnte nicht erzeugt werden. Die Gutschrift wurde nicht ausgestellt, deine Eingaben bleiben erhalten. Bitte versuche es noch einmal.",
+      "notReady": "Das Ausstellen von Gutschriften wird gerade eingerichtet. Bitte versuche es später noch einmal.",
+      "unknown": "Das hat nicht geklappt. Die Gutschrift wurde nicht ausgestellt, bitte versuche es noch einmal.",
+      "network": "Keine Verbindung. Bitte versuche es noch einmal und prüfe danach, ob die Gutschrift schon ausgestellt ist.",
+      "sessionExpired": "Deine Sitzung ist abgelaufen.",
+      "timeout": "Das dauert ungewöhnlich lange. Lade die Seite neu: Wurde die Gutschrift inzwischen ausgestellt, ist die Rechnung storniert, sonst kannst du es noch einmal versuchen.",
+      "reload": "Seite neu laden"
+    },
+    "detail": {
+      "create": "Gutschrift erstellen",
+      "createHint": "Hebt diese Rechnung vollständig auf. Danach kannst du aus der Buchung eine neue Rechnung erstellen.",
+      "deducted": "Zuerst die Schlussrechnung {number} stornieren.",
+      "toFinal": "Zur Schlussrechnung",
+      "cancelled": "Diese Rechnung ist storniert.",
+      "toCredit": "Zur Gutschrift {number}",
+      "creditFor": "Gutschrift zu",
+      "invoiceRef": "Rechnung {number} vom {date}"
     }
   },
   "letterhead": {

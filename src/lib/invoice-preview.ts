@@ -43,12 +43,14 @@ export type InvoicePreviewModel = {
   missingDeductions: number
   totals: DraftTotals
   smallBusiness: boolean
-  smallBusinessNote: RichDoc
+  smallBusinessNote: RichDoc | null
   texts: Record<TextBlockKind, RichDoc | null>
   values: PlaceholderValues
   payment: PaymentRules
   schedule: PaymentSchedule
   footer: RichDoc | null
+  // Gutschrift (PROJ-44): Verweis auf die stornierte Rechnung und Grund; Beträge im Modell sind schon gespiegelt
+  credit?: { invoiceNumber: string; invoiceDate: string; reason: string | null }
 }
 
 export type PreviewInput = {

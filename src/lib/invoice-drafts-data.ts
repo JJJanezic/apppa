@@ -24,7 +24,8 @@ import {
 } from '@/lib/invoice-drafts'
 import { textBlockFromRow, TEXT_BLOCK_COLUMNS, type TextBlockRow } from '@/lib/invoice-settings'
 import { type DueBasis, sortTextBlocks, type TextBlock } from '@/lib/invoice-texts'
-import { invoiceKindFromDb, invoiceOriginFromDb } from '@/lib/invoices'
+import { getCreditNotesFor } from '@/lib/invoice-credit-data'
+import { invoiceDocKindFromDb, invoiceKindFromDb, invoiceOriginFromDb } from '@/lib/invoices'
 import type { Role } from '@/lib/navigation'
 import { emptyDoc, isRichDoc, normalizeDoc, type RichDoc } from '@/lib/rich-text'
 import { createClient } from '@/lib/supabase/server'
@@ -202,11 +203,15 @@ export const getBookingInvoiceSummaries = cache(async (bookingId: string): Promi
     .order('invoice_date')
     .limit(200)
   if (error) console.error('[rechnungsentwurf] Rechnungen der Buchung nicht lesbar', error.message)
-  return ((data ?? []) as unknown as SummaryDb[]).map((r) => ({
+  const rows = (data ?? []) as unknown as SummaryDb[]
+  // Stornierte Rechnungen sind nicht mehr abziehbar (PROJ-44)
+  const credits = await getCreditNotesFor(tenantId, rows.filter((r) => r.origin === 'issued' && r.kind !== 'credit_note').map((r) => r.id))
+  return rows.map((r) => ({
     id: r.id,
     number: r.number,
     origin: invoiceOriginFromDb(r.origin),
-    kind: invoiceKindFromDb(r.kind),
+    kind: invoiceDocKindFromDb(r.kind),
+    cancelled: credits.has(r.id),
     invoiceDate: r.invoice_date,
     totalCents: r.total_cents,
     smallBusiness: r.small_business,

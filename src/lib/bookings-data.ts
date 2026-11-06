@@ -24,6 +24,7 @@ import {
 } from '@/lib/bookings'
 import { guestSortName, searchKey } from '@/lib/guests'
 import type { Role } from '@/lib/navigation'
+import { getCreditNotesFor } from '@/lib/invoice-credit-data'
 import { createClient } from '@/lib/supabase/server'
 import { getTenantContext } from '@/lib/tenant'
 import { ratesByApartment, TOURIST_TAX_MODES, TOURIST_TAX_RATE_COLUMNS, type TouristTaxMode, type TouristTaxRate } from '@/lib/tourist-tax'
@@ -40,6 +41,9 @@ type GuestNameColumns = { last_name: string; first_name: string | null; title_pr
 const guestName = (g: GuestNameColumns) =>
   guestSortName({ lastName: g.last_name, firstName: g.first_name, titlePrefix: g.title_prefix, titleSuffix: g.title_suffix })
 const LIST_LIMIT = 1000
+
+// Summe der nacherfassten und ausgestellten Belege einer Buchung (Entwürfe zählen nicht)
+const billedSum = (invoices: readonly { origin: string; total_cents: number }[]) => invoices.reduce((sum, i) => (i.origin === 'draft' ? sum : sum + i.total_cents), 0)
 const SEARCH_LIMIT = 50
 
 async function requireMember(): Promise<{ tenantId: string; role: Role }> {
@@ -96,7 +100,7 @@ const touristTaxMode = (value: string | null | undefined): TouristTaxMode =>
 const ROW_COLUMNS =
   'id, kind, number, apartment_id, arrival, departure, adults, child_ages, block_reason, option_until, cancelled_at, price_review, guest_sheet_number, source, guest:guests(id, last_name, first_name, title_prefix, title_suffix), apartment:apartments!inner(name, property:properties!inner(name)), amounts:booking_amounts(billed_nights_cents), charges:booking_charges(amount_cents), ' +
   // PROJ-37: verknüpfte Rechnungen (Lesen für alle Mitglieder, RLS); PROJ-40: Entwürfe ohne Nummer
-  'invoices(id, number, invoice_date, origin)'
+  'invoices(id, number, invoice_date, origin, kind)'
 
 type ListDbRow = {
   id: string
@@ -119,7 +123,7 @@ type ListDbRow = {
   // abgerechneter Übernachtungspreis (PROJ-30)
   amounts: { billed_nights_cents: number }[]
   charges: { amount_cents: number }[]
-  invoices?: { id: string; number: string | null; invoice_date: string; origin: string }[]
+  invoices?: { id: string; number: string | null; invoice_date: string; origin: string; kind: string | null }[]
 }
 
 // Aktive Einträge (für das Kennzeichen „überschneidet sich“) der betroffenen Wohnungen im Zeitraum
@@ -186,7 +190,7 @@ function toRow(r: ListDbRow, owner: boolean, today: string, occupancy: Occupancy
     priceReview: r.price_review,
     invoices: [...(r.invoices ?? [])]
       .sort((a, b) => a.invoice_date.localeCompare(b.invoice_date) || (a.number ?? '').localeCompare(b.number ?? '', 'de', { numeric: true }))
-      .map((i) => ({ id: i.id, number: i.number, draft: i.origin === 'draft' })),
+      .map((i) => ({ id: i.id, number: i.number, draft: i.origin === 'draft', cancelled: false })),
   }
 }
 
@@ -277,8 +281,16 @@ export async function getBookingList(filters: BookingFilters): Promise<BookingLi
     const to = rows.reduce((m, r) => (r.departure > m ? r.departure : m), rows[0].departure)
     occupancy = await activeOccupancy(tenantId, [...new Set(rows.map((r) => r.apartment_id))], from, to, today)
   }
+  // Spalte „Rechnungen“: stornierte Rechnungen gekennzeichnet (PROJ-44)
+  const credits = await getCreditNotesFor(
+    tenantId,
+    rows.flatMap((r) => (r.invoices ?? []).filter((i) => i.origin === 'issued' && i.kind !== 'credit_note').map((i) => i.id)),
+  )
   return {
-    rows: rows.map((r) => toRow(r, owner, today, occupancy)),
+    rows: rows.map((r) => {
+      const row = toRow(r, owner, today, occupancy)
+      return { ...row, invoices: row.invoices.map((i) => ({ ...i, cancelled: credits.has(i.id) })) }
+    }),
     searching,
     truncated: !invoiceFilter && searching && (data?.length ?? 0) > SEARCH_LIMIT,
     invoiceFilter,
@@ -316,7 +328,7 @@ export const findBooking = cache(async (id: string): Promise<Booking | null> => 
   const { data: b, error } = await supabase
     .from('bookings')
     .select(
-      'id, kind, channel, number, apartment_id, arrival, planned_departure, departure, check_in, check_out, adults, child_ages, block_reason, option_until, guest_sheet_number, residence_registered, source, source_custom, note, cancelled_at, cancelled_by, cancel_reason, override_by, price_review, tourist_tax_mode, main_guest_tourist_tax_exempt, updated_at, guest:guests(id, last_name, first_name, title_prefix, title_suffix, country, anonymized_at, birth_date), apartment:apartments!inner(name, max_guests, archived_at, property:properties!inner(name)), companions:booking_companions(position, first_name, last_name, birth_date, tourist_tax_exempt), amounts:booking_amounts(nights_cents, billed_nights_cents, nights_extension_pricing, cancellation_fee_cents, nights_vat_rate, cancellation_fee_vat_rate), charges:booking_charges(id, position, label, amount_cents, vat_rate, tourist_tax, tourist_tax_rate_id, tax_person_nights), invoices(origin)'
+      'id, kind, channel, number, apartment_id, arrival, planned_departure, departure, check_in, check_out, adults, child_ages, block_reason, option_until, guest_sheet_number, residence_registered, source, source_custom, note, cancelled_at, cancelled_by, cancel_reason, override_by, price_review, tourist_tax_mode, main_guest_tourist_tax_exempt, updated_at, guest:guests(id, last_name, first_name, title_prefix, title_suffix, country, anonymized_at, birth_date), apartment:apartments!inner(name, max_guests, archived_at, property:properties!inner(name)), companions:booking_companions(position, first_name, last_name, birth_date, tourist_tax_exempt), amounts:booking_amounts(nights_cents, billed_nights_cents, nights_extension_pricing, cancellation_fee_cents, nights_vat_rate, cancellation_fee_vat_rate), charges:booking_charges(id, position, label, amount_cents, vat_rate, tourist_tax, tourist_tax_rate_id, tax_person_nights), invoices(origin, total_cents)'
     )
     .eq('id', id)
     .eq('tenant_id', tenantId)
@@ -376,7 +388,8 @@ export const findBooking = cache(async (id: string): Promise<Booking | null> => 
     priceReview: b.price_review,
     touristTaxMode: touristTaxMode(b.tourist_tax_mode),
     mainGuestTaxExempt: b.main_guest_tourist_tax_exempt,
-    hasBilledInvoice: (b.invoices ?? []).some((i) => i.origin !== 'draft'),
+    // Verrechnet: Summe der nacherfassten und ausgestellten Belege; Rechnung und Gutschrift heben sich auf (PROJ-44)
+    hasBilledInvoice: billedSum(b.invoices ?? []) !== 0,
     companions: byPosition(b.companions).map((c) => ({
       firstName: c.first_name,
       lastName: c.last_name,

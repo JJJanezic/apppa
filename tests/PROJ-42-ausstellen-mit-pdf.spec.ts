@@ -269,7 +269,8 @@ test.describe('Seite „Rechnung ausstellen“', () => {
 
     await expect(page.getByRole('heading', { name: number })).toBeVisible({ timeout: 20_000 })
     await expect(page.getByText('Die Rechnung wurde ausgestellt.')).toBeVisible()
-    await expect(page.getByText('Rechnung falsch?')).toBeVisible()
+    // Korrektur über die Gutschrift aus der App (PROJ-44) statt des Übergangshinweises
+    await expect(page.getByRole('link', { name: 'Gutschrift erstellen' })).toBeVisible()
     await expect(page.getByText('ausgestellt', { exact: true })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Bearbeiten' })).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'Löschen' })).toHaveCount(0)
@@ -565,7 +566,8 @@ test.describe('Seite „Rechnung ausstellen“', () => {
     await expect(page.getByText(/Schlussrechnung 2026-0001 zieht diese Rechnung ab/)).toBeVisible({ timeout: 20_000 })
 
     await service().from('invoice_settings').update({ backfill_enabled: false } as never).eq('tenant_id', s.tenantId)
-    await page.goto(`/rechnungen/${final}`)
+    // Seit PROJ-44 steht der Korrekturhinweis nur bei nacherfassten Rechnungen; die ausgestellte hat den Knopf „Gutschrift erstellen“
+    await page.goto(`/rechnungen/${old}`)
     await expect(page.getByText(/Schalter „Rechnungen nacherfassen“/)).toBeVisible()
     await expect(page.getByRole('link', { name: 'Zu den Rechnungseinstellungen' })).toBeVisible()
   })
@@ -619,8 +621,8 @@ test.describe('Seite „Rechnung ausstellen“', () => {
     await expect(page.getByRole('alert').filter({ hasText: 'späteres Datum' })).toHaveCount(0)
     await submit(page).click()
     await expect(page).toHaveURL(/ausgestellt=1/, { timeout: 30_000 })
-    await expect(page.getByText('Rechnung falsch?')).toBeVisible({ timeout: 20_000 })
-    await expect(page.getByRole('alert').filter({ hasText: 'Rechnung falsch?' })).toHaveCount(0)
+    await expect(page.getByRole('link', { name: 'Gutschrift erstellen' })).toBeVisible({ timeout: 20_000 })
+    await expect(page.getByRole('alert').filter({ hasText: 'Gutschrift erstellen' })).toHaveCount(0)
   })
 
   test('Runde 2: BUG-1 in der Oberfläche: Zusatzkosten aus der Buchung entfernen; Rechnung bleibt unverändert', async ({ page, users }) => {

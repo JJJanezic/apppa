@@ -224,6 +224,9 @@ export function InvoiceDocument({
         <View style={{ marginBottom: section, gap: 2 }}>
           <Text style={{ fontSize: v.fontSize * 1.6, fontWeight: 700, marginBottom: 4 }}>{view.heading}</Text>
           <Text>{view.numberLine}</Text>
+          {view.references?.map((line, i) => (
+            <Text key={i}>{line}</Text>
+          ))}
           <Text>{view.periodLine}</Text>
           {view.guestsLine && <Text>{view.guestsLine}</Text>}
         </View>

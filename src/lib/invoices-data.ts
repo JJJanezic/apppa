@@ -6,6 +6,7 @@ import { cache } from 'react'
 
 import { apartmentLabel } from '@/lib/apartments'
 import { todayIso } from '@/lib/bookings'
+import { getCreditNotesFor, getValidFinalDeducting } from '@/lib/invoice-credit-data'
 import { type IssuedSnapshot, retentionCutoff } from '@/lib/invoice-issue'
 import {
   type BookingInvoices,
@@ -13,7 +14,7 @@ import {
   INVOICE_BUCKET,
   INVOICE_PAGE_SIZE,
   type InvoiceFilters,
-  invoiceKindFromDb,
+  invoiceDocKindFromDb,
   invoiceOriginFromDb,
   type InvoiceOrigin,
   type InvoicePage,
@@ -60,9 +61,10 @@ const toRow = (r: ListDbRow): InvoiceRow => ({
   recipient: r.recipient,
   totalCents: r.total_cents,
   origin: invoiceOriginFromDb(r.origin),
-  kind: invoiceKindFromDb(r.kind),
+  kind: invoiceDocKindFromDb(r.kind),
   hasPdf: r.pdf_path !== null,
   booking: r.booking,
+  cancelledBy: null,
 })
 
 // Rechnungsliste: Datum absteigend, bei gleichem Datum Nummer absteigend (Entwürfe ohne Nummer zuerst); je 50; Suche
@@ -82,9 +84,12 @@ export async function getInvoicePage(filters: InvoiceFilters): Promise<InvoicePa
     .range(from, from + INVOICE_PAGE_SIZE - 1)
   if (error) console.error('[rechnungen] Liste nicht lesbar', error.message)
   const total = count ?? 0
+  const rows = ((data ?? []) as unknown as ListDbRow[]).map(toRow)
+  // Stornierte Rechnungen kennzeichnen (PROJ-44)
+  const credits = await getCreditNotesFor(tenantId, rows.filter((r) => r.origin === 'issued' && r.kind !== 'credit_note').map((r) => r.id))
   return {
     ...filters,
-    rows: ((data ?? []) as unknown as ListDbRow[]).map(toRow),
+    rows: rows.map((r) => ({ ...r, cancelledBy: credits.get(r.id) ?? null })),
     total,
     pageCount: Math.max(1, Math.ceil(total / INVOICE_PAGE_SIZE)),
   }
@@ -147,7 +152,7 @@ async function pdfLinks(path: string, fileName: string): Promise<InvoicePdfLinks
 }
 
 const DETAIL_COLUMNS =
-  'id, number, invoice_date, origin, recipient, small_business, total_cents, pdf_path, updated_at, ' +
+  'id, number, invoice_date, origin, kind, recipient, small_business, total_cents, pdf_path, updated_at, ' +
   'issued_at, issued_without_logo, issued_snapshot, issued_profile:profiles!invoices_issued_by_fkey(display_name), ' +
   'lines:invoice_lines(position, label, amount_cents, vat_rate), ' +
   'guest:guests(id, last_name, first_name, title_prefix, title_suffix, country, company_name, anonymized_at), ' +
@@ -158,6 +163,7 @@ type DetailDbRow = {
   number: string | null
   invoice_date: string
   origin: string
+  kind: string | null
   recipient: string
   small_business: boolean
   total_cents: number
@@ -213,11 +219,19 @@ export const getInvoice = cache(async (id: string): Promise<Invoice> => {
   const r = data as unknown as DetailDbRow
   const t = await getTranslations('invoices')
   const b = r.booking
+  const origin = invoiceOriginFromDb(r.origin)
+  const kind = invoiceDocKindFromDb(r.kind)
+  // Storno und Abzug nur bei in der App ausgestellten Rechnungen (PROJ-44)
+  const invoice = origin === 'issued' && kind !== 'credit_note'
+  const [credits, deductedBy] = invoice
+    ? await Promise.all([getCreditNotesFor(tenantId, [r.id]), kind === 'partial' ? getValidFinalDeducting(tenantId, r.id) : null])
+    : [null, null]
   return {
     id: r.id,
     number: r.number ?? '',
     invoiceDate: r.invoice_date,
-    origin: invoiceOriginFromDb(r.origin),
+    origin,
+    kind,
     recipient: r.recipient,
     smallBusiness: r.small_business,
     totalCents: r.total_cents,
@@ -245,12 +259,14 @@ export const getInvoice = cache(async (id: string): Promise<Invoice> => {
       cancelled: b.cancelled_at !== null,
     },
     pdfPath: r.pdf_path,
-    pdf: r.pdf_path ? await pdfLinks(r.pdf_path, pdfFileName(t('pdf.fileName'), r.number ?? '')) : null,
+    pdf: r.pdf_path ? await pdfLinks(r.pdf_path, pdfFileName(t(kind === 'credit_note' ? 'pdf.fileNameCredit' : 'pdf.fileName'), r.number ?? '')) : null,
     updatedAt: r.updated_at,
     issued:
       r.issued_at && r.issued_snapshot
         ? { at: r.issued_at, byName: r.issued_profile?.display_name ?? null, withoutLogo: r.issued_without_logo, snapshot: r.issued_snapshot as IssuedSnapshot }
         : null,
+    cancelledBy: credits?.get(r.id) ?? null,
+    deductedBy,
   }
 })
 
@@ -272,7 +288,7 @@ type BookingInvoicesDb = {
 // Mitarbeiter Gesamtpreis und verrechnete Summe sehen (Nutzerentscheidung in /architecture). Einmal je Anfrage
 // (Knopf „Rechnung“ und Abschnitt lesen dieselben Summen).
 export const getBookingInvoices = cache(async (bookingId: string): Promise<BookingInvoices> => {
-  await requireMember()
+  const { tenantId } = await requireMember()
   const supabase = await createClient()
   const { data, error } = await supabase.rpc('booking_invoices', { p_booking_id: bookingId })
   if (error) console.error('[rechnungen] Rechnungen der Buchung nicht lesbar', error.message)
@@ -284,11 +300,13 @@ export const getBookingInvoices = cache(async (bookingId: string): Promise<Booki
     recipient: i.recipient,
     totalCents: i.total_cents,
     origin: invoiceOriginFromDb(i.origin),
-    kind: invoiceKindFromDb(i.kind ?? null),
+    kind: invoiceDocKindFromDb(i.kind ?? null),
     hasPdf: i.has_pdf,
   }))
+  // Stornierte Rechnungen kennzeichnen (PROJ-44); Rechnung und Gutschrift heben sich in „Verrechnet“ auf
+  const credits = await getCreditNotesFor(tenantId, invoices.filter((i) => i.origin === 'issued' && i.kind !== 'credit_note').map((i) => i.id))
   return {
-    invoices,
+    invoices: invoices.map((i) => ({ ...i, cancelledBy: credits.get(i.id) ?? null })),
     billedCents: invoices.reduce((sum, i) => (isBilled(i.origin) ? sum + i.totalCents : sum), 0),
     draftCents: invoices.reduce((sum, i) => (isBilled(i.origin) ? sum : sum + i.totalCents), 0),
     bookingTotalCents: result.booking_total_cents,

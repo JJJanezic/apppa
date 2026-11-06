@@ -3,13 +3,15 @@ import 'server-only'
 import { cache } from 'react'
 
 import { todayIso } from '@/lib/bookings'
+import { type CreditInput, creditChecks, creditPreviewModel } from '@/lib/invoice-credit'
 import { billableCents, invoiceSums, requiredChecks } from '@/lib/invoice-drafts'
-import { getInvoiceDraftView } from '@/lib/invoice-drafts-data'
+import { getDraftPreviewData, getInvoiceDraftView } from '@/lib/invoice-drafts-data'
 import { type IssueChecks, issueChecks, type IssuedSnapshot, type NumberedInvoice } from '@/lib/invoice-issue'
 import type { NumberingSettings } from '@/lib/invoice-numbering'
 import type { PdfMeta, PdfView } from '@/lib/invoice-pdf/types'
 import { buildPreviewModel, type InvoicePreviewModel } from '@/lib/invoice-preview'
 import { loadInvoiceSettings } from '@/lib/invoice-settings-data'
+import { getInvoice } from '@/lib/invoices-data'
 import { createClient } from '@/lib/supabase/server'
 
 const PAGE = 1000
@@ -122,6 +124,42 @@ export function checksFor(state: Awaited<ReturnType<typeof loadIssueState>>, mod
     billedCents: invoiceSums(others).billedCents,
     totalCents: model.totals.totalCents,
     billableCents: billableCents(booking.lines ?? []),
+    pdf: meta,
+  })
+}
+
+// ---- Gutschrift (PROJ-44) -----------------------------------------------------------------------
+
+// Stand für Vorschau und Ausstellen einer Gutschrift: festgeschriebene Rechnung, aktueller Aussteller, Fußzeile und Briefpapier,
+// Nummern samt Datum. null: Zu dieser Rechnung gibt es keine Gutschrift aus der App (Entwurf, nacherfasst, selbst eine Gutschrift).
+// Storniert oder abgezogen sind Sperren der Prüfliste, damit Seite und Server dieselbe Meldung zeigen.
+export async function loadCreditState(tenantId: string, invoiceId: string, input: { creditDate: string; number: string; reason: string }) {
+  const [invoice, settings, existing, preview] = await Promise.all([getInvoice(invoiceId), loadInvoiceSettings(tenantId), getNumberedInvoices(tenantId), getDraftPreviewData()])
+  if (!settings) throw new IssueDataError('Rechnungseinstellungen nicht lesbar')
+  if (invoice.origin !== 'issued' || invoice.kind === 'credit_note' || !invoice.issued || invoice.issued.snapshot.credit) return null
+  const credit: CreditInput = {
+    invoice: { id: invoice.id, number: invoice.number, invoiceDate: invoice.invoiceDate, snapshot: invoice.issued.snapshot },
+    creditDate: input.creditDate,
+    reason: input.reason,
+    issuer: preview.issuer,
+    footer: preview.footer,
+  }
+  return { invoice, credit, model: creditPreviewModel(credit), letterhead: preview.letterhead, existing, numbering: settings.numbering as NumberingSettings }
+}
+
+// Prüfliste der Gutschrift aus dem Stand und den Meldungen des tatsächlich erzeugten PDFs
+export function creditChecksFor(state: NonNullable<Awaited<ReturnType<typeof loadCreditState>>>, number: string, meta: PdfMeta): IssueChecks {
+  return creditChecks({
+    number,
+    creditDate: state.credit.creditDate,
+    today: todayIso(),
+    invoiceDate: state.invoice.invoiceDate,
+    reason: state.credit.reason,
+    numbering: state.numbering,
+    existing: state.existing,
+    cancelledBy: state.invoice.cancelledBy,
+    deductedBy: state.invoice.deductedBy,
+    totalCents: state.model.totals.totalCents,
     pdf: meta,
   })
 }

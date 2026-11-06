@@ -102,7 +102,9 @@ function serviceRows(m: InvoicePreviewModel, t: T): { rows: PdfRow[]; totals: Pd
     totals.push({ label: t(withVat ? 'subtotalVat' : 'subtotal'), amount: formatCents(m.totals.linesCents), bold: true })
     totals.push(...m.deductions.map((d) => deductionRow(d, t)))
   }
-  totals.push({ label: t(withVat ? 'totalVat' : 'total'), amount: formatCents(m.totals.totalCents), bold: true })
+  // Gutschrift (PROJ-44): „Gutschriftsbetrag“ nach derselben Regel
+  const total = m.credit ? (withVat ? 'credit.totalVat' : 'credit.total') : withVat ? 'totalVat' : 'total'
+  totals.push({ label: t(total), amount: formatCents(m.totals.totalCents), bold: true })
   return { rows, totals }
 }
 
@@ -122,19 +124,23 @@ export function buildPdfView(p: PdfViewInput): { view: PdfView; logo: LogoBox | 
   const { model: m, letterhead: v, t, locale } = p
   const box = p.logo ? logoBox({ widthPx: p.logo.widthPx, heightPx: p.logo.heightPx }, v) : null
   const { rows, totals } = serviceRows(m, t)
+  const c = m.credit
+  const heading = c ? t('credit.title') : t(`title.${m.kind}`)
+  const period = { apartment: m.booking.apartmentLabel, arrival: textDate(m.booking.arrival), departure: textDate(m.booking.departure) }
   return {
     logo: box,
     view: {
-      title: `${t(`title.${m.kind}`)} ${p.number}`,
+      title: `${heading} ${p.number}`,
       letterhead: v,
       mark: p.mark,
       logo: p.logo && box ? { data: p.logo.data, widthMm: box.widthMm, heightMm: box.heightMm } : null,
       issuer: issuerLines(m, v, t, locale),
       recipient: recipientLines(m, t, locale),
       placeDate: [m.issuer?.city, m.invoiceDate ? textDate(m.invoiceDate) : null].filter(Boolean).join(', '),
-      heading: t(`title.${m.kind}`),
-      numberLine: t('number', { number: p.number }),
-      periodLine: t('period', { apartment: m.booking.apartmentLabel, arrival: textDate(m.booking.arrival), departure: textDate(m.booking.departure) }),
+      heading,
+      numberLine: c ? t('credit.number', { number: p.number }) : t('number', { number: p.number }),
+      references: c ? [t('credit.reference', { number: c.invoiceNumber, date: textDate(c.invoiceDate) }), ...(c.reason ? [t('credit.reason', { reason: c.reason })] : [])] : undefined,
+      periodLine: c ? t('credit.period', period) : t('period', period),
       guestsLine: m.guestNames.length ? t('guests', { names: m.guestNames.join(', ') }) : null,
       intro: pdfDoc(m.texts.intro, m.values),
       services: {

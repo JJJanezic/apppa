@@ -246,7 +246,7 @@ function BlockItem({ block, id }: { block: IssueBlock; id: string }) {
   )
 }
 
-function NoteItem({ note }: { note: IssueNote }) {
+export function NoteItem({ note }: { note: IssueNote }) {
   const t = useTranslations('invoiceIssue.notes')
   return (
     <Alert role="note" className="border-ds-neutral-400 bg-ds-surface">
@@ -256,7 +256,7 @@ function NoteItem({ note }: { note: IssueNote }) {
   )
 }
 
-function AckItem({ ack, checked, onChange }: { ack: IssueAck; checked: boolean; onChange: (on: boolean) => void }) {
+export function AckItem({ ack, checked, onChange }: { ack: IssueAck; checked: boolean; onChange: (on: boolean) => void }) {
   const t = useTranslations('invoiceIssue.acks')
   const reason =
     ack.key === 'numberAbove' ? t('numberAbove', { next: ack.next }) : ack.key === 'numberOtherFormat' ? t('numberOtherFormat') : ack.key === 'numberOtherYear' ? t('numberOtherYear', { year: String(ack.year) }) : null

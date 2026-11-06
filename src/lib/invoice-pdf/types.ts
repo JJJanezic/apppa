@@ -20,6 +20,8 @@ export type PdfView = {
   placeDate: string
   heading: string
   numberLine: string
+  // Gutschrift (PROJ-44): „zu Rechnung … vom …“ und „Grund: …“ unter der Nummer
+  references?: string[]
   periodLine: string
   guestsLine: string | null
   intro: RichDoc | null

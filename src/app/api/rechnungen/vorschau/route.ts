@@ -11,7 +11,7 @@ import {
   getInvoiceDraftView,
 } from '@/lib/invoice-drafts-data'
 import { isIssueDate } from '@/lib/invoice-issue'
-import { checksFor, IssueDataError, loadIssueState } from '@/lib/invoice-issue-data'
+import { checksFor, creditChecksFor, IssueDataError, loadCreditState, loadIssueState } from '@/lib/invoice-issue-data'
 import { pdfResponse } from '@/lib/invoice-pdf/respond'
 import { buildPreviewModel } from '@/lib/invoice-preview'
 import { normalizeDoc, type RichDoc } from '@/lib/rich-text'
@@ -40,6 +40,12 @@ const unsavedSchema = z.object({
     dueBasis: z.enum(['after_invoice', 'before_arrival']),
   }),
   deductionRemoved: z.boolean().optional(),
+})
+
+// Seite „Gutschrift ausstellen“ (PROJ-44): Rechnung, vorgesehenes Datum, Grund und Nummer
+const creditSchema = z.object({
+  creditFor: z.string().uuid(),
+  credit: z.object({ invoiceDate: z.string().refine(isIssueDate), number: z.string().max(200), reason: z.string().max(2000) }),
 })
 
 const issueSchema = z.object({
@@ -75,6 +81,26 @@ export async function POST(request: Request) {
     return pdfResponse({ tenantId: active.id, model: state.model, letterhead: state.view.preview.letterhead, number: number || DRAFT_NUMBER_TEXT, mark }, (meta) => ({
       ...meta,
       issue: checksFor(state, state.model, number, meta),
+    }))
+  }
+
+  // Seite „Gutschrift ausstellen“ (PROJ-44): Rechnung mit vorgesehenem Datum, Grund und Nummer, samt Prüfliste. Nur Inhaber,
+  // nichts wird gespeichert.
+  const credit = creditSchema.safeParse(body)
+  if (credit.success) {
+    if (active.role !== 'owner') return new Response(null, { status: 403 })
+    const { creditFor, credit: v } = credit.data
+    const number = v.number.trim()
+    const state = await loadCreditState(active.id, creditFor, { creditDate: v.invoiceDate, number, reason: v.reason }).catch((e: unknown) => {
+      if (!(e instanceof IssueDataError)) throw e
+      console.error('[rechnung-pdf] Stand der Gutschrift nicht lesbar', e.message)
+      return undefined
+    })
+    if (state === undefined) return new Response(null, { status: 500 })
+    if (state === null) return new Response(null, { status: 404 })
+    return pdfResponse({ tenantId: active.id, model: state.model, letterhead: state.letterhead, number: number || DRAFT_NUMBER_TEXT, mark }, (meta) => ({
+      ...meta,
+      issue: creditChecksFor(state, number, meta),
     }))
   }
 
