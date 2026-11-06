@@ -63,6 +63,9 @@ Based on the state analysis, determine what the user should do next:
 > Feature PROJ-X has passed QA and is ready for deployment.
 > Run `/deploy`: it releases to staging (https://staging.apppa.at) first and, after you have checked and approved it there, to production (https://app.apppa.at).
 
+**If a feature was just deployed and Dev was not cleaned yet:**
+> Run `/clean-dev` to remove the test data that backend and QA left in Dev (Dev only, counts first, deletes after your approval).
+
 **If all features are deployed:**
 > All current features are deployed! You can:
 > - Run `/write-spec` to spec out a new feature

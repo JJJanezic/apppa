@@ -101,6 +101,9 @@ npx supabase link --project-ref nizgfmvjplhegoosanmu   # back to Dev
 - Git tag: `git tag -a v1.X.0-PROJ-X -m "Deploy PROJ-X: [Feature Name]"` and `git push origin v1.X.0-PROJ-X`
 - Commit on `main` (see below), push `main`. This bookkeeping commit reaches staging/production with the next release.
 
+### 9. Dev Cleanup
+After the bookkeeping, always hand over to `/clean-dev`: it removes the test users, tenants, files and audit log rows that `/backend` and `/qa` left in **Dev**. This skill never deletes anything itself, and `/clean-dev` never touches staging or production.
+
 ## First Production Release Only
 Guide the user through, if not done yet (track in the memory/runbook):
 - Production only (runbook 5–6): leaked-password check, session limits, daily backup exists, test restore
@@ -119,6 +122,10 @@ Guide the user through, if not done yet (track in the memory/runbook):
 - **`db push` fails on `restrict_rls_auto_enable` in a new project:** "Enable automatic RLS" was not ticked (runbook 5.1).
 - **Domain not found in the browser right after a DNS change:** negative DNS cache (up to 8 h). Flush: `sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder`.
 - **Supabase free project (dev/staging) paused after inactivity:** resume in the dashboard.
+
+## Handoff
+After production is verified and the bookkeeping is committed:
+> "PROJ-X ist in Produktion. Nächster Schritt: `/clean-dev`, um die Testdaten aus Dev zu entfernen."
 
 ## Git Commit (bookkeeping)
 ```

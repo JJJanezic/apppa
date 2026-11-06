@@ -36,6 +36,7 @@ docs/
 5. `/backend` - Build APIs, database, RLS policies
 6. `/qa` - Test against acceptance criteria + security audit
 7. `/deploy` - Deploy to Vercel + production-ready checks
+8. `/clean-dev` - Remove leftover test data from Dev (after every deploy; Dev only)
 
 Use `/refine PROJ-X` at any point to revisit and improve an existing feature spec.
 
