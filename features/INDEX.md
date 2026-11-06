@@ -60,6 +60,8 @@
 | PROJ-43 | Rechnungsübersicht ausbauen | Jahres- und Betragsfilter, „Rechnung erstellen“ aus der Übersicht; Zahlungsstatus je Rechnung (offen/teilweise/bezahlt) samt Filter und Status „storniert“ (zurückgestellt bis nach PROJ-44/45, 2026-11-06) | P0 | PROJ-37, PROJ-40, PROJ-42, PROJ-44, PROJ-45 | Roadmap | – | 2026-11-05 |
 | PROJ-44 | Rechnungsstorno | Vollstorno einer in der App ausgestellten Rechnung per „Gutschrift zu Rechnung [Nummer]“ (gleicher Nummernkreis, negative Beträge, Datum/Grund/Nummer, PDF in einem Schritt); Rechnung „storniert“, Buchung wieder offen; abgezogene Teilrechnung erst nach Storno der Schlussrechnung; keine Gutschrift zu nacherfassten Rechnungen; löst die Übergangslösung aus PROJ-42 ab | P0 | PROJ-4, PROJ-37, PROJ-39, PROJ-40, PROJ-41, PROJ-42 | Deployed | [Spec](PROJ-44-rechnungsstorno.md) | 2026-11-05 |
 | PROJ-45 | Zahlungserfassung | Zahlungen von Hand je Rechnung erfassen (Datum, Betrag, Zahlungsart, Notiz, Beleg); Provision und Zahlungsgebühr bei Buchungen über booking.com/Airbnb (Buchungsquelle „Airbnb“ ergänzt); Status offen/teilweise/bezahlt/überzahlt, Fälligkeit und „überfällig“; nach Storno umhängen oder Rückzahlung an der Gutschrift; „Bereits bezahlt“ beim Nacherfassen; Menüpunkt „Zahlungen“ mit Monatsliste und Summen; Einstellungen → Zahlungen (Zahlungsarten); Mitarbeiter erfassen, nur Inhaber ändert | P0 | PROJ-4, PROJ-8, PROJ-29, PROJ-30, PROJ-37, PROJ-39, PROJ-40, PROJ-42, PROJ-44 | Deployed | [Spec](PROJ-45-zahlungserfassung.md) | 2026-11-06 |
+| PROJ-46 | Bankkonten und booking.com Hotel-ID | Mehrere Bankkonten des Kunden in den Stammdaten (Bezeichnung, Kontoinhaber, IBAN mit Prüfziffer, BIC, Bank, Notiz; genau eines primär; archivieren/löschen mit Regeln; Inhaber und Betreiber); je Wohnung booking.com Hotel-ID (frei, doppelt erlaubt) und Bankkonto (Voreinstellung „Primäres Konto“, folgt automatisch, oder feste IBAN) | P0 | PROJ-6, PROJ-28, PROJ-36, PROJ-38 | Planned | [Spec](PROJ-46-bankkonten-hotel-id.md) | 2026-11-06 |
+| PROJ-47 | Plattform-Buchungsnummer | Bei Buchungsquelle booking.com Feld „booking.com-Buchungsnummer“, bei Airbnb „Airbnb-Bestätigungscode“ | P0 | PROJ-8, PROJ-30, PROJ-45 | Roadmap | – | 2026-11-06 |
 
 <!-- Add features above this line -->
 
@@ -68,4 +70,4 @@
 
 Den Channex-Block (PROJ-10 bis PROJ-12) früh angehen: Er ist das größte Risiko (Testzugang, Webhooks, Abläufe mit den Plattformen).
 
-## Next Available ID: PROJ-46
+## Next Available ID: PROJ-48
