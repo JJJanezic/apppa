@@ -43,7 +43,7 @@ Die App wird als Mehrmandanten-SaaS betrieben: Jeder Kunde (Vermieter) hat ein e
 | P0 (Pilot) | Einstellungen → Rechnungen (Nummernkreis, Textbausteine, Fußzeile, Kleinunternehmer-Hinweis) | Deployed (PROJ-39, inkl. Editor-Erweiterung: Schrift, Größe, Ausrichtung, HTML-Code, Zeilenhöhe) |
 | P0 (Pilot) | Rechnungsdaten sammeln: Entwurf ohne Nummer aus der Buchung (Teilung, Empfänger, Pflichtangaben, Vorschau) | Deployed (PROJ-40, inkl. Schreibweise der USt im Leistungsblock) |
 | P0 (Pilot) | Briefpapier: Gestaltung der Rechnung (Schrift, Abstände, Logo, Aussteller-Block) mit Vorschau | Deployed (PROJ-41) |
-| P0 (Pilot) | Rechnung ausstellen mit PDF, Rechnungsstorno, Rechnungsübersicht mit Zahlungsstatus | Deployed (PROJ-42); Planned (PROJ-44); Roadmap (dann PROJ-45, dann PROJ-43) |
+| P0 (Pilot) | Rechnung ausstellen mit PDF, Rechnungsstorno, Rechnungsübersicht mit Zahlungsstatus | Deployed (PROJ-42, PROJ-44); Roadmap (dann PROJ-45, dann PROJ-43) |
 | P0 (Pilot) | Gästeblatt (Meldewesen) | Roadmap (PROJ-26) |
 | P0 (Pilot) | Kalender-Abo-Link für Outlook/M365 und Google Calendar | Roadmap |
 | P0 (MVP-Abschluss) | Statistische Auswertungen (Auslastung, Umsatz, Gästeherkunft, Kanäle) | Roadmap |

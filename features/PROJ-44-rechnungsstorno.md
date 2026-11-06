@@ -1,6 +1,6 @@
 # PROJ-44: Rechnungsstorno (Gutschrift zu Rechnung)
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-11-06
 **Last Updated:** 2026-11-06
 
@@ -513,3 +513,14 @@ Keine neuen Pakete.
 - **BUG-3:** Ist die Rechnung schon storniert und stammt die Gutschrift von derselben Person mit derselben Nummer, antwortet die Schnittstelle mit der vorhandenen Gutschrift (`ok`), auch bei gleichzeitigem Doppelversuch (P0934). Ein anderer Inhaber erhält weiter „Rechnung wurde inzwischen storniert.“ (E2E jetzt mit zweitem Inhaber in eigenem Browserkontext)
 - **Nachtest:** PROJ-44 E2E komplett grün (Desktop 15, Layout Tablet/Handy), Unit 719, Lint, Typen, Build
 - **Status:** bleibt Approved, keine offenen Befunde
+
+## Deployment
+
+- **Datum:** 2026-11-06
+- **Commit:** `a2eab65`, Tag `v1.26.0-PROJ-44`
+- **Staging:** https://staging.apppa.at; Freigabe des Nutzers „liefere nach prod aus“ (Ready und PDF unter Vercel nicht einzeln bestätigt)
+- **Produktion:** https://app.apppa.at, vom Nutzer als „Ready“ gemeldet
+- **Migrationen** in Staging und Produktion, in dieser Reihenfolge: `20261106082931_invoice_credit_notes.sql`, `20261106083354_invoice_credit_notes_history.sql`. `db advisors`: nur der bekannte Auth-Hinweis
+- **Vorprüfung:** Lint, Unit 719, Integration 273/274 (rot nur der bekannte RLS-Test wegen Testresten im Dev-Protokoll), Build, Secret-Scan
+- **Mit ausgeliefert:** Skill `/clean-dev` und Runbook-Eintrag (nur Werkzeuge/Doku, keine App-Änderung)
+- **Offen vor echter Nutzung:** Steuerberater (Bezeichnung „Gutschrift“, Pflichtangaben)
