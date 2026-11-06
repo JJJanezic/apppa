@@ -27,19 +27,19 @@
 | PROJ-10 | Channex-Verbindung | Channex-Konto je Kunde, Wohnungen mit Listings verknüpfen, Verbindungsstatus | P0 | PROJ-1, PROJ-6 | Roadmap | – | 2026-10-12 |
 | PROJ-11 | Buchungsimport aus Channex | Neue, geänderte und stornierte Buchungen von booking.com/Airbnb übernehmen, inkl. Gast | P0 | PROJ-1, PROJ-7, PROJ-8, PROJ-10 | Roadmap | – | 2026-10-12 |
 | PROJ-12 | Verfügbarkeitssperre an Channex | Manuell erfasste Buchungen sperren die Wohnung auf booking.com/Airbnb | P0 | PROJ-1, PROJ-8, PROJ-10 | Roadmap | – | 2026-10-12 |
-| PROJ-13 | Zahlungserfassung | Zahlungen je Buchung, Status offen/teilweise/bezahlt, Übernahme aus Channex | P0 | PROJ-1, PROJ-8 | Roadmap | – | 2026-10-12 |
-| PROJ-14 | Dashboard | Heutige An-/Abreisen, kommende Buchungen, offene Zahlungen, Sync-Status | P0 | PROJ-1, PROJ-8, PROJ-13 | Roadmap | – | 2026-10-12 |
+| PROJ-13 | Zahlungen aus Channex | Von booking.com/Airbnb gemeldete Zahlungen über Channex übernehmen und der Zahlungserfassung (PROJ-45) zuführen; manuelle Zahlungserfassung ausgegliedert nach PROJ-45 (2026-11-06) | P0 | PROJ-1, PROJ-11, PROJ-45 | Roadmap | – | 2026-10-12 |
+| PROJ-14 | Dashboard | Heutige An-/Abreisen, kommende Buchungen, offene Zahlungen, Sync-Status | P0 | PROJ-1, PROJ-8, PROJ-45 | Roadmap | – | 2026-10-12 |
 | PROJ-15 | Ortstaxe je Wohnung | Tarife je Wohnung mit „gültig ab“ (Bezeichnung, Betrag p. P./Nacht oder Prozent netto/brutto, Altersbefreiung tagesgenau, USt-Satz); Häkchen „Von der Ortstaxe befreit“ je Person; automatische, überschreibbare Zusatzposition je Tarif in der Buchung | P0 | PROJ-6, PROJ-7, PROJ-8, PROJ-29, PROJ-30, PROJ-32, PROJ-34, PROJ-35, PROJ-36 | Deployed | [Spec](PROJ-15-ortstaxe-je-wohnung.md) | 2026-10-12 |
 | PROJ-16 | Tourismusabgabe-Monatsbericht | Monatsbericht pro Gemeinde aus den Abgabe-Positionen (PROJ-15), Export | P0 | PROJ-1, PROJ-8, PROJ-15 | Roadmap | – | 2026-10-12 |
 | PROJ-17 | Kalender-Abo-Link | Privater iCal-Feed für Outlook/M365 und Google Calendar, Link erneuerbar | P0 | PROJ-1, PROJ-8 | Roadmap | – | 2026-10-12 |
-| PROJ-18 | Statistische Auswertungen | Auslastung, Umsatz, Gästeherkunft, Kanäle; Filter nach Wohnung und Zeitraum | P0 | PROJ-1, PROJ-7, PROJ-8, PROJ-13 | Roadmap | – | 2026-10-12 |
+| PROJ-18 | Statistische Auswertungen | Auslastung, Umsatz, Gästeherkunft, Kanäle; Filter nach Wohnung und Zeitraum | P0 | PROJ-1, PROJ-7, PROJ-8, PROJ-45 | Roadmap | – | 2026-10-12 |
 | PROJ-19 | Marketing: Einwilligung, Segmente & Export | DSGVO-Einwilligung erfassen, Gäste-Segmente, CSV-Export | P0 | PROJ-1, PROJ-7 | Roadmap | – | 2026-10-12 |
 | PROJ-20 | Zwei-Wege-Kalendersync | OAuth-Synchronisation mit Microsoft 365 und Google Calendar | P2 | PROJ-17 | Roadmap | – | 2026-10-12 |
 | PROJ-21 | Selbstregistrierung & Abo | Kunden registrieren sich selbst und zahlen ein Abo | P2 | PROJ-5 | Roadmap | – | 2026-10-12 |
 | PROJ-22 | E-Mail-Versand an Gäste | Mailings und Newsletter direkt aus der App | P2 | PROJ-19 | Roadmap | – | 2026-10-12 |
 | PROJ-23 | Englische Oberfläche | Übersetzung der App ins Englische | P2 | PROJ-2 | Roadmap | – | 2026-10-12 |
-| PROJ-24 | Online-Zahlung Direktbuchungen | Zahlungslink für Gäste (z. B. Stripe) | P2 | PROJ-13 | Roadmap | – | 2026-10-12 |
-| PROJ-25 | Bankabgleich | Kontoauszüge importieren, Zahlungen automatisch Buchungen zuordnen | P2 | PROJ-13 | Roadmap | – | 2026-10-12 |
+| PROJ-24 | Online-Zahlung Direktbuchungen | Zahlungslink für Gäste (z. B. Stripe) | P2 | PROJ-45 | Roadmap | – | 2026-10-12 |
+| PROJ-25 | Bankabgleich | Kontoauszüge importieren, Zahlungen automatisch Rechnungen bzw. Buchungen zuordnen | P2 | PROJ-45 | Roadmap | – | 2026-10-12 |
 | PROJ-26 | Gästeblatt (Meldewesen) | Gesetzliche Gästemeldung je Aufenthalt mit Hauptgast und Mitreisenden | P0 | PROJ-1, PROJ-6, PROJ-7, PROJ-8 | Roadmap | – | 2026-10-26 |
 | PROJ-27 | Personenpreise und Kapazität nach Erwachsenen | Kapazität „gesamt, davon max. Erwachsene“; Preisart je Wohnung (Wohnungs- oder Personenpreis mit Kinder-Altersstufen); Preisvorschlag und Warnung in Buchungen | P0 | PROJ-6, PROJ-8 | Deployed | [Spec](PROJ-27-personenpreise-kapazitaet.md) | 2026-10-25 |
 | PROJ-28 | Kundenstammdaten | Zweite Namenszeile, Adresse, Staat, UID, Steuernummer, Registernummer je Kunde; editierbar durch Betreiber und Inhaber | P0 | PROJ-4, PROJ-5 | Deployed | [Spec](PROJ-28-kundenstammdaten.md) | 2026-10-26 |
@@ -57,14 +57,15 @@
 | PROJ-40 | Rechnungsdaten sammeln (Entwurf) | Rechnungsentwurf ohne Nummer aus der Buchung (Knopf „Rechnung“): Arten Rechnung/Teilrechnung/Schlussrechnung, Teilung nach Positionen und Betrag mit Abzug, Empfänger Gast/Firma, Rechnungsdatum, Gastnamen, Bausteine und Zahlungsregeln je Rechnung, Kleinunternehmer nach Buchung, Pflichtangaben-Prüfung, Vorschau. Schreibweise im Leistungsblock „(inkl. 10 % USt.)“, „(inkl. USt.)“, „10 % aus € Netto“ (refine 2026-11-06) | P0 | PROJ-4, PROJ-7, PROJ-8, PROJ-28, PROJ-35, PROJ-36, PROJ-37, PROJ-39 | Deployed | [Spec](PROJ-40-rechnungsdaten-sammeln.md) | 2026-10-31 |
 | PROJ-41 | Briefpapier | Neuer Einstellungen-Reiter „Briefpapier“ zwischen „Wohnungen“ und „Rechnungen“: einheitliche Gestaltung der Rechnung bei fester Anordnung (Grundschrift, Größe, Abstände, Logo-Position und -Höhe, Aussteller-Block abschaltbar); Vorschau mit Musterrechnung und gestaltete Entwurfsvorschau | P0 | PROJ-4, PROJ-5, PROJ-28, PROJ-38, PROJ-39, PROJ-40 | Deployed | [Spec](PROJ-41-briefpapier.md) | 2026-11-04 |
 | PROJ-42 | Ausstellen mit PDF | Entwurf ausstellen: Nummer vergeben (Überschreiben, Lücke, Duplikat), Prüfungen, Festschreiben, PDF erzeugen und privat ablegen, in einem Schritt | P0 | PROJ-37, PROJ-39, PROJ-40, PROJ-41 | Deployed | [Spec](PROJ-42-ausstellen-mit-pdf.md) | 2026-11-05 |
-| PROJ-43 | Rechnungsübersicht ausbauen | Jahres- und Betragsfilter, „Rechnung erstellen“ aus der Übersicht | P0 | PROJ-37, PROJ-40, PROJ-42 | Roadmap | – | 2026-11-05 |
+| PROJ-43 | Rechnungsübersicht ausbauen | Jahres- und Betragsfilter, „Rechnung erstellen“ aus der Übersicht; Zahlungsstatus je Rechnung (offen/teilweise/bezahlt) samt Filter und Status „storniert“ (zurückgestellt bis nach PROJ-44/45, 2026-11-06) | P0 | PROJ-37, PROJ-40, PROJ-42, PROJ-44, PROJ-45 | Roadmap | – | 2026-11-05 |
 | PROJ-44 | Rechnungsstorno | Stornorechnung bzw. Gutschrift zu einer ausgestellten Rechnung in der App; löst die Übergangslösung aus PROJ-42 ab (Gutschrift außerhalb erstellen und nacherfassen) | P0 | PROJ-37, PROJ-42 | Roadmap | – | 2026-11-05 |
+| PROJ-45 | Zahlungserfassung | Zahlungen von Hand erfassen und Rechnungen zuordnen (Zuordnung zu Rechnung und/oder Buchung in /write-spec klären); Status offen/teilweise/bezahlt je Rechnung; Grundlage für Übersicht (PROJ-43), Dashboard und Channex-Zahlungen (PROJ-13); ausgegliedert aus PROJ-13 (2026-11-06) | P0 | PROJ-8, PROJ-37, PROJ-42, PROJ-44 | Roadmap | – | 2026-11-06 |
 
 <!-- Add features above this line -->
 
 ## Build Order
-1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 29 → 30 → 31 → 32 → 33 → 34 → 36 → 35 → 37 → 38 → 39 → 40 → 15 → 39 (Editor-Erweiterung) → 41 → 42 → 39 (Zeilenhöhe) → 8 (Endreinigung) → 40 (Schreibweise USt) → 43 → 44 (Rechnungsmodul: Briefpapier/Gestaltung, Ausstellen mit PDF, Übersicht, Storno) → 10 → 11 → 12 → 13 → 14 → 16 → 26 → 17 (**Pilotstand**, ca. 3 Monate) → 18 → 19 (**MVP komplett**, ca. 4–5 Monate) → P2 nach Bedarf.
+1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 29 → 30 → 31 → 32 → 33 → 34 → 36 → 35 → 37 → 38 → 39 → 40 → 15 → 39 (Editor-Erweiterung) → 41 → 42 → 39 (Zeilenhöhe) → 8 (Endreinigung) → 40 (Schreibweise USt) → 44 → 45 → 43 (Rechnungsmodul: Storno, Zahlungserfassung, Übersicht mit Zahlungsstatus; Reihenfolge 2026-11-06) → 10 → 11 → 12 → 13 → 14 → 16 → 26 → 17 (**Pilotstand**, ca. 3 Monate) → 18 → 19 (**MVP komplett**, ca. 4–5 Monate) → P2 nach Bedarf.
 
 Den Channex-Block (PROJ-10 bis PROJ-12) früh angehen: Er ist das größte Risiko (Testzugang, Webhooks, Abläufe mit den Plattformen).
 
-## Next Available ID: PROJ-45
+## Next Available ID: PROJ-46

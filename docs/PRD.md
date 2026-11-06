@@ -27,7 +27,7 @@ Die App wird als Mehrmandanten-SaaS betrieben: Jeder Kunde (Vermieter) hat ein e
 | P0 (Pilot) | Kundenstammdaten (Adresse, UID, Steuer- und Registernummer) | Deployed (PROJ-28) |
 | P0 (Pilot) | Wohnungsverwaltung, Gäste-Datenbank, manuelle Buchungen, Belegungskalender | Deployed (PROJ-6, PROJ-7, PROJ-8, PROJ-9, PROJ-27); „Endreinigung“ statt „Reinigung“ (PROJ-8) |
 | P0 (Pilot) | Channex-Anbindung: Buchungsimport von booking.com/Airbnb und Verfügbarkeitssperren | Roadmap |
-| P0 (Pilot) | Zahlungserfassung je Buchung, Dashboard | Roadmap |
+| P0 (Pilot) | Zahlungserfassung je Rechnung (PROJ-45), Zahlungen aus Channex (PROJ-13), Dashboard | Roadmap |
 | P0 (Pilot) | Ortstaxe je Wohnung: Tarife mit Stichtag, Altersbefreiung, persönliche Befreiung, automatische Position in der Buchung | Deployed (PROJ-15) |
 | P0 (Pilot) | Tourismusabgabe-Monatsbericht und Export | Roadmap (PROJ-16) |
 | P0 (Pilot) | Gast-Erweiterung: Titel, Geschlecht, Reisedokument | Deployed (PROJ-29) |
@@ -43,7 +43,7 @@ Die App wird als Mehrmandanten-SaaS betrieben: Jeder Kunde (Vermieter) hat ein e
 | P0 (Pilot) | Einstellungen → Rechnungen (Nummernkreis, Textbausteine, Fußzeile, Kleinunternehmer-Hinweis) | Deployed (PROJ-39, inkl. Editor-Erweiterung: Schrift, Größe, Ausrichtung, HTML-Code, Zeilenhöhe) |
 | P0 (Pilot) | Rechnungsdaten sammeln: Entwurf ohne Nummer aus der Buchung (Teilung, Empfänger, Pflichtangaben, Vorschau) | Deployed (PROJ-40, inkl. Schreibweise der USt im Leistungsblock) |
 | P0 (Pilot) | Briefpapier: Gestaltung der Rechnung (Schrift, Abstände, Logo, Aussteller-Block) mit Vorschau | Deployed (PROJ-41) |
-| P0 (Pilot) | Rechnung ausstellen mit PDF, Rechnungsübersicht ausbauen, Rechnungsstorno | Deployed (PROJ-42); Roadmap (PROJ-43, PROJ-44) |
+| P0 (Pilot) | Rechnung ausstellen mit PDF, Rechnungsstorno, Rechnungsübersicht mit Zahlungsstatus | Deployed (PROJ-42); Roadmap (PROJ-44, dann PROJ-45, dann PROJ-43) |
 | P0 (Pilot) | Gästeblatt (Meldewesen) | Roadmap (PROJ-26) |
 | P0 (Pilot) | Kalender-Abo-Link für Outlook/M365 und Google Calendar | Roadmap |
 | P0 (MVP-Abschluss) | Statistische Auswertungen (Auslastung, Umsatz, Gästeherkunft, Kanäle) | Roadmap |
