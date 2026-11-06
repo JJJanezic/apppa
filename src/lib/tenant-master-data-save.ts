@@ -50,7 +50,7 @@ export async function saveTenantMasterData(
       vat_status: v.vatStatus.map((c) => ({ valid_from: c.validFrom, small_business: c.smallBusiness })),
       // PROJ-38: null entfernt das Logo
       logo_path: v.logoPath,
-      // PROJ-46: Abgleich je Konto über die Kennung; Reihenfolge der Liste = Reihenfolge des Anlegens
+      // PROJ-46: Abgleich je Konto über die Kennung; neue Konten hängt die Datenbank hinten an (Reihenfolge des Anlegens)
       bank_accounts: v.bankAccounts.map((a) => ({
         id: a.id,
         label: a.label,

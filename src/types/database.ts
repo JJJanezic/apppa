@@ -180,6 +180,45 @@ export type Database = {
           },
         ]
       }
+      audit_log: {
+        Row: {
+          action: string
+          actor_id: string | null
+          actor_label: string
+          created_at: string
+          id: number
+          new_data: Json | null
+          old_data: Json | null
+          record_id: string
+          table_name: string
+          tenant_id: string
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          actor_label: string
+          created_at?: string
+          id?: never
+          new_data?: Json | null
+          old_data?: Json | null
+          record_id: string
+          table_name: string
+          tenant_id: string
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          actor_label?: string
+          created_at?: string
+          id?: never
+          new_data?: Json | null
+          old_data?: Json | null
+          record_id?: string
+          table_name?: string
+          tenant_id?: string
+        }
+        Relationships: []
+      }
       bank_accounts: {
         Row: {
           account_holder: string
@@ -241,45 +280,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      audit_log: {
-        Row: {
-          action: string
-          actor_id: string | null
-          actor_label: string
-          created_at: string
-          id: number
-          new_data: Json | null
-          old_data: Json | null
-          record_id: string
-          table_name: string
-          tenant_id: string
-        }
-        Insert: {
-          action: string
-          actor_id?: string | null
-          actor_label: string
-          created_at?: string
-          id?: never
-          new_data?: Json | null
-          old_data?: Json | null
-          record_id: string
-          table_name: string
-          tenant_id: string
-        }
-        Update: {
-          action?: string
-          actor_id?: string | null
-          actor_label?: string
-          created_at?: string
-          id?: never
-          new_data?: Json | null
-          old_data?: Json | null
-          record_id?: string
-          table_name?: string
-          tenant_id?: string
-        }
-        Relationships: []
       }
       booking_amounts: {
         Row: {
