@@ -1,6 +1,6 @@
 # PROJ-40: Rechnungsdaten sammeln (Entwurf)
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-10-31
 **Last Updated:** 2026-11-06
 
@@ -738,6 +738,49 @@ Tests Runde 2:
 - **Security:** Pass
 - **Production Ready:** YES
 - **Recommendation:** Deploy
+
+### QA Schreibweise der USt (2026-11-06)
+
+**Tested:** 2026-11-06 · gebauter Server gegen Dev, Chrome (desktop), Firefox · Safari nicht (nur gegen `npm run dev`); Handy/Tablet nicht eigens (nur Texte im PDF, Layout unverändert)
+
+#### Acceptance Criteria „Schreibweise der USt“ (10/10)
+| # | Kriterium | Ergebnis | Nachweis |
+|---|---|---|---|
+| 1 | Zeilen „Übernachtung · (inkl. 10 % USt.)“, „Endreinigung · (inkl. 10 % USt.)“ | ✅ | E2E (Text der PDF-Vorschau), Unit |
+| 2 | „Nächtigungsabgabe · (inkl. 0 % USt.)“, Rechnungsbetrag „(inkl. USt.)“ | ✅ | E2E, Unit |
+| 3 | Teilrechnung „Anteil (inkl. 10 % USt.)“ / „(inkl. 20 % USt.)“ | ✅ | E2E, Unit |
+| 4 | Schlussrechnung: „Summe der Leistungen (inkl. USt.)“ und „Rechnungsbetrag (inkl. USt.)“ | ✅ | E2E (Abzug einer nacherfassten Rechnung), Unit |
+| 5 | USt-Tabelle „10 % aus € 409,09“ / „€ 40,91“ bei € 450,00 brutto | ✅ | E2E, Unit |
+| 6 | Schlussrechnung: Netto nach Abzug („10 % aus € 318,18“, „€ 31,82“) | ✅ | E2E, Unit |
+| 7 | Kleinunternehmer: kein Zusatz, keine Tabelle | ✅ | E2E (zusätzlich „kein inkl.“), Unit |
+| 8 | Nur 0 %: Zeile „(inkl. 0 % USt.)“, Rechnungsbetrag ohne Zusatz, keine Tabelle | ✅ | E2E, Unit |
+| 9 | Ausgestellte Rechnung: abgelegtes PDF mit neuer Schreibweise | ✅ | E2E PROJ-42 „Abgelegtes PDF“ (Text aus der abgelegten Datei); ältere PDFs bleiben, weil abgelegt |
+| 10 | Musterrechnung im Briefpapier mit neuer Schreibweise | ✅ | E2E PROJ-41 |
+
+#### Edge Cases
+- ✅ Abzugszeilen bleiben „darin USt 10 % € …“ (E2E Schlussrechnung)
+- ✅ Detailansichten in der App unverändert (keine Änderung im Code; bestehende E2E grün)
+- ✅ Musterrechnung mit Endreinigung 20 % bleibt bewusst so (Nutzer 2026-11-06); echte Rechnungen übernehmen den Satz der Buchung (10 %)
+- ⚪ Sehr lange Bezeichnung mit Zusatz: nicht eigens getestet; Zeilen brechen wie bisher um (PROJ-41 BUG-1 behoben)
+
+#### Security Audit
+- ✅ Keine neue Schnittstelle, keine Datenbank-Änderung; Bezeichnungen werden als Werte in die Texte eingesetzt, nicht als Formatvorlage
+- ✅ Keine Änderung an Rechten
+
+#### Automatisierte Tests
+- Unit: 696/696 (inkl. 4 neuen in `view.test.ts` mit echten deutschen Texten)
+- E2E neu: PROJ-40 „Schreibweise der USt“ 4 Tests (Chrome und Firefox), Prüfung im PROJ-40-Kleinunternehmer-Test, PROJ-42 „Abgelegtes PDF“ erweitert, PROJ-41 Musterrechnung
+- E2E Regression (desktop): PROJ-40 komplett in drei Paketen (13 + 18 + 9) und neu 7, PROJ-41 30 (ohne Lasttest „riesiger Text“, der lief in /frontend nicht mit; Code dort unverändert), PROJ-42 PDF-Teile 6 + „Abgelegtes PDF“
+- Integration: nicht nötig (keine Datenbank-Änderung)
+
+#### Bugs Found
+- Keine.
+
+#### Summary
+- **Acceptance Criteria:** 10/10
+- **Bugs:** keine
+- **Production Ready:** YES
+- **Vor /deploy:** keine Migration; nur Code
 
 ## Deployment
 - **Datum:** 2026-10-31, Version v1.18.0

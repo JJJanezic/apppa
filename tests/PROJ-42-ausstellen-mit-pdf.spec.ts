@@ -371,6 +371,10 @@ test.describe('Seite „Rechnung ausstellen“', () => {
     expect(text).toContain('2026-0001')
     expect(text).toContain('Nummer: 2026-0001')
     expect(text).not.toContain('Entwurf')
+    // PROJ-40 refine 2026-11-06: neue Schreibweise auch im abgelegten PDF
+    expect(text.replace(/\s+/g, ' ')).toMatch(/· \(inkl\. 10 % USt\.\)/)
+    expect(text.replace(/\s+/g, ' ')).toMatch(/Rechnungsbetrag \(inkl\. USt\.\)/)
+    expect(text.replace(/\s+/g, ' ')).toMatch(/10 % aus € [\d.]+,\d{2}/)
     expect(JSON.stringify(row!.issued_snapshot)).toContain('2026-0001')
   })
 

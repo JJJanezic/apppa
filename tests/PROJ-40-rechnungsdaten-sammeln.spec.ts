@@ -873,6 +873,8 @@ test.describe('Pflichtangaben und Vorschau', () => {
     expect(content.indexOf('Kleinunternehmerregelung')).toBeGreaterThan(content.indexOf('Rechnungsbetrag'))
     expect(content.indexOf('Kleinunternehmerregelung')).toBeLessThan(content.indexOf('Bitte überweisen'))
     expect(content).not.toContain('Darin enthaltene Umsatzsteuer')
+    // refine 2026-11-06: Kleinunternehmer ohne „(inkl. … USt.)“
+    expect(content).not.toContain('inkl.')
   })
 })
 
@@ -1239,3 +1241,83 @@ test.describe('Zeilenhöhe im Entwurf (PROJ-39, refine 2026-11-05)', () => {
     expect((unchanged as { body: { attrs: unknown } }).body.attrs).toEqual(attrs)
   })
 })
+
+test.describe('Schreibweise der USt im Leistungsblock (refine 2026-11-06)', () => {
+  const preview = async (page: Page, id: string) => {
+    await page.goto(`/rechnungen/${id}/vorschau`)
+    await ready(page)
+    const article = page.getByRole('article', { name: 'Rechnungsvorschau' })
+    await expect(article).toContainText('Rechnungsbetrag', { timeout: 20_000 })
+    return text(await article.innerText())
+  }
+
+  test('AC: Zeilen „· (inkl. 10 % USt.)“ und „(inkl. 0 % USt.)“, „Rechnungsbetrag (inkl. USt.)“, „10 % aus € 409,09“', async ({ page, users }) => {
+    desktopOnly()
+    const { owner, tenantId } = await setup(users)
+    const apt = await addApartment(tenantId)
+    const guest = await addGuest(tenantId)
+    const booking = await addBooking(tenantId, apt, { guestId: guest })
+    const id = await addDraft(owner, tenantId, booking.id, {
+      lines: [
+        { label: 'Übernachtung', amount_cents: 39000, vat_rate: '10.00' },
+        { label: 'Endreinigung', amount_cents: 6000, vat_rate: '10.00' },
+        { label: 'Nächtigungsabgabe', amount_cents: 1200, vat_rate: '0.00' },
+      ],
+    })
+    await signInAs(page, owner)
+    const content = await preview(page, id)
+    for (const part of ['Übernachtung · (inkl. 10 % USt.)', 'Endreinigung · (inkl. 10 % USt.)', 'Nächtigungsabgabe · (inkl. 0 % USt.)', 'Rechnungsbetrag (inkl. USt.)', 'Darin enthaltene Umsatzsteuer', '10 % aus € 409,09', '€ 40,91']) {
+      expect(content, part).toContain(part)
+    }
+    expect(content).not.toMatch(/Übernachtung · 10 %/)
+  })
+
+  test('AC: Teilrechnung „Anteil (inkl. 10 % USt.)“ und „Anteil (inkl. 20 % USt.)“; Netto je Satz', async ({ page, users }) => {
+    desktopOnly()
+    const { owner, tenantId } = await setup(users)
+    const apt = await addApartment(tenantId)
+    const guest = await addGuest(tenantId)
+    const booking = await addBooking(tenantId, apt, { guestId: guest })
+    const id = await addDraft(owner, tenantId, booking.id, partial(10000, [{ label: 'A', amount_cents: 9000, vat_rate: '10.00' }, { label: 'A', amount_cents: 1000, vat_rate: '20.00' }]))
+    await signInAs(page, owner)
+    const content = await preview(page, id)
+    for (const part of ['Anteil (inkl. 10 % USt.)', 'Anteil (inkl. 20 % USt.)', 'Rechnungsbetrag (inkl. USt.)', '10 % aus € 81,82', '20 % aus € 8,33']) {
+      expect(content, part).toContain(part)
+    }
+  })
+
+  test('AC: Schlussrechnung mit Abzug – beide Summen „(inkl. USt.)“, Netto nach Abzug „10 % aus € 318,18“', async ({ page, users }) => {
+    desktopOnly()
+    const { owner, tenantId } = await setup(users)
+    const apt = await addApartment(tenantId)
+    const guest = await addGuest(tenantId)
+    const booking = await addBooking(tenantId, apt, { guestId: guest, nights: 45000 })
+    const part = await addBackfilled(owner, tenantId, booking.id, 10000)
+    const id = await addDraft(owner, tenantId, booking.id, {
+      kind: 'final',
+      deduction_ids: [part],
+      lines: [{ label: 'Übernachtung', amount_cents: 45000, vat_rate: '10.00', source_kind: 'nights', source_charge_id: null }],
+    })
+    await signInAs(page, owner)
+    const content = await preview(page, id)
+    for (const part2 of ['Summe der Leistungen (inkl. USt.)', 'Rechnungsbetrag (inkl. USt.)', '10 % aus € 318,18', '€ 31,82', 'darin USt 10 %']) {
+      expect(content, part2).toContain(part2)
+    }
+  })
+
+  test('AC: nur 0-%-Positionen – Zeile „(inkl. 0 % USt.)“, Rechnungsbetrag ohne Zusatz, keine Tabelle', async ({ page, users }) => {
+    desktopOnly()
+    const { owner, tenantId } = await setup(users)
+    const apt = await addApartment(tenantId)
+    const guest = await addGuest(tenantId)
+    const booking = await addBooking(tenantId, apt, { guestId: guest })
+    const id = await addDraft(owner, tenantId, booking.id, { lines: [{ label: 'Nächtigungsabgabe', amount_cents: 1200, vat_rate: '0.00' }] })
+    await signInAs(page, owner)
+    const content = await preview(page, id)
+    expect(content).toContain('Nächtigungsabgabe · (inkl. 0 % USt.)')
+    expect(content).toContain('Rechnungsbetrag')
+    expect(content).not.toContain('Rechnungsbetrag (inkl. USt.)')
+    expect(content).not.toContain('Darin enthaltene Umsatzsteuer')
+  })
+})
+
