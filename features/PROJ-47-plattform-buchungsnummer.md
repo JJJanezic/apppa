@@ -1,6 +1,6 @@
 # PROJ-47: Plattform-Buchungsnummer
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-11-06
 **Last Updated:** 2026-11-06
 
@@ -146,12 +146,103 @@ Bei Buchungen über booking.com oder Airbnb kann die Nummer der Plattform erfass
 <!-- Added by /architecture -->
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Ein optionales Feld „Plattform-Nummer“ an der Buchung, Bedeutung über die Buchungsquelle | Eine Buchung hat genau eine Quelle; keine verwaisten Nummern bei Quellenwechsel | 2026-11-06 |
+| Datenbankregel: Nummer nur bei Quelle booking.com/Airbnb, Format wie Hotel-ID | Serverseitig erzwungen (Spec), schützt auch künftigen Import (PROJ-11) | 2026-11-06 |
+| Index je Kunde, Quelle und Nummer ohne Groß-/Kleinschreibung, nicht eindeutig | Schnelle Doppelungsprüfung; doppelte Nummern sind erlaubt | 2026-11-06 |
+| Doppelungsprüfung in der bestehenden Live-Warnung (wie Gästeblattnummer), Speichern blockiert nie | Eine Anfrage, gleiche Mandantenprüfung; Spec: nur Hinweis | 2026-11-06 |
+| Hinweis ohne Bestätigungs-Häkchen (Abweichung von der Gästeblattnummer) | Aufgeteilte booking.com-Buchungen sind normal; Häkchen wäre nur Reibung | 2026-11-06 |
+| Formatregel mit der Hotel-ID (PROJ-46) teilen | Gleiches Format, eine Regel für Formular und Server | 2026-11-06 |
+| Änderungsprotokoll über das bestehende automatische Protokoll der Buchungstabelle | Neue Spalte wird ohne Zusatzarbeit mitprotokolliert | 2026-11-06 |
+| Keine neuen Pakete; Kopieren über die Zwischenablage des Browsers | Muster existiert (Zwei-Faktor-Einrichtung) | 2026-11-06 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### Überblick
+Kleines Feature ohne neue Seiten und ohne neue Pakete. Es erweitert die bestehende Buchung um **ein Feld** und nutzt durchgehend Muster, die es schon gibt:
+
+| Teil | Vorlage im bestehenden Code |
+|---|---|
+| Format (Buchstaben, Ziffern, Bindestrich, max. 30) | Hotel-ID der Wohnung (PROJ-46) |
+| Hinweis „Nummer schon vergeben“ während der Eingabe | Gästeblattnummer-Warnung (PROJ-30), aber **ohne** Bestätigungs-Häkchen |
+| Suche in der Buchungsübersicht, Anzeige klein neben der Buchungsnummer | Gästeblattnummer (PROJ-30) |
+| Änderungsprotokoll | bestehendes automatisches Protokoll der Buchungstabelle (PROJ-1) – keine Zusatzarbeit |
+| Kopieren in die Zwischenablage mit kurzer Bestätigung | Kopieren des Geheimschlüssels bei der Zwei-Faktor-Einrichtung |
+
+### A) Komponenten (was sich in der Oberfläche ändert)
+```
+Buchungsformular (booking-panel, bestehend)
++-- Buchungsquelle (bestehend)
++-- NEU: Feld „booking.com-Buchungsnummer“ bzw. „Airbnb-Bestätigungscode“
+|   (nur bei Quelle booking.com/Airbnb, nicht bei Sperren; merkt sich je Quelle
+|    die zuletzt eingegebene Nummer bis zum Speichern)
++-- NEU: Hinweis „Nummer schon vergeben“ (gelbe Infobox wie bei der Gästeblattnummer)
+|   +-- erste gefundene Buchung: Buchungsnummer, Wohnung, Zeitraum, „storniert“, Link
+|   +-- „und N weitere“
+|   (kein Häkchen, Speichern bleibt jederzeit möglich)
+
+Buchungsdetail (booking-detail, bestehend)
++-- Zeile „Buchungsquelle“: „booking.com · 4123456789“
+    +-- NEU: kleiner Knopf „Kopieren“ (nur wenn eine Nummer da ist)
+        → kurze Bestätigung bzw. Meldung „Kopieren nicht möglich“
+
+Buchungsübersicht (booking-list, bestehend)
++-- Suche findet zusätzlich die Plattform-Nummer (Teiltreffer ab 2 Zeichen)
++-- bei Suche: Nummer klein neben Buchungs- und Gästeblattnummer (keine neue Spalte)
+```
+Kalender, Rechnung, Rechnungs-PDF und Zahlungen werden nicht angefasst.
+
+### B) Datenmodell (in Worten)
+Die Buchung bekommt **ein neues, optionales Feld „Plattform-Nummer“**:
+- Text, 1–30 Zeichen, nur Buchstaben, Ziffern und Bindestrich, ohne Leerzeichen; Schreibweise wie eingegeben
+- Darf nur gefüllt sein, wenn die Buchungsquelle booking.com oder Airbnb ist – die **Datenbank selbst** erzwingt das (zusätzlich zur Prüfung im Formular und auf dem Server). Sperren haben ohnehin keine Quelle, also auch keine Nummer.
+- Bestehende Buchungen: Feld leer, sonst ändert sich nichts.
+- Ein eigenes Feld für die Quelle ist nicht nötig: welche Plattform gemeint ist, ergibt sich aus der Buchungsquelle der Buchung.
+- Nicht eindeutig (doppelte Nummern sind erlaubt, siehe aufgeteilte Buchung).
+- Ein Suchindex je Kunde, Quelle und Nummer (ohne Groß-/Kleinschreibung) macht die Doppelungsprüfung schnell.
+
+Gespeichert in: Supabase, Tabelle der Buchungen, mit der bestehenden Mandantentrennung (Zeilen-Sicherheit je Kunde). Wer was geändert hat, schreibt das bestehende Protokoll automatisch mit.
+
+### C) Abläufe
+
+**Speichern**
+1. Formular bereinigt die Eingabe (alle Leerzeichen raus) und prüft das Format; bei Fehler Meldung beim Feld, Eingaben bleiben.
+2. Server prüft dieselben Regeln noch einmal (gemeinsame Prüfregel für Formular und Server).
+3. Die bestehende Speicherfunktion der Buchung übernimmt die Nummer **nur**, wenn die Quelle booking.com oder Airbnb ist; sonst wird sie geleert – auch wenn eine Anfrage trotzdem eine Nummer schickt.
+4. Die Speicherfunktion blockiert wegen einer doppelten Nummer **nie**.
+
+**Hinweis bei doppelter Nummer**
+- Läuft über die bestehende Live-Prüfung im Formular (die schon Überschneidungen, Kapazität und doppelte Gästeblattnummer prüft) – sie bekommt Quelle und Nummer als zusätzliche Angabe und liefert die Treffer mit.
+- Gesucht wird nur beim eigenen Kunden, nur bei gleicher Quelle, ohne Groß-/Kleinschreibung, stornierte eingeschlossen, die bearbeitete Buchung selbst ausgenommen. Über andere Kunden wird nichts zurückgegeben.
+- Geliefert werden die erste Buchung (Nummer, Wohnung, Zeitraum, storniert ja/nein) und die Anzahl weiterer Treffer.
+
+**Quellenwechsel im Formular**
+- Das Formular merkt sich die Nummer je Plattform getrennt (booking.com / Airbnb). Wechsel auf eine andere Quelle blendet das Feld aus; Zurückwechseln zeigt die gemerkte Nummer wieder. Beim Speichern zählt nur die Nummer der aktuell gewählten Quelle.
+
+**Suche**
+- Die bestehende Suche der Buchungsübersicht (Buchungsnummer, Gästeblattnummer, Gastname) sucht zusätzlich in der Plattform-Nummer, mit derselben Absicherung gegen Sonderzeichen wie bei der Gästeblattnummer.
+
+### D) Technische Entscheidungen (Begründung)
+- **Ein Feld statt zwei** (je Plattform eines): Eine Buchung hat genau eine Quelle, also höchstens eine Plattform-Nummer. Die Bedeutung ergibt sich aus der Quelle; ein Quellenwechsel kann keine „verwaiste“ zweite Nummer hinterlassen.
+- **Regel „nur bei booking.com/Airbnb“ in der Datenbank**: Selbst ein Fehler in der Oberfläche oder ein späterer Import (PROJ-11) kann keine Nummer an eine falsche Quelle hängen.
+- **Hinweis ohne Bestätigungs-Häkchen** (anders als bei der Gästeblattnummer): Die Spec verlangt „nur Hinweis, Speichern möglich“. Aufgeteilte booking.com-Buchungen sind ein normaler Fall; ein Pflicht-Häkchen wäre dort nur Reibung.
+- **Prüfung in der bestehenden Live-Warnung statt eigener Abfrage**: eine Anfrage pro Eingabe statt zwei, gleiche Verzögerung, gleiche Mandantenprüfung.
+- **Prüfregel geteilt mit der Hotel-ID**: Gleiches Format (Buchstaben, Ziffern, Bindestrich, max. 30) – eine Regel, ein Test.
+- **Kein Bestandsumbau**: Neues Feld leer, keine Datenübernahme nötig.
+
+### E) Tests (Vorschau für /qa)
+- Unit: Bereinigung/Format, Löschen bei falscher Quelle, Merken je Quelle im Formular
+- Datenbank/Integration: Datenbankregel Quelle↔Nummer, Doppelungsprüfung (gleiche Quelle, Groß/Klein, storniert, eigene Buchung ausgenommen, anderer Kunde unsichtbar), Suche
+- E2E (kleine Pakete): Feld erscheint/verschwindet, Hinweis mit Link, Kopieren, Suche in der Übersicht, 375 px
+
+### F) Pakete
+Keine neuen Pakete.
+
+### G) Aufteilung Frontend / Backend
+- **Backend:** neues Feld mit Datenbankregeln und Index; Speicherfunktion und Live-Warnung erweitert; Suche erweitert; Laden der Nummer in Liste und Detail
+- **Frontend:** Feld mit Beschriftung je Quelle und Merken je Quelle, Hinweisbox, Anzeige und Kopieren im Detail, Anzeige bei Suchtreffern, deutsche Texte
 
 ## QA Test Results
 _To be added by /qa_
