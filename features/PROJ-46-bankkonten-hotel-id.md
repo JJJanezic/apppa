@@ -1,6 +1,6 @@
 # PROJ-46: Bankkonten und booking.com Hotel-ID
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-11-06
 **Last Updated:** 2026-11-06
 
@@ -57,7 +57,7 @@ Bisher steht die Bankverbindung eines Kunden nur als freier Text in der Rechnung
 |---|---|---|
 | Inhaber | sehen und bearbeiten (*Einstellungen → Stammdaten*) | sehen und bearbeiten (*Einstellungen → Wohnungen*) |
 | Betreiber | sehen und bearbeiten auf der Kunden-Detailseite, Abschnitt „Stammdaten“; bei deaktivierten Kunden nur lesen | kein Zugang (wie bisher bei Wohnungen) |
-| Mitarbeiter | kein Zugang | kein Zugang |
+| Mitarbeiter | kein Zugang | kein Zugang in der Oberfläche (technisch lesbar: Hotel-ID und Kontokennung, siehe Technical Decisions) |
 
 ### Bedienung in den Stammdaten
 - Neuer Abschnitt **„Bankkonten“** am Ende der Seite, nach „Umsatzsteuer“.
@@ -163,6 +163,7 @@ Bisher steht die Bankverbindung eines Kunden nur als freier Text in der Rechnung
 - [ ] Angenommen ein Konto wurde zwischenzeitlich archiviert, wenn der Inhaber eine Wohnung mit diesem Konto speichern will, dann wird das abgelehnt und die Wohnung behält „Primäres Konto“
 - [ ] Angenommen jemand versucht, einer Wohnung ein Konto eines anderen Kunden zuzuordnen, wenn die Anfrage beim Server ankommt, dann wird sie abgelehnt
 - [ ] Angenommen ein Mitarbeiter versucht, Hotel-ID oder Bankkonto einer Wohnung über einen anderen Weg als die Oberfläche zu ändern, wenn die Anfrage beim Server ankommt, dann wird sie abgelehnt
+- [ ] Angenommen ein Mitarbeiter liest Wohnungen über einen anderen Weg als die Oberfläche, wenn er die Daten erhält, dann enthalten sie höchstens Hotel-ID und Kontokennung, aber keine IBAN oder sonstigen Kontodaten (bewusste Ausnahme, siehe Technical Decisions)
 
 ### Allgemein
 - [ ] Angenommen Inhaber und Betreiber haben die Stammdaten gleichzeitig geöffnet und einer hat Bankkonten gespeichert, wenn der andere speichert, dann erscheint der bestehende Hinweis „Die Kundendaten wurden inzwischen geändert“ und nichts wird überschrieben
@@ -222,12 +223,127 @@ Bisher steht die Bankverbindung eines Kunden nur als freier Text in der Rechnung
 <!-- Added by /architecture -->
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Konten über die bestehende Stammdaten-Speicherfunktion, in einem Schritt mit den übrigen Stammdaten | Ein Speichern-Knopf, ein Konfliktschutz, alles-oder-nichts; gleiches Muster wie PROJ-36 | 2026-11-06 |
+| Abgleich je Konto statt vollständigem Ersetzen | Wohnungen verweisen auf einzelne Konten; Ersetzen würde Verweise zerstören | 2026-11-06 |
+| Kennung neuer Konten entsteht im Formular | Neues Konto kann im selben Speichervorgang primär werden; Abgleich ohne Zwischenschritt | 2026-11-06 |
+| Wohnung: leerer Kontoverweis = „Primäres Konto“ | Folgt automatisch ohne Änderung an Wohnungen beim Primär-Wechsel; bestehende Wohnungen brauchen keine Datenübernahme | 2026-11-06 |
+| Verweis Wohnung → Konto nur innerhalb desselben Kunden, Löschen bei Verweis von der Datenbank gesperrt, archivierte Konten an der Wohnung abgelehnt | Mandantentrennung und keine Verweise ins Leere, auch bei gleichzeitigem Arbeiten in zwei Fenstern | 2026-11-06 |
+| Primär-Regeln (höchstens eines, nie archiviert) in der Datenbank, „genau eines, sobald Konten existieren“ in der Speicherfunktion | Absicherung unabhängig von der Oberfläche | 2026-11-06 |
+| Bankkonten für Mitarbeiter nicht lesbar; Hotel-ID und Kontokennung an der Wohnung technisch für Mitglieder lesbar | Bankdaten sind sensibel (wie Umsatzsteuer-Verlauf); Wohnungsfelder folgen der bestehenden Leseregel der Wohnungen, IBAN bleibt geschützt | 2026-11-06 |
+| `ibantools` für IBAN/BIC statt eigener Länderliste | Länderlängen ändern sich gelegentlich; gepflegtes, abhängigkeitsfreies Paket statt eigener Tabelle | 2026-11-06 |
+| Konten als aufklappbare Karten im Formular statt eigenem Dialog | Änderungen werden wie alle Stammdaten erst mit „Speichern“ übernommen; ein Dialog würde ein eigenes Speichern suggerieren | 2026-11-06 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### A) Überblick
+Keine neue Seite. Erweitert werden:
+- das gemeinsame Stammdaten-Formular (Inhaber unter *Einstellungen → Stammdaten*, Betreiber auf der Kunden-Detailseite) um den Bereich „Bankkonten“ nach „Umsatzsteuer“,
+- die bestehende geschützte Speicherfunktion der Stammdaten (PROJ-28/36), die die Konten mitspeichert,
+- das Bearbeiten-/Anlegen-Fenster der Wohnung um „booking.com Hotel-ID“ und „Bankkonto“,
+- eine neue Tabelle „Bankkonten“ und zwei neue Felder an der Wohnung.
+
+### B) Oberfläche (Komponenten)
+```
+Stammdaten-Formular (gemeinsam für Inhaber und Betreiber)
++-- Logo, Name, Adresse, Nummern, Umsatzsteuer (unverändert)
++-- NEU Bereich „Bankkonten“
+|   +-- Leerzustand: Erklärtext + „Bankkonto hinzufügen“
+|   +-- Liste der Konten (primär oben, dann aktive nach Anlage, dann archivierte)
+|   |   +-- je Konto eine Karte, zugeklappt:
+|   |   |     Anzeigename · IBAN in Viererblöcken · Kennzeichen „Primär“ bzw. „archiviert“
+|   |   |     Aktionen: Bearbeiten (aufklappen) · Als primär festlegen · Archivieren/Wiederherstellen · Löschen
+|   |   +-- aufgeklappt: Bezeichnung, Kontoinhaber, IBAN, BIC, Name der Bank, Notiz
+|   +-- „Bankkonto hinzufügen“ (neue Karte aufgeklappt, Kontoinhaber = Kundenname; gesperrt bei 20)
+|   +-- Bestätigung beim Archivieren eines zugeordneten Kontos (nennt die Wohnungen)
++-- Hinweis „inzwischen geändert“ (unverändert, gilt auch für die Konten)
++-- Speichern (eine Schaltfläche für alles)
+
+Wohnungs-Fenster (Einstellungen → Wohnungen, nur Inhaber)
++-- bisherige Felder (unverändert)
++-- NEU Abschnitt „booking.com und Bankkonto“
+    +-- Feld „booking.com Hotel-ID“
+    +-- Auswahl „Bankkonto“: „Primäres Konto (AT61 1904 … 3201)“ · aktive Konten (IBAN · Bezeichnung)
+    +-- ohne Konten: gesperrt, „Kein Bankkonto erfasst“ + Hinweis mit Link zu den Stammdaten
+```
+- **Bausteine:** vorhandene shadcn-Komponenten: `Card`, `Collapsible` (Auf-/Zuklappen), `Badge` (Primär/archiviert), `Input`, `Textarea` (Notiz), `Select` (Bankkonto), `DropdownMenu` (Aktionen je Konto), `AlertDialog` (Bestätigung Archivieren). Nichts Neues installieren.
+- **Neue App-Komponente:** „Bankkonten-Bereich“ im Ordner der Stammdaten-Komponenten, analog zum Umsatzsteuer-Bereich.
+- **Wohnungs-Zuordnungen anzeigen:** Beim Laden der Stammdaten wird je Konto mitgeladen, welche Wohnungen es fest verwenden („Objekt · Wohnung“). Damit kann das Formular Löschen sperren und beim Archivieren die Wohnungen nennen, ohne nachzufragen.
+- **Handy (375 px):** Karten einspaltig, IBAN darf umbrechen; im Auswahlfeld wird die Bezeichnung gekürzt, die IBAN bleibt vollständig.
+- **Deaktivierter Kunde (Betreiber):** nur lesbar, ohne Aktionen.
+
+### C) Datenmodell (in Worten)
+**Neue Tabelle „Bankkonten“** — je Konto:
+- Kunde (Mandant), eindeutige Kennung
+- Bezeichnung, Kontoinhaber, IBAN (ohne Leerzeichen, Großbuchstaben), BIC, Name der Bank, Notiz
+- Kennzeichen „primär“ und „archiviert“
+- Reihenfolge des Anlegens (für die Sortierung)
+- die üblichen Felder „angelegt/geändert von/am“
+
+Regeln in der Datenbank:
+- IBAN je Kunde nur einmal (auch archivierte)
+- je Kunde höchstens ein primäres Konto; ein primäres Konto ist nie archiviert
+- Grundformat von IBAN, BIC und Längen als Prüfregel abgesichert
+
+**Wohnung (bestehend), zwei neue Felder:**
+- „booking.com Hotel-ID“ (leer = nicht angegeben; Prüfregel: Buchstaben, Ziffern, Bindestrich, 1–30 Zeichen)
+- „Bankkonto“: Verweis auf ein Konto **desselben Kunden** oder leer. **Leer bedeutet „Primäres Konto“** — so folgt die Wohnung automatisch, ohne dass beim Primär-Wechsel Wohnungen geändert werden müssen.
+- Eine Prüfung beim Speichern der Wohnung lehnt archivierte Konten ab.
+- Ein Konto, auf das eine Wohnung verweist, lässt sich in der Datenbank nicht löschen.
+
+Bestehende Kunden und Wohnungen: keine Konten, Felder leer (= „Primäres Konto“). Keine Datenübernahme.
+
+**Lesen:**
+- Bankkonten: Inhaber des Kunden und Betreiber-Admin. Mitarbeiter können die Tabelle nicht lesen (wie beim Umsatzsteuer-Verlauf).
+- Wohnungsfelder: wie alle Wohnungsfelder lesbar für Mitglieder (also technisch auch für Mitarbeiter: Hotel-ID und die Kontokennung, nicht aber IBAN oder sonstige Kontodaten). In der Oberfläche sehen Mitarbeiter beides nicht.
+
+**Schreiben:**
+- Bankkonten: nur über die Speicherfunktion der Stammdaten; direktes Ändern ist für alle gesperrt.
+- Wohnungsfelder: wie bisher nur Inhaber.
+
+**Kunde (bestehend):** „zuletzt geändert am“ wird auch gesetzt, wenn sich nur Konten ändern — der vorhandene Konfliktschutz greift ohne Zusatzaufwand.
+
+**Protokoll:** Das allgemeine Änderungsprotokoll (PROJ-1) erfasst die neue Tabelle und die Wohnungsfelder. Im Betreiber-Protokoll erscheint in „Stammdaten geändert“ die Feldangabe „Bankkonten“.
+
+### D) Speichern der Stammdaten
+Die bestehende Speicherfunktion erhält die Kontenliste als zusätzlichen Teil der Formulardaten. Anders als beim Umsatzsteuer-Verlauf wird die Liste **nicht vollständig ersetzt**, weil Wohnungen auf einzelne Konten verweisen. Stattdessen:
+1. Rechte, aktiver Kunde, Stand vergleichen (unverändert)
+2. Stammdaten und Umsatzsteuer-Verlauf speichern (unverändert)
+3. **NEU Konten abgleichen:** Jedes Konto trägt eine feste Kennung, die beim Hinzufügen bereits im Formular vergeben wird. Fehlende Konten werden gelöscht (nur wenn keine Wohnung sie verwendet, sonst Abbruch mit Meldung samt Wohnungen), vorhandene geändert, neue angelegt.
+4. **NEU Archivieren:** Wohnungen, die auf ein nun archiviertes Konto verweisen, werden auf „Primäres Konto“ (leer) zurückgestellt — auch archivierte Wohnungen.
+5. **NEU Abschlussprüfung:** höchstens 20 Konten; gibt es Konten, ist genau ein aktives primär (erstes Konto wird automatisch primär); keine doppelte IBAN.
+6. Protokoll nur bei echter Änderung, Feldliste ggf. mit „Bankkonten“
+
+Alles in einem Schritt: entweder alles gespeichert oder nichts. Weil die Kennung schon im Formular entsteht, sind „neues Konto anlegen und sofort primär setzen“ sowie „anderes primär setzen und altes archivieren“ in einem Speichervorgang möglich.
+
+**Wettlauf mit dem Wohnungs-Fenster:** Wird ein Konto gelöscht, während in einem anderen Fenster eine Wohnung darauf umgestellt wurde, verhindert der Datenbank-Verweis das Löschen → verständliche Meldung, nichts gespeichert. Wird eine Wohnung auf ein inzwischen archiviertes Konto gespeichert, lehnt die Prüfung an der Wohnung ab → Meldung, Wohnung bleibt unverändert.
+
+### E) Prüfregeln (Oberfläche und Server gleich)
+- **IBAN:** Leerzeichen entfernen, Großbuchstaben; Länderkürzel, Länge je Land und Prüfziffer über das Paket `ibantools` (aktuelle Länderliste, keine eigene Pflege). Anzeige in Viererblöcken über eine kleine eigene Hilfsfunktion; gekürzte Form „AT61 1904 … 3201“ für die Primär-Auswahl.
+- **BIC:** Leerzeichen entfernen, Großbuchstaben; 8 oder 11 Zeichen, Format über `ibantools`.
+- **Hotel-ID:** außen getrimmt; Buchstaben, Ziffern, Bindestrich; 1–30 Zeichen.
+- **Längen:** Bezeichnung und Bankname 100, Kontoinhaber 200, Notiz 500.
+- Die Datenbank sichert zusätzlich Grundformat, Eindeutigkeit und die Primär-Regeln ab; die Prüfziffer prüft der Server vor dem Aufruf.
+
+### F) Wohnung speichern
+Anlegen und Bearbeiten der Wohnung übernehmen die beiden neuen Felder in die bestehenden Speicherwege. Das Fenster lädt beim Öffnen die aktiven Konten des Kunden und das primäre Konto (nur Inhaber, kleiner Zusatzabruf). „Primäres Konto“ wird als leerer Wert gespeichert.
+
+### G) Tests
+- **Unit:** IBAN-/BIC-/Hotel-ID-Prüfung (Beispiele aus den Akzeptanzkriterien), Viererblöcke und gekürzte IBAN, Anzeigename, Formularregeln (genau ein primär, Höchstzahl, doppelte IBAN im Formular, Löschen/Archivieren des primären gesperrt).
+- **Datenbank/Integration:** Abgleich (anlegen, ändern, löschen, archivieren mit Rückstellung der Wohnungen), Primär-Regeln, doppelte IBAN abgelehnt, Löschen bei Verweis abgelehnt, Wohnung auf archiviertes oder fremdes Konto abgelehnt, Mitarbeiter kann Konten weder lesen noch ändern, fremder Inhaber abgewiesen, Betreiber bei deaktiviertem Kunden abgewiesen, Protokoll mit „Bankkonten“.
+- **E2E:** Konten erfassen und primär wechseln (Wohnung folgt), feste Zuordnung bleibt, Archivieren mit Bestätigung, leerer Zustand bei der Wohnung mit Link, Konfliktfall Inhaber/Betreiber, Handy-Breite, axe.
+- **Regression:** PROJ-28/36/38 (Stammdaten, Verlauf, Logo, Konflikt), PROJ-6/27/15 (Wohnung anlegen/bearbeiten).
+
+### H) Was sich an Sicherheit und Datenbank ändert (Freigabe nötig)
+- Neue Tabelle mit Mandantentrennung; Lesen nur Inhaber + Admin, kein direktes Schreiben
+- Speicherfunktion der Stammdaten erweitert (Kontenabgleich, Rückstellung von Wohnungen, Feldliste)
+- Wohnung: zwei neue Felder mit Prüfregeln, Verweis nur auf eigene, aktive Konten
+- Änderungsprotokoll erfasst die neue Tabelle
+
+### Abhängigkeiten (Pakete)
+- `ibantools`: Prüfung von IBAN (Länderlängen, Prüfziffer) und BIC; ohne weitere Abhängigkeiten. Vor dem Einbau sauber ohne `legacy-peer-deps` prüfen.
 
 ## QA Test Results
 _To be added by /qa_
