@@ -26,7 +26,7 @@ Die App wird als Mehrmandanten-SaaS betrieben: Jeder Kunde (Vermieter) hat ein e
 | P0 (Pilot) | Kundenkonten mit Rollen (Inhaber/Mitarbeiter), Betreiber-Admin | Deployed (PROJ-4, PROJ-5) |
 | P0 (Pilot) | Kundenstammdaten (Adresse, UID, Steuer- und Registernummer) | Deployed (PROJ-28) |
 | P0 (Pilot) | Bankkonten des Kunden (eines primär) und je Wohnung booking.com Hotel-ID und Bankkonto | Planned (PROJ-46) |
-| P0 (Pilot) | Plattform-Buchungsnummer (booking.com/Airbnb) in der Buchung | Roadmap (PROJ-47) |
+| P0 (Pilot) | Plattform-Buchungsnummer (booking.com/Airbnb) in der Buchung | Planned (PROJ-47) |
 | P0 (Pilot) | Wohnungsverwaltung, Gäste-Datenbank, manuelle Buchungen, Belegungskalender | Deployed (PROJ-6, PROJ-7, PROJ-8, PROJ-9, PROJ-27); „Endreinigung“ statt „Reinigung“ (PROJ-8) |
 | P0 (Pilot) | Channex-Anbindung: Buchungsimport von booking.com/Airbnb und Verfügbarkeitssperren | Roadmap |
 | P0 (Pilot) | Zahlungserfassung je Rechnung mit Provisionsabzug booking.com/Airbnb (PROJ-45), Zahlungen aus Channex (PROJ-13), Dashboard | Deployed (PROJ-45); Roadmap (PROJ-13, PROJ-14) |
