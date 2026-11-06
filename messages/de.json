@@ -1688,7 +1688,8 @@
       "notImplemented": "Diese Funktion wird gerade eingerichtet.",
       "unknown": "Etwas ist schiefgelaufen. Bitte versuche es erneut.",
       "deductedByIssued": "Die ausgestellte Schlussrechnung {number} zieht diese Rechnung ab. Sie lässt sich nicht löschen, und Positionen, Beträge, Kleinunternehmer-Schalter und Buchung bleiben unverändert.",
-      "invoiceHasPayments": "Diese Rechnung hat Zahlungen. Bitte zuerst die Zahlungen einer anderen Rechnung zuordnen oder löschen."
+      "invoiceHasPayments": "Diese Rechnung hat Zahlungen. Bitte zuerst die Zahlungen einer anderen Rechnung zuordnen oder löschen.",
+      "alreadyPaidInvalid": "Die Angaben unter „Bereits bezahlt“ sind ungültig (Datum, Zahlungsart oder Beträge). Bitte prüfen."
     },
     "kind": {
       "invoice": "Rechnung",

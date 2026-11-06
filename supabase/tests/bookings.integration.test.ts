@@ -719,7 +719,7 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-8 Manuelle Buchungen', () => {
       expect((await row(custom)).source_custom).toBe('Messe')
 
       expect((await save(ownerA, bookingInput(tenantA, apt, g, '2029-09-05', '2029-09-06', { source: 'custom', source_custom: ' ' }))).error?.code).toBe('23514')
-      expect((await save(ownerA, bookingInput(tenantA, apt, g, '2029-09-05', '2029-09-06', { source: 'airbnb' }))).error?.code).toBe('23514')
+      expect((await save(ownerA, bookingInput(tenantA, apt, g, '2029-09-05', '2029-09-06', { source: 'expedia' }))).error?.code).toBe('23514')
       expect((await save(ownerA, bookingInput(tenantA, apt, g, '2029-09-05', '2029-09-06', { planned_departure: '2029-09-05' }))).error?.code).toBe('23514')
 
       // Option → Buchung behält Abreisen und Quelle

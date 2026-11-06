@@ -96,6 +96,12 @@ function dbFail(error: DbError, context: string): Failure {
     // Zahlungen hängen an der Rechnung (PROJ-45): erst umhängen oder löschen
     case 'P0961':
       return fail('invoiceHasPayments')
+    // „Bereits bezahlt“ (PROJ-45): Datum, Zahlungsart oder Beträge der Zahlung ungültig
+    case 'P0955':
+    case 'P0956':
+    case 'P0957':
+    case 'P0958':
+      return fail('alreadyPaidInvalid')
   }
   console.error(`[rechnungen] ${context}`, error.code, error.message)
   return fail('unknown')

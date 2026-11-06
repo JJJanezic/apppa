@@ -847,8 +847,22 @@ export type Database = {
             foreignKeyName: "invoice_deductions_deducted_fkey"
             columns: ["deducted_invoice_id", "tenant_id"]
             isOneToOne: false
+            referencedRelation: "invoice_payment_status"
+            referencedColumns: ["invoice_id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "invoice_deductions_deducted_fkey"
+            columns: ["deducted_invoice_id", "tenant_id"]
+            isOneToOne: false
             referencedRelation: "invoices"
             referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "invoice_deductions_invoice_fkey"
+            columns: ["invoice_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "invoice_payment_status"
+            referencedColumns: ["invoice_id", "tenant_id"]
           },
           {
             foreignKeyName: "invoice_deductions_invoice_fkey"
@@ -913,6 +927,13 @@ export type Database = {
           vat_rate?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "invoice_lines_invoice_fkey"
+            columns: ["invoice_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "invoice_payment_status"
+            referencedColumns: ["invoice_id", "tenant_id"]
+          },
           {
             foreignKeyName: "invoice_lines_invoice_fkey"
             columns: ["invoice_id", "tenant_id"]
@@ -1272,6 +1293,13 @@ export type Database = {
             foreignKeyName: "invoices_credited_fkey"
             columns: ["credited_invoice_id", "tenant_id"]
             isOneToOne: false
+            referencedRelation: "invoice_payment_status"
+            referencedColumns: ["invoice_id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "invoices_credited_fkey"
+            columns: ["credited_invoice_id", "tenant_id"]
+            isOneToOne: false
             referencedRelation: "invoices"
             referencedColumns: ["id", "tenant_id"]
           },
@@ -1481,6 +1509,143 @@ export type Database = {
         }
         Relationships: []
       }
+      payment_methods: {
+        Row: {
+          active: boolean
+          created_at: string
+          created_by: string | null
+          id: string
+          is_default: boolean
+          name: string
+          position: number
+          tenant_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_default?: boolean
+          name: string
+          position?: number
+          tenant_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_default?: boolean
+          name?: string
+          position?: number
+          tenant_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_methods_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payments: {
+        Row: {
+          amount_cents: number
+          commission_cents: number
+          created_at: string
+          created_by: string | null
+          fee_cents: number
+          id: string
+          invoice_id: string
+          kind: string
+          method_id: string
+          note: string | null
+          paid_on: string
+          receipt_path: string | null
+          tenant_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          amount_cents: number
+          commission_cents?: number
+          created_at?: string
+          created_by?: string | null
+          fee_cents?: number
+          id?: string
+          invoice_id: string
+          kind: string
+          method_id: string
+          note?: string | null
+          paid_on: string
+          receipt_path?: string | null
+          tenant_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          amount_cents?: number
+          commission_cents?: number
+          created_at?: string
+          created_by?: string | null
+          fee_cents?: number
+          id?: string
+          invoice_id?: string
+          kind?: string
+          method_id?: string
+          note?: string | null
+          paid_on?: string
+          receipt_path?: string | null
+          tenant_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_invoice_fkey"
+            columns: ["invoice_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "invoice_payment_status"
+            referencedColumns: ["invoice_id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "payments_invoice_fkey"
+            columns: ["invoice_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "payments_method_fkey"
+            columns: ["method_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "payment_methods"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "payments_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
@@ -1674,7 +1839,83 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      invoice_payment_status: {
+        Row: {
+          balance_cents: number | null
+          commission_cents: number | null
+          fee_cents: number | null
+          invoice_id: string | null
+          mode: string | null
+          open_cents: number | null
+          overdue: boolean | null
+          received_cents: number | null
+          refunded_cents: number | null
+          settled_cents: number | null
+          status: string | null
+          tenant_id: string | null
+          total_cents: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_list: {
+        Row: {
+          amount_cents: number | null
+          booking_id: string | null
+          booking_number: string | null
+          commission_cents: number | null
+          created_at: string | null
+          fee_cents: number | null
+          id: string | null
+          invoice_id: string | null
+          invoice_number: string | null
+          kind: string | null
+          method_id: string | null
+          method_name: string | null
+          note: string | null
+          paid_on: string | null
+          receipt_path: string | null
+          recipient: string | null
+          tenant_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_invoice_fkey"
+            columns: ["invoice_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "invoice_payment_status"
+            referencedColumns: ["invoice_id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "payments_invoice_fkey"
+            columns: ["invoice_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "payments_method_fkey"
+            columns: ["method_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "payment_methods"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "payments_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       accept_invitation: { Args: { p_invitation_id: string }; Returns: string }
@@ -1800,6 +2041,7 @@ export type Database = {
         Args: { p_block_id: string; p_tenant_id: string }
         Returns: undefined
       }
+      delete_payment: { Args: { p_payment_id: string }; Returns: Json }
       guest_duplicate_candidates: {
         Args: {
           p_email: string
@@ -1863,9 +2105,28 @@ export type Database = {
           tenant_name: string
         }[]
       }
+      payment_list_totals: {
+        Args: {
+          p_from: string
+          p_method_id: string
+          p_query: string
+          p_tenant_id: string
+          p_to: string
+        }
+        Returns: {
+          commission_cents: number
+          fee_cents: number
+          received_cents: number
+        }[]
+      }
+      record_payment: { Args: { p_input: Json }; Returns: Json }
       rename_cleaning_charges: {
         Args: { p_tenant_id: string }
         Returns: number
+      }
+      reorder_payment_methods: {
+        Args: { p_ids: string[]; p_tenant_id: string }
+        Returns: undefined
       }
       save_block: {
         Args: { p_confirm?: boolean; p_input: Json }
@@ -1944,6 +2205,27 @@ export type Database = {
           property_name: string
         }[]
       }
+      search_payable_invoices: {
+        Args: {
+          p_booking_id: string
+          p_limit?: number
+          p_query: string
+          p_tenant_id: string
+        }
+        Returns: {
+          booking_id: string
+          id: string
+          kind: string
+          number: string
+          open_cents: number
+          platform: boolean
+          recipient: string
+        }[]
+      }
+      set_default_payment_method: {
+        Args: { p_method_id: string; p_tenant_id: string }
+        Returns: undefined
+      }
       set_invoice_text_block_default: {
         Args: {
           p_block: string
@@ -1955,7 +2237,9 @@ export type Database = {
       }
       unused_guest_documents: { Args: { p_limit?: number }; Returns: string[] }
       unused_invoice_pdfs: { Args: { p_limit?: number }; Returns: string[] }
+      unused_payment_receipts: { Args: { p_limit?: number }; Returns: string[] }
       unused_tenant_logos: { Args: { p_limit?: number }; Returns: string[] }
+      update_payment: { Args: { p_input: Json }; Returns: Json }
       update_tenant_master_data: {
         Args: {
           p_data: Json

@@ -314,6 +314,11 @@ Bezahlt (beglichen) = Summe aller Zahlungen einschließlich Provision und Zahlun
 | Betreiber ohne Leseausnahme auf Zahlungen | Spec: kein Zugriff des Betreibers; anders als bei Rechnungen | 2026-11-06 |
 | Zahlungsarten als eigene Tabelle mit Verweis, Standardarten per Migration und beim Anlegen neuer Kunden | Umbenennen wirkt auf alte Zahlungen; Löschen benutzter Arten technisch ausgeschlossen | 2026-11-06 |
 | Bestehender, ausgeblendeter Menüpunkt „Zahlungen“ wird freigeschaltet und für alle Rollen geöffnet | War schon vorgesehen; Spec: Mitarbeiter sehen die Liste | 2026-11-06 |
+| Gemeinsamer Kern private.save_payment für Erfassen und Ändern | Eine Stelle für alle Regeln und Hinweise; Ändern zusätzlich Inhaber, Stand und Umhängen | 2026-11-06 |
+| Standardarten per Trigger auf tenants, bestehende Kunden per Migration | Jeder Kunde hat seine eigene, änderbare Liste; kein Schritt im Betreiber-Ablauf nötig | 2026-11-06 |
+| Regeln der Zahlungsarten als Trigger mit Ausnahme beim Löschen des Kunden | Gelten auch bei direktem Schreiben; der Kunde lässt sich weiter löschen | 2026-11-06 |
+| Verweis Zahlung → Zahlungsart ohne Kaskade (Prüfung am Ende der Anweisung) | Benutzte Arten nicht löschbar (23503), beim Löschen des Kunden räumt die Kaskade beides weg | 2026-11-06 |
+| „Bereits bezahlt“ im Rahmen von public.save_invoice | Ein Aufruf, ein Vorgang: Rechnung und Zahlung entstehen gemeinsam oder gar nicht | 2026-11-06 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
@@ -481,6 +486,23 @@ Keine neuen Pakete (Bildumwandlung, Hochladen, Griff zum Ordnen und Monatsauswah
 - `save_invoice`: optional `already_paid { paid_on, method_id, commission_cents, fee_cents }` nur beim Anlegen, Zahlung über den vollen Betrag im selben Schritt; `delete_invoice` mit Zahlungen → P0961
 - Speicherbereich `payment-receipts` (privat, PDF/JPEG, 10 MB, Ordner je Kunde; Mitglieder laden hoch, Server löscht), tägliche Bereinigung erweitern
 - Buchungsquelle `airbnb` in der Prüfregel der Spalte `bookings.source`
+
+## Implementation Notes (Backend)
+
+**Gebaut (2026-11-06), in Dev eingespielt:** Migrationen `20261106171901_payments.sql` und `20261106173728_payments_save_invoice_check.sql` (stellt die Sperre für abgezogene nacherfasste Rechnungen aus PROJ-42 in `public.save_invoice` wieder her, die die erste Migration beim Ergänzen von „Bereits bezahlt“ verloren hatte). Der Vertrag aus den Frontend-Notizen ist unverändert umgesetzt.
+
+- **Tabellen:** `payment_methods` (Name je Kunde eindeutig ohne Groß-/Kleinschreibung, höchstens ein Standard, Standard immer aktiv) und `payments` (Zahlung/Rückzahlung, Beträge in Cent, Rückzahlung ohne Provision/Gebühr, Beleg im Ordner des eigenen Kunden, Verweis auf Rechnung mit Kaskade, auf Zahlungsart ohne Kaskade → benutzte Arten nicht löschbar). Standardfelder und Änderungsprotokoll über `private.enable_tenant_table`.
+- **Zugriff:** Lesen nur Mitglieder (ohne Betreiber-Ausnahme, auch in den Lesesichten). Zahlungen ohne direktes Schreiben; `record_payment`/`update_payment` (gemeinsamer Kern `private.save_payment`) und `delete_payment`. Zahlungsarten: Inhaber schreiben Name/aktiv direkt (Spaltenrechte), Reihenfolge und Standard über `reorder_payment_methods`/`set_default_payment_method`; Regeln per Trigger (neue Art ans Ende, Standard nicht deaktivierbar/löschbar, letzte aktive Art bleibt, deaktivierter Kunde), Ausnahme beim Löschen des ganzen Kunden.
+- **Standardarten:** für alle 14 Kunden in Dev angelegt; neue Kunden bekommen sie per Trigger auf `tenants`.
+- **Gleichzeitigkeit:** `save_payment` sperrt die Rechnung (beim Umhängen beide, in fester Reihenfolge), wie `issue_credit_note`; Stand der Zahlung über `updated_at` (P0960).
+- **Regeln in der Datenbank:** zahlbar (keine Entwürfe, Gutschriften, Altrechnungen ≤ 0), storniert (keine neuen Zahlungen; vorhandene bleiben änderbar, solange sie an der stornierten Rechnung bleiben), Rückzahlung nur an Gutschriften, Provision/Gebühr nur bei Plattform-Buchung (`private.is_platform_booking`: Quelle booking.com/Airbnb oder Kanal; eine bestehende Zahlung an derselben Rechnung behält ihre Werte), Zahlungsart aktiv (beim Ändern auch die bisherige), Datum nicht in der Zukunft (Wien), Beleg vorhanden und nur an einer Zahlung. Hinweise: Überzahlung, gleiche Zahlung (Datum + Betrag), Rückzahlung über dem Guthaben.
+- **Lesesichten:** `invoice_payment_status` (gleiche Regel wie `computePaymentState`; überfällig aus `issued_snapshot.schedule`) und `payment_list`, beide `security_invoker`; Summen über `payment_list_totals`.
+- **„Bereits bezahlt“:** `public.save_invoice` legt nach dem Speichern im selben Schritt die Zahlung über den vollen Betrag an (Betrag = Rechnungsbetrag − Provision − Gebühr); ungültige Angaben rollen beides zurück (Meldung `alreadyPaidInvalid`).
+- **Löschsperre:** `delete_invoice` lehnt Rechnungen mit Zahlungen ab (P0961).
+- **Belege:** Speicherbereich `payment-receipts` (privat, PDF/JPEG, 10 MB); Mitglieder laden in den eigenen Ordner, lesen nur verwendete Belege; Löschen nur der Server (`removeReceiptFiles`, beim Löschen eines Kunden `removeTenantReceipts`). Die tägliche Bereinigung (`/api/cron/ausweisbilder`) entfernt Belege ohne Zahlung nach 24 Stunden (`unused_payment_receipts`).
+- **Buchungsquelle „airbnb“** in der Prüfregel von `bookings.source`.
+- **Tests:** `supabase/tests/payments.integration.test.ts` (18 Tests: Zahlungsarten und Regeln, Erfassen/Status/Hinweise, Zahlbarkeit, Provision, überfällig, Rechte, kein direktes Schreiben, fremder Kunde und Betreiber, Löschsperre, Storno/Rückzahlung/Umhängen, Suche, Belege, „Bereits bezahlt“ samt Zurückrollen, Zahlungsliste und Summen); Cron-Test um Belege erweitert; der Buchungstest prüft statt „airbnb“ jetzt einen unbekannten Wert. Alle Integrationstests außer den Anmelde-Dateien (Anmeldegrenzen) und alle 738 Unit-Tests grün; Build und Lint sauber; Advisors nur mit der bekannten Auth-Warnung „OTP-Ablauf“.
+- **Für /deploy:** beide Migrationen vor dem Code einspielen; danach legt die Migration bei jedem Kunden die Standardarten an.
 
 ## QA Test Results
 _To be added by /qa_

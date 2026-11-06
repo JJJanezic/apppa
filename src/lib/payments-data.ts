@@ -27,8 +27,8 @@ import { getTenantContext } from '@/lib/tenant'
 
 // Lesefunktionen der Zahlungserfassung (PROJ-45) für alle Mitglieder des gewählten Kunden (Inhaber und Mitarbeiter).
 // Rechte prüft die Datenbank (RLS: Zahlungen, Zahlungsarten und Belege nur für Mitglieder, ohne Betreiber-Ausnahme).
-// Tabellen, Lesesichten und Funktionen kommen mit /backend PROJ-45; bis dahin liefern die Funktionen leere Ergebnisse
-// und den Stand ohne Zahlungen. Die generierten Datenbank-Typen kennen sie noch nicht, daher der ungetypte Zugriff.
+// Fehlen Tabellen, Lesesichten oder Funktionen (Umgebung ohne Migration 20261106171901_payments), liefern die Funktionen leere
+// Ergebnisse und den Stand ohne Zahlungen. Zugriff ungetypt: Die Rückgaben werden hier selbst in eigene Typen übersetzt.
 
 const RECEIPT_LINK_SECONDS = 600
 // Tabelle, Sicht oder Funktion fehlt noch (Migration nicht eingespielt)

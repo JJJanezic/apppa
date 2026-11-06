@@ -7,6 +7,7 @@ import { getSessionUser, pendingMfaStep, type SessionUser } from '@/lib/auth/ses
 import { type OperatorErrorCode, tenantHref } from '@/lib/operator'
 import { removeTenantDocuments } from '@/lib/guest-documents'
 import { removeTenantInvoices } from '@/lib/invoice-files'
+import { removeTenantReceipts } from '@/lib/payment-files'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { cleanupUnusedAccount, deliverInvitation } from '@/lib/team-invite'
@@ -211,10 +212,12 @@ export async function deleteTenant(values: { tenantId: string; confirmName: stri
     p_confirm_name: values.confirmName,
   })
   if (error) return dbFail(error, 'Kunde nicht gelöscht')
-  // Ausweisbilder der Gäste (PROJ-29), Rechnungs-PDFs (PROJ-37) und Logo (PROJ-38); Reste entfernt die tägliche Bereinigung
+  // Ausweisbilder der Gäste (PROJ-29), Rechnungs-PDFs (PROJ-37), Logo (PROJ-38) und Zahlungsbelege (PROJ-45); Reste entfernt die
+  // tägliche Bereinigung
   await Promise.all([
     removeTenantDocuments(values.tenantId),
     removeTenantInvoices(values.tenantId),
+    removeTenantReceipts(values.tenantId),
     removeTenantLogos(values.tenantId),
   ])
 

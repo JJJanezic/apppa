@@ -12,3 +12,44 @@ export async function removeReceiptFiles(paths: (string | null | undefined)[]): 
   const { error } = await createAdminClient().storage.from(RECEIPT_BUCKET).remove(unique)
   if (error) console.error('[zahlungen] Beleg nicht gelöscht', error.message)
 }
+
+// Ganzer Beleg-Ordner eines gelöschten Kunden (Betreiber, PROJ-5). Blättert in Paketen, bis der Ordner leer ist.
+export async function removeTenantReceipts(tenantId: string): Promise<void> {
+  const storage = createAdminClient().storage.from(RECEIPT_BUCKET)
+  for (let round = 0; round < 50; round++) {
+    const { data, error } = await storage.list(tenantId, { limit: 1000 })
+    if (error) {
+      console.error('[betreiber] Belege des Kunden nicht lesbar', error.message)
+      return
+    }
+    if (!data?.length) return
+    const { error: removeError } = await storage.remove(data.map((f) => `${tenantId}/${f.name}`))
+    if (removeError) {
+      console.error('[betreiber] Belege des Kunden nicht gelöscht', removeError.message)
+      return
+    }
+  }
+}
+
+// Tägliche Bereinigung: Belege, die älter als 24 Stunden sind und an keiner Zahlung hängen (Hochladen ohne Speichern,
+// abgebrochenes Löschen, Reste gelöschter Kunden)
+export async function removeUnusedReceipts(): Promise<{ removed: number; failed: boolean }> {
+  const admin = createAdminClient()
+  let removed = 0
+  for (let round = 0; round < 20; round++) {
+    const { data, error } = await admin.rpc('unused_payment_receipts', { p_limit: 1000 })
+    if (error) {
+      console.error('[bereinigung] Unbenutzte Belege nicht lesbar', error.message)
+      return { removed, failed: true }
+    }
+    if (!data?.length) break
+    const { error: removeError } = await admin.storage.from(RECEIPT_BUCKET).remove(data)
+    if (removeError) {
+      console.error('[bereinigung] Belege nicht gelöscht', removeError.message)
+      return { removed, failed: true }
+    }
+    removed += data.length
+    if (data.length < 1000) break
+  }
+  return { removed, failed: false }
+}

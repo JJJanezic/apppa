@@ -29,6 +29,7 @@ export type InvoiceErrorCode =
   | 'deductedByIssued'
   // Zahlungen hängen an der Rechnung (PROJ-45): Löschen gesperrt
   | 'invoiceHasPayments'
+  | 'alreadyPaidInvalid'
 
 // Herkunft: nacherfasst (PROJ-37), Entwurf ohne Nummer (PROJ-40), ausgestellt (PROJ-41)
 export type InvoiceOrigin = 'backfilled' | 'draft' | 'issued'
