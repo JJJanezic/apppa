@@ -528,8 +528,8 @@ export type Database = {
           option_until: string | null
           override_at: string | null
           override_by: string | null
-          platform_number: string | null
           planned_departure: string
+          platform_number: string | null
           price_review: boolean
           residence_registered: boolean
           source: string
@@ -567,8 +567,8 @@ export type Database = {
           option_until?: string | null
           override_at?: string | null
           override_by?: string | null
-          platform_number?: string | null
           planned_departure: string
+          platform_number?: string | null
           price_review?: boolean
           residence_registered?: boolean
           source?: string
@@ -605,8 +605,8 @@ export type Database = {
           option_until?: string | null
           override_at?: string | null
           override_by?: string | null
-          platform_number?: string | null
           planned_departure?: string
+          platform_number?: string | null
           price_review?: boolean
           residence_registered?: boolean
           source?: string

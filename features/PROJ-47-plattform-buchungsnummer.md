@@ -255,17 +255,28 @@ _2026-11-06_
 - Buchungsdetail: „booking.com · 4123456789“ mit Kopier-Knopf (neue Komponente `src/components/copy-button.tsx`, Meldung bei fehlendem Zwischenablage-Zugriff; Nummer markierbar)
 - Buchungsübersicht: Suche zusätzlich in `platform_number`; bei Treffer in der Nummer erscheint „booking.com 4123456789“ bzw. „Airbnb HM…“ klein neben Buchungs-/Gästeblattnummer (Prop `query` von `BookingList`)
 - Server-Aktion `saveBooking` schickt `platform_number`, `checkBookingWarnings` schickt `p_source`/`p_platform_number` (nur bei gültiger Nummer und booking.com/Airbnb)
-- `src/types/database.ts` von Hand ergänzt (Spalte `bookings.platform_number`, Parameter `p_source`, `p_platform_number` von `booking_warnings`) – wird mit /backend durch die erzeugten Typen ersetzt
+- `src/types/database.ts` von Hand ergänzt; mit /backend durch die erzeugten Typen ersetzt
 - Texte in `messages/de.json` (`bookings.panel.platformNumber.*`, `bookings.warnings.platformNumber*`, `bookings.detail.copyPlatformNumber.*`, `bookings.platformNumberShort.*`, `bookings.validation.platformNumber*`)
 - Unit-Tests: Validierung (Bereinigung, Format, Länge, nur gewählte Quelle) und Hilfsfunktionen
 
-**Für /backend offen:**
-- Spalte `bookings.platform_number` mit Prüfungen (Format, 1–30, nur bei Quelle booking_com/airbnb, nie bei Sperren) und Index (tenant_id, source, lower(platform_number))
-- `save_booking`: `platform_number` übernehmen, bei anderer Quelle leeren; nie wegen Doppelung blockieren
-- `booking_warnings` (öffentlich und privat): Parameter `p_source`, `p_platform_number`; Rückgabe `platform_number_duplicate: { first: { id, kind, number, apartment_label, arrival, departure, cancelled }, more }` oder null; nur eigener Kunde, gleiche Quelle, ohne Groß-/Kleinschreibung, storniert mit, eigene Buchung ausgenommen
-- Bis dahin funktionieren Buchungsliste, -detail und -formular in Dev nicht (Spalte fehlt)
+**Backend:** siehe Abschnitt „Implementation Notes (Backend)“.
 
 **Abweichung:** Der Hinweis erscheint erst, wenn Wohnung und Zeitraum gewählt sind (er läuft in der bestehenden Live-Prüfung mit).
+
+## Implementation Notes (Backend)
+_2026-11-07_
+
+**Migration** `20261106230112_platform_booking_number.sql` (in Dev „apppa-dev“ eingespielt, Typen neu erzeugt, Advisors nur der bekannte Hinweis `auth_otp_long_expiry`):
+- Spalte `bookings.platform_number` (text, optional) mit Prüfung `bookings_platform_number_check`: Format `^[A-Za-z0-9-]{1,30}$` und nur bei Quelle `booking_com`/`airbnb` (Sperren haben immer Quelle „none“ → nie eine Nummer). Bestehende Zeilen leer. Änderungsprotokoll über den bestehenden `audit_row`-Trigger (alte und neue Nummer in `old_data`/`new_data`)
+- Index `bookings_platform_number_idx` auf (tenant_id, source, lower(platform_number)), nur gefüllte Zeilen
+- `private.platform_number_duplicate(tenant, source, number, exclude)`: andere Buchungen des Kunden mit gleicher Quelle und Nummer (ohne Groß-/Kleinschreibung, Leerzeichen entfernt, storniert eingeschlossen, die bearbeitete ausgenommen); liefert `{ first: { id, kind, number, apartment_label, arrival, departure, cancelled }, more }` (neueste Anreise zuerst) oder null. Nur intern aufrufbar
+- `booking_warnings` (public und private) mit neuer Signatur (+ `p_source`, `p_platform_number`, beide optional); Rückgabe zusätzlich `platform_number_duplicate`. Mitgliedschaft wird wie bisher geprüft (fremder Kunde → P0801)
+- `private.save_booking`: übernimmt `platform_number` (alle Leerzeichen entfernt) nur bei booking.com/Airbnb, sonst null – auch wenn die Anfrage eine Nummer mitschickt; ungültiges Format → P0807; doppelte Nummer blockiert nie. Sonst unverändert gegenüber `20261105213314_endreinigung.sql` (Grundlage: aktuelle Definition aus Dev)
+- Keine neuen Tabellen, keine Änderung an Zugriffsregeln (RLS der Buchungen gilt unverändert); Suche läuft über die bestehende RLS-geschützte Abfrage
+
+**Tests:**
+- Neu: `supabase/tests/platform-number.integration.test.ts` (5 Tests: Bereinigung/Speichern durch Mitarbeiter, Löschen bei Quellenwechsel samt Änderungsprotokoll, Format-/Längenprüfung inkl. Tabellenregel, Doppelungshinweis mit Groß/Klein, Storno, eigener Buchung, Anzahl weiterer, anderer Quelle, Mandantentrennung bei Lesen/Suche/Warnung/Speichern, Sperren ohne Nummer) – grün
+- Regression: `bookings.integration.test.ts` (32) und `tourist-tax.integration.test.ts` (18) grün; Unit-Tests 770 grün; tsc und Lint sauber
 
 ## QA Test Results
 _To be added by /qa_
