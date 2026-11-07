@@ -1,6 +1,6 @@
 # PROJ-14: Dashboard
 
-## Status: In Progress
+## Status: In Review
 **Created:** 2026-11-07
 **Last Updated:** 2026-11-07
 
@@ -487,7 +487,152 @@ Keine neuen Pakete.
 **Messung** (Dev, 5.000 Buchungen, 2.000 Rechnungen, 5.000 Ortstaxe-Positionen, Inhaber): noch nicht abgerechnet 171 ms, offene Rechnungen 138 ms, Ortstaxe 84 ms, Buchungen von heute 70 ms, Wohnungen zählen 82 ms. Die Abschnitte laden parallel; Ziel < 1 s erfüllt. Messdaten wieder gelöscht.
 
 ## QA Test Results
-_To be added by /qa_
+
+**Tested:** 2026-11-07
+**App URL:** http://localhost:3000 (gebauter Server, Supabase „apppa-dev“)
+**Tester:** QA Engineer (AI)
+
+**Umgebung:** Der Zugriff auf `.env.local` war für die Prüfung gesperrt. Abgesichert über `assertTestableProject` in den Test-Helfern (bricht bei Staging-/Produktions-Adresse ab) und `supabase/.temp/project-ref` = Dev.
+
+### Acceptance Criteria Status (70 Kriterien in 11 Gruppen)
+
+#### Allgemein und Anordnung
+- [x] Desktop: Kacheln, links Belegung, rechts Heute/Noch nicht abgerechnet/Offene Rechnungen/Ortstaxe (E2E + Bildschirmfoto)
+- [x] Handy 375 px: Heute vor Belegung, kein seitliches Scrollen der Seite (E2E mobile, tablet)
+- [x] Mitarbeiter: ohne „Noch nicht abgerechnet“ und „Ortstaxe“, mit „Offene Rechnungen“ (E2E)
+- [x] Ohne Kunde / deaktiviert: unverändert (Code unverändert, Regression PROJ-2/PROJ-4 grün)
+- [x] Fehler je Abschnitt mit „Erneut versuchen“ (Code-Prüfung; „noch nicht verfügbar“ vor der Migration im Browser gesehen)
+- [ ] BUG-3: Am Desktop (1440 px) passt die Zeitleiste nicht mehr in die Spalte, die letzten Tage sind nur nach seitlichem Scrollen erreichbar
+
+#### Mehrere Kunden
+- [x] Daten beider Kunden unabhängig vom gewählten Kunden (E2E)
+- [x] Rechte je Kunde: Inhaber-Abschnitte und „davon N ohne Rechnung“ nur für Inhaber-Kunden (E2E + Integration)
+- [x] Kundenname je Zeile bei „Alle Kunden“ (E2E)
+- [x] Kundenfilter: „Alle Kunden“ vorgewählt, Einschränkung auf B, gemerkt nach Neuladen, gewählter Kunde der übrigen Seiten bleibt (E2E, auch Firefox)
+- [x] Gemerkter fremder Kunde → „Alle Kunden“ (Unit)
+- [x] Klick auf Zeile eines anderen Kunden wechselt ohne Rückfrage und öffnet die Buchung (E2E, auch Firefox)
+- [x] Belegung gruppiert nach Kunde; Klick auf Eintrag eines anderen Kunden wechselt und öffnet das Panel (E2E)
+- [x] Anlegen in Zeile eines anderen Kunden: Parameter `neu` öffnet „Neue Buchung“ vorbelegt (Unit; Ablauf per Code-Prüfung)
+- [x] Vollbild-Seite nur gewählter Kunde (Regression PROJ-9)
+- [x] Ortstaxe je Kunde mit Zwischenüberschrift, ohne Summe über Kunden (Unit + Code)
+- [x] Nur ein Kunde: kein Filter, keine Kundennamen (E2E)
+- [x] Fremder Kunde C liefert keine Daten (Integration)
+
+#### Seitenkopf
+- [x] „Heute reisen 6 Gäste an und 3 ab. …“ und „… und niemand ab.“ (E2E)
+- [ ] BUG-1: Belegte Wohnungen zählen archivierte mit („3 von 4“ statt „2 von 4“)
+
+#### Kacheln
+- [x] Anreisen mit Gästen, Abreisen mit „davon N ohne Rechnung“ (nur Inhaber), Offene Rechnungen mit Summe und „davon 1 überfällig“ (E2E)
+- [x] Abreise heute zählt nicht als belegt (E2E: Abreisen nicht in „belegt“)
+- [ ] BUG-1: archivierte Wohnung mit laufender Buchung zählt bei „Belegt heute“ mit
+
+#### Heute
+- [x] Anreise mit Kanalfarbe, Gast, Wohnung, „3 Pers. · 5 N.“ (E2E)
+- [x] „Rechnung fehlt“ / „Schlussrechnung fehlt“ hervorgehoben, mit Rechnung „Endreinigung“ (E2E, auch Firefox)
+- [x] Stornierte Rechnung → wieder „Rechnung fehlt“ (Integration)
+- [x] Tatsächliche Abreise maßgeblich (Abfrage über `departure`; Integration)
+- [x] Leertexte (Code)
+
+#### Noch nicht abgerechnet
+- [x] Inhalt, Reihenfolge, Abreise heute dabei, morgen nicht, nur Teilrechnungen → „Schlussrechnung fehlt“, Optionen/Sperren nicht, Storno mit Gebühr dabei, ohne Gebühr nicht, Grenze 5 + Gesamtzahl (Integration + E2E)
+
+#### Offene Rechnungen
+- [x] Nur offen/teilweise, überfällige zuerst und rot, Summe über alle, Offen-Betrag (E2E + Integration)
+- [x] „Alle offenen“ → Rechnungsübersicht „noch nicht bezahlt“ (Code: `invoiceListHref({ payment: 'unpaid' })`)
+
+#### Ortstaxe
+- [x] Spalten „Laufend“/„Abgelaufen“, Monat/Quartal/Jahr inkl. Jahreswechsel (Unit + E2E)
+- [x] Anteilig je Nacht über Monats- und Jahresgrenzen, centgenau (Integration: 1500 → 500/1000, 999 → 666/333)
+- [x] Ohne Optionen, Sperren, Stornos; Bezeichnung egal; nur Positionen mit Kennzeichen (Integration)
+- [x] Mehrere Gemeinden mit „Gesamt“, eine ohne; Gemeinden mit Betrag nur in einem Zeitraum (Unit)
+- [x] Kein Knopf „Meldung vorbereiten“ (E2E)
+- [x] Mitarbeiter erhält keine Summen, auch nicht direkt (Integration)
+
+#### Umbenennung
+- [x] Menü „Ortstaxe“, `/ortstaxe` gesperrt (Regression PROJ-2 angepasst, grün); keine „Tourismusabgabe“ in `messages/de.json`
+- [x] PRD und INDEX umbenannt
+
+### Edge Cases Status
+- [x] Neuer Kunde ohne Wohnungen: bisherige Unterzeile, Leertexte (Code + Paula-Test mit einer Wohnung)
+- [x] Zeitzone Europe/Vienna (`todayIso`, Abfragen mit Wiener Datum)
+- [x] Jahreswechsel (Unit)
+- [x] Rechnung ohne Buchung erscheint ohne Wohnung (Integration)
+- [x] Überzahlte/bezahlte Rechnung nicht offen (Integration)
+- [x] Langzeitaufenthalt über Monats-/Jahresgrenze (Integration)
+- [x] Position ohne Nächte im Anreisemonat (Code)
+- [x] Person bei einem Kunden entfernt → „Kein Zugriff mehr auf diesen Kunden“ (E2E über fremden Kunden)
+- [x] Leistung: 70–171 ms je Abschnitt bei 5.000 Buchungen/2.000 Rechnungen (Messung /backend)
+
+### Security Audit Results
+- [x] Ohne Anmeldung: Datenbank-Funktionen nicht aufrufbar (Integration)
+- [x] Fremde Kunden in der Kundenliste der Abfrage werden übergangen (Integration, Kunde C)
+- [x] Rollen je Kunde serverseitig: Mitarbeiter erhält weder Ortstaxe noch „noch nicht abgerechnet“ (Integration)
+- [x] Kundenwechsel: fremder Kunde wechselt nicht; Ziel nur intern (`https://…`, `//…`, `/\…` → eigene Herkunft); fremde Herkunft → 403 (E2E)
+- [x] Keine Beträge an Mitarbeiter über „Heute“ (nur Abrechnungsstand, keine Beträge)
+- [x] XSS: alle Namen über React ausgegeben, kein HTML eingefügt
+- [ ] Hinweis (kein Bug): Die Funktionen nehmen beliebig lange Kundenlisten an; je Eintrag eine Rollenprüfung. Nur für angemeldete Personen, Last gering.
+
+### Regression
+- [x] PROJ-2 App-Shell: 19 grün (4 übersprungen, nur Handy/Tablet)
+- [x] PROJ-4 Kundenkonten: 16 grün; „bestehendes Konto einladen“ einmal rot, einzeln wiederholt grün (Flakiness auf der Team-Seite, ohne Bezug zu PROJ-14)
+- [ ] PROJ-9 Belegungskalender: „Anlegen per Klick“ (2 Tests) rot → BUG-3. „Klick auf einen Balken öffnet das volle Detail“ einmal rot, in zwei weiteren Läufen grün (nicht reproduzierbar)
+- [x] Unit: 791 grün; Integration Dashboard: 12 grün
+- [x] Firefox: Kernabläufe (Filter, Wechsel per Klick, Hinweis „Rechnung fehlt“) grün. Safari nicht geprüft (nur gegen `npm run dev`, optional)
+
+### Bugs Found
+
+#### BUG-1: Archivierte Wohnung mit laufender Buchung zählt bei „belegt“ mit
+- **Severity:** Medium
+- **Steps to Reproduce:**
+  1. Wohnung archivieren, die heute noch eine laufende Buchung hat (laut PROJ-6 erlaubt)
+  2. Dashboard öffnen
+  3. Expected: „Belegt heute 2 / 4“ und „2 von 4 Wohnungen sind belegt“ (archivierte zählen nicht, Spec)
+  4. Actual: „3 / 4“ bzw. „3 von 4 Wohnungen“; Zähler kann sogar über der Gesamtzahl liegen
+- **Ursache:** `getTodayOverview` zählt belegte Wohnungen aus allen Buchungen, ohne archivierte Wohnungen auszunehmen
+- **Test:** E2E „Archivierte Wohnung zählt bei „Belegt heute“ nicht mit …“ (rot)
+- **Priority:** Fix before deployment
+
+#### BUG-2: Ortstaxe-Tabelle am Handy: Scrollbereich nicht per Tastatur erreichbar
+- **Severity:** Low
+- **Steps to Reproduce:**
+  1. Dashboard am Handy (375 px) als Inhaber mit Ortstaxe öffnen
+  2. axe-Prüfung (WCAG 2 A/AA)
+  3. Expected: keine Verstöße
+  4. Actual: `scrollable-region-focusable` am Tabellen-Wrapper (`.overflow-auto.relative.w-full`); Tastaturnutzer können die rechten Spalten nicht erreichen
+- **Test:** E2E „Barrierefreiheit (axe) ohne Verstöße“ (mobile rot; desktop und tablet grün)
+- **Priority:** Fix before deployment (kleiner Eingriff)
+
+#### BUG-3: Zeitleiste passt am Desktop nicht mehr in die Belegungsspalte (Regression PROJ-9)
+- **Severity:** High
+- **Steps to Reproduce:**
+  1. Dashboard bei 1440 px Breite öffnen
+  2. Zeitleiste ansehen
+  3. Expected: alle 14 Tage sichtbar wie vor PROJ-14 (PROJ-9)
+  4. Actual: Spalte ca. 740 px, Zeitleiste mindestens 860 px; die letzten ca. 2 Tage nur nach seitlichem Scrollen sichtbar. Klick auf diese Tage zum Anlegen trifft daneben
+- **Folge:** PROJ-9 E2E „freier Tag öffnet ‚Neue Buchung‘ vorbelegt“ und „Mitarbeiter können per Klick anlegen“ rot
+- **Priority:** Fix before deployment
+
+#### BUG-4: „Neue Buchung“/„Neue Sperre“ legt nur beim gewählten Kunden an, auch wenn der Filter einen anderen Kunden zeigt
+- **Severity:** Low
+- **Steps to Reproduce:**
+  1. Person mit Kunde A (gewählt) und B; Dashboard-Filter auf B
+  2. In der Belegung „Neue Buchung“ wählen
+  3. Expected: Wohnungen des angezeigten Kunden B (oder Wechsel zu B)
+  4. Actual: Auswahl zeigt die Wohnungen von A (Code: `bookable` kommt immer vom gewählten Kunden). Anlegen per Klick in eine Zeile wechselt dagegen richtig
+- **Priority:** Fix in next sprint (Spec regelt die Knöpfe nicht; ggf. per /refine klären)
+
+### Tests
+- `tests/PROJ-14-dashboard.spec.ts`: 13 Tests (Abläufe Desktop, Anordnung Handy/Tablet, axe)
+- `supabase/tests/dashboard.integration.test.ts`: 12 Tests (aus /backend)
+- `src/lib/dashboard.test.ts`, `src/lib/calendar.test.ts`: reine Regeln
+
+### Summary
+- **Acceptance Criteria:** 68/70 bestanden; 2 rot wegen BUG-1 (Seitenkopf und Kachel „Belegt heute“). BUG-3 betrifft PROJ-9-Kriterien, nicht PROJ-14
+- **Bugs Found:** 4 total (0 critical, 1 high, 1 medium, 2 low)
+- **Security:** Pass
+- **Production Ready:** NO
+- **Recommendation:** BUG-3 und BUG-1 beheben (BUG-2 mitnehmen, ist klein), dann `/qa` erneut
 
 ## Deployment
 _To be added by /deploy_
