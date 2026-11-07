@@ -1,6 +1,6 @@
 # PROJ-14: Dashboard
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-11-07
 **Last Updated:** 2026-11-07
 
@@ -758,4 +758,18 @@ Code und Migration `20261107151812` sind seit 2026-11-07 auf Staging und Produkt
 **Summary (Runde 4):** keine Critical/High/Medium-Bugs; **Production Ready: YES** – Deploy mit Migration `20261107222638`
 
 ## Deployment
-_To be added by /deploy_
+
+**Version:** `v1.35.0-PROJ-14` · **Produktion:** https://app.apppa.at · **Staging:** https://staging.apppa.at · **Datum:** 2026-11-07
+
+Ausgeliefert in drei Schritten (jeweils erst Staging, nach Freigabe Produktion):
+
+| Schritt | Commit | Migration | Inhalt |
+|---|---|---|---|
+| 1 | `09f8b99` | `20261107151812_dashboard` | Dashboard über alle Kunden, Abschnitte, Lesefunktionen, Umbenennung „Ortstaxe“ |
+| 2 | `ec03494` | `20261107194628_dashboard_tourist_tax_fix` | Anordnung „Zeitung“ (BUG-6); Alt-Positionen der Ortstaxe einmalig gekennzeichnet (BUG-7, nur Kennzeichen, Beträge unverändert); Verteilung nach Tarifzeitraum (BUG-8) |
+| 3 | `df9f5b5` | `20261107222638_dashboard_tourist_tax_units` | Verteilung in ganzen Personennächten über die vereinnahmten Nächte (BUG-9); Kacheln und Abschnitte als Flächen |
+
+- Advisors in Staging und Produktion jeweils nur der bekannte Hinweis `auth_otp_long_expiry`; keine neuen Umgebungsvariablen, kein `config push`
+- Nach Schritt 2 in Produktion (nur lesend) geprüft: alle betroffenen Alt-Positionen gekennzeichnet, keine mehr ohne Kennzeichen
+- Vom Nutzer in Produktion geprüft: Anordnung, Flächen und Ortstaxe-Summen (Einzelheiten nur im Chat)
+- Offen: BUG-5 (Low) beobachten
