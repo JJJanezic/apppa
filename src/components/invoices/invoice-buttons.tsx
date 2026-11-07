@@ -8,6 +8,7 @@ import { toast } from 'sonner'
 import { deleteInvoice } from '@/app/(app)/rechnungen/actions'
 import { callAction } from '@/components/auth/form-error'
 import { ConfirmDialog } from '@/components/confirm-dialog'
+import { readInvoiceListHref } from '@/components/invoices/invoice-list-return'
 import { InvoicePanel } from '@/components/invoices/invoice-panel'
 import { Button } from '@/components/ui/button'
 import type { Invoice } from '@/lib/invoices'
@@ -44,8 +45,10 @@ export function InvoiceActions({ invoice, today }: { invoice: Invoice; today: st
       else if (result.error !== 'sessionExpired') toast.error(t(`errors.${result.error}`))
       return
     }
-    // Fester Wechsel zur Liste; die Bestätigung zeigt die Liste selbst (?geloescht=1, siehe DeletedNotice)
-    window.location.assign(result.redirectTo ?? '/rechnungen?geloescht=1')
+    // Fester Wechsel zur zuletzt gefilterten Liste (PROJ-43, QA BUG-3); die Bestätigung zeigt die Liste selbst
+    // (?geloescht=1, siehe DeletedNotice)
+    const list = readInvoiceListHref()
+    window.location.assign(`${list}${list.includes('?') ? '&' : '?'}geloescht=1`)
   }
 
   return (

@@ -8,7 +8,7 @@ import type { ActionResult, CommonErrorCode } from '@/lib/auth/result'
 import { getSessionUser, pendingMfaStep } from '@/lib/auth/session'
 import { bookingHref, type BookingSource, todayIso } from '@/lib/bookings'
 import { billableCents, lineSourceToDb, partialLabel, splitByVat } from '@/lib/invoice-drafts'
-import { currentFingerprint, getDraftBooking, getInvoiceButtonState } from '@/lib/invoice-drafts-data'
+import { currentFingerprint, getDraftBooking, getInvoiceButtonStates } from '@/lib/invoice-drafts-data'
 import { guestDbColumns } from '@/lib/guests-data'
 import { removeInvoiceFiles } from '@/lib/invoice-files'
 import {
@@ -242,11 +242,11 @@ export async function searchDraftBookings(values: { query: string }): Promise<Re
   if (!guard.ok) return guard
   const found = await findBookings(guard.tenant.id, values)
   if (!found.ok || !found.data) return found as Result<DraftBookingOption[]>
-  const states = await Promise.all(found.data.map((b) => getInvoiceButtonState(b.id)))
+  const states = await getInvoiceButtonStates(guard.tenant.id, found.data.map((b) => b.id))
   return {
     ok: true,
-    data: found.data.map((b, i) => {
-      const state = states[i]
+    data: found.data.map((b) => {
+      const state = states.get(b.id)
       return { ...b, blocked: !state ? 'nothingToBill' : state.enabled ? null : state.reason }
     }),
   }

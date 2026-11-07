@@ -583,11 +583,10 @@ test.describe('QA: Sicherheit', () => {
 })
 
 test.describe('QA: Antwortzeit der Buchungssuche', () => {
-  // BUG-1 (Low): Die Suche „Rechnung erstellen“ liest je Treffer Buchung, Positionen und Rechnungen einzeln. Gemessen
-  // 2026-11-07: Server-Antwort 20 Treffer ca. 1,4 s (Nacherfassen ohne Prüfung ca. 0,35 s). Wird grün unter 1 s.
+  // BUG-1 (QA 2026-11-07, behoben): Die Suche „Rechnung erstellen“ las je Treffer Buchung, Positionen und Rechnungen
+  // einzeln (Server-Antwort für 20 Treffer ca. 1,4 s, Nacherfassen ca. 0,35 s); jetzt zwei gebündelte Abfragen.
   test('BUG-1: Server-Antwort für 20 Treffer unter 1 s', async ({ page, users }) => {
     desktopOnly()
-    test.fail()
     const { owner, tenantId } = await setup(users)
     const apt = await addApartment(tenantId)
     const guest = await addGuest(tenantId, 'Vielbucher')
@@ -639,16 +638,37 @@ test.describe('QA: Layout', () => {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
   })
 
-  // BUG-2 (Low): Platzhalter „Gastname, Wohnung oder Zeitraum“ der Buchungssuche hat 1,97:1 Kontrast (#a5a3a3 auf #e5e4e4;
-  // gemeinsamer Baustein Command, auch beim Nacherfassen). Wird grün, sobald der Dialog ohne axe-Fehler ist.
+  // BUG-2 (QA 2026-11-07) war ein Messfehler: axe prüfte den Dialog während der Einblend-Animation (halbtransparent)
   test('BUG-2: Dialog „Rechnung erstellen“ ohne axe-Fehler', async ({ page, users }) => {
     desktopOnly()
-    test.fail()
     const { owner } = await setup(users)
     await signInAs(page, owner)
     await openList(page)
     await page.getByRole('button', { name: 'Rechnung erstellen' }).click()
     await expect(page.getByRole('dialog', { name: 'Rechnung erstellen' })).toBeVisible()
+    // Einblend-Animation abwarten (axe misst sonst halbtransparente Farben)
+    await page.waitForFunction(() => document.getAnimations().every((a) => a.playState !== 'running'))
     expect((await new AxeBuilder({ page }).include('[role="dialog"]').analyze()).violations).toEqual([])
+  })
+})
+
+test.describe('QA: Löschen aus der gefilterten Liste', () => {
+  // BUG-3 (QA 2026-11-07, behoben): Nach dem Löschen kam die ungefilterte Liste
+  test('BUG-3: Nach dem Löschen einer Rechnung erscheint wieder die gefilterte Liste mit Bestätigung', async ({ page, users }) => {
+    desktopOnly()
+    const { owner, tenantId } = await setup(users)
+    await addBackfilled(owner, tenantId, { number: 'DEL-2026-1', date: '2026-05-01', cents: 10000 })
+    await addBackfilled(owner, tenantId, { number: 'DEL-2026-2', date: '2026-05-02', cents: 10000 })
+    await addBackfilled(owner, tenantId, { number: 'DEL-2025-1', date: '2025-05-01', cents: 10000 })
+    await signInAs(page, owner)
+    await openList(page, '?jahr=2026')
+    await page.getByRole('link', { name: 'DEL-2026-1' }).click()
+    await ready(page)
+    await page.getByRole('button', { name: 'Löschen' }).click()
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Endgültig löschen' }).click()
+    await expect(page).toHaveURL(/\/rechnungen\?jahr=2026$/)
+    await expect(page.getByText('Rechnung gelöscht', { exact: false }).first()).toBeVisible()
+    await expect(rows(page)).toHaveCount(1)
+    await expect(page.getByRole('link', { name: 'DEL-2026-2' })).toBeVisible()
   })
 })

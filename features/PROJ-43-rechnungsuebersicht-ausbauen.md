@@ -379,8 +379,9 @@ Hinweis: Die direkte Prüfung von `.env.local` auf die Dev-Kennung war in dieser
   2. Gastname eingeben
   3. Expected: Treffer etwa so schnell wie beim Nacherfassen
   4. Actual: Server-Antwort ca. 1,2–1,4 s (Nacherfassen ca. 0,35 s), weil je Treffer Buchung, Positionen und Rechnungen einzeln gelesen werden
-- **Test:** `QA: Antwortzeit der Buchungssuche` (`test.fail`, wird grün unter 1 s)
+- **Test:** `QA: Antwortzeit der Buchungssuche` (Server-Antwort für 20 Treffer unter 1 s)
 - **Priority:** Nice to have
+- **Status:** behoben 2026-11-07: `getInvoiceButtonStates` prüft alle Treffer mit zwei gebündelten Abfragen (Buchungen mit Preisen, Rechnungen der Buchungen) und nimmt den in der Server-Aktion geprüften Kunden entgegen. Hauptursache war eine zweite Kunden- und Rollenprüfung je Aufruf (in Server-Aktionen ohne Zwischenspeicher, ca. 0,6 s). Positionen der Buchung über die gemeinsame Hilfsfunktion `linesFromDb` (auch in `getDraftBooking`). Gemessen: 392 ms (Nacherfassen 363 ms)
 
 #### BUG-2: Platzhalter der Buchungssuche mit zu wenig Kontrast
 - **Severity:** Low
@@ -389,8 +390,9 @@ Hinweis: Die direkte Prüfung von `.env.local` auf die Dev-Kennung war in dieser
   2. axe auf den Dialog
   3. Expected: keine Verstöße
   4. Actual: Platzhalter „Gastname, Wohnung oder Zeitraum“ 1,97:1 (#a5a3a3 auf #e5e4e4); gemeinsamer Baustein `Command`, betrifft auch „Rechnung nacherfassen“
-- **Test:** `BUG-2: Dialog „Rechnung erstellen“ ohne axe-Fehler` (`test.fail`)
+- **Test:** `BUG-2: Dialog „Rechnung erstellen“ ohne axe-Fehler`
 - **Priority:** Fix in next sprint
+- **Status:** kein Fehler der App (2026-11-07): axe prüfte den Dialog während der Einblend-Animation, als er noch halbtransparent war. Nach dem Abwarten der Animation keine Verstöße; der Test wartet jetzt darauf und ist grün. `muted-foreground` auf `popover` hat ausreichenden Kontrast.
 
 #### BUG-3: Nach dem Löschen einer Rechnung ungefilterte Liste
 - **Severity:** Low
@@ -399,21 +401,25 @@ Hinweis: Die direkte Prüfung von `.env.local` auf die Dev-Kennung war in dieser
   2. Expected: zurück zur gefilterten Liste (wie „Zurück zur Liste“)
   3. Actual: `/rechnungen?geloescht=1` ohne Filter (nicht ausdrücklich im Spec gefordert)
 - **Priority:** Nice to have
+- **Status:** behoben 2026-11-07: „Löschen“ im Rechnungsdetail führt zur gemerkten Liste (`readInvoiceListHref`) mit `geloescht=1`; die Bestätigung erscheint, der Zusatz verschwindet wieder aus der Adresse. Test `BUG-3: Nach dem Löschen …`. Entwurf löschen führt wie bisher zur Buchung (PROJ-40).
 
 ### Beobachtung (kein Bug)
 - Am Handy liegt „Filter zurücksetzen“ im zugeklappten Bereich „Filter (n)“; ohne Treffer steht der Knopf zusätzlich im Hinweis.
 
 ### Tests
-- E2E `tests/PROJ-43-rechnungsuebersicht-ausbauen.spec.ts`: 13 Tests (davon 2 `test.fail` für BUG-1/2); Desktop grün, Tablet- und Handy-Layout grün, Kernabläufe in Firefox grün (6/6). Safari nicht geprüft (nur gegen den Entwicklungsserver möglich, optional).
+- E2E `tests/PROJ-43-rechnungsuebersicht-ausbauen.spec.ts`: 14 Tests, nach den Korrekturen alle grün (keine `test.fail` mehr); Desktop grün, Tablet- und Handy-Layout grün, Kernabläufe in Firefox grün (6/6). Safari nicht geprüft (nur gegen den Entwicklungsserver möglich, optional).
 - Integration `supabase/tests/invoice-list.integration.test.ts`: 10 grün.
 - Regression (nach /backend, Code seitdem unverändert): Integration Zahlungen, Rechnungen, Gutschriften, RLS; E2E PROJ-37 Liste/Layout, PROJ-40 Knopf/Abbrechen, PROJ-44 Mitarbeiter-Liste, PROJ-45 Spalte „Zahlung“; Unit 776. Gesamtlauf `npm run test:e2e` nicht gefahren (Läufe nur in kleinen Paketen).
 
 ### Summary
 - **Acceptance Criteria:** 47/47 passed
-- **Bugs Found:** 3 total (0 critical, 0 high, 0 medium, 3 low)
+- **Bugs Found:** 3 total (0 critical, 0 high, 0 medium, 3 low); BUG-1 und BUG-3 behoben, BUG-2 war ein Messfehler des Tests
 - **Security:** Pass
 - **Production Ready:** YES
-- **Recommendation:** Deploy; BUG-2 (gemeinsamer Baustein) im nächsten Durchgang beheben
+- **Recommendation:** Deploy
+
+### Korrekturen (2026-11-07)
+- Nachtest: PROJ-43 E2E Desktop (alle Pakete), Handy; Regression PROJ-37 „Löschen“, PROJ-45 „Inhaber bearbeitet und löscht“, PROJ-40 Vorbelegung, Knopf und Stornogebühr; Unit 776; Build und Lint sauber.
 
 ## Deployment
 _To be added by /deploy_

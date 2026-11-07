@@ -14,6 +14,7 @@ import {
   type CompanySalutation,
   DEFAULT_DRAFT_PAYMENT,
   type DraftBooking,
+  type DraftLine,
   type DraftPreviewData,
   type DraftText,
   GUEST_NAME_MODES,
@@ -21,7 +22,6 @@ import {
   type InvoiceButtonState,
   invoiceButtonState,
   type InvoiceDraft,
-  invoiceSums,
   lineSourceFromDb,
   type PartialMode,
   type RecipientKind,
@@ -109,6 +109,30 @@ type BookingDb = {
   charges?: { id: string; position: number; label: string; amount_cents: number; vat_rate: number | string }[]
 }
 
+type AmountsDb = Required<Pick<BookingDb, 'amounts'>>['amounts']
+type ChargesDb = BookingDb['charges']
+
+// Positionen der Buchung aus Preis und Zusatzkosten (gemeinsam für Entwurf und Wählbarkeit in der Suche)
+function linesFromDb(
+  b: { cancelled_at: string | null; amounts: NonNullable<AmountsDb>; charges?: ChargesDb },
+  labels: { nights: string; cancellationFee: string }
+): DraftLine[] {
+  const a = b.amounts[0]
+  return bookingDraftLines(
+    {
+      cancelled: b.cancelled_at !== null,
+      billedNightsCents: a.billed_nights_cents ?? a.nights_cents,
+      nightsVatBp: vatRateFromDb(a.nights_vat_rate),
+      charges: [...(b.charges ?? [])]
+        .sort((x, y) => x.position - y.position)
+        .map((c) => ({ id: c.id, label: c.label, amountCents: c.amount_cents, vatBp: vatRateFromDb(c.vat_rate) })),
+      cancellationFeeCents: a.cancellation_fee_cents,
+      cancellationFeeVatBp: a.cancellation_fee_vat_rate === null ? VAT_DEFAULTS.cancellationFee : vatRateFromDb(a.cancellation_fee_vat_rate),
+    },
+    labels
+  )
+}
+
 // Buchung samt Hauptgast, Mitreisenden und (für Inhaber) Positionen; fremde oder unbekannte → null
 export const getDraftBooking = cache(async (bookingId: string): Promise<DraftBooking | null> => {
   const { tenantId, role } = await requireMember()
@@ -158,38 +182,52 @@ export const getDraftBooking = cache(async (bookingId: string): Promise<DraftBoo
     companions: [...b.companions].sort((x, y) => x.position - y.position).map((c) => ({ firstName: c.first_name, lastName: c.last_name })),
     lines:
       owner && a
-        ? bookingDraftLines(
-            {
-              cancelled: b.cancelled_at !== null,
-              billedNightsCents: a.billed_nights_cents ?? a.nights_cents,
-              nightsVatBp: vatRateFromDb(a.nights_vat_rate),
-              charges: [...(b.charges ?? [])]
-                .sort((x, y) => x.position - y.position)
-                .map((c) => ({ id: c.id, label: c.label, amountCents: c.amount_cents, vatBp: vatRateFromDb(c.vat_rate) })),
-              cancellationFeeCents: a.cancellation_fee_cents,
-              cancellationFeeVatBp: a.cancellation_fee_vat_rate === null ? VAT_DEFAULTS.cancellationFee : vatRateFromDb(a.cancellation_fee_vat_rate),
-            },
-            { nights: t('nightsLabel'), cancellationFee: t('cancellationFeeLabel') }
-          )
+        ? linesFromDb({ ...b, amounts: [a] }, { nights: t('nightsLabel'), cancellationFee: t('cancellationFeeLabel') })
         : owner && b.kind !== 'block'
           ? []
           : null,
   }
 })
 
-// Regel des Knopfs „Rechnung“ (PROJ-40) für eine Buchung, z. B. für die Buchungssuche der Rechnungsliste (PROJ-43).
-// null, wenn die Buchung fremd, unbekannt oder eine Sperre ist bzw. die Positionen nicht lesbar sind (nur Inhaber).
-export async function getInvoiceButtonState(bookingId: string): Promise<InvoiceButtonState | null> {
-  const [booking, others] = await Promise.all([getDraftBooking(bookingId), getBookingInvoiceSummaries(bookingId)])
-  if (!booking || booking.kind === 'block' || !booking.lines) return null
-  const { billedCents, draftCents } = invoiceSums(others)
-  return invoiceButtonState({
-    cancelled: booking.cancelledAt !== null,
-    hasFee: booking.lines.some((l) => l.source === 'cancellation_fee'),
-    billableCents: billableCents(booking.lines),
-    billedCents,
-    draftCents,
-  })
+// Regel des Knopfs „Rechnung“ (PROJ-40) für mehrere Buchungen auf einmal, z. B. für die Buchungssuche der Rechnungsliste
+// (PROJ-43): zwei gebündelte Abfragen statt Einzelabfragen je Treffer (QA BUG-1). Nur nach geprüfter Inhaber-Rolle aufrufen
+// (die Server-Aktion übergibt den geprüften Kunden; eine zweite Prüfung kostete in der Aktion ca. 0,6 s). Die RLS liefert
+// Preise ohnehin nur Inhabern; fremde, unbekannte Buchungen und Sperren fehlen in der Antwort.
+export async function getInvoiceButtonStates(tenantId: string, bookingIds: readonly string[]): Promise<Map<string, InvoiceButtonState>> {
+  const result = new Map<string, InvoiceButtonState>()
+  const ids = [...new Set(bookingIds.filter(isId))]
+  if (!ids.length) return result
+  const supabase = await createClient()
+  const [bookings, invoices] = await Promise.all([
+    supabase.from('bookings').select('id, kind, cancelled_at' + AMOUNT_COLUMNS).eq('tenant_id', tenantId).in('id', ids),
+    supabase.from('invoices').select('booking_id, origin, total_cents').eq('tenant_id', tenantId).in('booking_id', ids),
+  ])
+  if (bookings.error) console.error('[rechnungsentwurf] Buchungen nicht lesbar', bookings.error.message)
+  if (invoices.error) console.error('[rechnungsentwurf] Rechnungen der Buchungen nicht lesbar', invoices.error.message)
+  const sums = new Map<string, { billedCents: number; draftCents: number }>()
+  for (const i of (invoices.data ?? []) as { booking_id: string | null; origin: string; total_cents: number }[]) {
+    if (!i.booking_id) continue
+    const s = sums.get(i.booking_id) ?? { billedCents: 0, draftCents: 0 }
+    if (i.origin === 'draft') s.draftCents += i.total_cents
+    else s.billedCents += i.total_cents
+    sums.set(i.booking_id, s)
+  }
+  // Die Bezeichnungen spielen für die Regel keine Rolle
+  const labels = { nights: '', cancellationFee: '' }
+  for (const b of (bookings.data ?? []) as unknown as (Pick<BookingDb, 'id' | 'kind' | 'cancelled_at' | 'charges'> & { amounts: AmountsDb })[]) {
+    if (b.kind === 'block') continue
+    const lines = b.amounts?.length ? linesFromDb({ ...b, amounts: b.amounts }, labels) : []
+    result.set(
+      b.id,
+      invoiceButtonState({
+        cancelled: b.cancelled_at !== null,
+        hasFee: lines.some((l) => l.source === 'cancellation_fee'),
+        billableCents: billableCents(lines),
+        ...(sums.get(b.id) ?? { billedCents: 0, draftCents: 0 }),
+      })
+    )
+  }
+  return result
 }
 
 // Fingerabdruck der aktuellen Buchung (nur mit Positionen, also für Inhaber)
