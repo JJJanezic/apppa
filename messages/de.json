@@ -1727,7 +1727,8 @@
       "bookingTotal": "Gesamtpreis",
       "overBilled": "Verrechnet mehr als Gesamtpreis",
       "draft": "Entwurf",
-      "inDrafts": "In Entwürfen"
+      "inDrafts": "In Entwürfen",
+      "summary": "Zusammenfassung"
     },
     "done": {
       "created": "Rechnung gespeichert.",
@@ -2663,7 +2664,9 @@
     },
     "booking": {
       "paid": "Bezahlt",
-      "open": "Offen"
+      "open": "Offen",
+      "invoice": "Rechnung {number}",
+      "refund": "Rückzahlung"
     },
     "status": {
       "open": "offen",

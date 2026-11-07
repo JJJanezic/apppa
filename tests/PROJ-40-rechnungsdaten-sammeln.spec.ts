@@ -214,6 +214,8 @@ async function openCreate(page: Page, bookingId: string) {
 }
 const lineBox = (page: Page, label: string) => page.getByRole('checkbox', { name: `„${label}“ auf die Rechnung` })
 const invoicesSection = (page: Page) => page.locator('section').filter({ has: page.getByRole('heading', { name: 'Rechnungen', exact: true }) })
+// Verrechnet / In Entwürfen: Zusammenfassung nach dem Abschnitt „Zahlungen“ (refine PROJ-8 2026-11-07)
+const bookingSummary = (page: Page) => page.getByRole('region', { name: 'Zusammenfassung' })
 const totalRow = (page: Page) => page.getByRole('region', { name: 'Summen' }).locator('dl').first()
 
 async function saveDraft(page: Page) {
@@ -276,7 +278,7 @@ test.describe('Knopf „Rechnung“', () => {
 
     await openBooking(page, mixed.id)
     await expect(page.getByRole('link', { name: 'Rechnung', exact: true })).toBeVisible()
-    const section = text(await invoicesSection(page).innerText())
+    const section = text(await bookingSummary(page).innerText())
     expect(section).toMatch(/Verrechnet\s*€ 200,00/)
     expect(section).toMatch(/In Entwürfen\s*€ 100,00/)
 

@@ -226,7 +226,7 @@ export async function BookingDetail({ booking, apartments, owner, today, layout,
                   ) : platform ? (
                     <span className="-my-2 flex min-w-0 items-center gap-1">
                       <span className="min-w-0 break-all">
-                        {sourceLabel} · <span className="font-mono tabular-nums select-all">{platform.number}</span>
+                        {sourceLabel} · <span className="tabular-nums select-all">{platform.number}</span>
                       </span>
                       <CopyButton
                         value={platform.number}

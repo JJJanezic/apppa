@@ -564,8 +564,10 @@ test.describe('Bearbeiten, Löschen, Buchungsdetail', () => {
     await page.goto(`/buchungen/${booking.id}`)
     await ready(page)
     const section = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Rechnungen', exact: true }) })
+    // Verrechnet, Gesamtpreis und Hinweis stehen seit refine PROJ-8 (2026-11-07) in der Zusammenfassung nach „Zahlungen“
+    const summary = page.getByRole('region', { name: 'Zusammenfassung' })
     await expect(section.getByRole('link', { name: '2026-0011' })).toBeVisible()
-    await expect(section.getByText('Verrechnet mehr als Gesamtpreis')).toHaveCount(0)
+    await expect(summary.getByText('Verrechnet mehr als Gesamtpreis')).toHaveCount(0)
 
     // Zweite Rechnung nachträglich mit der Buchung verknüpfen
     await page.goto(`/rechnungen/${second}`)
@@ -583,9 +585,9 @@ test.describe('Bearbeiten, Löschen, Buchungsdetail', () => {
     await page.goto(`/buchungen/${booking.id}`)
     await ready(page)
     await expect(section.getByRole('link', { name: '2026-0012' })).toBeVisible()
-    expect(text(await section.innerText())).toMatch(/Verrechnet\s*€ 350,00/)
-    expect(text(await section.innerText())).toMatch(/Gesamtpreis\s*€ 300,00/)
-    await expect(section.getByText('Verrechnet mehr als Gesamtpreis')).toBeVisible()
+    expect(text(await summary.innerText())).toMatch(/Verrechnet\s*€ 350,00/)
+    expect(text(await summary.innerText())).toMatch(/Gesamtpreis\s*€ 300,00/)
+    await expect(summary.getByText('Verrechnet mehr als Gesamtpreis')).toBeVisible()
 
     // Buchung ändern → Positionen der Rechnung bleiben
     await service().from('booking_amounts').update({ nights_cents: 99900 } as never).eq('id', booking.id)
@@ -602,7 +604,7 @@ test.describe('Bearbeiten, Löschen, Buchungsdetail', () => {
     await signInAs(page, staff!)
     await page.goto(`/buchungen/${booking.id}`)
     await ready(page)
-    expect(text(await section.innerText())).toMatch(/Gesamtpreis\s*€ 300,00/)
+    expect(text(await summary.innerText())).toMatch(/Gesamtpreis\s*€ 300,00/)
     await expect(section.getByRole('link', { name: '2026-0011' })).toBeVisible()
 
     // Buchung wieder entfernen → verschwindet aus dem Buchungsdetail

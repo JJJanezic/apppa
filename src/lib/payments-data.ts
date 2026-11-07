@@ -14,6 +14,7 @@ import {
   PAYMENT_PAGE_SIZE,
   type PaymentFilters,
   type PaymentKind,
+  type PaymentListRow,
   type PaymentMethod,
   type PaymentPage,
   type PaymentState,
@@ -310,6 +311,33 @@ export async function getPaymentPage(filters: PaymentFilters): Promise<PaymentPa
       booking: r.booking_id ? { id: r.booking_id, number: r.booking_number } : null,
     })),
   }
+}
+
+// Zahlungen und Rückzahlungen aller Rechnungen einer Buchung (Abschnitt „Zahlungen“ im Buchungsdetail), Datum aufsteigend
+export async function getBookingPayments(bookingId: string): Promise<(PaymentListRow & { note: string | null })[]> {
+  const { tenantId } = await requireMember()
+  const supabase = await untyped()
+  const { data, error } = await supabase
+    .from('payment_list')
+    .select(`${LIST_COLUMNS}, note`)
+    .eq('tenant_id', tenantId)
+    .eq('booking_id', bookingId)
+    .order('paid_on')
+    .order('created_at')
+  if (error && !isMissingRelation(error)) console.error('[zahlungen] Zahlungen der Buchung nicht lesbar', error.message)
+  return ((data ?? []) as unknown as (ListDb & { note: string | null })[]).map((r) => ({
+    id: r.id,
+    kind: r.kind,
+    paidOn: r.paid_on,
+    amountCents: r.amount_cents,
+    commissionCents: r.commission_cents,
+    feeCents: r.fee_cents,
+    methodName: r.method_name,
+    receiptType: r.receipt_path ? receiptTypeOf(r.receipt_path) : null,
+    invoice: { id: r.invoice_id, number: r.invoice_number, recipient: r.recipient },
+    booking: r.booking_id ? { id: r.booking_id, number: r.booking_number } : null,
+    note: r.note,
+  }))
 }
 
 // Gibt es beim Kunden überhaupt Zahlungen? (Leerzustand)

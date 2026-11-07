@@ -5,28 +5,33 @@ import { Amount } from '@/components/amount'
 import { InvoiceStatus } from '@/components/invoices/invoice-status'
 import { RecordPaymentButton } from '@/components/payments/payment-buttons'
 import { PaymentStatusBadge } from '@/components/payments/payment-status'
+import { ReceiptLink } from '@/components/payments/receipt-link'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { todayIso } from '@/lib/bookings'
 import { formatCents, formatDate } from '@/lib/format'
 import { invoiceHref } from '@/lib/invoices'
 import { getBookingInvoices } from '@/lib/invoices-data'
-import { canRecordPayment } from '@/lib/payments'
-import { getPaymentMethods, getPaymentStates, getPlatformBookings } from '@/lib/payments-data'
+import { canRecordPayment, signedCents } from '@/lib/payments'
+import { getBookingPayments, getPaymentMethods, getPaymentStates, getPlatformBookings } from '@/lib/payments-data'
 
 // Abschnitt „Rechnungen“ im Buchungsdetail (PROJ-37), Seite und Kalender-Panel, für alle Mitglieder.
 // Nur sichtbar, wenn mindestens eine Rechnung verknüpft ist. Verrechnet mehr als den Gesamtpreis: nur ein Hinweis.
 // Entwürfe (PROJ-40) stehen mit Status „Entwurf“ in der Liste; „Verrechnet“ zählt sie nicht, sie stehen darunter als
 // „In Entwürfen“. Gutschriften (PROJ-44) stehen mit negativem Betrag darin, stornierte Rechnungen gekennzeichnet.
 // Zahlungsstand je Rechnung, „Bezahlt“ und „Offen“ über die zahlbaren Rechnungen und „Zahlung erfassen“ (PROJ-45).
+// Reihenfolge (refine PROJ-8 2026-11-07): Rechnungen, dann Abschnitt „Zahlungen“ (alle Zahlungen und Rückzahlungen der
+// Buchung mit Rechnungsnummer, sonst Hinweis; darunter „Zahlung erfassen“), dann die Zusammenfassung. Bearbeiten und
+// Löschen einer Zahlung bleiben im Rechnungsdetail.
 export async function BookingInvoicesSection({ bookingId, headingSize }: { bookingId: string; headingSize: string }) {
   const { invoices, billedCents, draftCents, bookingTotalCents } = await getBookingInvoices(bookingId)
   if (invoices.length === 0) return null
-  const [t, tp, states, platform, methods] = await Promise.all([
+  const [t, tp, states, platform, methods, payments] = await Promise.all([
     getTranslations('invoices.booking'),
     getTranslations('payments'),
     getPaymentStates(invoices.map((i) => ({ id: i.id, origin: i.origin, kind: i.kind, totalCents: i.totalCents, cancelled: i.cancelledBy !== null }))),
     getPlatformBookings([bookingId]),
     getPaymentMethods(),
+    getBookingPayments(bookingId),
   ])
   const over = bookingTotalCents !== null && billedCents > bookingTotalCents
   const payable = invoices.filter((i) => states.get(i.id) && canRecordPayment(states.get(i.id)!))
@@ -41,76 +46,127 @@ export async function BookingInvoicesSection({ bookingId, headingSize }: { booki
   }))
 
   return (
-    <section className="flex flex-col gap-3">
-      <h2 className={headingSize}>{t('title')}</h2>
-      <ul className="flex flex-col divide-y rounded-lg bg-ds-surface px-4">
-        {invoices.map((i) => (
-          <li key={i.id} className="flex flex-col gap-1 py-3">
-            <span className="flex items-baseline justify-between gap-4">
-              <Link href={invoiceHref(i.id)} className="min-w-0 break-words font-medium text-ds-accent-700 underline underline-offset-[3px] hover:decoration-2">
-                {i.number ?? t('draft')}
-              </Link>
-              <Amount cents={i.totalCents} className="shrink-0" />
-            </span>
-            <span className="break-words text-[13px] text-ds-neutral-800">
-              {formatDate(i.invoiceDate)} · {i.recipient}
-            </span>
-            <span className="flex flex-wrap items-center gap-1.5">
-              <InvoiceStatus origin={i.origin} kind={i.kind} hasPdf={i.hasPdf} cancelled={i.cancelledBy !== null} />
-              {states.get(i.id) && <PaymentStatusBadge state={states.get(i.id)!} dash={false} />}
-            </span>
-            {states.get(i.id)?.mode === 'payable' && (states.get(i.id)?.openCents ?? 0) !== 0 && (
-              <span className="text-[13px] text-ds-neutral-800">{tp('openShort', { amount: formatCents(states.get(i.id)!.openCents) })}</span>
-            )}
-          </li>
-        ))}
-      </ul>
-      <dl className="flex flex-col divide-y rounded-lg bg-ds-surface px-4">
-        <div className="flex items-baseline justify-between gap-4 py-3 font-semibold">
-          <dt>{t('billed')}</dt>
-          <dd>
-            <Amount cents={billedCents} />
-          </dd>
-        </div>
-        {invoices.some((i) => i.origin === 'draft') && (
-          <div className="flex items-baseline justify-between gap-4 py-3">
-            <dt>{t('inDrafts')}</dt>
+    <>
+      <section className="flex flex-col gap-3">
+        <h2 className={headingSize}>{t('title')}</h2>
+        <ul className="flex flex-col divide-y rounded-lg bg-ds-surface px-4">
+          {invoices.map((i) => (
+            <li key={i.id} className="flex flex-col gap-1 py-3">
+              <span className="flex items-baseline justify-between gap-4">
+                <Link href={invoiceHref(i.id)} className="min-w-0 break-words font-medium text-ds-accent-700 underline underline-offset-[3px] hover:decoration-2">
+                  {i.number ?? t('draft')}
+                </Link>
+                <Amount cents={i.totalCents} className="shrink-0" />
+              </span>
+              <span className="break-words text-[13px] text-ds-neutral-800">
+                {formatDate(i.invoiceDate)} · {i.recipient}
+              </span>
+              <span className="flex flex-wrap items-center gap-1.5">
+                <InvoiceStatus origin={i.origin} kind={i.kind} hasPdf={i.hasPdf} cancelled={i.cancelledBy !== null} />
+                {states.get(i.id) && <PaymentStatusBadge state={states.get(i.id)!} dash={false} />}
+              </span>
+              {states.get(i.id)?.mode === 'payable' && (states.get(i.id)?.openCents ?? 0) !== 0 && (
+                <span className="text-[13px] text-ds-neutral-800">{tp('openShort', { amount: formatCents(states.get(i.id)!.openCents) })}</span>
+              )}
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section className="flex flex-col gap-3">
+        <h2 className={headingSize}>{tp('title')}</h2>
+        {payments.length > 0 ? (
+          <ul className="flex flex-col divide-y rounded-lg bg-ds-surface px-4">
+            {payments.map((p) => (
+              <li key={p.id} className="flex items-start justify-between gap-3 py-3">
+                <span className="flex min-w-0 flex-col gap-0.5">
+                  <span className="flex flex-wrap items-baseline gap-x-2">
+                    <span className="tabular-nums">{formatDate(p.paidOn)}</span>
+                    <span className="text-ds-neutral-800">· {p.methodName}</span>
+                  </span>
+                  <span className="flex flex-wrap items-baseline gap-x-1.5 font-medium">
+                    <Amount cents={signedCents(p.kind, p.amountCents)} />
+                    {p.commissionCents > 0 && (
+                      <span className="text-sm font-normal text-ds-neutral-800">
+                        + {tp('commissionShort')} <Amount cents={p.commissionCents} />
+                      </span>
+                    )}
+                    {p.feeCents > 0 && (
+                      <span className="text-sm font-normal text-ds-neutral-800">
+                        + {tp('feeShort')} <Amount cents={p.feeCents} />
+                      </span>
+                    )}
+                  </span>
+                  <span className="text-[13px] text-ds-neutral-800">
+                    {p.kind === 'refund' && <>{tp('booking.refund')} · </>}
+                    <Link href={invoiceHref(p.invoice.id)} className="text-ds-accent-700 underline underline-offset-[3px] hover:decoration-2">
+                      {tp('booking.invoice', { number: p.invoice.number ?? '–' })}
+                    </Link>
+                  </span>
+                  {p.note && <span className="break-words text-sm">{p.note}</span>}
+                </span>
+                {p.receiptType && (
+                  <span className="flex shrink-0 items-center">
+                    <ReceiptLink paymentId={p.id} type={p.receiptType} />
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="rounded-lg bg-ds-surface px-4 py-3 text-ds-neutral-800">{tp('none')}</p>
+        )}
+        {choices.length > 0 && <RecordPaymentButton kind="payment" invoices={choices} methods={methods} today={todayIso()} variant="outline" />}
+      </section>
+
+      {/* Zusammenfassung nach den Zahlungen */}
+      <section className="flex flex-col gap-3" aria-label={t('summary')}>
+        <dl className="flex flex-col divide-y rounded-lg bg-ds-surface px-4">
+          <div className="flex items-baseline justify-between gap-4 py-3 font-semibold">
+            <dt>{t('billed')}</dt>
             <dd>
-              <Amount cents={draftCents} />
+              <Amount cents={billedCents} />
             </dd>
           </div>
-        )}
-        {bookingTotalCents !== null && (
-          <div className="flex items-baseline justify-between gap-4 py-3">
-            <dt>{t('bookingTotal')}</dt>
-            <dd>
-              <Amount cents={bookingTotalCents} />
-            </dd>
-          </div>
-        )}
-        {payable.length > 0 && (
-          <>
+          {invoices.some((i) => i.origin === 'draft') && (
             <div className="flex items-baseline justify-between gap-4 py-3">
-              <dt>{tp('booking.paid')}</dt>
+              <dt>{t('inDrafts')}</dt>
               <dd>
-                <Amount cents={paidCents} />
+                <Amount cents={draftCents} />
               </dd>
             </div>
-            <div className="flex items-baseline justify-between gap-4 py-3 font-semibold">
-              <dt>{tp('booking.open')}</dt>
+          )}
+          {bookingTotalCents !== null && (
+            <div className="flex items-baseline justify-between gap-4 py-3">
+              <dt>{t('bookingTotal')}</dt>
               <dd>
-                <Amount cents={openCents} />
+                <Amount cents={bookingTotalCents} />
               </dd>
             </div>
-          </>
+          )}
+          {payable.length > 0 && (
+            <>
+              <div className="flex items-baseline justify-between gap-4 py-3">
+                <dt>{tp('booking.paid')}</dt>
+                <dd>
+                  <Amount cents={paidCents} />
+                </dd>
+              </div>
+              <div className="flex items-baseline justify-between gap-4 py-3 font-semibold">
+                <dt>{tp('booking.open')}</dt>
+                <dd>
+                  <Amount cents={openCents} />
+                </dd>
+              </div>
+            </>
+          )}
+        </dl>
+        {over && (
+          <Alert className="border-ds-accent-700/40 bg-ds-accent-100">
+            <AlertDescription>{t('overBilled')}</AlertDescription>
+          </Alert>
         )}
-      </dl>
-      {choices.length > 0 && <RecordPaymentButton kind="payment" invoices={choices} methods={methods} today={todayIso()} variant="outline" />}
-      {over && (
-        <Alert className="border-ds-accent-700/40 bg-ds-accent-100">
-          <AlertDescription>{t('overBilled')}</AlertDescription>
-        </Alert>
-      )}
-    </section>
+      </section>
+    </>
   )
 }
