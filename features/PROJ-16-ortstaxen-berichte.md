@@ -1,6 +1,6 @@
 # PROJ-16: Ortstaxen-Berichte
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-11-08
 **Last Updated:** 2026-11-08
 
@@ -244,12 +244,146 @@ Beide Knöpfe stehen oben rechts neben dem Filter: **„PDF“** und **„CSV“
 <!-- Added by /architecture -->
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Gemeinsamer Rechenkern in der Datenbank: Verteilung je Position und Monat inkl. Personennächte; `tourist_tax_monthly` (Dashboard) und die neue Berichtsfunktion bauen beide darauf auf | Eine Regel an einer Stelle; Bericht und Dashboard können nicht auseinanderlaufen; Dashboard-Ergebnis bleibt unverändert (Test vergleicht) | 2026-11-08 |
+| Neue Berichtsfunktion liefert je Buchung und Gemeinde die Summen im Zeitraum samt Kennzeichen „anteilig“, „Alt-Position“, „Prozent-Tarif“; nur Inhaber-Kunden | Nur fertige Zeilen statt aller Positionen übertragen; Inhaber-Prüfung wie bei PROJ-14 in der Datenbank | 2026-11-08 |
+| Personennächte je Monat aus der Verteilung (Betrag ÷ Tarif), nicht aus dem gespeicherten Feld der Position | So rechnet das Dashboard schon; gilt für automatische und Alt-Positionen gleich und passt immer zum Monatsbetrag | 2026-11-08 |
+| Befreite Personennächte nur, wenn alle Positionen der Buchung bekannte Personennächte haben; nie unter 0 | Keine erfundenen Zahlen bei Alt-Positionen und Prozent-Tarifen | 2026-11-08 |
+| Keine neue Tabelle, keine Spalte | Bericht wird immer aus den aktuellen Daten berechnet (kein Festschreiben) | 2026-11-08 |
+| Bericht als Server-Seite, Filter in der Adresse | Wie Rechnungen/Zahlungen; Neu laden, Lesezeichen, „Zurück“ | 2026-11-08 |
+| Zeitraum, Schnellwahl, Gruppierung, Summen, Hinweise und CSV-Aufbau als reine Regeln mit Unit-Tests | Gut testbar ohne Datenbank, von Seite, PDF und CSV gemeinsam genutzt | 2026-11-08 |
+| PDF über den bestehenden PDF-Arbeitsprozess der Rechnungen (React-PDF), erweitert um eine zweite Dokumentart „Bericht“ | Gleiche Schriften, Briefpapier, Logo und Lastgrenze; kein zweites PDF-Werkzeug | 2026-11-08 |
+| CSV auf dem Server erzeugt, Strichpunkt, Komma, UTF-8 mit BOM; Felder mit `= + - @` am Anfang mit vorangestelltem Hochkomma | Excel (deutsch) öffnet sie direkt; Schutz vor Formel-Einschleusung | 2026-11-08 |
+| Exporte als eigene Download-Adressen; Knopf lädt im Hintergrund und speichert die Datei, bei Fehler Meldung auf der Seite | Fehlermeldung statt leerer Fehlerseite; Bericht bleibt sichtbar | 2026-11-08 |
+| Keine neuen Pakete | React-PDF und alles Weitere ist vorhanden | 2026-11-08 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### Überblick
+PROJ-16 braucht **keine neuen Tabellen**. Der Bericht wird bei jedem Aufruf aus den bestehenden Buchungen und Abgabe-Positionen berechnet. Gebaut werden:
+1. eine Berichtsfunktion in der Datenbank, die denselben Rechenkern wie das Dashboard nutzt,
+2. die Seite „Ortstaxe“ mit Filter, Übersicht und Buchungsliste,
+3. zwei Download-Adressen für PDF und CSV.
+
+### A) Seitenaufbau
+
+```
+Seite „Ortstaxe“ (/ortstaxe, nur Inhaber)
++-- Seitenkopf „Ortstaxe“ mit Kundenname
+|   +-- rechts: Knöpfe „PDF“ und „CSV“ (deaktiviert ohne Daten)
++-- Filterleiste
+|   +-- Jahr, Von Monat, Bis Monat
+|   +-- Schnellwahl: Letzter Monat | Letztes Quartal | Letztes Jahr
+|   +-- Gemeinde: Alle Gemeinden | einzelne Gemeinde
++-- Hinweis „Zeitraum noch nicht abgeschlossen …“ (nur bei laufendem/künftigem Zeitraum)
++-- Übersicht (Karte)
+|   +-- Zeitraum in Worten
+|   +-- Tabelle: Gemeinde | Abgabepflichtige PN | Befreite PN | Betrag
+|   +-- Zeile „Gesamt“ (nur bei mehreren Gemeinden)
+|   +-- Hinweis „inkl. N Positionen ohne Personennächte“
++-- Buchungsliste (Karte)
+|   +-- je Gemeinde: Zwischenüberschrift
+|       +-- Zeilen: Nr. (Link) | Hauptgast | Wohnung | Aufenthalt | Personen | PN | befreit | Betrag | Hinweis
++-- Leerer Zustand „Im gewählten Zeitraum keine Ortstaxe erfasst.“ (+ Tarif-Hinweis mit Link)
++-- Meldung „Export konnte nicht erstellt werden …“ (nur nach fehlgeschlagenem Export)
+```
+
+- Die Seite wird auf dem Server erzeugt. Nur die Filterleiste und die Export-Knöpfe laufen im Browser.
+- Die Filter ändern die Adresse (Jahr, Von, Bis, Gemeinde). Die Seite lädt dann neu, wie bei Rechnungen und Zahlungen.
+- Gestaltung nach dem App-Entwurf (`docs/design/app-entwurf-quelltext.html`): Karten, Tabellen und Beträge wie in der Rechnungs- und Zahlungsübersicht. Beträge stehen rechtsbündig in Ziffern gleicher Breite.
+- Am Handy scrollt die Buchungsliste in einem eigenen Bereich seitlich (mit Tastaturfokus wie die Dashboard-Tabelle, PROJ-14 BUG-2). Die Spalte „Nr.“ bleibt stehen.
+- Die Zeilen sind keine Overlay-Links. Nur die Nummer ist ein Link (Safari-Zeilenklick, PROJ-29).
+- Menüpunkt „Ortstaxe“ wird freigeschaltet (bisher „bald verfügbar“). Er bleibt nur für Inhaber sichtbar.
+
+### B) Daten
+
+**Neu gespeichert:** nichts.
+
+**Gelesen:**
+- Buchungen: Nummer, Art, Storno, Anreise, tatsächliche und geplante Abreise, Erwachsene, Kinder, Hauptgast, Wohnung
+- Abgabe-Positionen: Kennzeichen „Ortstaxe“, Betrag, Tarif-Verweis
+- Tarife der Wohnung: Art (je Person und Nacht oder Prozent), Betrag, „gültig ab“
+- Wohnung → Objekt → Gemeinde (auch archivierte Wohnungen)
+- Gast: Name, anonymisiert ja/nein
+- Briefpapier, Logo und Stammdaten des Kunden (nur für das PDF)
+
+**Gemeinsamer Rechenkern (Datenbank):** Die Verteilung aus PROJ-14 wird aus `tourist_tax_monthly` herausgelöst. Für jede Abgabe-Position und jeden Monat liefert der Kern:
+- Betrag im Monat
+- abgabepflichtige Personennächte im Monat, sofern bekannt (Betrag ÷ Tarif, ganze Personennächte)
+- Art der Position: mit Tarif je Person und Nacht, Prozent-Tarif, Alt-Position
+
+`tourist_tax_monthly` summiert diesen Kern wie bisher. Ein Test stellt sicher, dass das Dashboard dieselben Zahlen wie vorher liefert.
+
+**Neue Berichtsfunktion** (Kunde, von Monat, bis Monat). Sie liefert nur für Inhaber des Kunden eine Zeile je Buchung und Gemeinde mit:
+- Buchungsnummer, Hauptgast (oder „anonymisiert“), Wohnung, Anreise, tatsächliche Abreise, Personen
+- Betrag im Zeitraum (Summe der Monate)
+- abgabepflichtige Personennächte im Zeitraum. Leer, wenn eine Position der Buchung keine bekannten Personennächte hat. Die bekannten Teile werden für die Gemeindesumme getrennt mitgeliefert.
+- befreite Personennächte im Zeitraum: Personen × Nächte des Aufenthalts im Zeitraum, minus abgabepflichtige Personennächte. Den Wert gibt es nur, wenn alle Positionen bekannt sind. Er wird nie kleiner als 0.
+- Kennzeichen: „anteilig“ (Aufenthalt ragt über den Zeitraum), „Alt-Position“, „Prozent-Tarif“, Zahl der Positionen ohne Personennächte
+
+Mitarbeiter und fremde Kunden erhalten eine leere Antwort, wie bei `tourist_tax_monthly`.
+
+**Ohne Tarife:** Für den Hinweis „Tarife hinterlegen …“ zählt die Seite, ob der Kunde überhaupt Ortstaxe-Tarife hat (bestehende Tabelle).
+
+### C) Regeln im Programm (ohne Datenbank, mit Unit-Tests)
+Eine gemeinsame Regeldatei für Seite, PDF und CSV:
+- Filter aus der Adresse lesen und prüfen (Jahr, Von, Bis, Gemeinde). Ungültige Werte führen auf den Standard zurück. Eine Gemeinde ohne Daten im Zeitraum wird zu „Alle Gemeinden“.
+- Schnellwahl und Standard (letzter abgelaufener Monat, letztes Quartal, letztes Jahr), auch über den Jahreswechsel.
+- „Zeitraum noch nicht abgeschlossen“, wenn „bis“ den laufenden Monat erreicht.
+- Zeitraum in Worten („Oktober 2026“, „Juli – September 2026“, „2025“) und der Teil des Dateinamens (`2026-10`, `2026-07-bis-09`).
+- Gruppierung je Gemeinde (alphabetisch) und Sortierung nach Anreise, dann Nummer. Summen je Gemeinde und „Gesamt“, Hinweis „inkl. N Positionen ohne Personennächte“.
+- CSV-Aufbau: Spaltenköpfe, Strichpunkt, Komma als Dezimalzeichen, Datum `TT.MM.JJJJ`, Anführungszeichen bei Bedarf, Schutz vor Formeln, BOM.
+
+### D) Exporte
+- **Zwei Download-Adressen** (PDF, CSV) mit denselben Filterangaben wie die Seite. Jede prüft selbst Anmeldung, gewählten Kunden und Inhaber-Rolle und lädt die Daten über dieselbe Berichtsfunktion. Ohne Recht gibt es keine Daten.
+- **Knöpfe:** Sie laden die Datei im Hintergrund und speichern sie unter dem Dateinamen aus der Spec. Während des Ladens dreht sich ein Ladezeichen. Scheitert der Download, erscheint die Meldung „Export konnte nicht erstellt werden. Bitte erneut versuchen.“
+- **PDF:** Der vorhandene PDF-Arbeitsprozess der Rechnungen (PROJ-41/42) bekommt eine zweite Dokumentart „Ortstaxe-Bericht“:
+  - gleiche Schriften, Grundschrift und Logo aus dem Briefpapier, Aussteller-Block, wenn eingeschaltet
+  - A4 hoch, Tabellenkopf auf Folgeseiten wiederholt, bei „Alle Gemeinden“ neue Seite je Gemeinde
+  - Fußzeile mit „Stand“ und „Seite X von Y“
+  - Die Lastgrenze (höchstens 3 gleichzeitig, dann Warteschlange) gilt gemeinsam mit den Rechnungen. Ist sie erreicht, kommt dieselbe Meldung wie beim Export-Fehler.
+  - Das PDF wird nicht gespeichert.
+- **CSV:** wird direkt erzeugt, nicht gespeichert, eine Zeile je Buchung und Gemeinde.
+- „Stand“ (Datum, Uhrzeit) in österreichischer Zeit.
+
+### E) Rechte und Sicherheit
+- Seite: Inhaber-Bereich wie Einstellungen und Rechnungsliste. Mitarbeiter sehen „Kein Zugriff“.
+- Datenbank: Die Berichtsfunktion prüft die Inhaber-Rolle je Kunde selbst (wie PROJ-14). Ein direkter Aufruf durch Mitarbeiter liefert nichts.
+- Exporte: eigene Prüfung, nur der gewählte Kunde, keine Kunden-ID von außen.
+- Filterwerte werden streng geprüft (Zahlen, Monat 1–12, Gemeindecode aus der Liste).
+
+### F) Leistung
+- Ziel aus der Spec: Ganzjahresbericht bei 5.000 Buchungen unter 2 Sekunden, PDF unter 5 Sekunden.
+- Es gibt bereits den Teilindex auf Abgabe-Positionen (PROJ-14). /backend misst mit Testdaten und löscht sie danach.
+- Übertragen werden nur die fertigen Zeilen je Buchung.
+
+### G) Tests
+- **Unit:** Regeldatei (Filter, Schnellwahl inkl. Jänner, Zeitraum in Worten, Dateiname, Gruppierung, Summen mit unbekannten Werten, CSV mit Strichpunkt, Anführungszeichen und Formelschutz, BOM)
+- **Integration (Datenbank):**
+  - Berichtsfunktion: Monatsgrenze und Jahreswechsel, „anteilig“, Tarifwechsel im Aufenthalt (eine Zeile), Alt-Position mit und ohne Vielfaches, Prozent-Tarif, befreite Personennächte (Alter, Häkchen), nie negativ, Option/Sperre/Storno ausgenommen, archivierte Wohnung, anonymisierter Gast
+  - Gleichheit: Summe des Berichts je Monat entspricht `tourist_tax_monthly`
+  - Rechte: Inhaberin bei A und Mitarbeiterin bei B, fremder Kunde, ohne Anmeldung
+- **PDF:** Erzeugung mit einer und mehreren Gemeinden, mehrseitige Liste, ohne Logo, Aussteller-Block aus
+- **E2E:**
+  - Menüpunkt für Inhaber, kein Menüpunkt für Mitarbeiter
+  - Standardzeitraum, Schnellwahl, Gemeindefilter, Neu laden mit gleichem Bericht
+  - leerer Zustand mit deaktivierten Exporten
+  - PDF- und CSV-Download (Dateiname, Inhalt der CSV)
+  - Handy 375 px ohne seitliches Scrollen der Seite
+  - axe
+
+### H) Was wohin gehört
+- **/frontend:** Seite, Filterleiste, Übersicht, Buchungsliste, leerer Zustand, Export-Knöpfe mit Fehlermeldung, Regeldatei mit Unit-Tests, Texte in der Übersetzungsdatei, Menüpunkt freischalten.
+- **/backend:**
+  - Rechenkern herauslösen, Berichtsfunktion, Datenabruf für die Seite
+  - Download-Adressen PDF und CSV
+  - PDF-Dokumentart „Ortstaxe-Bericht“ im Arbeitsprozess
+  - Integrationstests und Messung
+
+### Abhängigkeiten (Pakete)
+Keine neuen. Genutzt werden das vorhandene `@react-pdf/renderer` (über den PDF-Arbeitsprozess) und die bestehenden shadcn/ui-Bausteine (Card, Table, Select, Button, Alert).
 
 ## QA Test Results
 _To be added by /qa_
