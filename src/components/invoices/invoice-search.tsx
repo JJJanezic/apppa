@@ -6,13 +6,15 @@ import { useTranslations } from 'next-intl'
 import { useEffect, useRef, useState, useTransition } from 'react'
 
 import { Input } from '@/components/ui/input'
-import { invoiceListHref } from '@/lib/invoices'
+import { type InvoiceFilters, invoiceListHref } from '@/lib/invoices'
 
 const DELAY_MS = 300
 
 // Suchfeld der Rechnungsliste (Nummer oder Empfänger). Der Suchbegriff steht in der Adresse
-// (Zurück-Taste und Rückkehr aus dem Detail behalten ihn); jede Änderung beginnt wieder auf Seite 1.
-export function InvoiceSearch({ query }: { query: string }) {
+// (Zurück-Taste und Rückkehr aus dem Detail behalten ihn); jede Änderung beginnt wieder auf Seite 1, die Filter (PROJ-43)
+// bleiben erhalten.
+export function InvoiceSearch({ filters }: { filters: InvoiceFilters }) {
+  const query = filters.query
   const t = useTranslations('invoices.list')
   const router = useRouter()
   const [pending, startTransition] = useTransition()
@@ -36,7 +38,7 @@ export function InvoiceSearch({ query }: { query: string }) {
     setValue(next)
     if (timer.current) clearTimeout(timer.current)
     timer.current = setTimeout(
-      () => startTransition(() => router.replace(invoiceListHref({ query: next.trim(), page: 1 }), { scroll: false })),
+      () => startTransition(() => router.replace(invoiceListHref({ ...filters, query: next.trim(), page: 1 }), { scroll: false })),
       DELAY_MS
     )
   }

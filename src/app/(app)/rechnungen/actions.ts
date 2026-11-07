@@ -8,12 +8,13 @@ import type { ActionResult, CommonErrorCode } from '@/lib/auth/result'
 import { getSessionUser, pendingMfaStep } from '@/lib/auth/session'
 import { bookingHref, type BookingSource, todayIso } from '@/lib/bookings'
 import { billableCents, lineSourceToDb, partialLabel, splitByVat } from '@/lib/invoice-drafts'
-import { currentFingerprint, getDraftBooking } from '@/lib/invoice-drafts-data'
+import { currentFingerprint, getDraftBooking, getInvoiceButtonState } from '@/lib/invoice-drafts-data'
 import { guestDbColumns } from '@/lib/guests-data'
 import { removeInvoiceFiles } from '@/lib/invoice-files'
 import {
   bookingGuestName,
   cleanInvoiceQuery,
+  type DraftBookingOption,
   INVOICE_BUCKET,
   type InvoiceBookingDetails,
   type InvoiceBookingOption,
@@ -231,10 +232,31 @@ export async function prepareInvoiceUpload(): Promise<Result<{ path: string; tok
 export async function searchInvoiceBookings(values: { query: string }): Promise<Result<InvoiceBookingOption[]>> {
   const guard = await requireOwner()
   if (!guard.ok) return guard
+  return findBookings(guard.tenant.id, values)
+}
+
+// Buchungssuche „Rechnung erstellen“ aus der Rechnungsliste (PROJ-43): dieselben Treffer, je Treffer die Regel des Knopfs
+// „Rechnung“ (PROJ-40). Formular und Datenbank prüfen beim Öffnen bzw. Speichern noch einmal.
+export async function searchDraftBookings(values: { query: string }): Promise<Result<DraftBookingOption[]>> {
+  const guard = await requireOwner()
+  if (!guard.ok) return guard
+  const found = await findBookings(guard.tenant.id, values)
+  if (!found.ok || !found.data) return found as Result<DraftBookingOption[]>
+  const states = await Promise.all(found.data.map((b) => getInvoiceButtonState(b.id)))
+  return {
+    ok: true,
+    data: found.data.map((b, i) => {
+      const state = states[i]
+      return { ...b, blocked: !state ? 'nothingToBill' : state.enabled ? null : state.reason }
+    }),
+  }
+}
+
+async function findBookings(tenantId: string, values: { query: string }): Promise<Result<InvoiceBookingOption[]>> {
   const query = cleanInvoiceQuery(String(values?.query ?? ''))
   if (query.length < 2) return { ok: true, data: [] }
   const supabase = await createClient()
-  const { data, error } = await supabase.rpc('search_invoice_bookings', { p_tenant_id: guard.tenant.id, p_query: query, p_limit: SEARCH_LIMIT })
+  const { data, error } = await supabase.rpc('search_invoice_bookings', { p_tenant_id: tenantId, p_query: query, p_limit: SEARCH_LIMIT })
   if (error) return dbFail(error, 'Buchungssuche')
   return {
     ok: true,

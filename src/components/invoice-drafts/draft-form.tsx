@@ -22,6 +22,7 @@ import { useAdoptEarlyInput } from '@/components/invoice-drafts/use-adopt-early-
 import { DraftPdfPreview } from '@/components/invoice-pdf/draft-pdf-preview'
 import { useUnsavedGuard } from '@/components/invoice-drafts/use-unsaved-guard'
 import { RichTextGuardProvider, useRichTextGuard } from '@/components/invoice-settings/rich-text-guard'
+import { useInvoiceListHref } from '@/components/invoices/invoice-list-return'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -81,6 +82,8 @@ interface DraftFormProps {
   // Bearbeiten: der Entwurf; Anlegen: null
   draft: InvoiceDraft | null
   bookingChanged: boolean
+  // Angelegt aus der Rechnungsliste (PROJ-43): „Abbrechen“ führt zur zuletzt gefilterten Liste statt zur Buchung
+  fromList?: boolean
 }
 
 // Empfänger-Felder des Formulars ↔ Kopie des Empfängers
@@ -173,7 +176,7 @@ function initialValues({ booking, others, textBlocks, today, draft }: Pick<Draft
 // Seite „Rechnung erstellen“ bzw. „Entwurf bearbeiten“ (PROJ-40, nur Inhaber): Art, Empfänger, Rechnungsdatum,
 // Gastnamen, Positionen bzw. Teilbetrag/Abzüge, Summen, Textblöcke mit Zahlungsregeln, Pflichtangaben; Vorschau ohne
 // Seitenwechsel und ohne Datenverlust. Gespeichert wird ein Entwurf ohne Nummer.
-export function DraftForm({ booking, others, preview, smallBusiness, textBlocks, today, draft, bookingChanged }: DraftFormProps) {
+export function DraftForm({ booking, others, preview, smallBusiness, textBlocks, today, draft, bookingChanged, fromList = false }: DraftFormProps) {
   const t = useTranslations('invoiceDrafts')
   const tv = useTranslations('invoiceDrafts.validation')
   const router = useRouter()
@@ -356,7 +359,8 @@ export function DraftForm({ booking, others, preview, smallBusiness, textBlocks,
   }
 
   const submitting = form.formState.isSubmitting
-  const cancelHref = draft ? `/rechnungen/${draft.id}` : bookingHref(booking.id)
+  const listHref = useInvoiceListHref()
+  const cancelHref = draft ? `/rechnungen/${draft.id}` : fromList ? listHref : bookingHref(booking.id)
   const guestName = booking.guest ? (booking.guest.anonymized ? t('header.deletedGuest') : guestDisplayName(booking.guest)) : null
 
   return (

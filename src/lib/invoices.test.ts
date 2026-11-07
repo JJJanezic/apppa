@@ -4,6 +4,8 @@ import {
   bookingGuestName,
   checkPdfFile,
   cleanInvoiceQuery,
+  activeInvoiceFilterCount,
+  EMPTY_INVOICE_FILTERS,
   INVOICE_LIMITS,
   invoiceListHref,
   invoiceNumberKey,
@@ -13,6 +15,8 @@ import {
   linesFromBooking,
   linesTotal,
   parseInvoiceFilters,
+  parseInvoiceYear,
+  invoiceYearOptions,
   recipientFor,
 } from '@/lib/invoices'
 
@@ -111,10 +115,42 @@ describe('checkPdfFile', () => {
 
 describe('Adresse der Liste', () => {
   it('liest Suchbegriff und Seite und schreibt sie zurück', () => {
-    expect(parseInvoiceFilters({ q: ' 2025 ', seite: '3' })).toEqual({ query: '2025', page: 3 })
-    expect(parseInvoiceFilters({ seite: 'x' })).toEqual({ query: '', page: 1 })
+    expect(parseInvoiceFilters({ q: ' 2025 ', seite: '3' })).toEqual({ ...EMPTY_INVOICE_FILTERS, query: '2025', page: 3 })
+    expect(parseInvoiceFilters({ seite: 'x' })).toEqual(EMPTY_INVOICE_FILTERS)
     expect(invoiceListHref({ query: '2025/1', page: 2 })).toBe('/rechnungen?q=2025%2F1&seite=2')
     expect(invoiceListHref({ query: '', page: 1 })).toBe('/rechnungen')
+  })
+
+  it('liest und schreibt Jahr, Status, Zahlung und Betrag (PROJ-43)', () => {
+    const filters = parseInvoiceFilters({ jahr: '2026', status: 'cancelled', zahlung: 'unpaid', von: '-450', bis: '1200.5', seite: '2' })
+    expect(filters).toEqual({ query: '', page: 2, year: 2026, status: 'cancelled', payment: 'unpaid', minCents: -45000, maxCents: 120050 })
+    expect(invoiceListHref(filters)).toBe('/rechnungen?jahr=2026&status=cancelled&zahlung=unpaid&von=-450&bis=1200.50&seite=2')
+    expect(invoiceListHref({ ...EMPTY_INVOICE_FILTERS, minCents: 0 })).toBe('/rechnungen?von=0')
+  })
+
+  it('ignoriert ungültige Werte in der Adresse', () => {
+    expect(parseInvoiceFilters({ jahr: 'abc', status: 'x', zahlung: 'xyz', von: '1,5', bis: '1.234' })).toEqual(EMPTY_INVOICE_FILTERS)
+    expect(parseInvoiceFilters({ jahr: '1989' }).year).toBeNull()
+    expect(parseInvoiceFilters({ jahr: '2100' }).year).toBeNull()
+    // „von“ größer als „bis“: beide Grenzen fallen weg
+    expect(parseInvoiceFilters({ von: '500', bis: '100' })).toMatchObject({ minCents: null, maxCents: null })
+    expect(parseInvoiceFilters({ von: '100', bis: '100' })).toMatchObject({ minCents: 10000, maxCents: 10000 })
+  })
+
+  it('bietet Jahre von 7 zurück bis 5 voraus und prüft freie Eingaben', () => {
+    const years = invoiceYearOptions('2026-11-07')
+    expect(years[0]).toBe(2031)
+    expect(years.at(-1)).toBe(2019)
+    expect(years).toHaveLength(13)
+    expect(parseInvoiceYear(' 2012 ')).toBe(2012)
+    expect(parseInvoiceYear('20x6')).toBeNull()
+    expect(parseInvoiceYear('12')).toBeNull()
+    expect(parseInvoiceYear('1989')).toBeNull()
+  })
+
+  it('zählt gesetzte Filter (Betrag von/bis als einer)', () => {
+    expect(activeInvoiceFilterCount(EMPTY_INVOICE_FILTERS)).toBe(0)
+    expect(activeInvoiceFilterCount({ ...EMPTY_INVOICE_FILTERS, year: 2026, minCents: 0, maxCents: 100 })).toBe(2)
   })
 
   it('entfernt Steuerzeichen der Datenbank-Abfrage aus dem Suchbegriff', () => {

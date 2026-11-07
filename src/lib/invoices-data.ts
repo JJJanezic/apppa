@@ -1,5 +1,6 @@
 import 'server-only'
 
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { notFound } from 'next/navigation'
 import { getTranslations } from 'next-intl/server'
 import { cache } from 'react'
@@ -21,10 +22,11 @@ import {
   type InvoicePdfLinks,
   type InvoiceRow,
   invoiceSearchPattern,
+  type InvoiceTotals,
   isBilled,
 } from '@/lib/invoices'
 import type { Role } from '@/lib/navigation'
-import { getPaymentStates } from '@/lib/payments-data'
+import { getPaymentStates, isMissingRelation } from '@/lib/payments-data'
 import { createClient } from '@/lib/supabase/server'
 import { getTenantContext } from '@/lib/tenant'
 import { vatRateFromDb } from '@/lib/vat'
@@ -69,23 +71,13 @@ const toRow = (r: ListDbRow): InvoiceRow => ({
 })
 
 // Rechnungsliste: Datum absteigend, bei gleichem Datum Nummer absteigend (Entwürfe ohne Nummer zuerst); je 50; Suche
-// nach Nummer oder Empfänger
+// nach Nummer oder Empfänger; Filter Jahr, Status, Zahlung, Betrag (PROJ-43) samt Summen über alle Seiten.
+// Liest die Lesesicht „invoice_list“ (Rechnung + Zahlungsstand aus PROJ-45). Fehlt sie (Umgebung ohne Migration), liest die
+// Liste die Tabelle wie bisher: Jahr, Betrag, Entwurf und Gutschrift wirken, „storniert“ und Zahlung nicht, keine Summen.
 export async function getInvoicePage(filters: InvoiceFilters): Promise<InvoicePage> {
   const { tenantId } = await requireMember()
-  const supabase = await createClient()
-  const pattern = invoiceSearchPattern(filters.query)
-  const from = (filters.page - 1) * INVOICE_PAGE_SIZE
-
-  let request = supabase.from('invoices').select(LIST_COLUMNS, { count: 'exact' }).eq('tenant_id', tenantId)
-  // Werte in Anführungszeichen: Punkt, Komma, Klammern, Schrägstrich und Leerzeichen bleiben Teil des Suchbegriffs
-  if (pattern) request = request.or(`number.ilike."${pattern}",recipient.ilike."${pattern}"`)
-  const { data, count, error } = await request
-    .order('invoice_date', { ascending: false })
-    .order('number', { ascending: false })
-    .range(from, from + INVOICE_PAGE_SIZE - 1)
-  if (error) console.error('[rechnungen] Liste nicht lesbar', error.message)
-  const total = count ?? 0
-  const rows = ((data ?? []) as unknown as ListDbRow[]).map(toRow)
+  const fromView = await readInvoiceView(tenantId, filters)
+  const { rows, total, totals, ready } = fromView ?? (await readInvoiceTable(tenantId, filters))
   // Stornierte Rechnungen kennzeichnen (PROJ-44)
   const credits = await getCreditNotesFor(tenantId, rows.filter((r) => r.origin === 'issued' && r.kind !== 'credit_note').map((r) => r.id))
   // Zahlungsstand je Rechnung (PROJ-45)
@@ -95,7 +87,88 @@ export async function getInvoicePage(filters: InvoiceFilters): Promise<InvoicePa
     rows: rows.map((r) => ({ ...r, cancelledBy: credits.get(r.id) ?? null, payment: states.get(r.id) })),
     total,
     pageCount: Math.max(1, Math.ceil(total / INVOICE_PAGE_SIZE)),
+    totals,
+    ready,
   }
+}
+
+type ListResult = { rows: InvoiceRow[]; total: number; totals: InvoiceTotals | null; ready: boolean }
+
+// Jahr als Datumsbereich [1.1., 1.1. des Folgejahres)
+const yearRange = (year: number) => ({ from: `${year}-01-01`, to: `${year + 1}-01-01` })
+
+const VIEW_COLUMNS = 'id, number, invoice_date, recipient, total_cents, origin, kind, pdf_path, booking_id, booking_number'
+
+type ViewDbRow = Omit<ListDbRow, 'booking'> & { booking_id: string | null; booking_number: string | null }
+
+type TotalsDb = { total_cents: number | string | null; paid_cents: number | string | null; open_cents: number | string | null }
+
+// Lesesicht „invoice_list“ und Summen „invoice_list_totals“ (PROJ-43, Migration in /backend); null, wenn sie fehlen
+async function readInvoiceView(tenantId: string, filters: InvoiceFilters): Promise<ListResult | null> {
+  const supabase = (await createClient()) as unknown as SupabaseClient
+  const pattern = invoiceSearchPattern(filters.query)
+  const from = (filters.page - 1) * INVOICE_PAGE_SIZE
+  let request = supabase.from('invoice_list').select(VIEW_COLUMNS, { count: 'exact' }).eq('tenant_id', tenantId)
+  // Werte in Anführungszeichen: Punkt, Komma, Klammern, Schrägstrich und Leerzeichen bleiben Teil des Suchbegriffs
+  if (pattern) request = request.or(`number.ilike."${pattern}",recipient.ilike."${pattern}"`)
+  if (filters.year) request = request.gte('invoice_date', yearRange(filters.year).from).lt('invoice_date', yearRange(filters.year).to)
+  if (filters.minCents !== null) request = request.gte('total_cents', filters.minCents)
+  if (filters.maxCents !== null) request = request.lte('total_cents', filters.maxCents)
+  if (filters.status) request = request.eq('list_status', filters.status)
+  if (filters.payment === 'unpaid') request = request.in('payment_status', ['open', 'partial'])
+  else if (filters.payment === 'overdue') request = request.eq('overdue', true)
+  else if (filters.payment) request = request.eq('payment_status', filters.payment)
+
+  const [list, totals] = await Promise.all([
+    request
+      .order('invoice_date', { ascending: false })
+      .order('number', { ascending: false, nullsFirst: true })
+      .range(from, from + INVOICE_PAGE_SIZE - 1),
+    supabase.rpc('invoice_list_totals', {
+      p_tenant_id: tenantId,
+      p_pattern: pattern,
+      p_year: filters.year,
+      p_status: filters.status,
+      p_payment: filters.payment,
+      p_min_cents: filters.minCents,
+      p_max_cents: filters.maxCents,
+    }),
+  ])
+  if (list.error) {
+    if (!isMissingRelation(list.error)) console.error('[rechnungen] Liste nicht lesbar', list.error.message)
+    else return null
+  }
+  if (totals.error && !isMissingRelation(totals.error)) console.error('[rechnungen] Summen nicht lesbar', totals.error.message)
+  const t = (Array.isArray(totals.data) ? totals.data[0] : totals.data) as TotalsDb | null
+  return {
+    rows: ((list.data ?? []) as unknown as ViewDbRow[]).map((r) =>
+      toRow({ ...r, booking: r.booking_id ? { id: r.booking_id, number: r.booking_number } : null })
+    ),
+    total: list.count ?? 0,
+    totals: t ? { totalCents: Number(t.total_cents ?? 0), paidCents: Number(t.paid_cents ?? 0), openCents: Number(t.open_cents ?? 0) } : null,
+    ready: true,
+  }
+}
+
+// Rückfall ohne Lesesicht: Tabelle wie bisher, nur die Filter, die die Tabelle selbst kennt
+async function readInvoiceTable(tenantId: string, filters: InvoiceFilters): Promise<ListResult> {
+  const supabase = await createClient()
+  const pattern = invoiceSearchPattern(filters.query)
+  const from = (filters.page - 1) * INVOICE_PAGE_SIZE
+  let request = supabase.from('invoices').select(LIST_COLUMNS, { count: 'exact' }).eq('tenant_id', tenantId)
+  if (pattern) request = request.or(`number.ilike."${pattern}",recipient.ilike."${pattern}"`)
+  if (filters.year) request = request.gte('invoice_date', yearRange(filters.year).from).lt('invoice_date', yearRange(filters.year).to)
+  if (filters.minCents !== null) request = request.gte('total_cents', filters.minCents)
+  if (filters.maxCents !== null) request = request.lte('total_cents', filters.maxCents)
+  if (filters.status === 'credit_note') request = request.eq('kind', 'credit_note')
+  else if (filters.status === 'draft' || filters.status === 'backfilled') request = request.eq('origin', filters.status)
+  else if (filters.status === 'issued') request = request.eq('origin', 'issued').neq('kind', 'credit_note')
+  const { data, count, error } = await request
+    .order('invoice_date', { ascending: false })
+    .order('number', { ascending: false })
+    .range(from, from + INVOICE_PAGE_SIZE - 1)
+  if (error) console.error('[rechnungen] Liste nicht lesbar', error.message)
+  return { rows: ((data ?? []) as unknown as ListDbRow[]).map(toRow), total: count ?? 0, totals: null, ready: false }
 }
 
 // Hat der Kunde überhaupt Rechnungen? (Leerzustand statt „Keine Treffer“)

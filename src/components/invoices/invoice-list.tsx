@@ -83,11 +83,35 @@ export function InvoiceList({ page }: { page: InvoicePage }) {
         ))}
       </ul>
 
+      {/* Summen über alle Seiten der gefilterten Liste (PROJ-43); fehlen, solange die Datenbank sie nicht liefert */}
+      {page.totals && (
+        <dl aria-label={t('totals.label')} className="grid gap-x-6 gap-y-1 rounded-lg bg-ds-surface px-4 py-3 sm:grid-cols-3">
+          <div className="flex items-baseline justify-between gap-3 sm:flex-col sm:items-start">
+            <dt className="text-[13px] text-ds-neutral-800">{t('totals.total')}</dt>
+            <dd className="font-semibold">
+              <Amount cents={page.totals.totalCents} />
+            </dd>
+          </div>
+          <div className="flex items-baseline justify-between gap-3 sm:flex-col sm:items-start">
+            <dt className="text-[13px] text-ds-neutral-800">{t('totals.paid')}</dt>
+            <dd>
+              <Amount cents={page.totals.paidCents} />
+            </dd>
+          </div>
+          <div className="flex items-baseline justify-between gap-3 sm:flex-col sm:items-start">
+            <dt className="text-[13px] text-ds-neutral-800">{t('totals.open')}</dt>
+            <dd className="font-semibold">
+              <Amount cents={page.totals.openCents} />
+            </dd>
+          </div>
+        </dl>
+      )}
+
       {page.pageCount > 1 && (
         <ListPagination
           page={page.page}
           pageCount={page.pageCount}
-          href={(n) => invoiceListHref({ query: page.query, page: n })}
+          href={(n) => invoiceListHref({ ...page, page: n })}
           labels={{
             nav: t('list.pagination'),
             previous: t('list.previous'),

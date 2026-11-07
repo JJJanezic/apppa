@@ -13,12 +13,12 @@ import { Button } from '@/components/ui/button'
 import type { Invoice } from '@/lib/invoices'
 
 // „Rechnung nacherfassen“ im Kopf und im Leerzustand der Rechnungsliste (nur Inhaber, nur bei eingeschaltetem Schalter)
-export function NewInvoiceButton({ today }: { today: string }) {
+export function NewInvoiceButton({ today, variant = 'default' }: { today: string; variant?: 'default' | 'outline' }) {
   const t = useTranslations('invoices')
   const [open, setOpen] = useState(false)
   return (
     <>
-      <Button className="min-h-11" onClick={() => setOpen(true)}>
+      <Button variant={variant} className="min-h-11" onClick={() => setOpen(true)}>
         <Plus size={18} weight="bold" aria-hidden="true" />
         {t('create')}
       </Button>

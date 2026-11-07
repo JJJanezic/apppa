@@ -1,4 +1,4 @@
-import { ArrowSquareOut, CaretLeft, DownloadSimple } from '@phosphor-icons/react/ssr'
+import { ArrowSquareOut, DownloadSimple } from '@phosphor-icons/react/ssr'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { getTranslations } from 'next-intl/server'
@@ -6,6 +6,7 @@ import { getTranslations } from 'next-intl/server'
 import { Amount } from '@/components/amount'
 import { DraftDetail } from '@/components/invoice-drafts/draft-detail'
 import { InvoiceActions } from '@/components/invoices/invoice-buttons'
+import { BackToInvoiceList } from '@/components/invoices/invoice-list-return'
 import { InvoiceStatus } from '@/components/invoices/invoice-status'
 import { IssuedDetail } from '@/components/invoice-issue/issued-detail'
 import { CreditStatus } from '@/components/invoice-credit/credit-status'
@@ -51,10 +52,7 @@ export default async function InvoiceDetailPage({ params, searchParams }: { para
   if (invoice.issued) {
     return (
       <>
-        <Link href="/rechnungen" className="-mb-6 flex min-h-11 w-fit items-center gap-1.5 text-ds-accent-700 underline-offset-[3px] hover:underline">
-          <CaretLeft size={16} weight="bold" aria-hidden="true" />
-          {t('detail.back')}
-        </Link>
+        <BackToInvoiceList label={t('detail.back')} />
         <PageHeader eyebrow={t(invoice.kind === 'credit_note' ? 'detail.eyebrowCredit' : 'detail.eyebrow')} title={<span className="break-words">{invoice.number}</span>} />
         <div className="-mt-4 flex flex-col gap-4">
           <InvoiceStatus origin={invoice.origin} kind={invoice.kind ?? invoice.issued.snapshot.kind} hasPdf cancelled={invoice.cancelledBy !== null} />
@@ -70,10 +68,7 @@ export default async function InvoiceDetailPage({ params, searchParams }: { para
 
   return (
     <>
-      <Link href="/rechnungen" className="-mb-6 flex min-h-11 w-fit items-center gap-1.5 text-ds-accent-700 underline-offset-[3px] hover:underline">
-        <CaretLeft size={16} weight="bold" aria-hidden="true" />
-        {t('detail.back')}
-      </Link>
+      <BackToInvoiceList label={t('detail.back')} />
       <PageHeader eyebrow={t('detail.eyebrow')} title={<span className="break-words">{invoice.number}</span>} />
 
       <div className="-mt-4 flex flex-col gap-4">
@@ -192,10 +187,7 @@ async function DraftDetailPage({ id }: { id: string }) {
   const [view, { active }] = await Promise.all([getInvoiceDraftView(id), getTenantContext()])
   return (
     <>
-      <Link href="/rechnungen" className="-mb-6 flex min-h-11 w-fit items-center gap-1.5 text-ds-accent-700 underline-offset-[3px] hover:underline">
-        <CaretLeft size={16} weight="bold" aria-hidden="true" />
-        {t('detail.back')}
-      </Link>
+      <BackToInvoiceList label={t('detail.back')} />
       <PageHeader eyebrow={t('detail.eyebrow')} title={t(`detail.title.${view.draft.kind}`)} />
       <DraftDetail view={view} owner={active?.role === 'owner'} />
     </>

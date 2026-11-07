@@ -1601,7 +1601,8 @@
       "previous": "Zurück",
       "next": "Weiter",
       "pageOf": "Seite {page} von {pageCount}",
-      "noNumber": "–"
+      "noNumber": "–",
+      "noResultsFilter": "Keine Rechnung passt zu Suche und Filtern."
     },
     "form": {
       "createTitle": "Rechnung nacherfassen",
@@ -1650,7 +1651,8 @@
       "replaceConfirm": "Ersetzen",
       "replaceKeep": "Behalten",
       "smallBusiness": "Ohne Umsatzsteuer (Kleinunternehmer)",
-      "smallBusinessHint": "So wie auf der vorhandenen Rechnung. Vorgeschlagen nach dem Kleinunternehmer-Status am Rechnungsdatum."
+      "smallBusinessHint": "So wie auf der vorhandenen Rechnung. Vorgeschlagen nach dem Kleinunternehmer-Status am Rechnungsdatum.",
+      "bookingFailed": "Die Suche hat nicht geklappt. Bitte versuch es noch einmal."
     },
     "pdf": {
       "choose": "PDF wählen",
@@ -1671,7 +1673,7 @@
     },
     "detail": {
       "metaTitle": "Rechnung {number}",
-      "back": "Alle Rechnungen",
+      "back": "Zurück zur Liste",
       "eyebrow": "Rechnung",
       "edit": "Bearbeiten",
       "delete": "Löschen",
@@ -1782,6 +1784,59 @@
       "partial": "Teilrechnung",
       "final": "Schlussrechnung",
       "credit_note": "Gutschrift"
+    },
+    "emptyTextOwnerCreate": "Erstelle deine erste Rechnung aus einer Buchung. Sie erscheint dann hier mit Status und Zahlungsstand.",
+    "filter": {
+      "toggle": "Filter",
+      "toggleCount": "Filter ({count})",
+      "year": "Jahr",
+      "allYears": "Alle Jahre",
+      "otherYear": "Anderes Jahr …",
+      "otherYearLabel": "Jahr eingeben",
+      "otherYearPlaceholder": "JJJJ",
+      "show": "Anzeigen",
+      "yearInvalid": "Bitte ein vierstelliges Jahr zwischen 1990 und 2099 eingeben.",
+      "status": "Status",
+      "statusValue": {
+        "draft": "Entwurf",
+        "issued": "ausgestellt",
+        "backfilled": "nacherfasst",
+        "cancelled": "storniert",
+        "credit_note": "Gutschrift"
+      },
+      "payment": "Zahlung",
+      "paymentValue": {
+        "unpaid": "noch nicht bezahlt",
+        "open": "offen",
+        "partial": "teilweise",
+        "paid": "bezahlt",
+        "overpaid": "überzahlt",
+        "overdue": "überfällig"
+      },
+      "all": "Alle",
+      "amount": "Betrag",
+      "amountFrom": "Betrag von",
+      "amountTo": "Betrag bis",
+      "apply": "Anwenden",
+      "amountError": {
+        "min": "„Betrag von“ ist kein gültiger Betrag, z. B. 1.200,50.",
+        "max": "„Betrag bis“ ist kein gültiger Betrag, z. B. 1.200,50.",
+        "order": "„Von“ darf nicht größer als „Bis“ sein."
+      },
+      "reset": "Filter zurücksetzen",
+      "notReady": "Die Filter „storniert“, „ausgestellt“, „nacherfasst“ und „Zahlung“ wirken erst nach dem nächsten Update. Bis dahin ist die Liste ungenau."
+    },
+    "totals": {
+      "label": "Summen der gefilterten Rechnungen",
+      "total": "Rechnungsbetrag",
+      "paid": "Bezahlt",
+      "open": "Offen"
+    },
+    "createDraft": {
+      "button": "Rechnung erstellen",
+      "title": "Rechnung erstellen",
+      "text": "Wähle die Buchung, aus der die Rechnung entstehen soll. Danach öffnet sich der Rechnungsentwurf.",
+      "searchLabel": "Buchung suchen"
     }
   },
   "invoiceSettings": {
@@ -2264,7 +2319,7 @@
     },
     "detail": {
       "metaTitle": "Rechnungsentwurf",
-      "back": "Alle Rechnungen",
+      "back": "Zurück zur Liste",
       "eyebrow": "Rechnungsentwurf",
       "title": {
         "invoice": "Rechnung (Entwurf)",

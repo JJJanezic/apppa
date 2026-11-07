@@ -2,7 +2,7 @@
 // für Browser und Server, ohne Datenbankzugriff.
 
 import { addDays, isIsoDate, LIMITS as BOOKING_LIMITS, todayIso } from '@/lib/bookings'
-import type { InvoiceDocKind, InvoiceKind } from '@/lib/invoice-drafts'
+import type { InvoiceButtonState, InvoiceDocKind, InvoiceKind } from '@/lib/invoice-drafts'
 import type { IssuedSnapshot } from '@/lib/invoice-issue'
 import type { PaymentState } from '@/lib/payments'
 import { vatBreakdown, type VatShare } from '@/lib/vat'
@@ -86,9 +86,83 @@ export type InvoiceRow = {
   payment?: PaymentState
 }
 
-export type InvoiceFilters = { query: string; page: number }
+export type InvoiceButtonBlockReason = Extract<InvoiceButtonState, { enabled: false }>['reason']
 
-export type InvoicePage = InvoiceFilters & { rows: InvoiceRow[]; total: number; pageCount: number }
+// ---- Filter der Rechnungsliste (PROJ-43) ----------------------------------------------------------
+
+// Status: Herkunft bzw. Art; „ausgestellt“ und „nacherfasst“ ohne stornierte, „storniert“ ohne die Gutschriften
+export const INVOICE_STATUS_FILTERS = ['draft', 'issued', 'backfilled', 'cancelled', 'credit_note'] as const
+export type InvoiceStatusFilter = (typeof INVOICE_STATUS_FILTERS)[number]
+
+// Zahlung (PROJ-45): „unpaid“ = offen und teilweise; „overdue“ = überfällig (offen oder teilweise)
+export const INVOICE_PAYMENT_FILTERS = ['unpaid', 'open', 'partial', 'paid', 'overpaid', 'overdue'] as const
+export type InvoicePaymentFilter = (typeof INVOICE_PAYMENT_FILTERS)[number]
+
+// Freie Jahreseingabe: vierstellig, 1990 bis 2099; Auswahl: 7 Jahre zurück bis 5 voraus
+export const INVOICE_YEAR_MIN = 1990
+export const INVOICE_YEAR_MAX = 2099
+const YEARS_BACK = 7
+const YEARS_AHEAD = 5
+
+export type InvoiceFilters = {
+  query: string
+  page: number
+  year: number | null
+  status: InvoiceStatusFilter | null
+  payment: InvoicePaymentFilter | null
+  // Rechnungsbetrag brutto in Cent, Grenzen inklusive; null = ohne Grenze
+  minCents: number | null
+  maxCents: number | null
+}
+
+export const EMPTY_INVOICE_FILTERS: InvoiceFilters = { query: '', page: 1, year: null, status: null, payment: null, minCents: null, maxCents: null }
+
+// Summen über alle Seiten der gefilterten Liste (Entwürfe ohne; „Offen“ nur positive offene Beträge zahlbarer Rechnungen)
+export type InvoiceTotals = { totalCents: number; paidCents: number; openCents: number }
+
+export type InvoicePage = InvoiceFilters & {
+  rows: InvoiceRow[]
+  total: number
+  pageCount: number
+  // null, solange die Datenbank die Summen noch nicht liefert (Umgebung ohne Migration)
+  totals: InvoiceTotals | null
+  // false: Status „storniert“/„ausgestellt“/„nacherfasst“ und der Zahlungsfilter wirken erst mit der Migration
+  ready: boolean
+}
+
+// Auswahl im Jahresfilter: aktuelles Jahr + 5 bis aktuelles Jahr − 7, absteigend
+export function invoiceYearOptions(today: string = todayIso()): number[] {
+  const current = Number(today.slice(0, 4))
+  return Array.from({ length: YEARS_BACK + YEARS_AHEAD + 1 }, (_, i) => current + YEARS_AHEAD - i)
+}
+
+// Frei eingegebenes Jahr: vierstellig und in den Grenzen, sonst null
+export function parseInvoiceYear(input: string): number | null {
+  const value = input.trim()
+  if (!/^\d{4}$/.test(value)) return null
+  const year = Number(value)
+  return year >= INVOICE_YEAR_MIN && year <= INVOICE_YEAR_MAX ? year : null
+}
+
+// Beträge in der Adresse: Euro mit Punkt und höchstens zwei Nachkommastellen, auch negativ („-450“, „1200.5“)
+const URL_AMOUNT = /^-?\d{1,7}(\.\d{1,2})?$/
+function amountFromUrl(value: string): number | null {
+  if (!URL_AMOUNT.test(value)) return null
+  const cents = Math.round(Number(value) * 100)
+  return cents === 0 ? 0 : cents
+}
+function amountToUrl(cents: number): string {
+  const sign = cents < 0 ? '-' : ''
+  const abs = Math.abs(cents)
+  const euros = Math.floor(abs / 100)
+  const rest = abs % 100
+  return `${sign}${euros}${rest ? `.${String(rest).padStart(2, '0')}` : ''}`
+}
+
+// Sind Filter oder Suche gesetzt? („Filter zurücksetzen“, Anzahl am Handy ohne Suche)
+export function activeInvoiceFilterCount(f: Pick<InvoiceFilters, 'year' | 'status' | 'payment' | 'minCents' | 'maxCents'>): number {
+  return [f.year, f.status, f.payment].filter((v) => v !== null).length + (f.minCents !== null || f.maxCents !== null ? 1 : 0)
+}
 
 export type InvoiceGuest = {
   id: string
@@ -162,6 +236,9 @@ export type BookingAmountsForInvoice = {
 // Treffer der Buchungsauswahl im Formular samt Daten zum Vorbelegen
 export type InvoiceBookingOption = InvoiceBookingRef
 
+// Treffer der Suche „Rechnung erstellen“ (PROJ-43): wählbar, wenn der Knopf „Rechnung“ der Buchung aktiv wäre
+export type DraftBookingOption = InvoiceBookingOption & { blocked: InvoiceButtonBlockReason | null }
+
 export type InvoiceBookingDetails = {
   guest: InvoiceGuest | null
   amounts: BookingAmountsForInvoice | null
@@ -170,6 +247,9 @@ export type InvoiceBookingDetails = {
 }
 
 export const invoiceHref = (id: string) => `/rechnungen/${id}`
+
+// Entwurf aus der Rechnungsliste (PROJ-43): „Abbrechen“ und der Rückweg führen zur Liste statt zur Buchung
+export const newDraftFromListHref = (bookingId: string) => `/rechnungen/neu?buchung=${encodeURIComponent(bookingId)}&von=liste`
 // Seite „Gutschrift ausstellen“ zu einer Rechnung (PROJ-44)
 export const creditNoteHref = (invoiceId: string) => `/rechnungen/${invoiceId}/gutschrift`
 
@@ -220,17 +300,34 @@ export function checkPdfFile(file: { name: string; type: string; size: number })
 }
 
 // Suchbegriff und Seite stehen in der Adresse (?q=…&seite=2)
+// Filter aus der Adresse; ungültige Werte fallen weg (alte oder von Hand geänderte Links führen nicht zu Fehlern).
+// „von“ größer als „bis“ verwirft beide Betragsgrenzen.
 export function parseInvoiceFilters(params: Record<string, string | string[] | undefined>): InvoiceFilters {
   const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? ''
+  const status = first(params.status)
+  const payment = first(params.zahlung)
+  let minCents = amountFromUrl(first(params.von))
+  let maxCents = amountFromUrl(first(params.bis))
+  if (minCents !== null && maxCents !== null && minCents > maxCents) minCents = maxCents = null
   return {
     query: first(params.q).trim().slice(0, 100),
     page: Math.max(1, Math.floor(Number(first(params.seite)) || 1)),
+    year: parseInvoiceYear(first(params.jahr)),
+    status: (INVOICE_STATUS_FILTERS as readonly string[]).includes(status) ? (status as InvoiceStatusFilter) : null,
+    payment: (INVOICE_PAYMENT_FILTERS as readonly string[]).includes(payment) ? (payment as InvoicePaymentFilter) : null,
+    minCents,
+    maxCents,
   }
 }
 
 export function invoiceListHref(filters: Partial<InvoiceFilters>): string {
   const params = new URLSearchParams()
   if (filters.query) params.set('q', filters.query)
+  if (filters.year) params.set('jahr', String(filters.year))
+  if (filters.status) params.set('status', filters.status)
+  if (filters.payment) params.set('zahlung', filters.payment)
+  if (filters.minCents !== null && filters.minCents !== undefined) params.set('von', amountToUrl(filters.minCents))
+  if (filters.maxCents !== null && filters.maxCents !== undefined) params.set('bis', amountToUrl(filters.maxCents))
   if (filters.page && filters.page > 1) params.set('seite', String(filters.page))
   const search = params.toString()
   return search ? `/rechnungen?${search}` : '/rechnungen'

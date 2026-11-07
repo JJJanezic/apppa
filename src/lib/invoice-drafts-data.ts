@@ -6,6 +6,7 @@ import { cache } from 'react'
 
 import { apartmentLabel } from '@/lib/apartments'
 import {
+  billableCents,
   bookingDraftLines,
   bookingFingerprint,
   type BookingInvoiceSummary,
@@ -17,7 +18,10 @@ import {
   type DraftText,
   GUEST_NAME_MODES,
   type GuestNameMode,
+  type InvoiceButtonState,
+  invoiceButtonState,
   type InvoiceDraft,
+  invoiceSums,
   lineSourceFromDb,
   type PartialMode,
   type RecipientKind,
@@ -172,6 +176,21 @@ export const getDraftBooking = cache(async (bookingId: string): Promise<DraftBoo
           : null,
   }
 })
+
+// Regel des Knopfs „Rechnung“ (PROJ-40) für eine Buchung, z. B. für die Buchungssuche der Rechnungsliste (PROJ-43).
+// null, wenn die Buchung fremd, unbekannt oder eine Sperre ist bzw. die Positionen nicht lesbar sind (nur Inhaber).
+export async function getInvoiceButtonState(bookingId: string): Promise<InvoiceButtonState | null> {
+  const [booking, others] = await Promise.all([getDraftBooking(bookingId), getBookingInvoiceSummaries(bookingId)])
+  if (!booking || booking.kind === 'block' || !booking.lines) return null
+  const { billedCents, draftCents } = invoiceSums(others)
+  return invoiceButtonState({
+    cancelled: booking.cancelledAt !== null,
+    hasFee: booking.lines.some((l) => l.source === 'cancellation_fee'),
+    billableCents: billableCents(booking.lines),
+    billedCents,
+    draftCents,
+  })
+}
 
 // Fingerabdruck der aktuellen Buchung (nur mit Positionen, also für Inhaber)
 export const currentFingerprint = (b: DraftBooking): string | null =>

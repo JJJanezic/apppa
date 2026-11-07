@@ -1,6 +1,6 @@
 # PROJ-43: Rechnungsübersicht ausbauen
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-11-07
 **Last Updated:** 2026-11-07
 
@@ -270,6 +270,36 @@ Keine neuen Pakete.
 
 - **/frontend:** Filterleiste samt Handy-Ansicht, Prüfung der Eingaben (Jahr, Betrag, von > bis), Lesen und Schreiben der Adresse, „Filter zurücksetzen“, Summenzeile, Leer- und Trefferzustände, Dialog „Rechnung erstellen“ mit Wählbarkeit und Begründung, Rückweg auf Detail und Unterseiten, „Abbrechen“ im Entwurfsformular aus der Liste, Texte in der Übersetzungsdatei. Bis zur Migration liest die Liste wie bisher (Filter ohne Wirkung auf Status/Zahlung, keine Summen).
 - **/backend:** Lesesicht „Rechnungsliste“, Summenabfrage, Wählbarkeit in der Buchungssuche, Integrationstests (jede Filterregel, Summen inkl. Storno/Gutschrift/Überzahlung, fremder Kunde, Mitarbeiter), Messung mit 5.000 Rechnungen.
+
+### Umsetzung Frontend (2026-11-07)
+
+**Gebaut:**
+- Filterleiste `src/components/invoices/invoice-filters.tsx`: Jahr (Auswahl „Alle Jahre“, 7 zurück bis 5 voraus, „Anderes Jahr …“ mit Eingabe und Hinweis; frei eingegebenes Jahr bleibt in der Auswahl sichtbar), Status, Zahlung, Betrag von/bis mit „Anwenden“ und Hinweisen (ungültiger Betrag, „von“ > „bis“); „Filter zurücksetzen“, sobald Filter oder Suche gesetzt sind; am Handy aufklappbar „Filter (n)“, ab 768 px immer offen.
+- Regeln in `src/lib/invoices.ts`: Filter in der Adresse (`jahr`, `status`, `zahlung`, `von`, `bis` neben `q`, `seite`; Beträge als Euro mit Punkt, z. B. `von=-450&bis=1200.50`), ungültige Werte und „von“ > „bis“ fallen weg; Jahresauswahl, Prüfung der freien Jahreseingabe (1990–2099), Anzahl gesetzter Filter; Tests in `invoices.test.ts`.
+- Suche und Blättern behalten die Filter; die Anzahl zeigt bei Suche oder Filtern „n Treffer“; Leerzustand „Keine Rechnungen gefunden“ mit „Filter zurücksetzen“.
+- Summenzeile (Rechnungsbetrag, Bezahlt, Offen) unter der Liste, sobald die Datenbank Summen liefert.
+- Rückweg `src/components/invoices/invoice-list-return.tsx`: Die Liste merkt sich ihre Adresse im Speicher des Browser-Tabs; „Zurück zur Liste“ (vorher „Alle Rechnungen“) auf Rechnungs- und Entwurfsdetail führt dorthin, sonst zu `/rechnungen`.
+- „Rechnung erstellen“ (`create-invoice-button.tsx`, nur Inhaber, auch im Leerzustand) neben „Rechnung nacherfassen“ (jetzt als Umriss-Knopf); Dialog mit der Buchungssuche (`BookingPicker` mit `mode="draft"`): Treffer, deren Knopf „Rechnung“ inaktiv wäre, sind nicht wählbar und zeigen die Begründung; Fehlermeldung, wenn die Suche scheitert.
+- Server-Aktion `searchDraftBookings` (gleiche Suche wie beim Nacherfassen, je Treffer die Regel des Knopfs über `getInvoiceButtonState` in `invoice-drafts-data.ts`).
+- Entwurf aus der Liste: `/rechnungen/neu?buchung=…&von=liste`; Rückweg „Zurück zur Liste“ und „Abbrechen“ führen zur zuletzt gefilterten Liste (`DraftForm` mit `fromList`).
+- Ohne Lesesicht (vor der Migration) liest die Liste die Tabelle: Jahr, Betrag, „Entwurf“, „Gutschrift“, „nacherfasst“ und „ausgestellt“ (ohne Storno-Ausschluss) wirken; bei Status- bzw. Zahlungsfilter erscheint ein Hinweis, Summen fehlen.
+
+**Tests:** `tests/PROJ-43-rechnungsuebersicht-ausbauen.spec.ts` (Filter, freie Jahreseingabe, Adresse, Zurücksetzen, Mitarbeiter, Handy mit Barrierefreiheit, Rückweg, Rechnung erstellen mit Begründung und Abbrechen) grün; Regression PROJ-37 (Liste, Schalter, Mitarbeiter, Handy-Layout) und PROJ-40 (Knopf, Abbrechen) grün; Unit-Tests `src/lib` 730 grün; Build und Lint sauber.
+
+### Offen für /backend
+
+**Lesesicht `public.invoice_list`** (security invoker, Abschottung wie `invoices`), eine Zeile je Rechnung inkl. Entwürfe:
+- Spalten wie die Liste sie liest: `id, tenant_id, number, invoice_date, recipient, total_cents, origin, kind, pdf_path, booking_id, booking_number`
+- `list_status`: `draft` | `issued` | `backfilled` | `cancelled` | `credit_note` (ausgestellt/nacherfasst nur ohne Gutschrift; `cancelled` = es gibt eine Gutschrift dazu; `credit_note` = Art Gutschrift)
+- `payment_status` (offen/teilweise/bezahlt/überzahlt aus `invoice_payment_status`, sonst null) und `overdue` (boolean, false ohne Zahlungsstand)
+- Sortierung der App: `invoice_date desc, number desc nulls first`
+
+**Funktion `public.invoice_list_totals(p_tenant_id uuid, p_pattern text, p_year integer, p_status text, p_payment text, p_min_cents bigint, p_max_cents bigint)`** → eine Zeile `total_cents, paid_cents, open_cents`:
+- gleiche Filter wie die Liste; `p_pattern` ist das fertige ILIKE-Muster aus `invoiceSearchPattern` (oder null) gegen Nummer und Empfänger; `p_payment = 'unpaid'` = offen + teilweise, `'overdue'` = überfällig
+- `total_cents`: Summe ohne Entwürfe; `paid_cents`: Beglichen (`settled_cents`), bei Gutschriften minus `refunded_cents`; `open_cents`: Summe der positiven `open_cents` zahlbarer Rechnungen
+- Rechte: nur Mitglieder des Kunden (wie die Lesesicht)
+
+Messung mit 5.000 Rechnungen (Ziel < 1 s); die Buchungssuche ruft je Treffer (höchstens 20) Buchung und Rechnungen einzeln ab. Falls zu langsam, in /backend bündeln.
 
 ## QA Test Results
 _To be added by /qa_
