@@ -693,7 +693,7 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
                         autoComplete="off"
                         autoCapitalize="none"
                         spellCheck={false}
-                        className="min-h-11 tabular-nums"
+                        className="min-h-11"
                         {...field}
                         onBlur={() => {
                           const clean = normalizePlatformNumber(field.value)
@@ -702,7 +702,6 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
                         }}
                       />
                     </FormControl>
-                    <FormDescription>{t('panel.platformNumberHint')}</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -805,19 +804,6 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
                 )}
               </div>
             )}
-            {/* Ortstaxe (PROJ-15): gilt nur für diese Buchung, für Inhaber und Mitarbeiter */}
-            <FormField
-              control={form.control}
-              name="mainGuestTaxExempt"
-              render={({ field }) => (
-                <FormItem className="flex min-h-11 items-center gap-3">
-                  <FormControl>
-                    <Checkbox checked={field.value} onCheckedChange={(v) => field.onChange(v === true)} className="size-5" />
-                  </FormControl>
-                  <FormLabel className="font-normal">{t('panel.mainGuestTaxExempt')}</FormLabel>
-                </FormItem>
-              )}
-            />
           </fieldset>
 
           <fieldset className="flex flex-col gap-4">
@@ -867,18 +853,16 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
 
           <fieldset className="flex flex-col gap-4">
             <legend className="mb-2 text-sm font-semibold">{t('panel.registration')}</legend>
+            {/* Ortstaxe (PROJ-15): gilt nur für diese Buchung, für Inhaber und Mitarbeiter */}
             <FormField
               control={form.control}
-              name="guestSheetNumber"
+              name="mainGuestTaxExempt"
               render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t('panel.guestSheetNumber')}</FormLabel>
+                <FormItem className="flex items-start gap-3">
                   <FormControl>
-                    {/* Ohne maxLength: zu lange Nummern meldet die Prüfung (Spec) */}
-                    <Input autoComplete="off" className="min-h-11 w-56" {...field} />
+                    <Checkbox checked={field.value} onCheckedChange={(v) => field.onChange(v === true)} className="mt-0.5 size-5" />
                   </FormControl>
-                  <FormDescription>{t('panel.guestSheetNumberHint')}</FormDescription>
-                  <FormMessage />
+                  <FormLabel className="font-normal">{t('panel.mainGuestTaxExempt')}</FormLabel>
                 </FormItem>
               )}
             />
@@ -894,6 +878,21 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
                     <FormLabel className="font-normal">{t('panel.residenceRegistered')}</FormLabel>
                     <FormDescription>{t('panel.residenceRegisteredHint')}</FormDescription>
                   </div>
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="guestSheetNumber"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('panel.guestSheetNumber')}</FormLabel>
+                  <FormControl>
+                    {/* Ohne maxLength: zu lange Nummern meldet die Prüfung (Spec) */}
+                    <Input autoComplete="off" className="min-h-11 w-56" {...field} />
+                  </FormControl>
+                  <FormDescription>{t('panel.guestSheetNumberHint')}</FormDescription>
+                  <FormMessage />
                 </FormItem>
               )}
             />

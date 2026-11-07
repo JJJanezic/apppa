@@ -1276,11 +1276,10 @@
       "source": "Buchungsquelle",
       "sourceCustom": "Eigene Quelle",
       "platformNumber": {
-        "booking_com": "booking.com-Buchungsnummer (optional)",
-        "airbnb": "Airbnb-Bestätigungscode (optional)"
+        "booking_com": "booking.com Buchungs-ID",
+        "airbnb": "Airbnb-Bestätigungscode"
       },
-      "platformNumberHint": "Leerzeichen werden beim Speichern entfernt.",
-      "registration": "Meldung",
+      "registration": "Meldung und Ortstaxe",
       "guestSheetNumber": "Gästeblattnummer (optional)",
       "guestSheetNumberHint": "Kann jederzeit nachgetragen werden, z. B. beim Check-in.",
       "residenceRegistered": "Wohnsitz angemeldet",

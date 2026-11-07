@@ -149,8 +149,8 @@ async function chooseSource(page: Page, name: string) {
   await page.getByRole('option', { name, exact: true }).click()
 }
 
-const bookingField = (page: Page) => panel(page).getByLabel('booking.com-Buchungsnummer (optional)')
-const airbnbField = (page: Page) => panel(page).getByLabel('Airbnb-Bestätigungscode (optional)')
+const bookingField = (page: Page) => panel(page).getByLabel('booking.com Buchungs-ID')
+const airbnbField = (page: Page) => panel(page).getByLabel('Airbnb-Bestätigungscode', { exact: true })
 const savedId = (page: Page) => page.url().split('/').pop()!
 
 test.beforeEach(() => {

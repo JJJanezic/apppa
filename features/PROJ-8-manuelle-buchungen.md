@@ -4,7 +4,7 @@
 **Created:** 2026-10-26
 **Last Updated:** 2026-11-07
 
-> Grundumfang in Produktion. Seit v1.24.0 (refine 2026-11-05): Bezeichnung „Endreinigung“ statt „Reinigung“ samt Umstellung bestehender Buchungen (Abschnitt „Endreinigung“).
+> Grundumfang in Produktion. In Arbeit (refine 2026-11-07): Buchungsformular – Plattform-Nummer und Abschnitt „Meldung und Ortstaxe“ (Abschnitt O). Seit v1.24.0 (refine 2026-11-05): Bezeichnung „Endreinigung“ statt „Reinigung“ samt Umstellung bestehender Buchungen (Abschnitt „Endreinigung“).
 
 ## Dependencies
 - Requires: PROJ-1 (Supabase Infrastructure Setup): Mandanten-Abschottung, Änderungsprotokoll
@@ -584,6 +584,12 @@ Keine neuen Tabellen oder Spalten, keine Änderung der Zugriffsregeln. Ausgestel
 
 **Pakete:** keine neuen.
 
+### O) Buchungsformular: Plattform-Nummer und Abschnitt „Meldung und Ortstaxe“ (refine 2026-11-07)
+
+- **Plattform-Nummer:** Eingabefeld in der normalen Schrift des Formulars (ohne Sonderzahlen-Darstellung), wie im Buchungsdetail. Bezeichnung „booking.com Buchungs-ID“ statt „booking.com-Buchungsnummer (optional)“, damit das Feld neben „Buchungsquelle“ auf gleicher Höhe steht; ebenso „Airbnb-Bestätigungscode“ ohne „(optional)“. Der Hinweis „Leerzeichen werden beim Speichern entfernt.“ entfällt; die Leerzeichen werden weiterhin entfernt (PROJ-47).
+- **Abschnitt „Meldung und Ortstaxe“** (bisher „Meldung“), nach „Personen“: „Hauptgast von der Ortstaxe befreit“ (bisher im Abschnitt „Hauptgast“), „Wohnsitz angemeldet“, „Gästeblattnummer (optional)“ – in dieser Reihenfolge. Verhalten aller drei Felder unverändert.
+- Keine Datenbankänderung.
+
 ## Implementation Notes (Frontend)
 **Stand 2026-10-26.** Die Oberfläche ist fertig. Schreibende Aktionen prüfen Rolle und Eingaben und melden bis zum Backend „Diese Funktion wird gerade eingerichtet“. In der Entwicklung (`npm run dev`) zeigen Liste und Detail sieben Beispieleinträge auf den echten Wohnungen und Gästen des Kunden (Buchung mit Kind und Mitreisendem, Option, verfallene Option, Sperre mit Überschneidung, stornierte und vergangene Buchung); im Build bzw. in Staging und Production ist die Liste leer.
 
@@ -626,6 +632,8 @@ Keine neuen Tabellen oder Spalten, keine Änderung der Zugriffsregeln. Ausgestel
 **Refine 2026-11-07 (Buchungsübersicht):** `booking-list.tsx` mit erster Spalte „Nr.“ (Link zur Buchung, darunter Gästeblatt-/Plattform-Nummer), Name als Link zur Gastseite (`guestHref`; neues Feld `guestId` in `BookingRow`), Sperren über den Text; Prop `guestLinks={false}` auf der Gastseite; Handy-Karte mit Nummer oben. Häkchen „Über alle Monate“ (shadcn `Checkbox`) in `booking-filters.tsx`; Adresse `alle=1` (`allMonths` in `BookingFilters`, nur zusammen mit Filter: `hasNarrowingFilter`, `pagedBookingList` in `src/lib/bookings.ts`). `getBookingList`: Feld `invoiceFilter` → `paged` (Rechnungsfilter oder Häkchen), seitenweise je 50, Anreise absteigend, auch mit Suche. Keine Datenbankänderung. Tests: Unit +1 (778/778); E2E neu „Über alle Monate“, Safari-Zeilenklick-Test auf Nummer/Gastlink umgestellt; angepasst wegen der neuen Spalte: PROJ-30 (Namen-Spalte, Gästeblattnummer), PROJ-31 (Zeitraum-Zelle, Safari-Test), PROJ-37 (Spalte „Rechnungen“), PROJ-47 (Links und Plattform-Nummer).
 
 **Refine 2026-11-07 (Buchungsdetail: Zahlungen):** `booking-detail.tsx`: Plattform-Nummer ohne `font-mono`. `booking-invoices.tsx` gibt jetzt drei Abschnitte (Fragment) zurück: „Rechnungen“ (nur Liste), „Zahlungen“ (neu, `getBookingPayments` in `payments-data.ts` über die Lesesicht `payment_list` mit `booking_id`, RLS über `security_invoker`), Zusammenfassung als Bereich „Zusammenfassung“ (`aria-label`). Keine Datenbankänderung. Tests angepasst: PROJ-37 und PROJ-40 lesen Verrechnet/Gesamtpreis/In Entwürfen aus der Zusammenfassung; PROJ-45 (Buchungsdetail) prüft Reihenfolge, Hinweis, Knopf im Abschnitt „Zahlungen“, Eintrag mit Abzügen und Rechnungslink.
+
+**Refine 2026-11-07 (Buchungsformular):** `booking-panel.tsx`: Plattform-Nummer ohne `tabular-nums` und ohne `FormDescription`; Häkchen „Hauptgast von der Ortstaxe befreit“ in den Abschnitt `panel.registration` verschoben (vor „Wohnsitz angemeldet“, Gästeblattnummer zuletzt), gleiche Ausrichtung wie „Wohnsitz angemeldet“. `messages/de.json`: `panel.platformNumber` „booking.com Buchungs-ID“ / „Airbnb-Bestätigungscode“, `panel.platformNumberHint` entfernt, `panel.registration` „Meldung und Ortstaxe“. Test PROJ-47 auf die neuen Bezeichnungen umgestellt.
 
 ## Implementation Notes (Backend)
 **Stand 2026-10-26.** Migration `supabase/migrations/20261026130000_bookings.sql`, eingespielt nur in „apppa-dev“; `npm run db:types` erzeugt; `db advisors` ohne Befund.
