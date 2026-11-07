@@ -470,6 +470,22 @@ Keine neuen Pakete.
 - `dashboard_open_invoices(p_tenant_ids uuid[])` → `invoice_id`, `tenant_id`, `number`, `recipient`, `invoice_date`, `apartment_name`, `property_name`, `open_cents`, `overdue`, `next_due`; Status offen/teilweise, ohne stornierte und Gutschriften
 - `tourist_tax_monthly(p_tenant_ids uuid[], p_from date, p_to date)` → `tenant_id`, `municipality_id`, `municipality_name`, `month` (Monatserster), `amount_cents`; nur Inhaber-Kunden
 
+### Umsetzung Backend (2026-11-07)
+
+**Migration `20261107151812_dashboard.sql`** (Dev eingespielt, Typen neu erzeugt; Advisors: nur der bekannte Hinweis `auth_otp_long_expiry`). Nichts Neues gespeichert, nur Lesefunktionen und zwei Indizes. Muster wie PROJ-43: Kern in `private` (security definer, prüft Mitgliedschaft bzw. Inhaber-Rolle je Kunde einmal), `public` nur Hülle mit den Rechten der Person. Nicht erlaubte Kunden in der Liste werden still übergangen; ohne Anmeldung nicht aufrufbar.
+- `private.billing_state(Buchung, Kunde)`: einzige Abrechnungsregel. `billed` = nicht stornierte, ausgestellte Rechnung der Art „Rechnung“/„Schlussrechnung“ oder nacherfasste Rechnung; `final_missing` = nur nicht stornierte Teilrechnungen; sonst `missing` (Entwürfe zählen nicht)
+- `dashboard_billing_states(Buchungen)`: für alle Mitglieder, höchstens 500 Buchungen je Aufruf
+- `dashboard_unbilled(Kunden, heute, Anzahl)`: nur Inhaber-Kunden; Buchungen mit Abreise bis heute bzw. stornierte mit Stornogebühr > 0 und Stornodatum (Wien) bis heute; älteste zuerst, `total_count` = alle Treffer; höchstens 100 Zeilen
+- `dashboard_open_invoices(Kunden)`: alle Mitglieder; nutzt `private.invoice_list_rows` (gleiche Zahlungsregel wie Rechnungsliste); `next_due` = Anzahlungsfrist, solange die Anzahlung nicht beglichen ist, sonst Restfälligkeit; nacherfasste ohne Fälligkeit; höchstens 1.000 Zeilen
+- `tourist_tax_monthly(Kunden, von, bis)`: nur Inhaber-Kunden; Positionen mit Ortstaxe-Kennzeichen in nicht stornierten Buchungen; Verteilung je Nacht über aufgelaufene, gerundete Beträge (Summe centgenau, Rest im letzten Monat), ohne Nächte im Anreisemonat; Gemeinde = aktuelle Gemeinde des Objekts. **Für PROJ-16 wiederverwenden.**
+- Indizes: `bookings (tenant_id, departure)` für „Heute“, Teilindex `booking_charges (tenant_id, booking_id) where tourist_tax`
+
+**Frontend:** keine Änderung nötig; `dashboard-data.ts` ruft die Funktionen bereits auf (Rückfall „noch nicht verfügbar“ bleibt für Umgebungen ohne Migration).
+
+**Tests:** `supabase/tests/dashboard.integration.test.ts` (12 Tests, grün): Abrechnungsstand inkl. Storno und nacherfasst, „noch nicht abgerechnet“ mit Reihenfolge, Grenze und Gesamtzahl, Storno mit/ohne Gebühr, Optionen, künftige Abreise; offene Rechnungen mit Fälligkeit und „überfällig“; Ortstaxe über Monats- und Jahresgrenze inkl. Rundung (999 → 666/333), ohne Optionen und Stornos, Zeitraum; Rechte: Inhaberin bei A und Mitarbeiterin bei B, Mitarbeiter, fremder Kunde, ohne Anmeldung. Unit-Tests: 791 grün.
+
+**Messung** (Dev, 5.000 Buchungen, 2.000 Rechnungen, 5.000 Ortstaxe-Positionen, Inhaber): noch nicht abgerechnet 171 ms, offene Rechnungen 138 ms, Ortstaxe 84 ms, Buchungen von heute 70 ms, Wohnungen zählen 82 ms. Die Abschnitte laden parallel; Ziel < 1 s erfüllt. Messdaten wieder gelöscht.
+
 ## QA Test Results
 _To be added by /qa_
 

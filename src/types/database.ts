@@ -2110,6 +2110,45 @@ export type Database = {
         }
         Returns: string
       }
+      dashboard_billing_states: {
+        Args: { p_booking_ids: string[] }
+        Returns: {
+          billing: string
+          booking_id: string
+        }[]
+      }
+      dashboard_open_invoices: {
+        Args: { p_tenant_ids: string[] }
+        Returns: {
+          apartment_name: string
+          invoice_date: string
+          invoice_id: string
+          next_due: string
+          number: string
+          open_cents: number
+          overdue: boolean
+          property_name: string
+          recipient: string
+          tenant_id: string
+        }[]
+      }
+      dashboard_unbilled: {
+        Args: { p_limit: number; p_tenant_ids: string[]; p_today: string }
+        Returns: {
+          apartment_name: string
+          billing: string
+          booking_id: string
+          cancelled: boolean
+          due_date: string
+          first_name: string
+          last_name: string
+          property_name: string
+          tenant_id: string
+          title_prefix: string
+          title_suffix: string
+          total_count: number
+        }[]
+      }
       decline_invitation: {
         Args: { p_invitation_id: string }
         Returns: undefined
@@ -2356,6 +2395,16 @@ export type Database = {
           p_tenant_id: string
         }
         Returns: undefined
+      }
+      tourist_tax_monthly: {
+        Args: { p_from: string; p_tenant_ids: string[]; p_to: string }
+        Returns: {
+          amount_cents: number
+          month: string
+          municipality_id: string
+          municipality_name: string
+          tenant_id: string
+        }[]
       }
       unused_guest_documents: { Args: { p_limit?: number }; Returns: string[] }
       unused_invoice_pdfs: { Args: { p_limit?: number }; Returns: string[] }
