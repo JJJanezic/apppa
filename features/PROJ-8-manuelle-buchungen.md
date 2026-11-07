@@ -4,7 +4,7 @@
 **Created:** 2026-10-26
 **Last Updated:** 2026-11-07
 
-> Grundumfang in Produktion. Refine 2026-11-07 (Buchungsformular – Plattform-Nummer und Abschnitt „Meldung und Ortstaxe“, Abschnitt O): QA bestanden, bereit zum Ausliefern. Seit v1.24.0 (refine 2026-11-05): Bezeichnung „Endreinigung“ statt „Reinigung“ samt Umstellung bestehender Buchungen (Abschnitt „Endreinigung“).
+> Grundumfang in Produktion. Seit v1.34.0 (refine 2026-11-07): Buchungsformular mit „booking.com Buchungs-ID“ und Abschnitt „Meldung und Ortstaxe“ (Abschnitt O). Seit v1.24.0 (refine 2026-11-05): Bezeichnung „Endreinigung“ statt „Reinigung“ samt Umstellung bestehender Buchungen (Abschnitt „Endreinigung“).
 
 ## Dependencies
 - Requires: PROJ-1 (Supabase Infrastructure Setup): Mandanten-Abschottung, Änderungsprotokoll
@@ -1120,3 +1120,13 @@ _Stand 2026-10-25 (/deploy, Tag `v1.2.0`)_
 - **Mit ausgeliefert:** Buchhaltungs-Commit des vorigen Releases (`b60737c`)
 - **Vorabprüfung:** Lint sauber, Secret-Scan ohne Treffer; Unit 778/778, Build und E2E aus der QA bzw. nach dem Nachtrag (PROJ-47 10/10) mit demselben App-Stand
 - **Tag:** `v1.33.0-PROJ-8` auf `ba677e0`
+
+### Buchungsformular: booking.com Buchungs-ID, Abschnitt „Meldung und Ortstaxe“ (2026-11-07)
+- **Datum:** 2026-11-07 (Staging und Produktion), Version v1.34.0
+- **Commit:** `57c6d02` (Änderung `57618e2`, QA `57c6d02`); Staging vom Nutzer geprüft und freigegeben („alles ready“)
+- **Staging:** https://staging.apppa.at
+- **Production:** https://app.apppa.at
+- **Migrationen:** keine; kein `config push`, keine neuen Pakete oder Umgebungsvariablen
+- **Mit ausgeliefert:** Buchhaltungs-Commit des vorigen Releases (`b71329e`)
+- **Vorabprüfung:** Lint sauber, Secret-Scan ohne Treffer; Unit 778/778, Build und E2E aus der QA mit demselben App-Stand
+- **Tag:** `v1.34.0-PROJ-8` auf `57c6d02`
