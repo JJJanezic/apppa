@@ -14,7 +14,7 @@
 - Requires: PROJ-37, PROJ-40, PROJ-42, PROJ-44 (Rechnungen): Arten Rechnung/Teilrechnung/Schlussrechnung, nacherfasste Rechnungen, Storno
 - Requires: PROJ-43 (Rechnungsübersicht): Filter „noch nicht bezahlt“
 - Requires: PROJ-45 (Zahlungserfassung): Zahlungsstatus, Offen-Betrag, Fälligkeit, „überfällig“
-- Wird genutzt von: PROJ-16 (Ortstaxen-Berichte: Knopf „Meldung vorbereiten“, gleiche Monatszuordnung), PROJ-10/11 (Abschnitt „Synchronisierung“)
+- Wird genutzt von: PROJ-16 (Ortstaxen-Berichte: gleiche Monatszuordnung), PROJ-10/11 (Abschnitt „Synchronisierung“)
 
 ## Überblick
 Das Dashboard (`/`) zeigt auf einen Blick, was heute zu tun ist und wo Geld oder Rechnungen fehlen. Der Abschnitt „Belegung“ (PROJ-9) bleibt wie er ist. Neu sind Kennzahlen, „Heute“, „Noch nicht abgerechnet“, „Offene Rechnungen“ und „Ortstaxe“. Grundlage für Gestaltung und Anordnung ist der App-Entwurf (`docs/design/app-entwurf-quelltext.html`, Dashboard).
@@ -109,7 +109,7 @@ Gesamt           € 400,00    € 2.360,00   € 5.350,00
   - Je Gemeinde eine Zeile, alphabetisch. Die Zeile „Gesamt“ erscheint nur bei mehr als einer Gemeinde.
   - Eine Gemeinde erscheint, wenn sie in mindestens einem der sechs Zeiträume einen Betrag hat. Leere Zellen zeigen „€ 0,00“.
   - Am Handy darf die Tabelle seitlich scrollen. Die Gemeindespalte bleibt dabei stehen.
-- Der Knopf **„Meldung vorbereiten“** kommt unter die Tabelle, aber erst mit PROJ-16. Was er tut, legt PROJ-16 fest. Bis dahin gibt es keinen Knopf.
+- Ein Knopf **„Meldung vorbereiten“** ist nicht vorgesehen (Entscheidung in PROJ-16, 2026-11-08). Berichte gibt es über den Menüpunkt „Ortstaxe“.
 - Leer (keine Ortstaxe in keinem der Zeiträume): „Noch keine Ortstaxe erfasst. Tarife hinterlegen Sie je Wohnung unter Einstellungen → Wohnungen.“ mit Link.
 
 ### Umbenennung „Tourismusabgabe“ → „Ortstaxe“
@@ -242,7 +242,7 @@ Die Rechte gelten **je Kunde** nach der Rolle der Person bei diesem Kunden. Gela
 - [ ] Angenommen eine archivierte Wohnung hatte im Vorjahr Ortstaxe, wenn der Abschnitt erscheint, dann zählt sie in „2025“ zu ihrer Gemeinde
 - [ ] Angenommen eine Gemeinde hat nur in einem der sechs Zeiträume einen Betrag, wenn der Abschnitt erscheint, dann erscheint sie in beiden Teilen, mit „€ 0,00“ in den übrigen Zellen
 - [ ] Angenommen in keinem der sechs Zeiträume gibt es Ortstaxe, wenn der Abschnitt erscheint, dann steht dort der Hinweis mit Link zu Einstellungen → Wohnungen
-- [ ] Angenommen PROJ-16 ist noch nicht live, wenn der Abschnitt erscheint, dann gibt es keinen Knopf „Meldung vorbereiten“
+- [ ] Angenommen der Abschnitt erscheint, dann gibt es keinen Knopf „Meldung vorbereiten“ (entfällt laut PROJ-16)
 - [ ] Angenommen ein Mitarbeiter, wenn er versucht, die Ortstaxe-Summen zu laden, dann erhält er sie nicht (auch nicht über einen direkten Aufruf)
 
 ### Umbenennung
