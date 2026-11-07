@@ -1,8 +1,8 @@
 # PROJ-8: Manuelle Buchungen
 
-## Status: Deployed
+## Status: In Progress
 **Created:** 2026-10-26
-**Last Updated:** 2026-11-05
+**Last Updated:** 2026-11-07
 
 > Grundumfang in Produktion. Seit v1.24.0 (refine 2026-11-05): Bezeichnung „Endreinigung“ statt „Reinigung“ samt Umstellung bestehender Buchungen (Abschnitt „Endreinigung“).
 
@@ -61,6 +61,12 @@ Wohnung, von, bis, Grund (Eigennutzung, Renovierung, Sonstiges) und Notiz (bei �
 
 ### Ergänzung der Wohnung (PROJ-6)
 Neues optionales Feld **Reinigungsgebühr** (Euro) je Wohnung, nur vom Inhaber pflegbar. Sie wird bei neuen Buchungen als Zusatzkosten-Position „Reinigung“ eingetragen und kann dort geändert oder entfernt werden. *Seit refine 2026-11-05: Feld „Endreinigung (€)“, Position „Endreinigung“ (siehe unten).*
+
+### Buchungsübersicht: Nummer, Gast-Link, über alle Monate (refine 2026-11-07)
+- **Erste Spalte „Nr.“** (ab 768 px): die apppa-Buchungsnummer (nicht die booking.com-/Airbnb-Nummer) als Link zur Buchung; darunter klein Gästeblattnummer und, bei Suchtreffer, die Plattform-Nummer. Sperren haben keine Nummer („–“).
+- **Spalte „Gast bzw. Sperre“:** der Name führt zur **Gastseite** (Gäste-Datenbank, `/gaeste/…`), nicht mehr zur Buchung. Sperren (kein Gast): der Text bleibt der Link zur Sperre. Auf der Gastseite selbst (Liste der Aufenthalte) ist der Name kein Link.
+- **Handy (Karten):** unverändert ist die ganze Karte der Link zur Buchung; die Buchungsnummer steht oben in der Karte.
+- **Häkchen „Über alle Monate“:** erscheint, sobald Wohnung, Art, Zustand oder Quelle gewählt ist (Suche und Rechnungsfilter gelten ohnehin für alle Monate). Angehakt: alle passenden Einträge aller Monate, Anreise absteigend, je 50 pro Seite mit Blättern; Überschrift „Alle Monate“, Anzahl „… in allen Monaten“; in der Adresse `alle=1`. Abhaken führt in den zuvor gewählten Monat zurück; ohne Filter verschwindet das Häkchen.
 
 ### Endreinigung (refine 2026-11-05)
 Die automatisch eingetragene Position heißt künftig **„Endreinigung“** statt „Reinigung“.
@@ -146,6 +152,16 @@ Der Betreiber-Admin liest wie überall nur (PROJ-1).
 - [ ] Angenommen der Inhaber fügt eine Position hinzu, wenn er eine Bezeichnung aus den Vorschlägen wählt oder frei eintippt und einen Betrag eingibt, dann erhöht sich der Endbetrag entsprechend
 - [ ] Angenommen eine Position hat keine Bezeichnung oder einen negativen Betrag, wenn der Inhaber speichert, dann erscheint eine Validierungsmeldung
 - [ ] Angenommen der Inhaber pflegt eine Wohnung (PROJ-6), wenn er eine Reinigungsgebühr einträgt, dann wird sie bei künftigen neuen Buchungen dieser Wohnung vorgeschlagen; bestehende Buchungen bleiben unverändert
+
+### Buchungsübersicht (refine 2026-11-07)
+- [ ] Angenommen die Buchungsübersicht ab 768 px, wenn sie erscheint, dann ist die erste Spalte „Nr.“ mit der apppa-Buchungsnummer, und ein Klick darauf öffnet die Buchung
+- [ ] Angenommen eine Buchung mit Gast, wenn der Nutzer in „Gast bzw. Sperre“ auf den Namen klickt, dann öffnet sich die Seite des Gastes
+- [ ] Angenommen eine Sperre, wenn die Liste erscheint, dann steht in „Nr.“ „–“, und der Text „Sperre: …“ öffnet die Sperre
+- [ ] Angenommen eine Buchung mit Gästeblattnummer bzw. ein Suchtreffer in der Plattform-Nummer, wenn die Liste erscheint, dann stehen diese Nummern klein unter der Buchungsnummer
+- [ ] Angenommen kein Filter gewählt, wenn die Liste erscheint, dann gibt es kein Häkchen „Über alle Monate“
+- [ ] Angenommen Filter „Art: Option“, wenn der Nutzer „Über alle Monate“ anhakt, dann zeigt die Liste alle Optionen aller Monate, neueste Anreise zuerst, je 50 pro Seite, mit „Alle Monate“ und „… Einträge in allen Monaten“
+- [ ] Angenommen „Über alle Monate“ ist angehakt, wenn der Nutzer es abhakt, dann zeigt die Liste wieder den zuvor gewählten Monat
+- [ ] Angenommen das Handy, wenn die Liste erscheint, dann ist die ganze Karte der Link zur Buchung und zeigt oben die Buchungsnummer
 
 ### Endreinigung (refine 2026-11-05)
 - [ ] Angenommen eine Wohnung mit Gebühr € 60,00, wenn der Inhaber eine neue Buchung für sie anlegt, dann steht die Position „Endreinigung“ € 60,00 mit 10 % im Formular
@@ -264,6 +280,7 @@ Der Betreiber-Admin liest wie überall nur (PROJ-1).
 | Bestehende Positionen „Reinigung“ einmalig umbenennen, außer bei Buchungen mit ausgestellter Rechnung oder offenem Entwurf; nacherfasste Rechnungen hindern nicht | Ausgestellte Rechnungen und Buchung sollen übereinstimmen; Entwürfe sollen nicht als „Buchung geändert“ gelten (Nutzerwahl); nacherfasste Rechnungen sind Altdokumente mit eigenen Zeilen | 2026-11-05 |
 | USt-Satz nur über die Auswahl: „Endreinigung“ setzt 10 %, getippte Bezeichnungen starten mit 20 % (wie bisher) | Nutzer 2026-11-05: wichtig ist die Auswahl; andere Sätze frei wählbar. Ersetzt die zuvor notierte Regel „Reinigung von Hand 10 %“, die auf einer falschen Annahme beruhte | 2026-11-05 |
 | Buchungsdetail neu angeordnet: links Hauptgast, Mitreisende, Aufenthalt; rechts Preis und Rechnungen | Nutzerwunsch: wer und mit wem zuerst, Geld gebündelt auf einer Seite; als kleine Ergänzung ohne eigenes Spec-Gespräch umgesetzt (reine Umordnung, keine Daten oder Rechte betroffen) | 2026-10-30 |
+| Buchungsübersicht: erste Spalte apppa-Nummer (Link zur Buchung), Name zur Gastseite, Sperren über den Text; Handy-Karte bleibt ganz Link zur Buchung; Häkchen „Über alle Monate“ nur mit Wohnung/Art/Zustand/Quelle, neueste zuerst, je 50 | Nutzerwunsch (refine 2026-11-07); Rückfragen: Gastseite statt Meldewesen-Gästeblatt (PROJ-26 noch nicht gebaut), große Tippfläche am Handy, Sortierung wie Rechnungsfilter | 2026-11-07 |
 
 ### Technical Decisions
 <!-- Added by /architecture -->
@@ -588,6 +605,8 @@ Keine neuen Tabellen oder Spalten, keine Änderung der Zugriffsregeln. Ausgestel
 - E2E an die neuen Texte angepasst: PROJ-8 (automatische Position, Feld der Wohnung), PROJ-35 (Auswahl per Tastatur „End“, Auswahl überschreibt Hand-Satz), PROJ-32 (Inhalt der Auswahl), PROJ-31 (Feld der Wohnung); 11 Läufe grün (desktop, gebauter Server). Tests mit „Reinigung“ als Testdaten bleiben gültig
 - Unit 692/692 grün
 - **Erledigt in /backend (siehe unten):** Migration mit erneuerter `private.save_booking` (Mitarbeiter-Vorschlag „Endreinigung“, Grundlage `20261101061318_tourist_tax.sql`) und Umbenennung der bestehenden Positionen samt Ausnahmen (Tech Design N); bis dahin erhalten Mitarbeiter-Buchungen noch „Reinigung“
+
+**Refine 2026-11-07 (Buchungsübersicht):** `booking-list.tsx` mit erster Spalte „Nr.“ (Link zur Buchung, darunter Gästeblatt-/Plattform-Nummer), Name als Link zur Gastseite (`guestHref`; neues Feld `guestId` in `BookingRow`), Sperren über den Text; Prop `guestLinks={false}` auf der Gastseite; Handy-Karte mit Nummer oben. Häkchen „Über alle Monate“ (shadcn `Checkbox`) in `booking-filters.tsx`; Adresse `alle=1` (`allMonths` in `BookingFilters`, nur zusammen mit Filter: `hasNarrowingFilter`, `pagedBookingList` in `src/lib/bookings.ts`). `getBookingList`: Feld `invoiceFilter` → `paged` (Rechnungsfilter oder Häkchen), seitenweise je 50, Anreise absteigend, auch mit Suche. Keine Datenbankänderung. Tests: Unit +1 (778/778); E2E neu „Über alle Monate“, Safari-Zeilenklick-Test auf Nummer/Gastlink umgestellt; angepasst wegen der neuen Spalte: PROJ-30 (Namen-Spalte, Gästeblattnummer), PROJ-31 (Zeitraum-Zelle, Safari-Test), PROJ-37 (Spalte „Rechnungen“), PROJ-47 (Links und Plattform-Nummer).
 
 ## Implementation Notes (Backend)
 **Stand 2026-10-26.** Migration `supabase/migrations/20261026130000_bookings.sql`, eingespielt nur in „apppa-dev“; `npm run db:types` erzeugt; `db advisors` ohne Befund.

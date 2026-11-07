@@ -7,6 +7,8 @@ import {
   billableNights,
   billedNightsCents,
   bookingListHref,
+  hasNarrowingFilter,
+  pagedBookingList,
   bookingState,
   type BookingRow,
   filterRows,
@@ -232,7 +234,7 @@ describe('Monat und Filter', () => {
   })
 
   it('liest Filter aus der Adresse und ignoriert ungültige Werte', () => {
-    expect(parseBookingFilters({}, TODAY)).toEqual({ month: '2026-10', apartment: null, kind: null, state: null, source: null, query: '', invoice: null, page: 1 })
+    expect(parseBookingFilters({}, TODAY)).toEqual({ month: '2026-10', apartment: null, kind: null, state: null, source: null, query: '', invoice: null, allMonths: false, page: 1 })
     expect(parseBookingFilters({ monat: '2027-02', art: 'sperre', zustand: 'storniert', q: ' Huber ' }, TODAY)).toMatchObject({
       month: '2027-02',
       kind: 'block',
@@ -252,6 +254,19 @@ describe('Monat und Filter', () => {
     expect(bookingListHref({ month: '2026-11', kind: 'option', state: 'expired' }, TODAY)).toBe('/buchungen?monat=2026-11&art=option&zustand=verfallen')
   })
 
+  it('„Über alle Monate“ nur zusammen mit Wohnung, Art, Zustand oder Quelle; dann seitenweise (refine PROJ-8)', () => {
+    expect(parseBookingFilters({ alle: '1', art: 'option' }, TODAY)).toMatchObject({ allMonths: true, kind: 'option' })
+    expect(parseBookingFilters({ alle: 'ja' }, TODAY).allMonths).toBe(false)
+    expect(hasNarrowingFilter({ source: 'airbnb' })).toBe(true)
+    expect(hasNarrowingFilter({ query: 'Huber' })).toBe(false)
+    expect(pagedBookingList({ allMonths: true })).toBe(false)
+    expect(pagedBookingList({ allMonths: true, apartment: 'w1' })).toBe(true)
+    expect(pagedBookingList({ invoice: 'without' })).toBe(true)
+    expect(bookingListHref({ month: '2026-10', allMonths: true }, TODAY)).toBe('/buchungen')
+    expect(bookingListHref({ month: '2026-10', kind: 'option', allMonths: true, page: 2 }, TODAY)).toBe('/buchungen?art=option&alle=1&seite=2')
+    expect(bookingListHref({ month: '2026-10', kind: 'option', page: 2 }, TODAY)).toBe('/buchungen?art=option')
+  })
+
   it('zeigt ohne Zustandsfilter nur aktive Einträge des Monats', () => {
     const row = (id: string, over: Partial<BookingRow>): BookingRow => ({
       id,
@@ -261,6 +276,7 @@ describe('Monat und Filter', () => {
       apartmentLabel: 'Haus · Top 1',
       arrival: '2026-10-10',
       departure: '2026-10-12',
+      guestId: null,
       guestName: null,
       blockReason: null,
       guestSheetNumber: null,
@@ -292,6 +308,7 @@ describe('Monat und Filter', () => {
       apartmentLabel: 'Haus · Top 1',
       arrival: '2026-10-10',
       departure: '2026-10-12',
+      guestId: null,
       guestName: null,
       blockReason: null,
       guestSheetNumber: null,

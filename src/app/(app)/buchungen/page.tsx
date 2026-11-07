@@ -23,7 +23,7 @@ export async function generateMetadata(): Promise<Metadata> {
 type SearchParams = Promise<Record<string, string | string[] | undefined>>
 
 // Buchungsliste (PROJ-8) für alle Mitglieder: Monat mit Blättern, Filter, Suche über alle Monate;
-// Filter „Rechnung“ (PROJ-37) über alle Monate mit Seiten je 50
+// Filter „Rechnung“ (PROJ-37) und Häkchen „Über alle Monate“ (refine PROJ-8) über alle Monate mit Seiten je 50
 export default async function BookingsPage({ searchParams }: { searchParams: SearchParams }) {
   await requireArea('bookings')
   const t = await getTranslations('bookings')
@@ -82,12 +82,14 @@ export default async function BookingsPage({ searchParams }: { searchParams: Sea
         <p className="text-sm text-ds-neutral-800" aria-live="polite">
           {filters.invoice
             ? t(`invoiceCount.${filters.invoice}`, { count: list.total })
-            : list.searching
+            : list.paged
+              ? t('allMonthsCount', { count: list.total })
+              : list.searching
               ? t('searchCount', { count: list.rows.length })
               : t('count', { count: list.rows.length })}
         </p>
         {list.truncated && <p className="text-sm text-ds-neutral-800">{t('truncated')}</p>}
-        {list.rows.length === 0 && filters.invoice && filters.page > 1 ? (
+        {list.rows.length === 0 && list.paged && filters.page > 1 ? (
           // Seite hinter dem Ende (z. B. nach Zuordnen einer Rechnung): zurück zur ersten Seite
           <EmptyState
             icon={MagnifyingGlass}
@@ -103,7 +105,7 @@ export default async function BookingsPage({ searchParams }: { searchParams: Sea
           <EmptyState
             icon={MagnifyingGlass}
             title={t('noResultsTitle')}
-            text={filters.invoice ? t('noResultsInvoice') : list.searching ? t('noResultsSearch') : t('noResultsMonth')}
+            text={filters.invoice ? t('noResultsInvoice') : list.paged ? t('noResultsAllMonths') : list.searching ? t('noResultsSearch') : t('noResultsMonth')}
             action={
               (filters.query || filters.apartment || filters.kind || filters.state || filters.source || filters.invoice) && (
                 <Button asChild variant="outline" className="min-h-11">
@@ -115,7 +117,7 @@ export default async function BookingsPage({ searchParams }: { searchParams: Sea
         ) : (
           <>
             <BookingList rows={list.rows} showAmounts={owner} query={list.searching ? filters.query : undefined} />
-            {list.invoiceFilter && list.pageCount > 1 && (
+            {list.paged && list.pageCount > 1 && (
               <ListPagination
                 page={filters.page}
                 pageCount={list.pageCount}

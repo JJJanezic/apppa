@@ -729,19 +729,63 @@ test.describe('Anschluss an Gäste und Wohnungen', () => {
 })
 
 test.describe('Safari-Zeilenklick', () => {
-  test('Nur der Name ist der Link (keine Klickfläche über die Zeile); jeder Name öffnet seine eigene Buchung', async ({ page, users }) => {
+  test('Nummer und Name sind die Links (keine Klickfläche über die Zeile): Nummer öffnet die eigene Buchung, Name die Gastseite (refine 2026-11-07)', async ({ page, users }) => {
     desktopOnly()
     const { tenantId } = await setup(page, users)
     const { top1 } = await withApartments(tenantId)
-    const first = await addBooking(tenantId, top1, { guestId: await addGuest(tenantId, { last_name: 'Erste', first_name: 'Eva' }), arrival: FUTURE, departure: day(2, FUTURE) })
+    const eva = await addGuest(tenantId, { last_name: 'Erste', first_name: 'Eva' })
+    const first = await addBooking(tenantId, top1, { guestId: eva, arrival: FUTURE, departure: day(2, FUTURE) })
     await addBooking(tenantId, top1, { guestId: await addGuest(tenantId, { last_name: 'Letzte', first_name: 'Lea' }), arrival: day(3, FUTURE), departure: day(5, FUTURE) })
+    await addBooking(tenantId, top1, { kind: 'block', reason: 'renovation', arrival: day(6, FUTURE), departure: day(7, FUTURE) })
     await openList(page, `?monat=${month(FUTURE)}`)
-    const link = page.getByRole('table').getByRole('link', { name: 'Erste, Eva' })
+    const table = page.getByRole('table')
+    await expect(table.getByRole('columnheader').first()).toHaveText('Nr.')
+    const number = table.getByRole('link', { name: first.number!, exact: true })
     // Safari verankert after:absolute nicht an <tr>: die Fläche darf es nicht mehr geben
-    const overlay = await link.evaluate((el) => getComputedStyle(el, '::after').position)
+    const overlay = await number.evaluate((el) => getComputedStyle(el, '::after').position)
     expect(overlay).not.toBe('absolute')
-    await link.click()
+    await expect(table.getByRole('link', { name: 'Erste, Eva' })).toHaveAttribute('href', `/gaeste/${eva}`)
+    // Sperre ohne Nummer: der Text führt zur Sperre
+    await expect(table.getByRole('link', { name: 'Sperre: Renovierung' })).toHaveAttribute('href', /\/buchungen\/[0-9a-f-]{36}$/)
+    await number.click()
     await expect(page).toHaveURL(new RegExp(`/buchungen/${first.id}$`))
+    await page.goBack()
+    await table.getByRole('link', { name: 'Erste, Eva' }).click()
+    await expect(page).toHaveURL(`/gaeste/${eva}`)
+  })
+})
+
+test.describe('Über alle Monate (refine 2026-11-07)', () => {
+  test('Häkchen erst mit Filter; zeigt die gefilterten Einträge aller Monate, neueste zuerst; Abwählen führt in den Monat zurück', async ({ page, users }) => {
+    desktopOnly()
+    const { tenantId } = await setup(page, users)
+    const { top1 } = await withApartments(tenantId)
+    const guest = await addGuest(tenantId, { last_name: 'Monat', first_name: 'Mia' })
+    const early = await addBooking(tenantId, top1, { kind: 'option', guestId: guest, arrival: FUTURE, departure: day(2, FUTURE), optionUntil: day(-1, FUTURE) })
+    const late = await addBooking(tenantId, top1, { kind: 'option', guestId: guest, arrival: day(70, FUTURE), departure: day(72, FUTURE), optionUntil: day(-1, FUTURE) })
+    await addBooking(tenantId, top1, { guestId: guest, arrival: day(40, FUTURE), departure: day(42, FUTURE) })
+    await openList(page, `?monat=${month(FUTURE)}`)
+    const toggle = page.getByRole('checkbox', { name: 'Über alle Monate' })
+    await expect(toggle).toHaveCount(0)
+
+    await page.getByRole('combobox', { name: 'Art' }).click()
+    await page.getByRole('option', { name: 'Option', exact: true }).click()
+    await expect(page).toHaveURL(/art=option/)
+    await expect(toggle).not.toBeChecked()
+    await expect(page.getByRole('table').getByRole('link', { name: late.number!, exact: true })).toHaveCount(0)
+
+    await toggle.click()
+    await expect(page).toHaveURL(/alle=1/)
+    await expect(page.getByRole('heading', { name: 'Alle Monate' })).toBeVisible()
+    await expect(page.getByText('2 Einträge in allen Monaten')).toBeVisible()
+    // neueste zuerst; die Buchung (keine Option) fehlt
+    const numbers = page.getByRole('table').getByRole('row').locator('td:first-child a')
+    await expect(numbers).toHaveText([late.number!, early.number!])
+
+    await toggle.click()
+    await expect(page).not.toHaveURL(/alle=1/)
+    await expect(page.getByRole('navigation', { name: 'Angezeigter Monat' })).toBeVisible()
+    await expect(numbers).toHaveText([early.number!])
   })
 })
 

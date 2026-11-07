@@ -175,7 +175,7 @@ export default async function GuestDetailPage({ params }: { params: Params }) {
       {bookings.length > 0 && (
         <section className="flex flex-col gap-3">
           <h2 className="text-2xl">{t('detail.bookings')}</h2>
-          <BookingList rows={bookings} showAmounts={isOwner} />
+          <BookingList rows={bookings} showAmounts={isOwner} guestLinks={false} />
         </section>
       )}
     </>

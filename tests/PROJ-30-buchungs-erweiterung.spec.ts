@@ -435,22 +435,25 @@ test.describe('Gästeblattnummer, Wohnsitz und Quelle', () => {
     await expect(page.getByText('Wohnsitz angemeldet (keine Ortstaxe)')).toBeVisible()
 
     await openList(page, `?monat=${month(FUTURE)}`)
-    await expect(page.getByText(`${custom.number} · Gästeblatt GB-77`).filter({ visible: true })).toBeVisible()
+    // Gästeblattnummer unter der Buchungsnummer in der ersten Spalte (refine PROJ-8 2026-11-07)
+    await expect(page.getByRole('table').getByRole('link', { name: custom.number, exact: true })).toBeVisible()
+    await expect(page.getByText('Gästeblatt GB-77').filter({ visible: true })).toBeVisible()
     await page.getByRole('combobox', { name: 'Quelle' }).click()
     await page.getByRole('option', { name: 'booking.com' }).click()
     await expect(page).toHaveURL(/quelle=booking-com/)
-    await expect(page.getByRole('table').getByRole('link')).toHaveText(['Berger, Paul', 'Huber, Anna'])
+    // Namen in der Spalte „Gast bzw. Sperre“ (die erste Spalte ist seit 2026-11-07 die Buchungsnummer)
+    await expect(page.getByRole('table').locator('td:nth-child(3) a')).toHaveText(['Berger, Paul', 'Huber, Anna'])
 
     await openList(page)
     await page.getByLabel('Buchungen durchsuchen').fill('gb-77')
     await expect(page).toHaveURL(/q=gb-77/)
-    await expect(page.getByRole('table').getByRole('link')).toHaveText(['Huber, Anna'])
+    await expect(page.getByRole('table').locator('td:nth-child(3) a')).toHaveText(['Huber, Anna'])
 
     // BUG-1: Nummer mit Schrägstrich und Punkt
     await service().from('bookings').update({ guest_sheet_number: 'GB/2026.17' }).eq('id', custom.id)
     await openList(page)
     await page.getByLabel('Buchungen durchsuchen').fill('gb/2026.17')
-    await expect(page.getByRole('table').getByRole('link')).toHaveText(['Huber, Anna'])
+    await expect(page.getByRole('table').locator('td:nth-child(3) a')).toHaveText(['Huber, Anna'])
   })
 
   test('AC: booking.com-Buchung in Accent-700, Option mit Rahmen in Accent-700, andere Quelle „Direkt“; Legende', async ({ page, users }) => {

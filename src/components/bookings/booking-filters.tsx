@@ -8,6 +8,7 @@ import { useEffect, useRef, useState, useTransition } from 'react'
 
 import { DateJump } from '@/components/date-jump'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -24,6 +25,8 @@ import {
   type BookingSource,
   type BookingState,
   currentMonth,
+  hasNarrowingFilter,
+  pagedBookingList,
   shiftMonth,
 } from '@/lib/bookings'
 
@@ -39,6 +42,7 @@ interface BookingFilterBarProps {
 
 // Monatsleiste (mit Sprungauswahl wie im Belegungskalender, PROJ-30), Suche und Filter der Buchungsliste. Alles steht in der Adresse (teilbar, „Zurück“ funktioniert).
 // Die Suche und der Filter „Rechnung“ (PROJ-37) gelten für alle Monate; die Monatsleiste ist dann durch „Alle Monate“ ersetzt.
+// Mit Wohnung, Art, Zustand oder Quelle gibt es das Häkchen „Über alle Monate“ (refine PROJ-8 2026-11-07).
 export function BookingFilterBar({ filters, apartments, today }: BookingFilterBarProps) {
   const t = useTranslations('bookings')
   const format = useFormatter()
@@ -48,7 +52,9 @@ export function BookingFilterBar({ filters, apartments, today }: BookingFilterBa
   const [seenQuery, setSeenQuery] = useState(filters.query)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const searching = filters.query.length >= 2
-  const allMonths = searching || filters.invoice !== null
+  const allMonths = searching || pagedBookingList(filters)
+  // Suche und Rechnungsfilter gelten ohnehin für alle Monate
+  const showAllMonthsToggle = hasNarrowingFilter(filters) && !searching && filters.invoice === null
   // Jede Filteränderung beginnt wieder bei Seite 1
   const href = (next: Partial<BookingFilters>) => bookingListHref({ ...filters, page: 1, ...next }, today)
 
@@ -244,6 +250,20 @@ export function BookingFilterBar({ filters, apartments, today }: BookingFilterBa
           </div>
         </div>
       </div>
+
+      {showAllMonthsToggle && (
+        <div className="flex min-h-11 items-center gap-3">
+          <Checkbox
+            id="filter-alle-monate"
+            checked={filters.allMonths}
+            onCheckedChange={(v) => go({ allMonths: v === true })}
+            className="size-5"
+          />
+          <Label htmlFor="filter-alle-monate" className="cursor-pointer">
+            {t('allMonthsToggle')}
+          </Label>
+        </div>
+      )}
     </div>
   )
 }

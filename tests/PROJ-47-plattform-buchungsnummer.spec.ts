@@ -366,17 +366,18 @@ test.describe('Anzeige und Suche', () => {
     await addBooking(tenantId, apt, { guestId: other, arrival: day(3, FUTURE), departure: day(5, FUTURE), source: 'airbnb', platform: 'HMXYZ' })
 
     await openList(page, `?monat=${month(FUTURE)}`)
-    await expect(page.getByRole('table').getByRole('link')).toHaveCount(2)
+    // je Zeile Buchungsnummer und Name als Link (refine PROJ-8 2026-11-07)
+    await expect(page.getByRole('table').getByRole('link')).toHaveCount(4)
     await expect(page.getByText('4123456789')).toHaveCount(0)
     await expect(page.getByRole('columnheader')).not.toContainText(['Plattform'])
 
     await page.getByLabel('Buchungen durchsuchen').fill('3456')
     await expect(page).toHaveURL(/q=3456/)
-    await expect(page.getByRole('table').getByRole('link')).toHaveText(['Huber, Anna'])
-    await expect(page.getByText(`${b.number} · booking.com 4123456789`).filter({ visible: true })).toBeVisible()
+    await expect(page.getByRole('table').getByRole('link')).toHaveText([b.number, 'Huber, Anna'])
+    await expect(page.getByText('booking.com 4123456789').filter({ visible: true })).toBeVisible()
 
     await page.getByLabel('Buchungen durchsuchen').fill('hmxyz')
-    await expect(page.getByRole('table').getByRole('link')).toHaveText(['Berger, Paul'])
+    await expect(page.getByRole('table').getByRole('link')).toHaveText([/^\d{4}-\d{4}$/, 'Berger, Paul'])
     await expect(page.getByText(/Airbnb HMXYZ/).filter({ visible: true })).toBeVisible()
   })
 })

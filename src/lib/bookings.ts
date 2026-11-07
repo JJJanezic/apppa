@@ -225,6 +225,8 @@ export type BookingRow = {
   apartmentLabel: string
   arrival: string
   departure: string
+  // Gast der Buchung: der Name in der Liste führt zur Gastseite (refine PROJ-8 2026-11-07)
+  guestId: string | null
   guestName: string | null
   blockReason: BlockReason | null
   guestSheetNumber: string | null
@@ -247,7 +249,7 @@ export type BookingRow = {
 export const BOOKING_INVOICE_FILTERS = ['without', 'with'] as const
 export type BookingInvoiceFilter = (typeof BOOKING_INVOICE_FILTERS)[number]
 
-// Blättern bei aktivem Rechnungsfilter
+// Blättern bei aktivem Rechnungsfilter bzw. „Über alle Monate“
 export const BOOKING_PAGE_SIZE = 50
 
 export type BookingFilters = {
@@ -259,9 +261,17 @@ export type BookingFilters = {
   source: BookingSource | null
   query: string
   invoice: BookingInvoiceFilter | null
-  // Seite (nur mit Rechnungsfilter)
+  // Häkchen „Über alle Monate“ (refine PROJ-8 2026-11-07); wirkt nur zusammen mit Wohnung, Art, Zustand oder Quelle
+  allMonths: boolean
+  // Seite (nur bei Liste über alle Monate mit Blättern)
   page: number
 }
+
+// Wohnung, Art, Zustand oder Quelle gewählt: dann gibt es das Häkchen „Über alle Monate“
+export const hasNarrowingFilter = (f: Partial<BookingFilters>) => Boolean(f.apartment || f.kind || f.state || f.source)
+
+// Liste über alle Monate, seitenweise je 50, Anreise absteigend: Rechnungsfilter (PROJ-37) oder Häkchen mit Filter
+export const pagedBookingList = (f: Partial<BookingFilters>) => Boolean(f.invoice) || Boolean(f.allMonths && hasNarrowingFilter(f))
 
 export const bookingHref = (id: string) => `/buchungen/${id}`
 
@@ -420,6 +430,7 @@ export function parseBookingFilters(params: Record<string, string | string[] | u
     source: source && isSource(source) ? source : null,
     query: first(params.q).trim().slice(0, 100),
     invoice: invoice && isInvoiceFilter(invoice) ? invoice : null,
+    allMonths: first(params.alle) === '1',
     page: Math.min(10_000, Math.max(1, Math.floor(Number(first(params.seite)) || 1))),
   }
 }
@@ -435,7 +446,8 @@ export function bookingListHref(filters: Partial<BookingFilters>, today: string 
   if (filters.source) params.set('quelle', SOURCE_PARAM[filters.source])
   if (filters.query) params.set('q', filters.query)
   if (filters.invoice) params.set('rechnung', INVOICE_PARAM[filters.invoice])
-  if (filters.invoice && filters.page && filters.page > 1) params.set('seite', String(filters.page))
+  if (filters.allMonths && hasNarrowingFilter(filters)) params.set('alle', '1')
+  if (pagedBookingList(filters) && filters.page && filters.page > 1) params.set('seite', String(filters.page))
   const search = params.toString()
   return search ? `/buchungen?${search}` : '/buchungen'
 }
