@@ -1,6 +1,6 @@
 # PROJ-8: Manuelle Buchungen
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-10-26
 **Last Updated:** 2026-11-07
 
@@ -1081,3 +1081,13 @@ _Stand 2026-10-25 (/deploy, Tag `v1.2.0`)_
 - **Mit ausgeliefert:** Buchhaltungs-Commit PROJ-45 (`94d6c36`)
 - **Vorabprüfung:** Lint sauber, Secret-Scan ohne Treffer; Unit 778/778, Build und E2E aus der QA mit demselben App-Stand
 - **Tag:** `v1.32.0-PROJ-8` auf `43e567b`
+
+### Buchungsdetail: Zahlungen, Schrift der Plattform-Nummer (2026-11-07)
+- **Datum:** 2026-11-07 (Staging und Produktion), Version v1.33.0
+- **Commit:** `ba677e0` (Änderung `9242b21`, QA `3da7821`, Eingabefeld `ba677e0`); Staging vom Nutzer geprüft und freigegeben, Production „Ready“ und Kurztest vom Nutzer bestätigt („es passt alles“)
+- **Staging:** https://staging.apppa.at
+- **Production:** https://app.apppa.at
+- **Migrationen:** keine; kein `config push`, keine neuen Pakete oder Umgebungsvariablen
+- **Mit ausgeliefert:** Buchhaltungs-Commit des vorigen Releases (`b60737c`)
+- **Vorabprüfung:** Lint sauber, Secret-Scan ohne Treffer; Unit 778/778, Build und E2E aus der QA bzw. nach dem Nachtrag (PROJ-47 10/10) mit demselben App-Stand
+- **Tag:** `v1.33.0-PROJ-8` auf `ba677e0`
