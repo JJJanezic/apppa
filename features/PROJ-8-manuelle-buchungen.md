@@ -1,6 +1,6 @@
 # PROJ-8: Manuelle Buchungen
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-10-26
 **Last Updated:** 2026-11-07
 
@@ -996,6 +996,27 @@ Keine neuen Tabellen oder Spalten, keine Änderung der Zugriffsregeln. Ausgestel
 **Security:** Keine neuen Server-Aktionen und keine Datenbankänderung. Der neue Adressparameter `alle` wird nur als `'1'` erkannt, alles andere gilt als „aus“ (Unit). Die Liste liest weiter mit Mandantenfilter und RLS. Die Links zur Gastseite enthalten nur Gast-IDs des eigenen Kunden, die Gastseite prüft selbst; Gastseiten sehen Inhaber und Mitarbeiter ohnehin.
 
 **Tests:** Unit 778/778 (neu: Häkchen-Logik und Adresse). E2E: PROJ-8 komplett (Desktop, 3 Pakete), neue Tests auch auf Tablet und Handy; PROJ-7 15/15; PROJ-31 20/20 Desktop (veraltetes Optionsdatum auf 2037 verlegt, 764276b); PROJ-30, PROJ-37 (Buchungsübersicht), PROJ-47 in den betroffenen Tests grün; Layout/axe der Liste auf Desktop, Tablet und Handy. Firefox: nur 3 Tests, weil die Ablauf-Tests auf das Desktop-Projekt beschränkt sind und dort übersprungen werden. Safari nicht getestet (nur gegen den Entwicklungsserver); die Links sitzen in den Zellen, ohne Klickfläche über die Zeile (Safari-Regel).
+
+**Bugs:** keine.
+
+**Ergebnis:** Production-ready: **JA**.
+
+### QA Refine 2026-11-07 (Buchungsdetail: Zahlungen, Schrift der Plattform-Nummer)
+
+**Tested:** 2026-11-07 · Produktions-Build gegen Supabase „apppa-dev“ (im Build nur `nizgfmvjplhegoosanmu`) · Commit 9242b21
+
+**Acceptance Criteria: 5/5 bestanden**
+- [x] booking.com-Nummer in derselben Schrift wie der Text (E2E: berechnete Schriftfamilie gleich der von `main`, Desktop/Tablet/Handy/Firefox)
+- [x] Reihenfolge Rechnungen → Zahlungen → Zusammenfassung (E2E, Positionen gemessen)
+- [x] Ohne Zahlung „Noch keine Zahlung erfasst.“, Knopf „Zahlung erfassen“ im Abschnitt „Zahlungen“, nicht mehr bei „Rechnungen“ (E2E)
+- [x] Zahlung € 425,00 + Provision € 70,00 + Gebühr € 5,00 mit Link „Rechnung …“, Zusammenfassung „Bezahlt € 500,00“ (E2E)
+- [x] Rückzahlung an der Gutschrift: „-€ 300,00“ in Rot mit „Rückzahlung · Rechnung 2026-0002“; nach Storno kein „Zahlung erfassen“ (E2E, neu)
+
+**Edge Cases:** Abschnitte nur bei verknüpfter Rechnung (unverändert; Kalender-Panel zeigt dieselben Abschnitte, E2E PROJ-37). Zahlungen umgehängter Rechnungen erscheinen bei der Buchung der neuen Rechnung (Abfrage über die Rechnung). Lange Notiz umbricht ohne waagrechtes Scrollen (E2E Handy). Mitarbeiter sehen die Liste (Leserecht wie im Rechnungsdetail), Bearbeiten/Löschen bleibt im Rechnungsdetail.
+
+**Security:** Keine Datenbankänderung, keine neue Server-Aktion. Die neue Abfrage liest die Lesesicht `payment_list` (`security_invoker`, also RLS der Zahlungen und Rechnungen) mit Mandantenfilter; fremde Buchungs-IDs liefern nichts. Beleg-Links laufen wie bisher über die geprüfte Server-Aktion.
+
+**Tests:** Unit 778/778. E2E: PROJ-45 (Buchungsdetail-Ablauf, Storno mit Rückzahlung, neuer Layout-/axe-Test auf Desktop, Tablet, Handy), Firefox 4/4; Regression vor dem Commit mit demselben App-Stand: PROJ-37 und PROJ-40 (Zusammenfassung, 17), PROJ-42 und PROJ-44 (Buchungsdetail, 5), PROJ-8 und PROJ-47 (Layout/Detail, 12). Safari nicht getestet (nur gegen den Entwicklungsserver).
 
 **Bugs:** keine.
 

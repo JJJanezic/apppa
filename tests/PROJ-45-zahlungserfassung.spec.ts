@@ -410,6 +410,18 @@ test.describe('Storno und Rückzahlung', () => {
     await expect(page.getByText('Rückzahlung erfasst.', { exact: true })).toBeVisible()
     await expect(refunds.getByText('erstattet', { exact: true })).toBeVisible()
     expect(plain(await refunds.locator('ul').textContent())).toContain('-€ 300,00')
+
+    // Buchungsdetail (refine PROJ-8 2026-11-07): Zahlung und Rückzahlung im Abschnitt „Zahlungen“
+    await page.goto(`/buchungen/${bookingId}`)
+    await ready(page)
+    const bookingPayments = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Zahlungen', exact: true }) })
+    const items = bookingPayments.locator('li')
+    await expect(items).toHaveCount(2)
+    expect(plain(await items.nth(0).textContent())).toMatch(/€ 300,00.*Rechnung 2026-0001/)
+    expect(plain(await items.nth(1).textContent())).toMatch(/-€ 300,00.*Rückzahlung · Rechnung 2026-0002/)
+    await expect(items.nth(1).locator('.text-destructive').first()).toBeVisible()
+    // stornierte Rechnung und Gutschrift: nichts mehr zu erfassen
+    await expect(bookingPayments.getByRole('button', { name: 'Zahlung erfassen' })).toHaveCount(0)
   })
 })
 
@@ -632,6 +644,29 @@ test.describe('Nacherfassen mit „Bereits bezahlt“', () => {
 })
 
 test.describe('Layout und Barrierefreiheit', () => {
+  test('AC: Buchungsdetail mit Rechnung und Zahlungen ohne waagrechtes Scrollen und ohne axe-Fehler; booking.com-Nummer in der Grundschrift (refine PROJ-8)', async ({ page, users }) => {
+    const s = await setup(users)
+    const bookingId = await addBooking(s, 'booking_com')
+    await service().from('bookings').update({ platform_number: '4123456789' } as never).eq('id', bookingId)
+    const id = await addInvoice(s, { booking_id: bookingId })
+    await addPayment(s, id, { amount_cents: 40000, commission_cents: 5000, note: 'Auszahlung booking.com mit langer Notiz zur Prüfung des Umbruchs am Handy' })
+    await signInAs(page, s.owner)
+    await page.goto(`/buchungen/${bookingId}`)
+    await ready(page)
+    const payments = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Zahlungen', exact: true }) })
+    await expect(payments.locator('li')).toHaveCount(1)
+    const number = page.getByText('4123456789', { exact: true })
+    const [numberFont, bodyFont] = await Promise.all([
+      number.evaluate((el) => getComputedStyle(el).fontFamily),
+      page.locator('main').evaluate((el) => getComputedStyle(el).fontFamily),
+    ])
+    expect(numberFont).toBe(bodyFont)
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
+    expect(overflow).toBeLessThanOrEqual(0)
+    const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()
+    expect(results.violations, results.violations.map((v) => v.id).join(', ')).toEqual([])
+  })
+
   test('AC: Rechnungsdetail mit Zahlungen und Zahlungsliste ohne waagrechtes Scrollen und ohne axe-Fehler', async ({ page, users }) => {
     const s = await setup(users)
     const bookingId = await addBooking(s, 'airbnb')
