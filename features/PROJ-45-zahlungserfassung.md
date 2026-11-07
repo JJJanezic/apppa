@@ -1,6 +1,6 @@
 # PROJ-45: Zahlungserfassung
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-11-06
 **Last Updated:** 2026-11-07
 
@@ -648,6 +648,30 @@ Keine neuen Pakete (Bildumwandlung, Hochladen, Griff zum Ordnen und Monatsauswah
 - **Security:** Pass
 - **Production Ready:** YES
 - **Recommendation:** Deploy (beide Migrationen vor dem Code einspielen)
+
+### QA Refine 2026-11-07 (Felder nach Zahlungsart, Commit 3d79b26)
+
+**Tested:** 2026-11-07 · Produktions-Build gegen Supabase „apppa-dev“ (Prüfung über den Build: als Supabase-Adresse nur `nizgfmvjplhegoosanmu`; `.env.local` selbst war per Rechteeinstellung gesperrt)
+
+**Acceptance Criteria (Provisionsabzug, geändert bzw. neu)**
+- [x] Zahlungsart direkt nach dem Datum, vorbelegt „Überweisung“, ohne Provisionsfelder, Feld „Betrag“ (E2E)
+- [x] „über booking.com“: Provision und Zahlungsgebühr vor „Zahlungsbetrag“; Reihenfolge Datum → Zahlungsart → Provision → Gebühr → Zahlungsbetrag gemessen (E2E Desktop/Tablet/Handy)
+- [x] „über Airbnb“: nur Provision (E2E Dialog und Nacherfassen)
+- [x] Wechsel auf Zahlungsart ohne Feld leert es, Vorschlag folgt (E2E Dialog: Airbnb → booking.com; Nacherfassen: booking.com → Überweisung)
+- [x] Direktbuchung bzw. ohne Buchung mit Provision > 0: Hinweis an der Zahlungsart, nichts gespeichert (E2E Dialog und Nacherfassen; Datenbank weiter P0957, Integration)
+- [x] Vorschlag „Zahlungsbetrag“ 500 → 430 → 425; gespeichert 42500/7000/500 (E2E)
+- [x] Nacherfassen mit booking.com-Buchung, „über booking.com“, Provision € 60,00: Zahlung 44000 + Provision 6000 (E2E, neu)
+- [x] Dialog mit eingeblendeten Feldern ohne waagrechtes Scrollen und ohne axe-Fehler (E2E Desktop/Tablet/Handy, neu)
+
+**Edge Cases:** Bearbeiten älterer Zahlungen mit Provision bei anderer Zahlungsart: Felder bleiben sichtbar (Code-Review: Anzeige bei Wert > 0). Rückzahlungen: nie Provisionsfelder (E2E). Beim Bearbeiten gilt der Betrag als selbst eingetragen; ein Wechsel der Zahlungsart leert die Provision, der Zahlungsbetrag bleibt stehen (gemäß AC „selbst geändert bleibt stehen“).
+
+**Security:** Keine Änderung an Datenbank oder Server-Aktionen. Die Regel „nur bei Plattform-Buchung“ bleibt in der Datenbank (P0957), ein Umgehen der Prüfung im Browser bringt also nichts. Die Zuordnung Zahlungsart → Felder ist nur Oberfläche: Über die Schnittstelle ließe sich bei einer Plattform-Buchung auch mit „Überweisung“ eine Provision speichern. Das war schon vorher so und betrifft nur eigene Daten (Info, kein Bug).
+
+**Tests:** Unit 777/777 (neu: `methodDeductions`), Integration `payments` 18/18, E2E PROJ-45 Abläufe 7/7 Chrome und 7/7 Firefox, übrige PROJ-45-Tests 14/14 (vor der QA mit demselben App-Stand), Layout-Dialog 5/5 (alle Projekte), Regression PROJ-37 30/30 (1 nur fürs Handy, am Desktop übersprungen). Safari nicht getestet (läuft nur gegen den Entwicklungsserver; nur Standard-Auswahlfelder geändert).
+
+**Bugs:** keine. **Hinweis (kein Bug, so entschieden):** Erkennung am Namen; wird „über booking.com“ ohne „booking.com“ im Namen umbenannt, erscheinen die Felder nicht mehr.
+
+**Ergebnis:** Production-ready: **JA**.
 
 ## Deployment
 
