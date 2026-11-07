@@ -209,7 +209,7 @@ test.describe('Formular', () => {
     await page.getByRole('button', { name: 'Neue Sperre' }).first().click()
     await expect(panel(page)).toBeVisible()
     await expect(panel(page).getByRole('combobox', { name: 'Buchungsquelle' })).toHaveCount(0)
-    await expect(panel(page).getByText(/Buchungsnummer|Bestätigungscode/)).toHaveCount(0)
+    await expect(panel(page).getByText(/Buchungs-ID|Bestätigungscode/)).toHaveCount(0)
     await page.keyboard.press('Escape')
 
     // Bestehende booking.com-Buchung ohne Nummer: leer speichern, dann nachtragen
@@ -251,6 +251,64 @@ test.describe('Formular', () => {
     await submit(page, 'Änderungen speichern')
     await expect(panel(page)).toHaveCount(0)
     expect((await stored(b.id)).platform_number).toBe('HMabcd-1234')
+  })
+})
+
+test.describe('Formular-Layout (PROJ-8 refine 2026-11-07)', () => {
+  test('AC: „booking.com Buchungs-ID“ auf gleicher Höhe wie „Buchungsquelle“, normale Schrift, kein Leerzeichen-Hinweis; Abschnitt „Meldung und Ortstaxe“ mit drei Feldern', async ({ page, users }) => {
+    const { tenantId } = await setup(page, users)
+    await addApartment(tenantId)
+
+    await openList(page, `?monat=${month(FUTURE)}`)
+    await newBooking(page)
+    await chooseSource(page, 'booking.com')
+    const field = bookingField(page)
+    await expect(field).toBeVisible()
+    await expect(panel(page).getByText('Leerzeichen werden beim Speichern entfernt.')).toHaveCount(0)
+    await expect(panel(page).getByText(/\(optional\)/).filter({ hasText: /booking|Airbnb/ })).toHaveCount(0)
+
+    // Schrift wie das Nachbarfeld (keine Festbreite, keine Tabellenziffern)
+    const style = (el: HTMLElement) => {
+      const cs = getComputedStyle(el)
+      return { family: cs.fontFamily, numeric: cs.fontVariantNumeric }
+    }
+    const fieldStyle = await field.evaluate(style)
+    const customStyle = await panel(page).getByLabel('Anreise', { exact: true }).evaluate(style)
+    expect(fieldStyle).toEqual(customStyle)
+
+    // Ab 640 px zwei Spalten: Eingabefeld und Auswahl beginnen auf gleicher Höhe
+    const select = panel(page).getByRole('combobox', { name: 'Buchungsquelle' })
+    const [a, b] = [await select.boundingBox(), await field.boundingBox()]
+    if ((page.viewportSize()?.width ?? 0) >= 640) {
+      expect(Math.abs(a!.y - b!.y)).toBeLessThanOrEqual(1)
+      expect(b!.x).toBeGreaterThan(a!.x + a!.width)
+    } else {
+      expect(b!.y).toBeGreaterThan(a!.y + a!.height)
+    }
+    // Airbnb: gleiche Höhe ohne „(optional)“
+    await chooseSource(page, 'Airbnb')
+    await expect(airbnbField(page)).toBeVisible()
+
+    // Abschnitt „Meldung und Ortstaxe“: Ortstaxe-Befreiung, Wohnsitz, Gästeblattnummer in dieser Reihenfolge
+    const section = panel(page).getByRole('group', { name: 'Meldung und Ortstaxe' })
+    const labels = ['Hauptgast von der Ortstaxe befreit', 'Wohnsitz angemeldet', 'Gästeblattnummer (optional)']
+    const ys: number[] = []
+    for (const label of labels) {
+      const el = section.getByLabel(label, { exact: true })
+      await expect(el).toBeVisible()
+      ys.push((await el.boundingBox())!.y)
+    }
+    expect(ys[0]).toBeLessThan(ys[1])
+    expect(ys[1]).toBeLessThan(ys[2])
+    // Nicht mehr im Abschnitt „Hauptgast“, und nur einmal im Formular
+    await expect(panel(page).getByRole('group', { name: 'Hauptgast' }).getByLabel('Hauptgast von der Ortstaxe befreit')).toHaveCount(0)
+    await expect(panel(page).getByLabel('Hauptgast von der Ortstaxe befreit')).toHaveCount(1)
+    // Abschnitt kommt nach „Personen“
+    const persons = (await panel(page).getByRole('group', { name: /^Personen/ }).boundingBox())!
+    expect((await section.boundingBox())!.y).toBeGreaterThan(persons.y)
+
+    const axe = await new AxeBuilder({ page }).include('[role="dialog"]').analyze()
+    expect(axe.violations).toEqual([])
   })
 })
 

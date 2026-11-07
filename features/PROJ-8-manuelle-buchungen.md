@@ -4,7 +4,7 @@
 **Created:** 2026-10-26
 **Last Updated:** 2026-11-07
 
-> Grundumfang in Produktion. In Arbeit (refine 2026-11-07): Buchungsformular – Plattform-Nummer und Abschnitt „Meldung und Ortstaxe“ (Abschnitt O). Seit v1.24.0 (refine 2026-11-05): Bezeichnung „Endreinigung“ statt „Reinigung“ samt Umstellung bestehender Buchungen (Abschnitt „Endreinigung“).
+> Grundumfang in Produktion. Refine 2026-11-07 (Buchungsformular – Plattform-Nummer und Abschnitt „Meldung und Ortstaxe“, Abschnitt O): QA bestanden, bereit zum Ausliefern. Seit v1.24.0 (refine 2026-11-05): Bezeichnung „Endreinigung“ statt „Reinigung“ samt Umstellung bestehender Buchungen (Abschnitt „Endreinigung“).
 
 ## Dependencies
 - Requires: PROJ-1 (Supabase Infrastructure Setup): Mandanten-Abschottung, Änderungsprotokoll
@@ -1029,6 +1029,27 @@ Keine neuen Tabellen oder Spalten, keine Änderung der Zugriffsregeln. Ausgestel
 **Bugs:** keine.
 
 **Nachtrag nach der QA (Nutzerwunsch):** Auch das Eingabefeld „booking.com-Buchungsnummer“/„Airbnb-Bestätigungscode“ im Buchungsformular ohne `font-mono` (nur Klasse entfernt; Typprüfung, Lint, PROJ-47-Formulartests grün).
+
+**Ergebnis:** Production-ready: **JA**.
+
+### QA Refine 2026-11-07 (Buchungsformular: booking.com Buchungs-ID, Abschnitt „Meldung und Ortstaxe“)
+
+**Tested:** 2026-11-07 · Produktions-Build gegen Supabase „apppa-dev“ (im Build nur `nizgfmvjplhegoosanmu`) · Commit 57618e2
+
+**Acceptance Criteria: 5/5 bestanden**
+- [x] Eingabefeld der booking.com-Nummer in derselben Schrift wie die übrigen Felder: Schriftfamilie und Ziffernform gleich „Anreise“ (E2E, neu; Desktop, Tablet, Handy, Firefox)
+- [x] Bezeichnung „booking.com Buchungs-ID“; Feld beginnt ab zwei Spalten (Tablet 768 px, Desktop 1440 px) auf gleicher Höhe wie „Buchungsquelle“ (Abweichung ≤ 1 px, E2E, neu); auf dem Handy darunter. Die Kurzform „booking.com-ID“ war nicht nötig
+- [x] Hinweis „Leerzeichen werden beim Speichern entfernt.“ entfällt; Leerzeichen werden weiter entfernt (E2E PROJ-47 „Feld je Quelle …“)
+- [x] Abschnitt „Meldung und Ortstaxe“ nach „Personen“ mit „Hauptgast von der Ortstaxe befreit“, „Wohnsitz angemeldet“, „Gästeblattnummer (optional)“ in dieser Reihenfolge; Häkchen nicht mehr bei „Hauptgast“, nur einmal im Formular (E2E, neu)
+- [x] Verhalten der drei Felder unverändert: Befreiung halbiert die Abgabe (E2E PROJ-15), Gästeblattnummer-Dublette und Wohnsitz (E2E PROJ-30)
+
+**Edge Cases:** „Airbnb-Bestätigungscode“ ohne „(optional)“, Feld eindeutig auffindbar (E2E). Bei der Sperre gibt es weder Quelle noch Plattform-Nummer (E2E PROJ-47, Prüfung auf neue Bezeichnung umgestellt). Formular mit 30-stelliger Nummer ohne seitliches Scrollen auf 375 px (E2E PROJ-47 „Layout“).
+
+**Security:** Nur Texte und Anordnung im Formular; keine Server-Aktion, Prüfregel oder Datenbank geändert. Die Leerzeichen entfernt weiterhin das Schema und die Datenbankregel (PROJ-47).
+
+**Tests:** Unit 778/778. E2E: neuer Layout-Test (Desktop, Tablet, Handy, Firefox; axe ohne Verstöße im Formular); PROJ-47 komplett (Desktop, 11); PROJ-15 „Abgabe in der Buchung“ und Layout; PROJ-30 Formular, Gästeblattnummer/Wohnsitz, Layout; PROJ-8 Anlegen, Mitarbeiter, Konflikte, Optionen/Stornieren, Bearbeiten, Layout (Desktop, Tablet, Handy). Safari nicht getestet (nur gegen den Entwicklungsserver).
+
+**Bugs:** keine.
 
 **Ergebnis:** Production-ready: **JA**.
 
