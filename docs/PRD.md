@@ -1,7 +1,7 @@
 # Product Requirements Document
 
 ## Vision
-Eine Web-App für Vermieter von Ferien- und Dienstwohnungen. Sie führt Buchungen von booking.com, Airbnb und Direktbuchungen automatisch an einem Ort zusammen und verhindert Doppelbuchungen. Gäste, Zahlungen und die Tourismusabgabe werden ebenfalls dort verwaltet. Ziel ist, den wöchentlichen Verwaltungsaufwand der Vermieter mindestens zu halbieren.
+Eine Web-App für Vermieter von Ferien- und Dienstwohnungen. Sie führt Buchungen von booking.com, Airbnb und Direktbuchungen automatisch an einem Ort zusammen und verhindert Doppelbuchungen. Gäste, Zahlungen und die Ortstaxe werden ebenfalls dort verwaltet. Ziel ist, den wöchentlichen Verwaltungsaufwand der Vermieter mindestens zu halbieren.
 
 Die App wird als Mehrmandanten-SaaS betrieben: Jeder Kunde (Vermieter) hat ein eigenes, vollständig abgeschottetes Konto. Sie läuft im Desktop- und im mobilen Browser und ist so aufgebaut, dass später weitere Features ergänzt werden können.
 
@@ -10,7 +10,7 @@ Die App wird als Mehrmandanten-SaaS betrieben: Jeder Kunde (Vermieter) hat ein e
 **Vermieter (Inhaber):** Privatvermieter und kleine Betriebe in Österreich mit wenigen bis einigen Dutzend Ferien- oder Dienstwohnungen.
 - Gleichen Buchungen von booking.com, Airbnb und Direktbuchungen heute manuell ab, mit dem Risiko von Doppelbuchungen
 - Gästedaten liegen verstreut in Plattform-Postfächern, Excel-Listen und E-Mails
-- Berechnen die Tourismusabgabe (Ortstaxe) für die Gemeinde händisch
+- Berechnen die Ortstaxe (je nach Gemeinde z. B. „Nächtigungsabgabe“) für die Gemeinde händisch
 - Haben keinen Überblick über Auslastung, Umsatz und Herkunft ihrer Gäste
 - Wollen ihre Gäste für Marketing (z. B. Stammgäste) nutzen, dürfen das aber nur mit DSGVO-Einwilligung
 
@@ -29,9 +29,9 @@ Die App wird als Mehrmandanten-SaaS betrieben: Jeder Kunde (Vermieter) hat ein e
 | P0 (Pilot) | Plattform-Buchungsnummer (booking.com/Airbnb) in der Buchung | Deployed (PROJ-47) |
 | P0 (Pilot) | Wohnungsverwaltung, Gäste-Datenbank, manuelle Buchungen, Belegungskalender | Deployed (PROJ-6, PROJ-7, PROJ-8, PROJ-9, PROJ-27); „Endreinigung“ statt „Reinigung“ (PROJ-8) |
 | P0 (Pilot) | Channex-Anbindung: Buchungsimport von booking.com/Airbnb und Verfügbarkeitssperren | Roadmap |
-| P0 (Pilot) | Zahlungserfassung je Rechnung mit Provisionsabzug booking.com/Airbnb (PROJ-45), Zahlungen aus Channex (PROJ-13), Dashboard | Deployed (PROJ-45); Roadmap (PROJ-13, PROJ-14) |
+| P0 (Pilot) | Zahlungserfassung je Rechnung mit Provisionsabzug booking.com/Airbnb (PROJ-45), Zahlungen aus Channex (PROJ-13), Dashboard über alle Kunden der Person (PROJ-14) | Deployed (PROJ-45); Planned (PROJ-14); Roadmap (PROJ-13) |
 | P0 (Pilot) | Ortstaxe je Wohnung: Tarife mit Stichtag, Altersbefreiung, persönliche Befreiung, automatische Position in der Buchung | Deployed (PROJ-15) |
-| P0 (Pilot) | Tourismusabgabe-Monatsbericht und Export | Roadmap (PROJ-16) |
+| P0 (Pilot) | Ortstaxen-Berichte (Monat, Quartal, Jahr) und Export | Roadmap (PROJ-16) |
 | P0 (Pilot) | Gast-Erweiterung: Titel, Geschlecht, Reisedokument | Deployed (PROJ-29) |
 | P0 (Pilot) | Buchungs-Erweiterung: Meldedaten, Buchungsquelle, Monatsauswahl; Preisregel bei Verlängerung wählbar | Deployed (PROJ-30) |
 | P0 (Pilot) | Einheitliche Datums- und Betragsformate | Deployed (PROJ-31) |
@@ -67,7 +67,7 @@ Details, Abhängigkeiten und Bau-Reihenfolge: siehe `features/INDEX.md`.
 - **Kosten:** Laufende Kosten niedrig halten (Einstiegstarife bei Supabase/Vercel)
 - **Onboarding & Abrechnung:** Der Betreiber legt Kunden an und lädt sie per E-Mail ein; abgerechnet wird außerhalb der App per Rechnung
 - **Zahlungen:** Werden nur erfasst, nicht abgewickelt
-- **Recht:** DSGVO (Gästedaten, Marketing nur mit Einwilligung; Plattform-Adressen von booking.com/Airbnb nicht für Werbung). Die Tourismusabgabe ist je Bundesland/Gemeinde unterschiedlich geregelt und muss konfigurierbar sein
+- **Recht:** DSGVO (Gästedaten, Marketing nur mit Einwilligung; Plattform-Adressen von booking.com/Airbnb nicht für Werbung). Die Ortstaxe ist je Bundesland/Gemeinde unterschiedlich geregelt und muss konfigurierbar sein
 - **Sprache:** Deutsch, technisch mehrsprachig vorbereitet; Euro, österreichische Datums- und Zahlenformate
 - **Geräte:** Responsiv für Desktop- und mobile Browser
 - **Design-System:** siehe `docs/design-system.md`
