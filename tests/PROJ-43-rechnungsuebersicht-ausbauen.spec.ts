@@ -386,3 +386,269 @@ test.describe('Rechnung erstellen aus der Übersicht', () => {
     await expect(page).toHaveURL(/\/rechnungen\?jahr=2026$/)
   })
 })
+
+// ---- QA (2026-11-07) --------------------------------------------------------------------------------------------------
+
+const SHA = 'e'.repeat(64)
+async function uploadPdf(tenantId: string) {
+  const path = `${tenantId}/${randomUUID()}.pdf`
+  const { error } = await service().storage.from('invoices').upload(path, Buffer.from('%PDF-1.4\n%%EOF\n'), { contentType: 'application/pdf' })
+  if (error) throw error
+  return path
+}
+// Entwurf ausstellen bzw. Gutschrift dazu wie die Server-Schnittstelle (im Namen des Inhabers, PDF-Pfad als Platzhalter)
+async function issueDraft(owner: E2EUser, tenantId: string, draftId: string, number: string) {
+  const { data: r } = await service().from('invoices').select('updated_at, total_cents, booking_id').eq('id', draftId).single()
+  const { data: b } = await service().from('bookings').select('updated_at').eq('id', r!.booking_id!).single()
+  const { error } = await service().rpc('issue_invoice', {
+    p_input: {
+      id: draftId,
+      tenant_id: tenantId,
+      actor_id: owner.id,
+      updated_at: r!.updated_at,
+      booking_updated_at: b!.updated_at,
+      number,
+      invoice_date: '2026-10-20',
+      small_business: false,
+      total_cents: r!.total_cents,
+      pdf_sha256: SHA,
+      without_logo: false,
+      snapshot: { kind: 'invoice', schedule: { due: '2099-01-01', depositCents: null, depositDue: null, remainderCents: null } },
+      pdf_path: await uploadPdf(tenantId),
+    } as unknown as Json,
+  })
+  if (error) throw error
+}
+async function creditFor(owner: E2EUser, tenantId: string, invoiceId: string, number: string) {
+  const { data: r } = await service().from('invoices').select('total_cents').eq('id', invoiceId).single()
+  const { error } = await service().rpc('issue_credit_note', {
+    p_input: {
+      invoice_id: invoiceId,
+      tenant_id: tenantId,
+      actor_id: owner.id,
+      number,
+      invoice_date: '2026-10-25',
+      reason: null,
+      total_cents: -r!.total_cents,
+      pdf_sha256: SHA,
+      without_logo: false,
+      snapshot: { kind: 'invoice', credit: { invoiceId } },
+      pdf_path: await uploadPdf(tenantId),
+    } as unknown as Json,
+  })
+  if (error) throw error
+}
+
+test.describe('QA: Status in der Oberfläche', () => {
+  test('AC: ausgestellt ohne stornierte, storniert ohne Gutschrift, Gutschrift allein; Summen heben sich auf', async ({ page, users }) => {
+    desktopOnly()
+    const { owner, tenantId } = await setup(users)
+    const apt = await addApartment(tenantId)
+    const guest = await addGuest(tenantId)
+    const b1 = await addBooking(tenantId, apt, guest, '2026-10-01', '2026-10-04')
+    const b2 = await addBooking(tenantId, apt, guest, '2026-10-05', '2026-10-08')
+    const d1 = await addDraft(owner, tenantId, b1.id, '2026-10-20', 90000)
+    const d2 = await addDraft(owner, tenantId, b2.id, '2026-10-20', 90000)
+    await issueDraft(owner, tenantId, d1, 'QA-A1')
+    await issueDraft(owner, tenantId, d2, 'QA-A2')
+    await creditFor(owner, tenantId, d2, 'QA-G1')
+    await signInAs(page, owner)
+    await openList(page)
+    await expect(rows(page)).toHaveCount(3)
+    const sums = page.getByLabel('Summen der gefilterten Rechnungen').getByRole('definition')
+    // 900 + 900 − 900; offen nur die nicht stornierte
+    await expect(sums.nth(0)).toHaveText('€ 900,00')
+    await expect(sums.nth(2)).toHaveText('€ 900,00')
+    await chooseOption(page, 'Status', 'ausgestellt')
+    await expect(rows(page)).toHaveCount(1)
+    await expect(page.getByRole('link', { name: 'QA-A1' })).toBeVisible()
+    await chooseOption(page, 'Status', 'storniert')
+    await expect(rows(page)).toHaveCount(1)
+    await expect(page.getByRole('link', { name: 'QA-A2' })).toBeVisible()
+    await chooseOption(page, 'Status', 'Gutschrift')
+    await expect(rows(page)).toHaveCount(1)
+    await expect(page.getByRole('link', { name: 'QA-G1' })).toBeVisible()
+    await expect(sums.nth(0)).toHaveText('-€ 900,00')
+    await chooseOption(page, 'Zahlung', 'offen')
+    await expect(page.getByText('Keine Rechnungen gefunden')).toBeVisible()
+  })
+})
+
+test.describe('QA: Blättern, Suche und Filter zusammen', () => {
+  test('AC: Blättern behält Filter, Filterwechsel springt auf Seite 1, Tippen in der Suche behält Filter; Rückweg auf Seite 2', async ({ page, users }) => {
+    desktopOnly()
+    const { owner, tenantId } = await setup(users)
+    const many = Array.from({ length: 55 }, (_, i) => ({
+      tenant_id: tenantId,
+      number: `B-${String(i).padStart(3, '0')}`,
+      invoice_date: '2026-04-01',
+      recipient: 'Huber Maria',
+      total_cents: 10000 + i,
+    }))
+    expect((await service().from('invoices').insert(many as never)).error).toBeNull()
+    await addBackfilled(owner, tenantId, { number: 'ALT-2025', date: '2025-04-01', cents: 10000 })
+    await signInAs(page, owner)
+    await openList(page, '?jahr=2026')
+    await expect(page.getByText('55 Treffer')).toBeVisible()
+    await page.getByRole('link', { name: /Weiter/ }).first().click()
+    await expect(page).toHaveURL(/jahr=2026.*seite=2/)
+    await expect(rows(page)).toHaveCount(5)
+    // Rückweg von Seite 2
+    await rows(page).first().getByRole('link').first().click()
+    await ready(page)
+    await page.getByRole('link', { name: 'Zurück zur Liste' }).click()
+    await expect(page).toHaveURL(/jahr=2026&seite=2$/)
+    // Filterwechsel → Seite 1
+    await ready(page)
+    await chooseOption(page, 'Status', 'nacherfasst')
+    await expect(page).not.toHaveURL(/seite=/)
+    await expect(rows(page)).toHaveCount(50)
+    // Suche behält die Filter
+    await page.getByRole('searchbox', { name: 'Rechnungen suchen' }).fill('B-05')
+    await expect(page).toHaveURL(/q=B-05/)
+    await expect(page).toHaveURL(/jahr=2026/)
+    await expect(page).toHaveURL(/status=backfilled/)
+    await expect(rows(page)).toHaveCount(5)
+  })
+})
+
+test.describe('QA: Rechnung erstellen – Sonderfälle', () => {
+  test('AC: Option mit Hinweis; stornierte ohne Gebühr nicht wählbar; Sperre nicht gefunden; Mitarbeiter ohne Zugriff; 20 Treffer', async ({ page, users }) => {
+    desktopOnly()
+    const { owner, staff, tenantId } = await setup(users, { staff: true })
+    const apt = await addApartment(tenantId)
+    const guest = await addGuest(tenantId, 'Vielbucher')
+    const option = await addBooking(tenantId, apt, await addGuest(tenantId, 'Optionsgast'), '2026-12-01', '2026-12-04')
+    await service().from('bookings').update({ kind: 'option', option_until: '2026-12-31' } as never).eq('id', option.id)
+    const cancelled = await addBooking(tenantId, apt, await addGuest(tenantId, 'Stornogast'), '2026-12-10', '2026-12-12')
+    await service().from('bookings').update({ cancelled_at: new Date().toISOString() } as never).eq('id', cancelled.id)
+    await service()
+      .from('bookings')
+      .insert({ tenant_id: tenantId, apartment_id: apt, kind: 'block', arrival: '2026-12-20', planned_departure: '2026-12-22', departure: '2026-12-22', block_reason: 'owner_use', child_ages: [] } as never)
+    for (let i = 0; i < 20; i++) {
+      const day = String(1 + i).padStart(2, '0')
+      await addBooking(tenantId, apt, guest, `2027-01-${day}`, `2027-01-${day}`.replace(/-(\d\d)$/, (_, d) => `-${String(Number(d) + 1).padStart(2, '0')}`))
+    }
+    await signInAs(page, owner)
+    await openList(page)
+    await page.getByRole('button', { name: 'Rechnung erstellen' }).click()
+    const dialog = page.getByRole('dialog', { name: 'Rechnung erstellen' })
+    const search = dialog.getByRole('combobox', { name: 'Buchung suchen' })
+
+    // 20 Treffer mit Prüfung je Buchung (Antwortzeit: BUG-1 unten)
+    await search.fill('Vielbucher')
+    await expect(dialog.getByRole('option')).toHaveCount(20, { timeout: 15_000 })
+
+    await search.fill('Stornogast')
+    await expect(dialog.getByRole('option', { name: /Stornogast/ })).toHaveAttribute('aria-disabled', 'true')
+    await expect(dialog.getByRole('option', { name: /Stornogast/ })).toContainText('Storniert ohne Stornogebühr')
+    await search.fill('12.2026')
+    await expect(dialog.getByRole('option')).toHaveCount(2)
+    await search.fill('Optionsgast')
+    await dialog.getByRole('option', { name: /Optionsgast/ }).click()
+    await expect(page).toHaveURL(/von=liste/)
+    await ready(page)
+    await expect(page.getByText('Buchung ist noch eine Option')).toBeVisible()
+
+    // Mitarbeiter: Direktaufruf des Entwurfs aus der Liste → nicht gefunden
+    await page.context().clearCookies()
+    await signInAs(page, staff!)
+    await page.goto(`/rechnungen/neu?buchung=${option.id}&von=liste`)
+    await expect(page.getByRole('heading', { name: /nicht gefunden/i })).toBeVisible()
+  })
+})
+
+test.describe('QA: Sicherheit', () => {
+  test('Suchbegriff und Filterwerte mit HTML werden als Text gezeigt; fremde Rechnungen erscheinen nicht', async ({ page, users }) => {
+    desktopOnly()
+    const { owner, tenantId } = await setup(users)
+    const other = await setup(users)
+    await addBackfilled(other.owner, other.tenantId, { number: 'FREMD-1', date: '2026-05-01', cents: 10000 })
+    await addBackfilled(owner, tenantId, { number: 'EIGEN-1', date: '2026-05-01', cents: 10000 })
+    let dialogs = 0
+    page.on('dialog', async (d) => {
+      dialogs++
+      await d.dismiss()
+    })
+    await signInAs(page, owner)
+    await openList(page, `?q=${encodeURIComponent('<img src=x onerror=alert(1)>')}&status=${encodeURIComponent('"><script>alert(1)</script>')}&von=1e9&bis=-0`)
+    await expect(page.getByRole('searchbox', { name: 'Rechnungen suchen' })).toHaveValue('<img src=x onerror=alert(1)>')
+    await expect(page.locator('main img[src="x"]')).toHaveCount(0)
+    expect(dialogs).toBe(0)
+    await openList(page, '?q=FREMD')
+    await expect(page.getByRole('link', { name: 'FREMD-1' })).toHaveCount(0)
+    await openList(page)
+    await expect(rows(page)).toHaveCount(1)
+  })
+})
+
+test.describe('QA: Antwortzeit der Buchungssuche', () => {
+  // BUG-1 (Low): Die Suche „Rechnung erstellen“ liest je Treffer Buchung, Positionen und Rechnungen einzeln. Gemessen
+  // 2026-11-07: Server-Antwort 20 Treffer ca. 1,4 s (Nacherfassen ohne Prüfung ca. 0,35 s). Wird grün unter 1 s.
+  test('BUG-1: Server-Antwort für 20 Treffer unter 1 s', async ({ page, users }) => {
+    desktopOnly()
+    test.fail()
+    const { owner, tenantId } = await setup(users)
+    const apt = await addApartment(tenantId)
+    const guest = await addGuest(tenantId, 'Vielbucher')
+    for (let i = 0; i < 20; i++) {
+      const day = String(1 + i).padStart(2, '0')
+      await addBooking(tenantId, apt, guest, `2027-02-${day}`, `2027-02-${String(2 + i).padStart(2, '0')}`)
+    }
+    await signInAs(page, owner)
+    await openList(page)
+    const measure = async (open: () => Promise<void>) => {
+      await open()
+      const search = page.getByRole('dialog').getByRole('combobox', { name: 'Buchung suchen' }).or(page.getByRole('dialog').getByLabel('Buchung suchen'))
+      // Aufwärmen, dann die Antwort des Servers messen (Anfrage → Antwort der Server-Aktion)
+      await search.fill('Vielb')
+      await expect(page.getByRole('dialog').getByRole('option')).toHaveCount(20, { timeout: 15_000 })
+      const isAction = (r: { request: () => { method: () => string; headers: () => Record<string, string> } }) =>
+        r.request().method() === 'POST' && 'next-action' in r.request().headers()
+      const request = page.waitForRequest((r) => r.method() === 'POST' && 'next-action' in r.headers(), { timeout: 15_000 })
+      const response = page.waitForResponse(isAction, { timeout: 15_000 })
+      await search.fill('Vielbucher')
+      await request
+      const start = Date.now()
+      await (await response).finished()
+      const ms = Date.now() - start
+      await page.keyboard.press('Escape')
+      return ms
+    }
+    const backfill = await measure(() => page.getByRole('button', { name: 'Rechnung nacherfassen' }).first().click())
+    const draft = await measure(() => page.getByRole('button', { name: 'Rechnung erstellen' }).click())
+    test.info().annotations.push({ type: 'Antwortzeit', description: `Nacherfassen ${backfill} ms, Rechnung erstellen ${draft} ms` })
+    console.log(`Antwortzeit: Nacherfassen ${backfill} ms, Rechnung erstellen ${draft} ms`)
+    expect(draft).toBeLessThan(1000)
+  })
+})
+
+test.describe('QA: Layout', () => {
+  test('Liste mit Filtern und Summen ohne waagrechtes Scrollen und ohne axe-Fehler (Tablet, Desktop)', async ({ page, users }) => {
+    test.skip(test.info().project.name === 'mobile', 'Handy eigener Test')
+    const { owner, tenantId } = await setup(users)
+    await addBackfilled(owner, tenantId, { number: 'L-2026-1', date: '2026-05-01', cents: 123456 })
+    await signInAs(page, owner)
+    await openList(page, '?jahr=2026&status=backfilled&von=-100&bis=5000')
+    await expect(page.getByLabel('Status', { exact: true })).toBeVisible()
+    await expect(page.getByLabel('Summen der gefilterten Rechnungen')).toBeVisible()
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+    expect((await new AxeBuilder({ page }).include('main').analyze()).violations).toEqual([])
+    await page.getByRole('button', { name: 'Rechnung erstellen' }).click()
+    await expect(page.getByRole('dialog', { name: 'Rechnung erstellen' })).toBeVisible()
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+  })
+
+  // BUG-2 (Low): Platzhalter „Gastname, Wohnung oder Zeitraum“ der Buchungssuche hat 1,97:1 Kontrast (#a5a3a3 auf #e5e4e4;
+  // gemeinsamer Baustein Command, auch beim Nacherfassen). Wird grün, sobald der Dialog ohne axe-Fehler ist.
+  test('BUG-2: Dialog „Rechnung erstellen“ ohne axe-Fehler', async ({ page, users }) => {
+    desktopOnly()
+    test.fail()
+    const { owner } = await setup(users)
+    await signInAs(page, owner)
+    await openList(page)
+    await page.getByRole('button', { name: 'Rechnung erstellen' }).click()
+    await expect(page.getByRole('dialog', { name: 'Rechnung erstellen' })).toBeVisible()
+    expect((await new AxeBuilder({ page }).include('[role="dialog"]').analyze()).violations).toEqual([])
+  })
+})

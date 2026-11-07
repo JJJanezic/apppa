@@ -1,6 +1,6 @@
 # PROJ-43: Rechnungsübersicht ausbauen
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-11-07
 **Last Updated:** 2026-11-07
 
@@ -314,7 +314,106 @@ Keine neuen Pakete.
 **Offen für /qa:** Die Buchungssuche „Rechnung erstellen“ liest je Treffer (höchstens 20) Buchung und Rechnungen einzeln; Antwortzeit bei vielen Treffern prüfen.
 
 ## QA Test Results
-_To be added by /qa_
+
+**Tested:** 2026-11-07
+**App URL:** http://localhost:3000 (gebauter Server, Supabase „apppa-dev“)
+**Tester:** QA Engineer (AI)
+**Stand:** 4999ca7 (Frontend cda49ca, Backend 4999ca7)
+
+Hinweis: Die direkte Prüfung von `.env.local` auf die Dev-Kennung war in dieser Sitzung gesperrt. Ersatz: Die Test-Helfer lehnen Staging-/Produktionsadressen ab, und `supabase/.temp/project-ref` sowie alle Integrationsläufe zeigen auf Dev (`nizgfmvjplhegoosanmu`).
+
+### Acceptance Criteria Status (47/47)
+
+#### Jahresfilter (6/6)
+- [x] Menüpunkt → „Alle Jahre“, alle Rechnungen (E2E)
+- [x] Auswahl 2031–2019 absteigend + „Anderes Jahr …“ (Unit `invoiceYearOptions`, E2E)
+- [x] 31.12.2025 / 01.01.2026 → nur 2026 (E2E)
+- [x] Freies Jahr 2012 → Liste und Anzeige „2012“ (E2E)
+- [x] „20x6“ bzw. „12“ → Hinweis, Filter unverändert (E2E, Unit)
+- [x] Entwurf mit Rechnungsdatum 2026 erscheint unter 2026 (E2E)
+
+#### Statusfilter (5/5)
+- [x] Entwurf, ausgestellt (ohne stornierte), nacherfasst, storniert (ohne Gutschrift), Gutschrift (E2E „QA: Status in der Oberfläche“, Integration)
+
+#### Zahlungsfilter (5/5)
+- [x] noch nicht bezahlt = offen + teilweise; je Status genau einer; überfällig (offen oder teilweise); Entwurf/storniert/Gutschrift/≤ 0 ohne Status; storniert + offen → leer mit „Filter zurücksetzen“ (Integration, E2E)
+
+#### Betragsfilter (5/5)
+- [x] 100–500 inklusive; nur „von 1.200,50“; Gutschrift mit „bis -1“; „von“ > „bis“ → Hinweis, nicht angewendet; „abc“ → Hinweis (E2E, Integration, Unit)
+
+#### Zusammenwirken, Adresse, Rückweg (8/8)
+- [x] Alle Filter + Suche zusammen; Filterwechsel → Seite 1; Adresse in neuem Tab; „Zurück zur Liste“ mit Filtern, Suche und Seite (auch Seite 2); Menüpunkt ohne Filter; „Filter zurücksetzen“ nur bei gesetzten Filtern; ungültige Werte in der Adresse ignoriert; Handy „Filter (2)“ zugeklappt, Suche sichtbar (E2E Desktop, Handy, Firefox)
+
+#### Summen (7/7)
+- [x] Über alle Seiten; Entwurf ohne; Storno + Gutschrift = 0 und nicht in Offen; Überzahlung mindert Offen nicht; Rückzahlung von Bezahlt abgezogen; „noch nicht bezahlt“ + Jahr; keine Summenzeile ohne Treffer (Integration, E2E)
+
+#### Rechnung erstellen aus der Übersicht (11/11)
+- [x] Knopf für Inhaber (auch Leerzustand), nicht für Mitarbeiter; Suche nach Gast, Wohnung, Zeitraum, Buchungsnummer; wählbare Buchung → Entwurfsformular; voll verrechnet bzw. storniert ohne Gebühr nicht wählbar mit Begründung; Option mit Hinweis; Sperre nicht gefunden; Abbrechen → Liste; Speichern wie PROJ-40; Mitarbeiter-Direktaufruf → „nicht gefunden“ (E2E)
+
+### Edge Cases Status
+- [x] Buchung zwischen Suche und Wahl verrechnet: Formular zeigt die Begründung statt des Formulars (bestehende Prüfung PROJ-40, Code geprüft)
+- [x] Seite hinter dem Ende: Hinweis mit richtiger Anzahl (Integration: Anzahl aus den Summen)
+- [x] Jahr ohne Rechnungen: Hinweis + „Filter zurücksetzen“, keine Summen (E2E)
+- [x] Freies Jahr außerhalb der Auswahl bleibt sichtbar; < 1990 / > 2099 abgelehnt (E2E, Unit)
+- [x] Betrag mit Punkt: Regel aus PROJ-31 („100.5“ = 100,50; „1.234“ = 1.234,00)
+- [x] Nacherfasste Rechnung > 0 wird nach Zahlung gefiltert (Integration)
+- [x] Kunde ohne Rechnungen: Leerzustand mit „Rechnung erstellen“ (E2E PROJ-37-Regression)
+- [x] 5.000 Rechnungen: Seite und Summen je ca. 60–80 ms (Messung /backend)
+- [x] Zusätzlich: Blättern über 55 Rechnungen behält die Filter; Tippen in der Suche behält Jahr und Status (E2E)
+
+### Security Audit Results
+- [x] Ohne Anmeldung: Funktionen liefern nichts (Integration)
+- [x] Fremder Inhaber bzw. fremde Kunden-ID: leere Liste, Summen 0 (Integration); fremde Rechnungen nicht über die Suche (E2E)
+- [x] Mitarbeiter: Liste und Summen ja, „Rechnung erstellen“ nein (Knopf fehlt, Seite „nicht gefunden“, Server-Aktion `requireOwner`)
+- [x] Kern `private.invoice_list_rows` nicht direkt aufrufbar; Funktionen mit erhöhten Rechten prüfen die Mitgliedschaft selbst; Advisors ohne neue Meldung
+- [x] Eingaben: HTML im Suchbegriff und in Filterwerten wird als Text gezeigt, kein Skript ausgeführt (E2E); Werte nur als Parameter an die Datenbank; „%“/„_“ als Zeichen (Integration)
+- [x] Rückweg: gemerkte Adresse nur übernommen, wenn sie mit `/rechnungen` beginnt (kein fremdes Ziel)
+- [x] Blättern begrenzt auf höchstens 100 Zeilen je Aufruf (Funktion)
+
+### Bugs Found
+
+#### BUG-1: Buchungssuche „Rechnung erstellen“ langsamer als beim Nacherfassen
+- **Severity:** Low
+- **Steps to Reproduce:**
+  1. Kunde mit 20 Buchungen eines Gastes; Rechnungsliste → „Rechnung erstellen“
+  2. Gastname eingeben
+  3. Expected: Treffer etwa so schnell wie beim Nacherfassen
+  4. Actual: Server-Antwort ca. 1,2–1,4 s (Nacherfassen ca. 0,35 s), weil je Treffer Buchung, Positionen und Rechnungen einzeln gelesen werden
+- **Test:** `QA: Antwortzeit der Buchungssuche` (`test.fail`, wird grün unter 1 s)
+- **Priority:** Nice to have
+
+#### BUG-2: Platzhalter der Buchungssuche mit zu wenig Kontrast
+- **Severity:** Low
+- **Steps to Reproduce:**
+  1. Rechnungsliste → „Rechnung erstellen“
+  2. axe auf den Dialog
+  3. Expected: keine Verstöße
+  4. Actual: Platzhalter „Gastname, Wohnung oder Zeitraum“ 1,97:1 (#a5a3a3 auf #e5e4e4); gemeinsamer Baustein `Command`, betrifft auch „Rechnung nacherfassen“
+- **Test:** `BUG-2: Dialog „Rechnung erstellen“ ohne axe-Fehler` (`test.fail`)
+- **Priority:** Fix in next sprint
+
+#### BUG-3: Nach dem Löschen einer Rechnung ungefilterte Liste
+- **Severity:** Low
+- **Steps to Reproduce:**
+  1. Liste mit Filter (z. B. Jahr 2026) → nacherfasste Rechnung öffnen → „Löschen“ bestätigen
+  2. Expected: zurück zur gefilterten Liste (wie „Zurück zur Liste“)
+  3. Actual: `/rechnungen?geloescht=1` ohne Filter (nicht ausdrücklich im Spec gefordert)
+- **Priority:** Nice to have
+
+### Beobachtung (kein Bug)
+- Am Handy liegt „Filter zurücksetzen“ im zugeklappten Bereich „Filter (n)“; ohne Treffer steht der Knopf zusätzlich im Hinweis.
+
+### Tests
+- E2E `tests/PROJ-43-rechnungsuebersicht-ausbauen.spec.ts`: 13 Tests (davon 2 `test.fail` für BUG-1/2); Desktop grün, Tablet- und Handy-Layout grün, Kernabläufe in Firefox grün (6/6). Safari nicht geprüft (nur gegen den Entwicklungsserver möglich, optional).
+- Integration `supabase/tests/invoice-list.integration.test.ts`: 10 grün.
+- Regression (nach /backend, Code seitdem unverändert): Integration Zahlungen, Rechnungen, Gutschriften, RLS; E2E PROJ-37 Liste/Layout, PROJ-40 Knopf/Abbrechen, PROJ-44 Mitarbeiter-Liste, PROJ-45 Spalte „Zahlung“; Unit 776. Gesamtlauf `npm run test:e2e` nicht gefahren (Läufe nur in kleinen Paketen).
+
+### Summary
+- **Acceptance Criteria:** 47/47 passed
+- **Bugs Found:** 3 total (0 critical, 0 high, 0 medium, 3 low)
+- **Security:** Pass
+- **Production Ready:** YES
+- **Recommendation:** Deploy; BUG-2 (gemeinsamer Baustein) im nächsten Durchgang beheben
 
 ## Deployment
 _To be added by /deploy_
