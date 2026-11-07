@@ -1,6 +1,6 @@
 # PROJ-14: Dashboard
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-11-07
 **Last Updated:** 2026-11-07
 
@@ -311,12 +311,144 @@ Die Rechte gelten **je Kunde** nach der Rolle der Person bei diesem Kunden. Gela
 ### Technical Decisions
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Neue Daten werden nicht gespeichert; nur Leseabfragen, Cookie und Erweiterung des Kundenwechsels | Alles lässt sich aus Buchungen, Positionen, Rechnungen und Zahlungsstand bilden | 2026-11-07 |
+| Abrechnungsregel je Buchung als Lesesicht mit den Rechten der Person | Eine Regel für „Heute“, „Noch nicht abgerechnet“ und Kachel; Mitarbeiter sehen nur, was RLS erlaubt | 2026-11-07 |
+| Ortstaxe als Datenbankfunktion mit Monatssummen je Kunde und Gemeinde; Verteilung je Nacht über aufgelaufene Beträge | Centgenaue Summen, nur Summen übertragen; PROJ-16 nutzt dieselbe Funktion | 2026-11-07 |
+| Ein Abruf über 24 Monate (Jänner Vorjahr bis Dezember laufendes Jahr), Zeiträume in der App zusammengezählt | Sechs überlappende Zeiträume ohne Widerspruch und mit einer Abfrage | 2026-11-07 |
+| Detailseiten bleiben beim gewählten Kunden; Zeilen anderer Kunden wechseln per Formular an den Kundenwechsel mit Ziel | Kein Umbau aller Bearbeitungsabläufe; Schutz vor fremdem Auslösen wie bisher; keine Probleme mit router.push nach Server-Aktion | 2026-11-07 |
+| Kundenwechsel erhält optionales Ziel (nur interne Adressen, gleiche Prüfung wie Rücksprung nach Anmeldung) | Wiederverwendung des geprüften Wechsels; offene Weiterleitung ausgeschlossen | 2026-11-07 |
+| Kundenfilter in Adresse (`kunde`) und Cookie je Gerät | Muster des Kalenders (PROJ-9): kein Springen beim Laden, Zurück/Neuladen funktionieren | 2026-11-07 |
+| Kalenderabfrage nimmt eine Kundenmenge; Vollbild-Seite übergibt nur den gewählten Kunden | Ein Kalender für beide Seiten, Vollbild bleibt unverändert | 2026-11-07 |
+| Neuer Kalender-Parameter öffnet „Neue Buchung“ vorbelegt (Wohnung, Tag) | Anlegen nach Kundenwechsel ohne zweiten Klick | 2026-11-07 |
+| Rechnungsliste um nächste Fälligkeit ergänzt; offene Rechnungen vollständig geladen, Summen in der App | Sortierung nach Fälligkeit; offene Rechnungen sind wenige | 2026-11-07 |
+| Jeder Abschnitt gestreamt mit eigener Fehlergrenze; ohne Inhaber-Kunden keine Abfrage für Ortstaxe/Nicht abgerechnet | Schnelle Seite, Fehler bleiben lokal, keine unnötigen Abfragen | 2026-11-07 |
+| Keine Umleitung von `/tourismusabgabe` | Menüpunkt war nie freigeschaltet | 2026-11-07 |
+| Ein Deploy für den ganzen Umfang | Nutzerentscheidung; die Mehrkunden-Regeln betreffen jeden Abschnitt, ein QA-Durchgang | 2026-11-07 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+**Stand 2026-11-07.** Das Dashboard (`/`) gibt es schon mit Gruß, Einladungen und dem Kalender (PROJ-9). PROJ-14 ergänzt die Abschnitte und hebt das Dashboard über den gewählten Kunden hinaus auf **alle Kunden der Person**. Neue Daten werden **nicht gespeichert**. Es kommen nur Leseabfragen in der Datenbank, ein Cookie für den Kundenfilter und eine Erweiterung des Kundenwechsels dazu.
+
+### A) Aufbau der Seite
+
+```
+Dashboard (/)
++-- Seitenkopf (wie bisher: Datum, Gruß)
+|   +-- NEU Unterzeile als Satz über den Tag (aus den Kachel-Zahlen)
++-- Einladungen (wie bisher)
++-- NEU Kundenfilter (nur bei mehr als einem Kunden): „Alle Kunden“ / Kunde A / Kunde B …
++-- NEU Kacheln: Anreisen heute · Abreisen heute · Belegt heute · Offene Rechnungen
++-- Zwei Spalten (Desktop) bzw. untereinander (Handy/Tablet)
+|   +-- links: Belegung (PROJ-9-Kalender, ERWEITERT um mehrere Kunden)
+|   |   +-- Zeitleiste/Monat: Gruppenkopf je Kunde (nur bei mehreren), darin Objekte und Wohnungen
+|   |   +-- Objektfilter: Objekte aller Kunden im Filter, bei mehreren Kunden mit Kundenname gruppiert
+|   +-- rechts:
+|       +-- NEU „Heute“: Anreisen, Abreisen (Hinweis „Rechnung fehlt“ / „Schlussrechnung fehlt“)
+|       +-- NEU „Noch nicht abgerechnet“ (nur wenn bei mind. einem Kunden im Filter Inhaber)
+|       +-- NEU „Offene Rechnungen“
+|       +-- NEU „Ortstaxe“ (nur wenn bei mind. einem Kunden im Filter Inhaber)
++-- Jeder NEU-Abschnitt: eigener Ladezustand (Platzhalter) und eigene Fehleranzeige mit „Erneut versuchen“
+```
+
+Zeilen-Bausteine: Jede Zeile in „Heute“, „Noch nicht abgerechnet“ und „Offene Rechnungen“ ist entweder ein **normaler Link** (Zeile gehört zum gewählten Kunden) oder ein **Knopf „wechseln und öffnen“** (anderer Kunde, siehe C). Optisch sind beide gleich.
+
+Wiederverwendet werden: Seitenkopf, Leerzustand, Betragsanzeige und Datumsformate (PROJ-31), Kanalfarben (`entry-style`), Kennzeichen „überfällig“/Option, Kalender-Bausteine aus PROJ-9, shadcn/ui (Card, Table, Select, Button, Skeleton, Badge, Separator). Die Kacheln folgen dem „Cockpit“-Stil des Entwurfs (Symbol, Bezeichnung, große Zahl, Zusatzzeile).
+
+Am Handy darf nur die Ortstaxe-Tabelle seitlich scrollen. Die Spalte „Gemeinde“ bleibt dabei stehen, wie die Namensspalte der Zeitleiste.
+
+### B) Daten
+
+**Nichts Neues gespeichert.** Alle Zahlen kommen aus Buchungen, Positionen, Rechnungen und dem Zahlungsstand (PROJ-45).
+
+**Welche Kunden?** Die Liste der Mitgliedschaften gibt es schon (Kundenwechsel, PROJ-4): je Kunde Name und Rolle der Person, nur aktive Kunden. Daraus entstehen zwei Mengen:
+- **Kunden im Filter:** alle, oder der eine gewählte Kunde
+- **Inhaber-Kunden im Filter:** davon die, bei denen die Person Inhaber ist
+
+Jede Abfrage bekommt die passende Menge mit. Die Datenbank prüft zusätzlich selbst, dass die Person Mitglied bzw. Inhaber ist. Eine manipulierte Liste liefert also nichts Fremdes.
+
+| Abschnitt | Quelle | Kunden |
+|---|---|---|
+| Kacheln, Unterzeile, „Heute“ | Buchungen mit Anreise heute, tatsächlicher Abreise heute oder Übernachtung heute; Wohnungen (nicht archiviert) | im Filter |
+| Hinweis „Rechnung fehlt“ in „Heute“ | neue **Abrechnungsregel je Buchung** (unten) | im Filter |
+| „davon N ohne Rechnung“ | Abrechnungsregel | Inhaber-Kunden |
+| „Noch nicht abgerechnet“ | Abrechnungsregel, Anzahl + 5 älteste | Inhaber-Kunden |
+| „Offene Rechnungen“, Kachel | Zahlungsstand je Rechnung (PROJ-45), Status offen/teilweise | im Filter |
+| „Ortstaxe“ | neue **Monatssummen der Ortstaxe** (unten) | Inhaber-Kunden |
+| Belegung | Kalenderabfrage (PROJ-9), künftig für mehrere Kunden | im Filter |
+
+**Neue Abrechnungsregel je Buchung (Lesesicht in der Datenbank):** liefert je Buchung „abgerechnet“, „Rechnung fehlt“ oder „Schlussrechnung fehlt“:
+- abgerechnet: mindestens eine nicht stornierte Rechnung der Art „Rechnung“ oder „Schlussrechnung“ oder eine nacherfasste Rechnung
+- „Schlussrechnung fehlt“: nur nicht stornierte Teilrechnungen
+- sonst „Rechnung fehlt“
+
+Die Sicht liest mit den Rechten der Person. Mitarbeiter sehen also nur, was sie ohnehin sehen dürfen (Rechnungen ja, Beträge nein). „Noch nicht abgerechnet“ legt Stichtag (Abreise bzw. Stornodatum), Art (keine Optionen/Sperren) und Stornogebühr > 0 darüber.
+
+**Neue Monatssummen der Ortstaxe (Datenbankfunktion):** liefert je Kunde, Gemeinde und Monat die Summe für einen Zeitraum von Monaten. Das Dashboard fragt einmal ab **Jänner des Vorjahres bis Dezember des laufenden Jahres** ab (24 Monate). Daraus bildet es die sechs Spalten: laufender Monat, Quartal und Jahr sowie der letzte abgelaufene Monat, das letzte abgelaufene Quartal und das letzte abgelaufene Jahr.
+- Grundlage: Positionen mit Ortstaxe-Kennzeichen in nicht stornierten Buchungen (keine Optionen, keine Sperren)
+- **Anteilig je Nacht:** Der Betrag wird über die Nächte von Anreise bis tatsächlicher Abreise verteilt. Damit die Summe auf den Cent stimmt, rechnet die Funktion je Monat „bis Monatsende aufgelaufen minus bis Vormonatsende aufgelaufen“, jeweils gerundet. Rundungsreste landen so automatisch im letzten Monat. Eine Position ohne Nächte zählt im Anreisemonat.
+- Gemeinde = aktuelle Gemeinde des Objekts der Wohnung
+- Nur Kunden, bei denen die Person Inhaber ist. Positionen sind ohnehin schon heute nur für Inhaber lesbar (RLS aus PROJ-8).
+- **PROJ-16 verwendet dieselbe Funktion**, damit Dashboard und Berichte gleiche Zahlen zeigen.
+
+**Offene Rechnungen:** Die vorhandene Rechnungsliste mit Zahlungsstand (PROJ-43/45) wird um die **nächste Fälligkeit** ergänzt (für die Sortierung „überfällig zuerst, dann nach Fälligkeit bzw. Rechnungsdatum“). Geladen werden alle offenen und teilweise bezahlten Rechnungen der Kunden im Filter. Das sind erfahrungsgemäß wenige, deshalb rechnet der Server Summe, Anzahl und „davon überfällig“ daraus und zeigt die ersten 5.
+
+**Belegung:** Die Kalenderabfrage bekommt statt des gewählten Kunden die Kunden im Filter. Wohnungen tragen Kunde und Kundennamen mit, sortiert nach Kunde, dann „Objekt · Wohnung“. Die Vollbild-Seite übergibt weiter nur den gewählten Kunden und ändert sich nicht.
+
+**Kundenfilter:** in der Adresse (`?kunde=<id>`, fehlt = „Alle Kunden“) und je Gerät in einem Cookie, wie Ansicht und Objektfilter des Kalenders. Die Adresse gewinnt. Ein unbekannter Kunde gilt als „Alle Kunden“. Gemerkte Objektfilter des Kalenders, die nicht zu den Kunden im Filter passen, gelten als „Alle“ (bestehende Regel).
+
+**„Heute“** ist überall das Datum in Europe/Vienna (vorhandene Hilfsfunktion). Die Seite wird bei jedem Aufruf neu berechnet.
+
+### C) Klick auf einen anderen Kunden
+
+Buchungsdetail, Rechnungsdetail und Kalender-Panel arbeiten weiter nur mit dem **gewählten Kunden**. Daran ändert PROJ-14 bewusst nichts. Gehört eine Zeile zu einem anderen Kunden, wird vorher gewechselt:
+
+1. Die Zeile schickt ein kleines Formular an den vorhandenen **Kundenwechsel** (PROJ-4), mit Kunde und Ziel, z. B. das Buchungsdetail.
+2. Der Kundenwechsel prüft wie bisher die Mitgliedschaft, merkt den Kunden und leitet **zum Ziel** weiter statt wie bisher zum Dashboard. Ziele sind nur interne Adressen (gleiche Prüfung wie der Rücksprung nach der Anmeldung).
+3. Ist die Person nicht mehr Mitglied, wird nicht gewechselt. Die Weiterleitung führt zum Dashboard mit dem Hinweis „Kein Zugriff mehr auf diesen Kunden“.
+
+Im Kalender gilt dasselbe:
+- **Eintrag eines anderen Kunden:** wechseln, Ziel ist das Dashboard mit geöffnetem Eintrag (vorhandener Adress-Parameter).
+- **Anlegen per Klick in eine Zeile eines anderen Kunden:** wechseln, Ziel ist das Dashboard mit geöffnetem Formular „Neue Buchung“ für Wohnung und Tag. Dafür bekommt der Kalender einen neuen Adress-Parameter, der das Formular vorbelegt öffnet.
+
+Der Kundenfilter bleibt dabei erhalten, weil er eigenständig gespeichert ist.
+
+### D) Laden, Fehler, Leistung
+
+- Jeder Abschnitt lädt für sich und wird gestreamt. Die Seite erscheint sofort, langsame Abschnitte zeigen kurz einen Platzhalter.
+- Jeder Abschnitt hat seine eigene Fehlergrenze mit „Erneut versuchen“, wie der Kalender heute.
+- Abschnitte, für die die Person keine Inhaber-Kunden hat, werden gar nicht abgefragt.
+- Ziel: unter 1 Sekunde ohne Kalender bei 5.000 Buchungen und 2.000 Rechnungen über alle Kunden. /backend misst das mit Testdaten. Für Anreise und Abreise je Kunde gibt es schon Indizes. Reicht es für die Ortstaxe nicht, kommt ein Teilindex auf Ortstaxe-Positionen dazu.
+
+### E) Umbenennung „Tourismusabgabe“ → „Ortstaxe“
+
+Reine Textänderung in der Übersetzungsdatei und im noch gesperrten Menüpunkt (Adresse `/ortstaxe`). Da der Menüpunkt nie freigeschaltet war, braucht es keine Umleitung der alten Adresse. Ein Test stellt sicher, dass „Tourismusabgabe“ in den Oberflächentexten nicht mehr vorkommt.
+
+### F) Technische Entscheidungen (für PM erklärt)
+
+- **Abrechnungsregel und Ortstaxe-Summen in der Datenbank:** Eine Regel an einer Stelle. Dashboard, später PROJ-16 und die Auswertungen (PROJ-18) können nicht auseinanderlaufen, und es werden nur Summen übertragen statt Tausender Positionen.
+- **Ein Abruf über 24 Monate statt sechs Abfragen:** Die sechs Zeiträume überlappen sich. Einmal Monatssummen holen und daraus zusammenzählen ist schneller und sicher widerspruchsfrei.
+- **Detailseiten bleiben beim gewählten Kunden, Wechsel per Klick:** Alle Bearbeitungsabläufe (Buchung ändern, Rechnung ausstellen, Zahlung erfassen) sind auf den gewählten Kunden gebaut und geprüft. Ein Wechsel vorab ist ein kleiner, sicherer Eingriff statt eines Umbaus aller Seiten.
+- **Wechsel als Formular statt als Link:** Ein Kundenwechsel verändert den Zustand. Als Formular kann ihn keine fremde Seite auslösen (gleicher Schutz wie heute). Er lädt die Zielseite sauber neu, ohne die Probleme mit Server-Aktionen und Weiterleitungen in Next 16.
+- **Kundenfilter in Adresse und Cookie wie beim Kalender:** bewährtes Muster. Der Zustand ist ohne Springen beim ersten Laden da, und Zurück/Neuladen funktionieren.
+- **Rechte doppelt abgesichert:** Die App fragt nur passende Kunden ab, und die Datenbank prüft Mitgliedschaft und Rolle je Kunde. Beträge von Positionen sind schon heute nur für Inhaber lesbar.
+
+### G) Abhängigkeiten
+
+Keine neuen Pakete.
+
+### H) Tests (Vorschau für /qa)
+
+- **Unit:** Zeiträume aus „heute“ (Monat, Quartal, Jahr, abgelaufen; Jahreswechsel, 1. eines Quartals), Zusammenzählen der Monatssummen, Unterzeile (Einzahl/Mehrzahl/keine), Sortierungen, Filter aus Adresse/Cookie
+- **Integration (Datenbank):** Abrechnungsregel (alle Rechnungsarten, Storno, nacherfasst, nur Teilrechnungen), Ortstaxe-Verteilung (Monatsgrenze, Rundung auf den Cent, tatsächliche Abreise, Option/Storno/Sperre ausgenommen, archivierte Wohnung), Rechte: Person ist Inhaberin bei A und Mitarbeiterin bei B, fremder Kunde C, Mitarbeiter ohne Ortstaxe
+- **E2E:** Testperson mit zwei Kunden (unterschiedliche Rollen): Filter, Kundenname je Zeile, Klick wechselt den Kunden, Anlegen im Kalender bei anderem Kunden, Person mit einem Kunden ohne Filter, Handy-Reihenfolge
+
+### I) Aufteilung
+
+- **/frontend:** Kundenfilter (Adresse/Cookie), Kacheln, Unterzeile, Abschnitte mit Lade- und Fehlerzuständen, Zeilen als Link bzw. „wechseln und öffnen“, Kalender mit Kundengruppen, Objektfilter über Kunden, neuer Parameter „Neue Buchung vorbelegt“, Anordnung Desktop/Handy, Texte inkl. Umbenennung. Bis zur Migration zeigen die neuen Abschnitte ihren Fehlerzustand bzw. sind ausgeblendet.
+- **/backend:** Abrechnungsregel, Ortstaxe-Monatssummen, nächste Fälligkeit in der Rechnungsliste, Kalenderabfrage für mehrere Kunden, Kundenwechsel mit Ziel, Integrationstests, Messung mit 5.000 Buchungen/2.000 Rechnungen.
 
 ## QA Test Results
 _To be added by /qa_
