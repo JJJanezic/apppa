@@ -597,8 +597,8 @@ test.describe('Layout und Barrierefreiheit', () => {
     await withCalendar(tenantId)
     await signIn()
     await open(page)
-    // PROJ-14: Am Handy steht „Heute“ über der Belegung; die Zeitleiste erst ins Bild holen
-    await timeline(page).scrollIntoViewIfNeeded()
+    // PROJ-14: Auf dem Dashboard stehen Kacheln und Abschnitte um die Belegung; die gemessene Zeile „Loft“ ins Bild holen
+    await timeline(page).getByText('Loft', { exact: true }).scrollIntoViewIfNeeded()
     await timeline(page).evaluate((el) => el.scrollBy(400, 0))
     await expect.poll(() => timeline(page).evaluate((el) => el.scrollLeft)).toBeGreaterThan(300)
     const box = await page.evaluate(() => {

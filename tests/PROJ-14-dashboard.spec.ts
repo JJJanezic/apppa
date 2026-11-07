@@ -319,15 +319,45 @@ test.describe('PROJ-14 Dashboard', () => {
     await expect(page).toHaveURL(/\/$/)
   })
 
-  test('Handy: „Heute“ steht vor „Belegung“, Kacheln zweispaltig, ohne seitliches Scrollen', async ({ page }) => {
-    test.skip(!['mobile', 'tablet'].includes(test.info().project.name), 'Anordnung nur am Handy und Tablet')
+  test('Anordnung „Zeitung“: Abschnitte stehen unter der Belegung, ohne seitliches Scrollen der Seite', async ({ page }) => {
     await signInAs(page, users.olga)
     await page.goto('/')
-    const todayBox = await section(page, 'Heute').boundingBox()
-    const calendarBox = await page.locator('section[aria-labelledby="belegung-titel"]').boundingBox()
-    expect(todayBox!.y).toBeLessThan(calendarBox!.y)
+    // Oberkante bzw. Unterkante im Dokument (unabhängig vom Scrollen), gemessen nach dem Nachladen der Abschnitte
+    const top = (el: Element) => el.getBoundingClientRect().top + window.scrollY
+    const calendar = page.locator('section[aria-labelledby="belegung-titel"]')
+    await expect(calendar).toBeVisible()
+    const calendarBottom = await calendar.evaluate((el) => el.getBoundingClientRect().bottom + window.scrollY)
+    for (const title of ['Heute', 'Noch nicht abgerechnet', 'Offene Rechnungen', 'Ortstaxe']) {
+      const region = section(page, title)
+      await expect(region.getByRole('heading', { name: title })).toBeVisible()
+      expect(await region.evaluate(top), title).toBeGreaterThan(calendarBottom - 1)
+    }
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
     expect(overflow).toBeLessThanOrEqual(0)
+  })
+
+  test('Altbuchung mit gekennzeichneter Ortstaxe-Position (ohne Tarif) lässt sich bearbeiten; Kennzeichen und Betrag bleiben', async ({ page }) => {
+    desktopOnly()
+    const s = service()
+    const { data: apt } = await s.from('apartments').select('id').eq('tenant_id', tenants.a).eq('name', 'Top 2').single()
+    const id = await addBooking(tenants.a, (apt as { id: string }).id, 'Altgast', day(20), day(23))
+    await s.from('bookings').update({ tourist_tax_mode: 'pending' } as never).eq('id', id)
+    await s.from('booking_charges').insert({ tenant_id: tenants.a, booking_id: id, position: 1, label: 'Nächtigungsabgabe', amount_cents: 1500, vat_rate: 0, tourist_tax: true } as never)
+    await signInAs(page, users.olga)
+    await page.goto(`/buchungen/${id}`)
+    await ready(page)
+    await page.getByRole('button', { name: 'Bearbeiten', exact: true }).click()
+    const edit = page.getByRole('dialog', { name: 'Buchung bearbeiten' })
+    await expect(edit.getByText('von Hand geändert')).toBeVisible()
+    await edit.getByLabel('Notiz').fill('Nachbesserung BUG-7')
+    const save = edit.getByRole('button', { name: 'Änderungen speichern', exact: true })
+    await save.scrollIntoViewIfNeeded()
+    await save.click()
+    await expect(page.getByText('Änderungen gespeichert.')).toBeVisible()
+    const { data: charges } = await s.from('booking_charges').select('label, amount_cents, tourist_tax, tourist_tax_rate_id').eq('booking_id', id)
+    expect(charges).toEqual([{ label: 'Nächtigungsabgabe', amount_cents: 1500, tourist_tax: true, tourist_tax_rate_id: null }])
+    const { data: b } = await s.from('bookings').select('tourist_tax_mode, note').eq('id', id).single()
+    expect(b).toEqual({ tourist_tax_mode: 'pending', note: 'Nachbesserung BUG-7' })
   })
 
   test('Barrierefreiheit (axe) ohne Verstöße', async ({ page }) => {

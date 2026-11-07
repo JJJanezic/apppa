@@ -704,5 +704,11 @@ Code und Migration `20261107151812` sind seit 2026-11-07 auf Staging und Produkt
 
 **Vorgehen (Nutzer):** alles zusammen über QA und Staging; die Kennzeichnung wird nicht vorgezogen.
 
+#### Umsetzung der Nachbesserung (2026-11-07)
+- **BUG-6:** `src/app/(app)/page.tsx`: Kacheln, Belegung in voller Breite, darunter die vier Abschnitte im Raster `sm:grid-cols-[repeat(auto-fit,minmax(260px,1fr))]`; am Handy untereinander. Dashboard-Zeitleiste wieder mind. 860 px (wie PROJ-9)
+- **BUG-7/BUG-8:** Migration `20261107194628_dashboard_tourist_tax_fix.sql` (Dev eingespielt; Advisors nur `auth_otp_long_expiry`): einmalige Kennzeichnung der Alt-Positionen; `private.tourist_tax_monthly` verteilt nach Tarifzeitraum
+- **Vorab geprüft:** Gekennzeichnete Positionen ohne Tarif gibt es schon (gelöschter Tarif, `on delete set null`). `private.tourist_tax_mark` übernimmt sie, das Buchungsformular schickt das Kennzeichen unverändert zurück und ersetzt solche Positionen bei „Abgabe berechnen“ (keine Doppelung); Buchungsdetail und Rechnungsentwurf werten das Kennzeichen nicht aus. Sichtbar: Plakette „von Hand geändert“ an diesen Positionen im Formular
+- **Tests:** Integration 14/14 (neu: Tarifwechsel innerhalb eines Aufenthalts, Position ohne Tarif über den ganzen Aufenthalt). E2E PROJ-14 Desktop 14/14, Anordnung auf Desktop/Tablet/Handy grün (neu: Abschnitte unter der Belegung; Altbuchung mit gekennzeichneter Position bearbeiten und speichern, Kennzeichen und Betrag bleiben). PROJ-9 Desktop 22/22 (ein Panel-Test einmal rot, 3× wiederholt grün), Handy grün (Messzeile vorher ins Bild geholt). PROJ-15 13/13. Unit 791/791
+
 ## Deployment
 _To be added by /deploy_

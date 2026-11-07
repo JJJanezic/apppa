@@ -23,6 +23,8 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-14 Dashboard', () => {
   let service: Client
   let ownerA: Client, staffA: Client, ownerB: Client
   let tenantA: string, tenantB: string, tenantC: string
+  // Kunde D: eigene Daten für Tarifwechsel und Alt-Positionen (Nachbesserung BUG-7/BUG-8)
+  let tenantD = ''
   const runId = randomUUID().slice(0, 8)
   const ids: Record<string, string> = {}
   const apartments: Record<string, string> = {}
@@ -262,7 +264,7 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-14 Dashboard', () => {
 
   afterAll(async () => {
     if (!service) return
-    for (const t of [tenantA, tenantB, tenantC].filter(Boolean)) await service.from('tenants').delete().eq('id', t)
+    for (const t of [tenantA, tenantB, tenantC, tenantD].filter(Boolean)) await service.from('tenants').delete().eq('id', t)
   })
 
   describe('Abrechnungsstand je Buchung', () => {
@@ -362,6 +364,64 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-14 Dashboard', () => {
       expect(await tax(staffA, [tenantA])).toEqual([])
       const b = await tax(ownerB, [tenantA, tenantB])
       expect(b.map((r) => [r.tenant_id, r.month, Number(r.amount_cents)])).toEqual([[tenantB, '2026-10-01', 400]])
+    })
+  })
+
+  describe('Ortstaxe: Tarifwechsel und Alt-Positionen (Nachbesserung)', () => {
+    const rate = async (apartmentId: string, validFrom: string, cents: number) => {
+      const { data, error } = await service
+        .from('apartment_tourist_tax_rates')
+        .insert({ tenant_id: tenantD, apartment_id: apartmentId, valid_from: validFrom, label: 'Nächtigungsabgabe', method: 'per_person_night', amount_cents: cents } as never)
+        .select('id')
+        .single()
+      if (error) throw error
+      return (data as { id: string }).id
+    }
+    const charge = async (bookingId: string, cents: number, rateId: string | null, position = 1) => {
+      const { error } = await service.from('booking_charges').insert({
+        tenant_id: tenantD,
+        booking_id: bookingId,
+        position,
+        label: 'Nächtigungsabgabe',
+        amount_cents: cents,
+        vat_rate: 0,
+        tourist_tax: true,
+        tourist_tax_rate_id: rateId,
+      } as never)
+      if (error) throw error
+    }
+
+    beforeAll(async () => {
+      const { data: t, error } = await service.from('tenants').insert({ name: `PROJ-14 Test D ${runId}` }).select('id').single()
+      if (error) throw error
+      tenantD = t.id
+      const oa = await sharedClient('ownerA')
+      await service.from('memberships').insert({ tenant_id: tenantD, user_id: oa.user.id, role: 'owner' })
+      const pD = await property(tenantD, '50330')
+      const apD = await apartment(tenantD, pD, `Top D ${runId}`)
+      const r25 = await rate(apD, '2026-01-01', 250)
+      const r28 = await rate(apD, '2026-12-01', 280)
+      // 29.11.–03.12.2026, 1 Person: je Tarif eine Position (2 Nächte zu 2,50, 2 Nächte zu 2,80)
+      const change = await booking(tenantD, apD, '2026-11-29', '2026-12-03')
+      await charge(change, 500, r25, 1)
+      await charge(change, 560, r28, 2)
+      // Alt-Position ohne Tarif (wie nach der Kennzeichnung): 30.10.–02.11.2026, 3 Nächte, 15,00
+      const legacy = await booking(tenantD, apD, '2026-10-30', '2026-11-02')
+      await charge(legacy, 1500, null)
+    }, 60_000)
+
+    it('verteilt jede Position nur über die Nächte ihres Tarifzeitraums', async () => {
+      const rows = await tax(ownerA, [tenantD], '2026-11-01', '2026-12-31')
+      // November: 2 Nächte zu 2,50 aus der Tarifwechsel-Buchung + 1 von 3 Nächten der Alt-Position (5,00)
+      expect(taxOf(rows, tenantD, '50330', '2026-11-01')).toBe(500 + 500)
+      // Dezember: nur die 2 Nächte zu 2,80
+      expect(taxOf(rows, tenantD, '50330', '2026-12-01')).toBe(560)
+    })
+
+    it('Position ohne Tarif-Verweis wird über den ganzen Aufenthalt verteilt', async () => {
+      const rows = await tax(ownerA, [tenantD], '2026-10-01', '2026-10-31')
+      // 2 von 3 Nächten (30. und 31.10.)
+      expect(taxOf(rows, tenantD, '50330', '2026-10-01')).toBe(1000)
     })
   })
 
