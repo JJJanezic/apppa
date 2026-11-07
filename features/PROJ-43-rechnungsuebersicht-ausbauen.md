@@ -1,6 +1,6 @@
 # PROJ-43: Rechnungsübersicht ausbauen
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-11-07
 **Last Updated:** 2026-11-07
 
@@ -422,4 +422,12 @@ Hinweis: Die direkte Prüfung von `.env.local` auf die Dev-Kennung war in dieser
 - Nachtest: PROJ-43 E2E Desktop (alle Pakete), Handy; Regression PROJ-37 „Löschen“, PROJ-45 „Inhaber bearbeitet und löscht“, PROJ-40 Vorbelegung, Knopf und Stornogebühr; Unit 776; Build und Lint sauber.
 
 ## Deployment
-_To be added by /deploy_
+
+- **Datum:** 2026-11-07
+- **Commit:** `b8fa32a`, Tag `v1.30.0-PROJ-43`
+- **Staging:** https://staging.apppa.at; vom Nutzer als „Ready“ gemeldet und freigegeben
+- **Produktion:** https://app.apppa.at, vom Nutzer geprüft („funktioniert perfekt“)
+- **Migrationen** in Staging und Produktion (in dieser Reihenfolge): `20261107064552_invoice_list.sql`, `20261107065310_invoice_list_functions.sql`, `20261107065405_invoice_list_wrappers.sql`. `db advisors`: nur der bekannte Auth-Hinweis (OTP-Ablauf)
+- **Vorprüfung:** Secret-Scan, Lint, Build, Unit 776/776, Integration Rechnungsliste und Zahlungen (28) gegen Dev grün; übrige Integrations- und E2E-Tests im Backend-, QA- und Bugfix-Schritt paketweise grün
+- **Kein `config push`**, keine neuen Umgebungsvariablen, keine neuen Pakete
+- **Mitgeliefert:** Buchhaltung PROJ-47 (`8e6e768`)
