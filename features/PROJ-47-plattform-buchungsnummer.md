@@ -1,6 +1,6 @@
 # PROJ-47: Plattform-Buchungsnummer
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-11-06
 **Last Updated:** 2026-11-06
 
@@ -371,4 +371,13 @@ Keine.
 - **Recommendation:** Deploy
 
 ## Deployment
-_To be added by /deploy_
+
+- **Datum:** 2026-11-07
+- **Commit:** `e1daf7b`, Tag `v1.29.0-PROJ-47`
+- **Staging:** https://staging.apppa.at; vom Nutzer geprüft und freigegeben („bitte liefere nach prod aus“)
+- **Produktion:** https://app.apppa.at, vom Nutzer als „Ready“ und geprüft gemeldet („alles ok“)
+- **Migration** in Staging und Produktion: `20261106230112_platform_booking_number.sql`. `db advisors`: nur der bekannte Auth-Hinweis (OTP-Ablauf)
+- **Vorprüfung:** Secret-Scan, Lint, Build, Unit 772/772. Integrationstests im Backend- und QA-Schritt dateiweise grün
+- **Kein `config push`**, keine neuen Umgebungsvariablen, keine neuen Pakete
+- **Mitgeliefert:** Favicons und App-Icons (`9c8f8a4`), PROJ-38-Test „Zahlungen“-Reiter (`18de7d4`), angepasster PROJ-30-Test (Quelle „Airbnb“)
+- **Hinweis für den Betrieb:** Bestehende Buchungen haben keine Plattform-Nummer; sie wird bei Bedarf von Hand nachgetragen
