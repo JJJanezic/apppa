@@ -1,6 +1,6 @@
 # PROJ-43: Rechnungsübersicht ausbauen
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-11-07
 **Last Updated:** 2026-11-07
 
@@ -34,7 +34,7 @@ Die Rechnungsliste (Menüpunkt „Rechnungen“) bekommt Filter, eine Summenzeil
 **Anzahl und Summen** (unter den Filtern bzw. unter der Liste, über alle Seiten der gefilterten Liste):
 - Anzahl wie bisher („12 Rechnungen“ bzw. „3 Treffer“).
 - **Rechnungsbetrag:** Summe der Beträge aller gefilterten Rechnungen ohne Entwürfe. Stornierte Rechnungen und Gutschriften zählen mit (heben sich auf, Gutschriften sind negativ).
-- **Bezahlt:** Summe der Zahlungen an den gefilterten Rechnungen, Rückzahlungen abgezogen.
+- **Bezahlt:** „Beglichen“ der gefilterten Rechnungen (Eingegangen + Provision + Zahlungsgebühr, wie „Bezahlt“ im Buchungsdetail), Rückzahlungen an Gutschriften abgezogen.
 - **Offen:** Summe der offenen Beträge der gefilterten zahlbaren Rechnungen; nur Beträge über 0 (Überzahlungen mindern „Offen“ nicht). Stornierte Rechnungen, Gutschriften und Entwürfe zählen nicht.
 - Negative Summen erscheinen wie überall „-€ 50,00“ in Rot (PROJ-32).
 
@@ -178,11 +178,98 @@ Die Rechnungsliste (Menüpunkt „Rechnungen“) bekommt Filter, eine Summenzeil
 ### Technical Decisions
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Neue Lesesicht „Rechnungsliste“ (Rechnung + Zahlungsstand aus PROJ-45) mit den Rechten des Nutzers | Filter, Anzahl und Blättern in einer Abfrage; eine Regel für den Zahlungsstand; Abschottung je Kunde bleibt | 2026-11-07 |
+| Eigene Summenabfrage mit denselben Filtern | Summen über alle Seiten; Muster der Seite „Zahlungen“ | 2026-11-07 |
+| „Bezahlt“ = Beglichen (inkl. Provision und Zahlungsgebühr), bei Gutschriften minus Rückzahlungen | Gleich wie „Bezahlt“ im Buchungsdetail und wie die Statusregel; sonst wirkte eine bezahlte booking.com-Rechnung in der Summe teilweise offen | 2026-11-07 |
+| Filter in der Adresse, ungültige Werte ignoriert | Zurück, Neuladen und Links funktionieren; keine Fehlerseiten durch alte Links | 2026-11-07 |
+| Rückweg über den Speicher des Browser-Tabs, Rückfall `/rechnungen` | Kurze Detailadressen, wirkt über Unterseiten; Menüpunkt bleibt ungefiltert | 2026-11-07 |
+| Wählbarkeit der Buchungen in der Suche auf dem Server mit der Regel aus PROJ-40; erneute Prüfung beim Öffnen und Speichern | Preisregeln liegen auf dem Server; gleichzeitige Änderungen bleiben abgesichert | 2026-11-07 |
+| Keine neuen Pakete, keine neuen Tabellen | Alles aus vorhandenen Daten und Bausteinen | 2026-11-07 |
 
 ---
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+**Stand 2026-11-07.** Die Rechnungsliste besteht schon (PROJ-37/44/45). PROJ-43 erweitert sie um Filter, Summen, Rückweg und den Einstieg „Rechnung erstellen“. Neue Daten werden nicht gespeichert. Es kommen nur eine Lesesicht und eine Summenabfrage in der Datenbank dazu.
+
+### A) Aufbau der Seite
+
+```
+Rechnungen (/rechnungen)
++-- Seitenkopf
+|   +-- NEU „Rechnung erstellen“ (nur Inhaber) → Dialog mit Buchungssuche
+|   +-- „Rechnung nacherfassen“ (wie bisher, nur bei eingeschaltetem Schalter)
++-- Suche (wie bisher)
++-- NEU Filterleiste
+|   +-- Jahr (Auswahl „Alle Jahre“, 7 zurück bis 5 voraus, „Anderes Jahr …“ mit Eingabefeld)
+|   +-- Status (Auswahl)
+|   +-- Zahlung (Auswahl)
+|   +-- Betrag von / bis (zwei Betragsfelder, Hinweise am Feld)
+|   +-- „Filter zurücksetzen“ (nur wenn etwas gesetzt ist)
+|   +-- Handy: alles in einem aufklappbaren Bereich „Filter (n)“, Suche bleibt außen
++-- Anzahl (wie bisher)
++-- Liste (Tabelle bzw. Karten, wie bisher; Sortierung unverändert)
++-- NEU Summenzeile: Rechnungsbetrag · Bezahlt · Offen (nur wenn Treffer)
++-- Blättern (wie bisher, behält die Filter)
++-- Leerzustand bzw. „Keine Rechnungen gefunden“ mit „Filter zurücksetzen“
+
+Dialog „Rechnung erstellen“ (nur Inhaber)
++-- Suchfeld (Gastname, Wohnung, Zeitraum, Buchungsnummer; ab 2 Zeichen)
++-- Treffer (höchstens 20): Gast · Wohnung · Zeitraum · Buchungsnummer, Kennzeichen Option/storniert
+|   +-- wählbar → weiter zu „Rechnung erstellen“ (Entwurfsformular aus PROJ-40)
+|   +-- nicht wählbar → ausgegraut mit Begründung (gleiche Texte wie am Knopf „Rechnung“)
+
+Rechnungsdetail (/rechnungen/[id]) und Unterseiten
++-- „Zurück zur Liste“ → zuletzt gefilterte Liste (Filter, Suche, Seite)
+
+Entwurfsformular (/rechnungen/neu?buchung=…)
++-- „Abbrechen“ führt zur Rechnungsliste, wenn es aus der Liste geöffnet wurde (sonst wie bisher zur Buchung)
+```
+
+Wiederverwendet werden: Suchfeld und Blättern der Rechnungsliste, Buchungssuche aus „Rechnung nacherfassen“ (gleiche Datenbanksuche, findet auch Buchungsnummern), Status- und Zahlungskennzeichen, Betragsanzeige und -eingabe (PROJ-31/32), Entwurfsformular und Knopf-Regel aus PROJ-40, shadcn/ui-Bausteine (Select, Input, Dialog, Collapsible, Button).
+
+### B) Daten
+
+**Nichts Neues gespeichert.** Alle Filter und Summen kommen aus vorhandenen Daten:
+
+| Filter bzw. Summe | Quelle |
+|---|---|
+| Jahr | Rechnungsdatum |
+| Status | Herkunft (Entwurf/ausgestellt/nacherfasst), Art (Gutschrift) und „storniert“ (es gibt eine Gutschrift dazu) |
+| Zahlung, überfällig, Offen, Bezahlt | Lesesicht „Zahlungsstand je Rechnung“ aus PROJ-45 |
+| Betrag | Rechnungsbetrag brutto |
+
+**Neue Lesesicht „Rechnungsliste“:** Sie legt Rechnung und Zahlungsstand zusammen (Entwürfe ohne Zahlungsstand), mit den Kennzeichen „storniert“ und „Gutschrift“. So lassen sich Liste, Anzahl und Blättern mit allen Filtern in einer Abfrage bilden. Die Abschottung je Kunde gilt wie bei den Tabellen, weil die Lesesicht mit den Rechten des Nutzers liest.
+
+**Neue Summenabfrage:** gleiche Filter wie die Liste, ergibt Rechnungsbetrag, Bezahlt und Offen über alle Seiten (Muster wie die Summen der Seite „Zahlungen“).
+
+- **Rechnungsbetrag:** alle Treffer außer Entwürfen
+- **Bezahlt:** „Beglichen“ (Eingegangen + Provision + Zahlungsgebühr) wie im Buchungsdetail, bei Gutschriften abzüglich der Rückzahlungen
+- **Offen:** nur zahlbare Rechnungen, nur positive offene Beträge
+
+**Filter in der Adresse:** `jahr`, `status`, `zahlung`, `von`, `bis` neben `q` und `seite`. Ungültige Werte fallen beim Lesen weg. Beträge stehen als Zahl in Cent bzw. im Klartext und werden mit derselben Regel geprüft wie die Eingabefelder.
+
+**Rückweg:** Die Liste merkt sich ihre aktuelle Adresse im Speicher des Browser-Tabs (nur für diesen Tab, endet mit dem Tab). „Zurück zur Liste“ auf Rechnungsdetail und Unterseiten liest sie; fehlt sie (neuer Tab, privates Fenster), führt der Link zu `/rechnungen`. Der Menüpunkt verlinkt immer `/rechnungen` ohne Filter.
+
+**Buchungssuche mit Wählbarkeit:** Die vorhandene Suche liefert die Treffer. Für diese höchstens 20 Buchungen rechnet der Server mit derselben Regel wie der Knopf „Rechnung“ (PROJ-40) aus, ob noch etwas zu verrechnen ist, und gibt die Begründung mit. Beim Öffnen des Formulars und beim Speichern prüft die App bzw. die Datenbank wie bisher noch einmal (zweiter Tab, gleichzeitige Änderung).
+
+### C) Technische Entscheidungen (für PM erklärt)
+
+- **Filtern in der Datenbank statt im Browser:** Summen und Anzahl müssen über alle Seiten stimmen, und es können Tausende Rechnungen sein. Die Datenbank liefert nur die 50 Zeilen der Seite und die Summen.
+- **Zahlungsstand aus der Lesesicht von PROJ-45:** eine einzige Regel für Status, Offen und „überfällig“, damit Liste, Rechnungsdetail und Buchung nie auseinanderlaufen.
+- **Filter in der Adresse:** Zurück-Knopf, Neuladen und Teilen eines Links funktionieren ohne Zusatzaufwand.
+- **Rückweg über den Speicher des Browser-Tabs statt über die Adresse der Detailseite:** Die Detailadresse bleibt kurz, und der Rückweg funktioniert auch über die Unterseiten (Bearbeiten, Ausstellen, Gutschrift). Ein „Merken über den Menüpunkt hinaus“ ist das nicht: Der Menüpunkt beginnt immer leer.
+- **Wählbarkeit in der Suche auf dem Server:** Die Preisregeln (Ortstaxe, Verlängerung, Stornogebühr) liegen schon auf dem Server. Die Suche verwendet sie, statt sie im Browser nachzubauen.
+- **Leistung:** Für Kunde + Rechnungsdatum und für Zahlungen je Rechnung gibt es schon Indizes. /backend misst mit 5.000 Rechnungen; reicht es nicht, kommt ein Index für den Betrag dazu.
+
+### D) Abhängigkeiten
+
+Keine neuen Pakete.
+
+### E) Aufteilung
+
+- **/frontend:** Filterleiste samt Handy-Ansicht, Prüfung der Eingaben (Jahr, Betrag, von > bis), Lesen und Schreiben der Adresse, „Filter zurücksetzen“, Summenzeile, Leer- und Trefferzustände, Dialog „Rechnung erstellen“ mit Wählbarkeit und Begründung, Rückweg auf Detail und Unterseiten, „Abbrechen“ im Entwurfsformular aus der Liste, Texte in der Übersetzungsdatei. Bis zur Migration liest die Liste wie bisher (Filter ohne Wirkung auf Status/Zahlung, keine Summen).
+- **/backend:** Lesesicht „Rechnungsliste“, Summenabfrage, Wählbarkeit in der Buchungssuche, Integrationstests (jede Filterregel, Summen inkl. Storno/Gutschrift/Überzahlung, fremder Kunde, Mitarbeiter), Messung mit 5.000 Rechnungen.
 
 ## QA Test Results
 _To be added by /qa_
