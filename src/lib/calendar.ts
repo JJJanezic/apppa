@@ -17,11 +17,22 @@ export const CALENDAR_PATH: Record<CalendarVariant, string> = { dashboard: '/', 
 // Ansicht und Objektfilter je Gerät (Cookie, gemeinsam für Dashboard und Vollbild)
 export const CALENDAR_COOKIE = 'apppa-belegung'
 
-export type CalendarApartment = { id: string; name: string; propertyId: string; propertyName: string; archived: boolean }
+// tenantName nur auf dem Dashboard mit mehreren Kunden (PROJ-14): Gruppenkopf je Kunde; sonst null
+export type CalendarApartment = {
+  id: string
+  name: string
+  propertyId: string
+  propertyName: string
+  archived: boolean
+  tenantId: string
+  tenantName: string | null
+}
 
 // Aktiver Eintrag (Buchung, Option, Sperre) ohne Beträge
 export type CalendarEntry = {
   id: string
+  // Kunde des Eintrags (PROJ-14): Klick auf einen anderen als den gewählten Kunden wechselt vorher
+  tenantId: string
   apartmentId: string
   kind: BookingKind
   channel: BookingChannel
@@ -48,6 +59,8 @@ export type CalendarState = {
   property: string | null
   // Offener Eintrag im Detailpanel
   entry: string | null
+  // Formular „Neue Buchung“ vorbelegt öffnen (PROJ-14: nach dem Kundenwechsel aus dem Dashboard)
+  create: { apartmentId: string; arrival: string } | null
 }
 
 const UUID = /^[0-9a-f-]{36}$/i
@@ -85,6 +98,8 @@ export function parseCalendarState(
   const tag = first(params.tag)
   const monat = first(params.monat)
   const eintrag = first(params.eintrag)
+  // „neu=<Wohnung>_<Anreise>“
+  const [neuApartment, neuArrival] = first(params.neu).split('_')
 
   const month = MONTH.test(monat) ? monat : isIsoDate(tag) ? tag.slice(0, 7) : currentMonth(today)
   return {
@@ -94,6 +109,7 @@ export function parseCalendarState(
     day: isIsoDate(tag) && sameMonth(tag, month) ? tag : sameMonth(today, month) ? today : `${month}-01`,
     property: objekt === ALL_PROPERTIES ? null : UUID.test(objekt) ? objekt : (remembered.property ?? null),
     entry: UUID.test(eintrag) ? eintrag : null,
+    create: UUID.test(neuApartment ?? '') && isIsoDate(neuArrival ?? '') ? { apartmentId: neuApartment, arrival: neuArrival } : null,
   }
 }
 
@@ -108,6 +124,7 @@ export function calendarHref(variant: CalendarVariant, state: CalendarState): st
   }
   params.set('objekt', state.property ?? ALL_PROPERTIES)
   if (state.entry) params.set('eintrag', state.entry)
+  if (state.create) params.set('neu', `${state.create.apartmentId}_${state.create.arrival}`)
   return `${CALENDAR_PATH[variant]}?${params.toString()}`
 }
 
@@ -119,12 +136,14 @@ export function calendarRange(state: CalendarState, variant: CalendarVariant): {
 
 // ---- Wohnungen und Objekte ------------------------------------------------------------------
 
-export type CalendarProperty = { id: string; name: string }
+// tenantName: Kunde des Objekts, nur bei mehreren Kunden (PROJ-14)
+export type CalendarProperty = { id: string; name: string; tenantName: string | null }
 
 // Objekte mit mindestens einer aktiven Wohnung, in der Reihenfolge der Wohnungen
 export function calendarProperties(apartments: CalendarApartment[]): CalendarProperty[] {
   const seen = new Map<string, CalendarProperty>()
-  for (const a of apartments) if (!a.archived && !seen.has(a.propertyId)) seen.set(a.propertyId, { id: a.propertyId, name: a.propertyName })
+  for (const a of apartments)
+    if (!a.archived && !seen.has(a.propertyId)) seen.set(a.propertyId, { id: a.propertyId, name: a.propertyName, tenantName: a.tenantName })
   return [...seen.values()]
 }
 

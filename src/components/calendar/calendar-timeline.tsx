@@ -2,6 +2,7 @@
 
 import { WarningCircle } from '@phosphor-icons/react'
 import { useTranslations } from 'next-intl'
+import { Fragment } from 'react'
 
 import { barClasses } from '@/components/calendar/entry-style'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
@@ -80,7 +81,10 @@ export function CalendarTimeline({ variant, days, apartments, entries, selected,
             </div>
           </div>
 
-          {apartments.map((apartment) => {
+          {apartments.map((apartment, index) => {
+            // Gruppenkopf je Kunde (Dashboard mit mehreren Kunden, PROJ-14)
+            const tenantHeading =
+              apartment.tenantName && apartment.tenantName !== apartments[index - 1]?.tenantName ? apartment.tenantName : null
             const row = layoutRow(
               entries.filter((e) => e.apartmentId === apartment.id),
               from,
@@ -88,83 +92,90 @@ export function CalendarTimeline({ variant, days, apartments, entries, selected,
             )
             const canCreate = Boolean(onCreate) && !apartment.archived
             return (
-              <div key={apartment.id} className="grid grid-cols-[7.5rem_minmax(0,1fr)] sm:grid-cols-[12.5rem_minmax(0,1fr)] border-t border-ds-divider">
-                <div className="sticky left-0 z-20 flex min-w-0 flex-col justify-center bg-ds-bg py-2 pr-3">
-                  <span className="flex min-w-0 items-center gap-1.5">
-                    <span className="truncate font-semibold">{apartment.name}</span>
-                    {row.overlapping && (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="flex shrink-0 text-ds-accent-2-700">
-                            <WarningCircle size={18} weight="duotone" aria-hidden="true" />
-                            <span className="sr-only">{t('overlap')}</span>
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent>{t('overlap')}</TooltipContent>
-                      </Tooltip>
-                    )}
-                  </span>
-                  <span className="truncate text-xs text-ds-neutral-700">
-                    {apartment.propertyName}
-                    {apartment.archived && ` · ${t('archived')}`}
-                  </span>
-                </div>
-                {/* Freie Fläche: Klick legt an (Maus/Touch); per Tastatur über „Neue Buchung“ (Tech Design E) */}
-                <div
-                  className={cn('relative', canCreate && 'cursor-pointer')}
-                  style={{ height: PAD * 2 + BAR + (row.lanes - 1) * LANE }}
-                  onClick={(e) => create(apartment, e)}
-                  title={canCreate ? t('createHint') : undefined}
-                >
-                  <div aria-hidden="true" className={cn('absolute inset-0 grid', DAY_COLUMNS[count])}>
-                    {days.map((d) => (
-                      <div key={d.date} className={cn('border-l border-ds-divider', d.weekend && 'bg-ds-neutral-200')} />
-                    ))}
+              <Fragment key={apartment.id}>
+                {tenantHeading && (
+                  <div className="border-t border-ds-divider">
+                    <span className="sticky left-0 inline-block bg-ds-bg py-1.5 pr-3 text-[13px] font-semibold">{tenantHeading}</span>
                   </div>
-                  {todayIndex >= 0 && (
-                    <div
-                      aria-hidden="true"
-                      className="pointer-events-none absolute inset-y-0 w-0.5 bg-ds-accent-2 opacity-55"
-                      style={{ left: pct((todayIndex + 0.5) / count) }}
-                    />
-                  )}
-                  {row.bars.map((bar) => {
-                    const e = bar.entry
-                    return (
-                      <Tooltip key={e.id}>
-                        <TooltipTrigger asChild>
-                          <button
-                            type="button"
-                            onClick={(event) => {
-                              event.stopPropagation()
-                              onOpen(e.id)
-                            }}
-                            aria-label={t('barLabel', { kind: tb(`kind.${e.kind}`), name: name(e), from: short(e.arrival), to: short(e.departure) })}
-                            className={cn(
-                              // overflow-clip statt -hidden: kein eigener Scrollbereich, damit das Label „sticky“ bleiben kann (QA BUG-3)
-                              'absolute flex items-center overflow-clip rounded-lg px-2 text-left text-[13px] leading-tight shadow-sm',
-                              barClasses(e),
-                              bar.clippedStart && 'rounded-l-none',
-                              bar.clippedEnd && 'rounded-r-none',
-                              selected === e.id && 'ring-2 ring-ds-accent-2 ring-offset-2 ring-offset-ds-bg'
-                            )}
-                            style={{
-                              top: PAD + bar.lane * LANE,
-                              height: BAR,
-                              left: `calc(${pct(bar.left)} + 2px)`,
-                              width: `calc(${pct(bar.width)} - 4px)`,
-                            }}
-                          >
-                            {/* Langer Aufenthalt: Label bleibt beim seitlichen Scrollen rechts neben der Namensspalte stehen */}
-                            <span className="sticky left-[8rem] block min-w-0 max-w-full truncate sm:left-[13rem]">{label(e)}</span>
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent>{t('barTitle', { name: name(e), from: short(e.arrival), to: short(e.departure) })}</TooltipContent>
-                      </Tooltip>
-                    )
-                  })}
+                )}
+                <div className="grid grid-cols-[7.5rem_minmax(0,1fr)] sm:grid-cols-[12.5rem_minmax(0,1fr)] border-t border-ds-divider">
+                  <div className="sticky left-0 z-20 flex min-w-0 flex-col justify-center bg-ds-bg py-2 pr-3">
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      <span className="truncate font-semibold">{apartment.name}</span>
+                      {row.overlapping && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="flex shrink-0 text-ds-accent-2-700">
+                              <WarningCircle size={18} weight="duotone" aria-hidden="true" />
+                              <span className="sr-only">{t('overlap')}</span>
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent>{t('overlap')}</TooltipContent>
+                        </Tooltip>
+                      )}
+                    </span>
+                    <span className="truncate text-xs text-ds-neutral-700">
+                      {apartment.propertyName}
+                      {apartment.archived && ` · ${t('archived')}`}
+                    </span>
+                  </div>
+                  {/* Freie Fläche: Klick legt an (Maus/Touch); per Tastatur über „Neue Buchung“ (Tech Design E) */}
+                  <div
+                    className={cn('relative', canCreate && 'cursor-pointer')}
+                    style={{ height: PAD * 2 + BAR + (row.lanes - 1) * LANE }}
+                    onClick={(e) => create(apartment, e)}
+                    title={canCreate ? t('createHint') : undefined}
+                  >
+                    <div aria-hidden="true" className={cn('absolute inset-0 grid', DAY_COLUMNS[count])}>
+                      {days.map((d) => (
+                        <div key={d.date} className={cn('border-l border-ds-divider', d.weekend && 'bg-ds-neutral-200')} />
+                      ))}
+                    </div>
+                    {todayIndex >= 0 && (
+                      <div
+                        aria-hidden="true"
+                        className="pointer-events-none absolute inset-y-0 w-0.5 bg-ds-accent-2 opacity-55"
+                        style={{ left: pct((todayIndex + 0.5) / count) }}
+                      />
+                    )}
+                    {row.bars.map((bar) => {
+                      const e = bar.entry
+                      return (
+                        <Tooltip key={e.id}>
+                          <TooltipTrigger asChild>
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation()
+                                onOpen(e.id)
+                              }}
+                              aria-label={t('barLabel', { kind: tb(`kind.${e.kind}`), name: name(e), from: short(e.arrival), to: short(e.departure) })}
+                              className={cn(
+                                // overflow-clip statt -hidden: kein eigener Scrollbereich, damit das Label „sticky“ bleiben kann (QA BUG-3)
+                                'absolute flex items-center overflow-clip rounded-lg px-2 text-left text-[13px] leading-tight shadow-sm',
+                                barClasses(e),
+                                bar.clippedStart && 'rounded-l-none',
+                                bar.clippedEnd && 'rounded-r-none',
+                                selected === e.id && 'ring-2 ring-ds-accent-2 ring-offset-2 ring-offset-ds-bg'
+                              )}
+                              style={{
+                                top: PAD + bar.lane * LANE,
+                                height: BAR,
+                                left: `calc(${pct(bar.left)} + 2px)`,
+                                width: `calc(${pct(bar.width)} - 4px)`,
+                              }}
+                            >
+                              {/* Langer Aufenthalt: Label bleibt beim seitlichen Scrollen rechts neben der Namensspalte stehen */}
+                              <span className="sticky left-[8rem] block min-w-0 max-w-full truncate sm:left-[13rem]">{label(e)}</span>
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent>{t('barTitle', { name: name(e), from: short(e.arrival), to: short(e.departure) })}</TooltipContent>
+                        </Tooltip>
+                      )
+                    })}
+                  </div>
                 </div>
-              </div>
+              </Fragment>
             )
           })}
         </div>

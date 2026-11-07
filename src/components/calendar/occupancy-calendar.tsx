@@ -18,18 +18,20 @@ import { getTenantContext } from '@/lib/tenant'
 interface OccupancyCalendarProps {
   variant: CalendarVariant
   searchParams: Record<string, string | string[] | undefined>
+  // Dashboard (PROJ-14): Kunden im Filter; ohne Angabe nur der gewählte Kunde (Vollbild-Seite)
+  tenants?: readonly { id: string; name: string }[]
 }
 
 // Belegungskalender (PROJ-9) auf dem Dashboard und der Vollbild-Seite: liest Zustand aus Adresse und Cookie,
 // lädt die Einträge des Bereichs (ohne Beträge) und bei offenem Eintrag dessen Detail (Preis nur für Inhaber).
-export async function OccupancyCalendar({ variant, searchParams }: OccupancyCalendarProps) {
+export async function OccupancyCalendar({ variant, searchParams, tenants }: OccupancyCalendarProps) {
   const { active } = await getTenantContext()
   if (!active) return null
   const owner = active.role === 'owner'
   const today = todayIso()
   const state = parseCalendarState(searchParams, (await cookies()).get(CALENDAR_COOKIE)?.value, today)
   const [data, bookable, booking] = await Promise.all([
-    getCalendarData(calendarRange(state, variant)),
+    getCalendarData(calendarRange(state, variant), tenants),
     getBookableApartments(),
     state.entry ? findBooking(state.entry) : Promise.resolve(null),
   ])
@@ -85,6 +87,7 @@ export async function OccupancyCalendar({ variant, searchParams }: OccupancyCale
       owner={owner}
       panel={panel}
       missingEntry={state.entry !== null && booking === null}
+      activeTenantId={active.id}
     />
   )
 }

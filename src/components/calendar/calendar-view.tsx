@@ -9,6 +9,7 @@ import { toast } from 'sonner'
 
 import { BookingPanel } from '@/components/bookings/booking-panel'
 import { NewBookingButtons } from '@/components/bookings/new-booking-buttons'
+import { submitTenantSwitch } from '@/components/dashboard/row-target'
 import { CalendarMonth } from '@/components/calendar/calendar-month'
 import { CalendarTimeline } from '@/components/calendar/calendar-timeline'
 import { LEGEND_CLASSES } from '@/components/calendar/entry-style'
@@ -49,6 +50,8 @@ interface CalendarViewProps {
   panel: React.ReactNode
   // Offener Eintrag existiert nicht (mehr)
   missingEntry: boolean
+  // Gewählter Kunde (PROJ-14): Einträge und Wohnungen anderer Kunden wechseln vor dem Öffnen bzw. Anlegen den Kunden
+  activeTenantId: string | null
 }
 
 const noon = (iso: string) => new Date(`${iso}T12:00:00`)
@@ -60,7 +63,7 @@ function remember(view: View, property: string | null) {
 
 // Belegungskalender (PROJ-9): Kopfzeile, Objektfilter, Legende, Zeitleiste bzw. Monat. Zeitraum, Ansicht, Filter
 // und offener Eintrag stehen in der Adresse; der Server lädt die Daten des Bereichs.
-export function CalendarView({ variant, state, today, apartments, entries, bookable, owner, panel, missingEntry }: CalendarViewProps) {
+export function CalendarView({ variant, state, today, apartments, entries, bookable, owner, panel, missingEntry, activeTenantId }: CalendarViewProps) {
   const t = useTranslations('calendar')
   const format = useFormatter()
   const router = useRouter()
@@ -69,15 +72,20 @@ export function CalendarView({ variant, state, today, apartments, entries, booka
   // Gilt nur, solange der Server denselben Ausgangstag liefert (nach dem Blättern wieder dessen Tag).
   const [picked, setPicked] = useState<{ base: string; day: string } | null>(null)
   const day = picked?.base === state.day ? picked.day : state.day
-  const [createAt, setCreateAt] = useState<{ apartmentId: string; arrival: string } | null>(null)
+  // Vorbelegt aus der Adresse (?neu=…), wenn die Wohnung zum gewählten Kunden gehört (nach dem Kundenwechsel, PROJ-14)
+  const [createAt, setCreateAt] = useState<{ apartmentId: string; arrival: string } | null>(() =>
+    state.create && bookable.some((a) => a.id === state.create?.apartmentId && !a.archived) ? state.create : null
+  )
 
   const properties = calendarProperties(apartments)
   const property = properties.some((p) => p.id === state.property) ? state.property : null
-  const current: CalendarState = { ...state, day, property }
+  const current: CalendarState = { ...state, day, property, create: null }
   const shown = visibleApartments(apartments, entries, property)
   const shownIds = new Set(shown.map((a) => a.id))
   const shownEntries = entries.filter((e) => shownIds.has(e.apartmentId))
   const canCreate = bookable.some((a) => !a.archived)
+  // Anlegen per Klick auch in Zeilen anderer Kunden (wechselt vorher)
+  const canCreateInRows = canCreate || apartments.some((a) => a.tenantId !== activeTenantId && !a.archived)
   const count = TIMELINE_DAYS[variant]
   const closeHref = calendarHref(variant, { ...current, entry: null })
 
@@ -108,6 +116,26 @@ export function CalendarView({ variant, state, today, apartments, entries, booka
     router.prefetch(prevHref)
     router.prefetch(nextHref)
   }, [router, prevHref, nextHref])
+
+  // Eintrag öffnen; gehört er zu einem anderen Kunden, vorher wechseln (Ziel: derselbe Kalender mit offenem Eintrag)
+  function open(id: string) {
+    const entry = entries.find((e) => e.id === id)
+    if (entry && entry.tenantId !== activeTenantId) submitTenantSwitch(entry.tenantId, calendarHref(variant, { ...current, entry: id }))
+    else go({ entry: id })
+  }
+
+  // Neue Buchung per Klick; in der Zeile eines anderen Kunden nach dem Wechsel mit vorbelegtem Formular
+  function createIn(apartmentId: string, arrival: string) {
+    const apartment = apartments.find((a) => a.id === apartmentId)
+    if (apartment && apartment.tenantId !== activeTenantId)
+      submitTenantSwitch(apartment.tenantId, calendarHref(variant, { ...current, entry: null, create: { apartmentId, arrival } }))
+    else if (canCreate) setCreateAt({ apartmentId, arrival })
+  }
+
+  function closeCreate() {
+    setCreateAt(null)
+    if (state.create) router.replace(closeHref, { scroll: false })
+  }
 
   // Alter Link auf einen gelöschten Eintrag: Hinweis und Panel-Parameter entfernen
   useEffect(() => {
@@ -203,7 +231,7 @@ export function CalendarView({ variant, state, today, apartments, entries, booka
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           {properties.length > 1 && (
             <div role="group" aria-label={t('filterLabel')} className="flex flex-wrap gap-2">
-              {[{ id: null, name: t('allProperties') }, ...properties].map((p) => (
+              {[{ id: null, name: t('allProperties'), tenantName: null }, ...properties].map((p) => (
                 <Button
                   key={p.id ?? 'alle'}
                   size="sm"
@@ -212,7 +240,7 @@ export function CalendarView({ variant, state, today, apartments, entries, booka
                   className="min-h-9 rounded-lg font-normal"
                   onClick={() => setProperty(p.id)}
                 >
-                  {p.name}
+                  {p.tenantName ? `${p.tenantName} · ${p.name}` : p.name}
                 </Button>
               ))}
             </div>
@@ -234,8 +262,8 @@ export function CalendarView({ variant, state, today, apartments, entries, booka
               apartments={shown}
               entries={shownEntries}
               selected={state.entry}
-              onOpen={(id) => go({ entry: id })}
-              onCreate={canCreate ? (apartmentId, arrival) => setCreateAt({ apartmentId, arrival }) : null}
+              onOpen={open}
+              onCreate={canCreateInRows ? createIn : null}
             />
           ) : (
             <CalendarMonth
@@ -246,7 +274,7 @@ export function CalendarView({ variant, state, today, apartments, entries, booka
               entries={shownEntries}
               selected={state.entry}
               onSelectDay={selectDay}
-              onOpen={(id) => go({ entry: id })}
+              onOpen={open}
             />
           )}
         </TabsContent>
@@ -256,7 +284,7 @@ export function CalendarView({ variant, state, today, apartments, entries, booka
         <BookingPanel
           key={`${createAt.apartmentId}-${createAt.arrival}`}
           open
-          onOpenChange={(o) => !o && setCreateAt(null)}
+          onOpenChange={(o) => !o && closeCreate()}
           apartments={bookable}
           booking={null}
           owner={owner}

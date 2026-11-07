@@ -136,12 +136,12 @@ test.describe('Sichtbarkeit der Navigation', () => {
     await page.goto('/')
     if (!isDesktop(page)) await page.getByRole('button', { name: 'Mehr' }).click()
     // „Einstellungen“ ist seit PROJ-4 für Inhaber sichtbar, „Belegung“ seit PROJ-9, „Zahlungen“ seit PROJ-45
-    for (const name of ['Auswertungen', 'Tourismusabgabe', 'Kanäle & Kalender']) {
+    for (const name of ['Auswertungen', 'Ortstaxe', 'Kanäle & Kalender']) {
       await expect(page.getByRole('link', { name })).toHaveCount(0)
     }
   })
 
-  for (const path of ['/auswertungen', '/tourismusabgabe']) {
+  for (const path of ['/auswertungen', '/ortstaxe']) {
     test(`direkter Aufruf von ${path} zeigt „Seite nicht gefunden“`, async ({ page }) => {
       const res = await page.goto(path)
       expect(res?.status()).toBe(404)

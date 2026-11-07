@@ -28,11 +28,14 @@ const apt = (id: string, extra: Partial<CalendarApartment> = {}): CalendarApartm
   propertyId: P1,
   propertyName: 'Haus',
   archived: false,
+  tenantId: 't1',
+  tenantName: null,
   ...extra,
 })
 
 const entry = (id: string, arrival: string, departure: string, extra: Partial<CalendarEntry> = {}): CalendarEntry => ({
   id,
+  tenantId: 't1',
   apartmentId: 'a1',
   kind: 'booking',
   channel: 'direct',
@@ -55,7 +58,16 @@ describe('Zustand aus Adresse und Cookie', () => {
       day: TODAY,
       property: null,
       entry: null,
+      create: null,
     })
+  })
+
+  it('„neu“ öffnet das Formular vorbelegt (PROJ-14), ungültige Werte zählen nicht', () => {
+    expect(parseCalendarState({ neu: `${P1}_2026-11-02` }, undefined, TODAY).create).toEqual({ apartmentId: P1, arrival: '2026-11-02' })
+    expect(parseCalendarState({ neu: `${P1}_2026-02-30` }, undefined, TODAY).create).toBeNull()
+    expect(parseCalendarState({ neu: 'x_2026-11-02' }, undefined, TODAY).create).toBeNull()
+    const state = parseCalendarState({}, undefined, TODAY)
+    expect(calendarHref('dashboard', { ...state, create: { apartmentId: P1, arrival: '2026-11-02' } })).toBe(`/?ansicht=zeitleiste&ab=2026-10-24&objekt=alle&neu=${P1}_2026-11-02`)
   })
 
   it('Cookie liefert Ansicht und Objekt, die Adresse gewinnt', () => {
@@ -105,8 +117,8 @@ describe('Wohnungen und Objekte', () => {
 
   it('Objekte nur mit aktiven Wohnungen, in Reihenfolge', () => {
     expect(calendarProperties(apartments)).toEqual([
-      { id: P1, name: 'Haus' },
-      { id: P2, name: 'See' },
+      { id: P1, name: 'Haus', tenantName: null },
+      { id: P2, name: 'See', tenantName: null },
     ])
   })
 

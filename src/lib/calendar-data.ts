@@ -7,26 +7,31 @@ import { guestDisplayName } from '@/lib/guests'
 import { createClient } from '@/lib/supabase/server'
 import { getTenantContext } from '@/lib/tenant'
 
-// Lesefunktion des Belegungskalenders (PROJ-9) für alle Mitglieder des gewählten Kunden.
+// Lesefunktion des Belegungskalenders (PROJ-9) für alle Mitglieder des gewählten Kunden; auf dem Dashboard (PROJ-14) für
+// mehrere Kunden der Person (Kunden im Filter). Die RLS liefert ohnehin nur Kunden, bei denen die Person Mitglied ist.
 // Bewusst ohne Beträge: Der Kalender zeigt keine Preise, und so erreichen sie auch keine Mitarbeiter.
 
 const ENTRY_LIMIT = 3000
 
 export type CalendarData = { apartments: CalendarApartment[]; entries: CalendarEntry[]; failed: boolean }
 
-// Wohnungen (auch archivierte) und aktive Einträge mit Anreise vor `to` und Abreise ab `from`
-export async function getCalendarData(range: { from: string; to: string }): Promise<CalendarData> {
+// Wohnungen (auch archivierte) und aktive Einträge mit Anreise vor `to` und Abreise ab `from`.
+// tenants: Kunden des Dashboards (Name nur bei mehr als einem Kunden als Gruppenkopf); ohne Angabe der gewählte Kunde.
+export async function getCalendarData(range: { from: string; to: string }, tenants?: readonly { id: string; name: string }[]): Promise<CalendarData> {
   const { active } = await getTenantContext()
-  if (!active) return { apartments: [], entries: [], failed: false }
+  const scope = tenants ?? (active ? [active] : [])
+  if (scope.length === 0) return { apartments: [], entries: [], failed: false }
+  const tenantIds = scope.map((t) => t.id)
+  const tenantName = new Map(scope.length > 1 ? scope.map((t) => [t.id, t.name]) : [])
   const supabase = await createClient()
   const today = todayIso()
 
   const [apartmentsResult, entriesResult] = await Promise.all([
-    supabase.from('apartments').select('id, name, archived_at, property:properties!inner(id, name)').eq('tenant_id', active.id).limit(500),
+    supabase.from('apartments').select('id, tenant_id, name, archived_at, property:properties!inner(id, name)').in('tenant_id', tenantIds).limit(1000),
     supabase
       .from('bookings')
-      .select('id, kind, channel, source, apartment_id, arrival, departure, adults, child_ages, block_reason, option_until, cancelled_at, guest:guests(last_name, first_name, title_prefix, title_suffix)')
-      .eq('tenant_id', active.id)
+      .select('id, tenant_id, kind, channel, source, apartment_id, arrival, departure, adults, child_ages, block_reason, option_until, cancelled_at, guest:guests(last_name, first_name, title_prefix, title_suffix)')
+      .in('tenant_id', tenantIds)
       .is('cancelled_at', null)
       .lt('arrival', range.to)
       .gte('departure', range.from)
@@ -36,7 +41,7 @@ export async function getCalendarData(range: { from: string; to: string }): Prom
   if (apartmentsResult.error) console.error('[belegung] Wohnungen nicht lesbar', apartmentsResult.error.message)
   if (entriesResult.error) console.error('[belegung] Einträge nicht lesbar', entriesResult.error.message)
 
-  // Reihenfolge wie in Formularen und Filtern: „Objekt · Wohnung“
+  // Reihenfolge wie in Formularen und Filtern: Kunde (bei mehreren), dann „Objekt · Wohnung“
   const label = (a: CalendarApartment) => apartmentLabel(a.propertyName, a.name)
   const apartments = (apartmentsResult.data ?? [])
     .map(
@@ -46,15 +51,18 @@ export async function getCalendarData(range: { from: string; to: string }): Prom
         propertyId: a.property.id,
         propertyName: a.property.name,
         archived: a.archived_at !== null,
+        tenantId: a.tenant_id,
+        tenantName: tenantName.get(a.tenant_id) ?? null,
       })
     )
-    .sort((a, b) => label(a).localeCompare(label(b), 'de', { numeric: true }))
+    .sort((a, b) => (a.tenantName ?? '').localeCompare(b.tenantName ?? '', 'de') || label(a).localeCompare(label(b), 'de', { numeric: true }))
 
   const entries = (entriesResult.data ?? [])
     .filter((e) => bookingState({ kind: e.kind as BookingKind, cancelledAt: e.cancelled_at, optionUntil: e.option_until }, today) === 'active')
     .map(
       (e): CalendarEntry => ({
         id: e.id,
+        tenantId: e.tenant_id,
         apartmentId: e.apartment_id,
         kind: e.kind as BookingKind,
         channel: e.channel as BookingChannel,

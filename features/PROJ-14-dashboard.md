@@ -1,6 +1,6 @@
 # PROJ-14: Dashboard
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-11-07
 **Last Updated:** 2026-11-07
 
@@ -449,6 +449,26 @@ Keine neuen Pakete.
 
 - **/frontend:** Kundenfilter (Adresse/Cookie), Kacheln, Unterzeile, Abschnitte mit Lade- und Fehlerzuständen, Zeilen als Link bzw. „wechseln und öffnen“, Kalender mit Kundengruppen, Objektfilter über Kunden, neuer Parameter „Neue Buchung vorbelegt“, Anordnung Desktop/Handy, Texte inkl. Umbenennung. Bis zur Migration zeigen die neuen Abschnitte ihren Fehlerzustand bzw. sind ausgeblendet.
 - **/backend:** Abrechnungsregel, Ortstaxe-Monatssummen, nächste Fälligkeit in der Rechnungsliste, Kalenderabfrage für mehrere Kunden, Kundenwechsel mit Ziel, Integrationstests, Messung mit 5.000 Buchungen/2.000 Rechnungen.
+
+### Umsetzung Frontend (2026-11-07)
+
+**Gebaut:**
+- `src/lib/dashboard.ts` (reine Regeln, mit Tests): Kundenfilter aus Adresse/Cookie, Zeiträume der Ortstaxe (laufend/abgelaufen, Abfragebereich 24 Monate), Ortstaxe-Tabelle je Kunde und Gemeinde, Sortierung offener Rechnungen und der Zeilen in „Heute“, Art der Unterzeile
+- `src/lib/dashboard-data.ts`: Kunden im Filter und Inhaber-Kunden; „Heute“ und Kacheln direkt aus Buchungen und Wohnungen (funktioniert schon); die übrigen Abschnitte rufen Datenbank-Funktionen auf, die mit /backend kommen. Fehlen sie, zeigt der Abschnitt „Dieser Abschnitt ist noch nicht verfügbar.“ bzw. die Kachel „–“
+- `src/components/dashboard/`: Kundenfilter, Kacheln und Unterzeile, „Heute“ (Abreise ohne Rechnung hervorgehoben in accent-2), „Noch nicht abgerechnet“, „Offene Rechnungen“, „Ortstaxe“ (Tabelle mit stehender Gemeindespalte, Trennstrich, Kunden-Zwischenüberschriften), Platzhalter beim Laden, Fehler je Abschnitt mit „Erneut versuchen“, Hinweis „Kein Zugriff mehr auf diesen Kunden“; `RowTarget`: Link beim gewählten Kunden, sonst Formular an den Kundenwechsel
+- Seite `/`: Abschnitte gestreamt (Suspense); Anordnung ab 1280 px zweispaltig (Kalender links), darunter untereinander mit „Heute“ vor „Belegung“
+- Kundenwechsel `/kunde-wechseln`: optionales Ziel `weiter` (nur interne Adressen, `safeRedirectPath`); ohne Mitgliedschaft Dashboard mit `?hinweis=kein-zugriff`
+- Kalender: lädt auf dem Dashboard die Kunden im Filter, Gruppenkopf je Kunde (Zeitleiste), Kundenname in der Tagesliste (Monat) und im Objektfilter; Klick auf Eintrag bzw. Anlegen in der Zeile eines anderen Kunden wechselt vorher (Ziel mit `eintrag` bzw. neuem Parameter `neu=<Wohnung>_<Anreise>`, der „Neue Buchung“ vorbelegt öffnet). Vollbild unverändert
+- Umbenennung: Menüpunkt „Ortstaxe“ (`/ortstaxe`), Hinweistexte (Gemeinde, PLZ, Anonymisieren); E2E PROJ-2 angepasst
+- Kacheln (`KpiGrid`) auch unter 400 px zweispaltig, Zahl am Handy 28 px
+
+**Abweichungen:** Texte in Du-Form wie die übrige App („Tarife hinterlegst du …“). Zweispaltig erst ab 1280 px statt „Desktop“ allgemein, damit die Zeitleiste genug Breite hat.
+
+**Vertrag für /backend (Datenbank-Funktionen, alle prüfen Mitgliedschaft bzw. Inhaber-Rolle je Kunde selbst):**
+- `dashboard_billing_states(p_booking_ids uuid[])` → `booking_id`, `billing` (`billed` | `missing` | `final_missing`); für alle Mitglieder
+- `dashboard_unbilled(p_tenant_ids uuid[], p_today date, p_limit int)` → `booking_id`, `tenant_id`, `last_name`, `first_name`, `title_prefix`, `title_suffix`, `apartment_name`, `property_name`, `due_date` (Abreise bzw. Stornodatum), `cancelled`, `billing`, `total_count` (Gesamtzahl); älteste zuerst; nur Inhaber-Kunden
+- `dashboard_open_invoices(p_tenant_ids uuid[])` → `invoice_id`, `tenant_id`, `number`, `recipient`, `invoice_date`, `apartment_name`, `property_name`, `open_cents`, `overdue`, `next_due`; Status offen/teilweise, ohne stornierte und Gutschriften
+- `tourist_tax_monthly(p_tenant_ids uuid[], p_from date, p_to date)` → `tenant_id`, `municipality_id`, `municipality_name`, `month` (Monatserster), `amount_cents`; nur Inhaber-Kunden
 
 ## QA Test Results
 _To be added by /qa_

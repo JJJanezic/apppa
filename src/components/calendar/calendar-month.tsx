@@ -30,7 +30,8 @@ export function CalendarMonth({ month, day, today, apartments, entries, selected
   const own = entries.filter((e) => shown.has(e.apartmentId))
   const { leadBlanks, cells } = monthCells(month, apartments, own, today)
   const items = dayItems(day, own)
-  const apartmentName = new Map(apartments.map((a) => [a.id, a.name]))
+  // Bei mehreren Kunden (Dashboard, PROJ-14) mit Kundenname
+  const apartmentName = new Map(apartments.map((a) => [a.id, a.tenantName ? `${a.name} · ${a.tenantName}` : a.name]))
   const short = formatDate
 
   return (
