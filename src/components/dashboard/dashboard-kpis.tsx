@@ -41,9 +41,9 @@ export async function DashboardKpis({ scope, today }: { scope: DashboardScope; t
 
 export function DashboardKpisSkeleton() {
   return (
-    <div aria-busy="true" className="grid grid-cols-2 gap-x-4 gap-y-6 sm:gap-6 lg:grid-cols-4">
+    <div aria-busy="true" className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
       {Array.from({ length: 4 }, (_, i) => (
-        <Skeleton key={i} className="h-20 w-full" />
+        <Skeleton key={i} className="h-28 w-full rounded-lg" />
       ))}
     </div>
   )

@@ -12,7 +12,8 @@ interface RowTargetProps {
   children: React.ReactNode
 }
 
-const ROW = 'w-full rounded-md px-1 py-2 text-left hover:bg-ds-neutral-200 focus-visible:outline-2 focus-visible:outline-offset-2'
+// Auf der Kartenfläche (surface) eine Stufe dunkler beim Überfahren, damit der Hover sichtbar bleibt
+const ROW = 'w-full rounded-md px-1 py-2 text-left hover:bg-ds-neutral-300 focus-visible:outline-2 focus-visible:outline-offset-2'
 
 // Zeile des Dashboards (PROJ-14): beim gewählten Kunden ein normaler Link; bei einem anderen Kunden ein Formular an den
 // Kundenwechsel, der danach das Ziel öffnet (Tech Design C). Beide sehen gleich aus.

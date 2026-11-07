@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils'
 import { DashboardSection, SectionEmpty, SectionProblem } from './section'
 
 // Erste Spalte bleibt beim seitlichen Scrollen am Handy stehen
-const STICKY = 'sticky left-0 z-10 bg-ds-bg'
+const STICKY = 'sticky left-0 z-10 bg-ds-surface'
 
 // Abschnitt „Ortstaxe“ (PROJ-14, nur Inhaber-Kunden): je Kunde und Gemeinde laufender Monat/Quartal/Jahr, Trennstrich,
 // letzter abgelaufener Monat/Quartal/Jahr. Der Knopf „Meldung vorbereiten“ kommt mit PROJ-16.
@@ -28,7 +28,8 @@ export async function TouristTaxSection({ scope, today }: { scope: DashboardScop
   const showTenant = scope.owned.length > 1
 
   return (
-    <DashboardSection id="ortstaxe-titel" title={t('tax.title')}>
+    // Zwei Spalten breit, damit alle drei Zeiträume ohne seitliches Scrollen Platz haben
+    <DashboardSection id="ortstaxe-titel" title={t('tax.title')} className="md:col-span-2">
       {!data.ready ? (
         <SectionProblem text={t('sectionUnavailable')} />
       ) : data.failed ? (

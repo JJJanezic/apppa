@@ -120,7 +120,7 @@ async function DashboardBody({ scope, today, params }: { scope: DashboardScope; 
           <OpenInvoicesSection scope={scope} />
         </Suspense>
         {owner && (
-          <Suspense fallback={<SectionSkeleton title={t('tax.title')} rows={4} />}>
+          <Suspense fallback={<SectionSkeleton title={t('tax.title')} rows={4} className="md:col-span-2" />}>
             <TouristTaxSection scope={scope} today={today} />
           </Suspense>
         )}
