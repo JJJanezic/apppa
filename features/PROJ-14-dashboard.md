@@ -1,6 +1,6 @@
 # PROJ-14: Dashboard
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-11-07
 **Last Updated:** 2026-11-07
 
@@ -645,6 +645,41 @@ Keine neuen Pakete.
 - **Production Ready:** NO
 - **Recommendation:** BUG-3 und BUG-1 beheben (BUG-2 mitnehmen, ist klein), dann `/qa` erneut
 - **Entscheidung Nutzer (2026-11-07):** alle vier Bugs vor dem Deploy beheben (BUG-4 eingeschlossen; Verhalten von „Neue Buchung“ bei gefiltertem Kunden in /frontend klären)
+
+### QA-Runde 2 (2026-11-07, nach den Korrekturen 2aaf0c7)
+
+**Bugs aus Runde 1**
+- [x] BUG-3 (High) behoben: bei 1440 px passen alle 14 Tage neben die Abschnitte; PROJ-9 „Anlegen per Klick“ (2 Tests) grün
+- [x] BUG-1 (Medium) behoben: „2 von 4 Wohnungen“, Kachel „2 / 4“ (E2E grün)
+- [x] BUG-2 (Low) behoben: axe am Handy ohne Verstöße
+- [x] BUG-4 (Low) behoben nach Nutzerentscheidung „Knöpfe ausblenden“ (neuer E2E-Test grün)
+
+**Läufe**
+- PROJ-14 E2E: Desktop 13/13, Handy und Tablet je 2/2
+- PROJ-9 E2E: Desktop 22/22, Handy 2/2
+- PROJ-2 E2E: 19 grün (4 nur Handy/Tablet übersprungen)
+- Integration Dashboard 12/12, Unit 791/791
+
+**Untersuchung der sporadischen Ausfälle (Beobachtung aus Runde 1)**
+- Wiederholungsläufe (`--repeat-each`) gegen den neuen Stand: „Blättern um 7 Tage“ 8/8 grün, „Klick auf einen Balken … Bearbeiten“ 3/4 (einmal zeigte das Panel nach dem Speichern den neuen Stand nicht innerhalb von 5 s)
+- Gegenprobe gegen den Stand vor PROJ-14 (`5390d7a`, eigenes Arbeitsverzeichnis): beide Tests 16/16 grün
+- Ladezeit: Dashboard warm ca. 420 ms, Vollbild-Belegung ca. 330 ms (kalt 1,5 s bzw. 0,6 s); Ziel < 1 s erfüllt
+- Zusammen mit Runde 1: 3 Ausfälle in rund 30 Kalender-Abläufen auf dem Dashboard, 0 in 16 vorher. Nicht gezielt reproduzierbar; vermutlich konkurrieren die gestreamten Abschnitte mit Navigation bzw. Aktualisierung nach dem Speichern (verwandt mit dem bekannten Next-16-Verhalten „router.push nach Server-Aktion“)
+
+#### BUG-5: Sporadisch verlorene Aktualisierung bzw. Navigation im Dashboard-Kalender
+- **Severity:** Low
+- **Steps to Reproduce:**
+  1. Dashboard öffnen, sofort in der Belegung blättern bzw. einen Eintrag bearbeiten und speichern
+  2. Expected: Zeitraum wechselt bzw. das Panel zeigt den neuen Stand
+  3. Actual: selten (ca. 1 von 10) bleibt die Adresse auf „/“ bzw. das Panel zeigt kurz den alten Stand; Neuladen zeigt den richtigen Stand. Keine Daten gehen verloren
+- **Priority:** Nice to have (beobachten; falls Nutzer es bemerken: Abschnitte ohne Streaming laden oder Aktualisierung nach dem Speichern über `redirect()` wie bei PROJ-8)
+
+### Summary (Runde 2)
+- **Acceptance Criteria:** 70/70 bestanden
+- **Bugs:** 0 critical, 0 high, 0 medium, 1 low offen (BUG-5)
+- **Security:** Pass (unverändert)
+- **Production Ready:** YES
+- **Recommendation:** Deploy; BUG-5 nach dem Deploy beobachten
 
 ## Deployment
 _To be added by /deploy_
