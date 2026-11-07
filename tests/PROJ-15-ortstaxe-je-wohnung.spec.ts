@@ -307,6 +307,28 @@ test.describe('Abgabe in der Buchung', () => {
     expect(data).toEqual([{ amount_cents: 2000, tourist_tax: true }])
   })
 
+  test('PROJ-14 BUG-7: gekennzeichnete Alt-Position (ohne Tarif) wird bei „Abgabe berechnen“ ersetzt, kein Doppelungs-Hinweis', async ({ page, users }) => {
+    desktopOnly()
+    const { tenantId, propertyId } = await setup(page, users)
+    const apt = await addApartment(tenantId, propertyId, 'Top 1', [{ valid_from: '2026-01-01' }])
+    // Stand nach der Migration 20261107194628: Kennzeichen gesetzt, kein Tarif-Verweis
+    const id = await addBooking(tenantId, apt, await addGuest(tenantId, 'Huber'), {
+      charges: [{ label: 'Nächtigungsabgabe', amount_cents: 1800, tourist_tax: true }],
+    })
+    await page.goto(`/buchungen/${id}`)
+    await ready(page)
+    await page.getByRole('button', { name: 'Bearbeiten', exact: true }).click()
+    await expect(panel(page).getByText('von Hand geändert')).toBeVisible()
+    await expect(panel(page).getByText(/Es gibt bereits eine Position/)).toHaveCount(0)
+    await panel(page).getByRole('button', { name: 'Abgabe berechnen' }).click()
+    await expect(panel(page).getByText('automatisch berechnet')).toHaveCount(1)
+    await expect(panel(page).getByText('von Hand geändert')).toHaveCount(0)
+    await panel(page).getByRole('button', { name: 'Änderungen speichern' }).click()
+    await expect(panel(page)).toHaveCount(0)
+    const { data } = await service().from('booking_charges').select('amount_cents, tourist_tax').eq('booking_id', id)
+    expect(data).toEqual([{ amount_cents: 2000, tourist_tax: true }])
+  })
+
   test('Mehr als 20 Positionen durch die Abgabe: Hinweis, Speichern gesperrt, nach Entfernen wieder möglich (QA BUG-4)', async ({ page, users }) => {
     desktopOnly()
     const { tenantId, propertyId } = await setup(page, users)

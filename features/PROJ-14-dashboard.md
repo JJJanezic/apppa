@@ -1,6 +1,6 @@
 # PROJ-14: Dashboard
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-11-07
 **Last Updated:** 2026-11-07
 
@@ -709,6 +709,30 @@ Code und Migration `20261107151812` sind seit 2026-11-07 auf Staging und Produkt
 - **BUG-7/BUG-8:** Migration `20261107194628_dashboard_tourist_tax_fix.sql` (Dev eingespielt; Advisors nur `auth_otp_long_expiry`): einmalige Kennzeichnung der Alt-Positionen; `private.tourist_tax_monthly` verteilt nach Tarifzeitraum
 - **Vorab geprüft:** Gekennzeichnete Positionen ohne Tarif gibt es schon (gelöschter Tarif, `on delete set null`). `private.tourist_tax_mark` übernimmt sie, das Buchungsformular schickt das Kennzeichen unverändert zurück und ersetzt solche Positionen bei „Abgabe berechnen“ (keine Doppelung); Buchungsdetail und Rechnungsentwurf werten das Kennzeichen nicht aus. Sichtbar: Plakette „von Hand geändert“ an diesen Positionen im Formular
 - **Tests:** Integration 14/14 (neu: Tarifwechsel innerhalb eines Aufenthalts, Position ohne Tarif über den ganzen Aufenthalt). E2E PROJ-14 Desktop 14/14, Anordnung auf Desktop/Tablet/Handy grün (neu: Abschnitte unter der Belegung; Altbuchung mit gekennzeichneter Position bearbeiten und speichern, Kennzeichen und Betrag bleiben). PROJ-9 Desktop 22/22 (ein Panel-Test einmal rot, 3× wiederholt grün), Handy grün (Messzeile vorher ins Bild geholt). PROJ-15 13/13. Unit 791/791
+
+### QA-Runde 3 (2026-11-07, Nachbesserung `9060cd7`)
+
+**BUG-6/7/8**
+- [x] BUG-6 behoben: Anordnung „Zeitung“ (Kacheln, Belegung voll breit, Abschnitte darunter im Raster; am Handy untereinander). Bildschirmfotos Desktop und Handy geprüft; E2E „Abschnitte stehen unter der Belegung“ auf Desktop, Tablet, Handy grün
+- [x] BUG-7 behoben: gekennzeichnete Alt-Positionen ohne Tarif zählen in der Ortstaxe (Integration); Altbuchung lässt sich bearbeiten und speichern, Kennzeichen und Betrag bleiben (E2E); „Abgabe berechnen“ ersetzt die gekennzeichnete Alt-Position statt sie zu verdoppeln, kein Doppelungs-Hinweis (neuer E2E-Test in PROJ-15)
+- [x] BUG-8 behoben: Verteilung nach Tarifzeitraum bei Tarifwechsel innerhalb eines Aufenthalts (Integration; mit dem alten Modell rot)
+- [x] Abgleich mit Echtdaten: Die neue Regel wurde mit dem Nutzer in Produktion nur lesend nachgerechnet; das Ergebnis entspricht der Erwartung (Einzelheiten nur im Chat)
+
+**Läufe:** PROJ-14 E2E Desktop 15/15, Anordnung Tablet/Handy grün, Firefox Kernabläufe 4/4; Integration Dashboard 14/14; PROJ-15 E2E 14/14 (inkl. neuem Test); PROJ-9 Desktop 22/22 und Handy grün (aus /frontend der Nachbesserung); Unit 791/791
+
+**Beobachtungen (kein Bug)**
+- Quartale und Jahre sind Summen gerundeter Monatsbeträge; gegenüber einer Rechnung je Position kann das um einen Cent abweichen
+- Alt-Positionen, die nach der geplanten statt der tatsächlichen Abreise berechnet wurden, ergeben krumme Monatsanteile; die Summe stimmt
+- Am Handy scrollt die Ortstaxe-Tabelle in ihrem fokussierbaren Bereich seitlich (Jahresspalte angeschnitten)
+
+**Offen:** BUG-5 (Low, sporadisch verlorene Navigation/Aktualisierung im Dashboard-Kalender) unverändert, beobachten
+
+### Summary (Runde 3)
+- **Acceptance Criteria:** 70/70 bestanden; Nachbesserung BUG-6/7/8 bestanden
+- **Bugs:** 0 critical, 0 high, 0 medium, 1 low offen (BUG-5)
+- **Security:** unverändert Pass (Migration ändert nur Kennzeichen, Funktion behält Rechte und Prüfung je Kunde)
+- **Production Ready:** YES
+- **Recommendation:** Deploy (zweite Migration `20261107194628` und Code über Staging nach Produktion)
 
 ## Deployment
 _To be added by /deploy_
