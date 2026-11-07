@@ -1,6 +1,6 @@
 # PROJ-14: Dashboard
 
-## Status: In Review
+## Status: In Progress
 **Created:** 2026-11-07
 **Last Updated:** 2026-11-07
 
@@ -323,6 +323,8 @@ Die Rechte gelten **je Kunde** nach der Rolle der Person bei diesem Kunden. Gela
 | Rechnungsliste um nächste Fälligkeit ergänzt; offene Rechnungen vollständig geladen, Summen in der App | Sortierung nach Fälligkeit; offene Rechnungen sind wenige | 2026-11-07 |
 | Jeder Abschnitt gestreamt mit eigener Fehlergrenze; ohne Inhaber-Kunden keine Abfrage für Ortstaxe/Nicht abgerechnet | Schnelle Seite, Fehler bleiben lokal, keine unnötigen Abfragen | 2026-11-07 |
 | Keine Umleitung von `/tourismusabgabe` | Menüpunkt war nie freigeschaltet | 2026-11-07 |
+| Dashboard-Belegung: „Neue Buchung“/„Neue Sperre“ nur, wenn ausschließlich der gewählte Kunde angezeigt wird | Nutzerentscheidung (QA BUG-4): sonst wäre unklar, bei welchem Kunden angelegt wird; Klick in eine Zeile wechselt richtig | 2026-11-07 |
+| Zweispaltig ab 1440 px, Dashboard-Zeitleiste mind. 720 px | QA BUG-3: Zeitleiste passt neben die Abschnitte | 2026-11-07 |
 | Ein Deploy für den ganzen Umfang | Nutzerentscheidung; die Mehrkunden-Regeln betreffen jeden Abschnitt, ein QA-Durchgang | 2026-11-07 |
 
 ---
@@ -485,6 +487,15 @@ Keine neuen Pakete.
 **Tests:** `supabase/tests/dashboard.integration.test.ts` (12 Tests, grün): Abrechnungsstand inkl. Storno und nacherfasst, „noch nicht abgerechnet“ mit Reihenfolge, Grenze und Gesamtzahl, Storno mit/ohne Gebühr, Optionen, künftige Abreise; offene Rechnungen mit Fälligkeit und „überfällig“; Ortstaxe über Monats- und Jahresgrenze inkl. Rundung (999 → 666/333), ohne Optionen und Stornos, Zeitraum; Rechte: Inhaberin bei A und Mitarbeiterin bei B, Mitarbeiter, fremder Kunde, ohne Anmeldung. Unit-Tests: 791 grün.
 
 **Messung** (Dev, 5.000 Buchungen, 2.000 Rechnungen, 5.000 Ortstaxe-Positionen, Inhaber): noch nicht abgerechnet 171 ms, offene Rechnungen 138 ms, Ortstaxe 84 ms, Buchungen von heute 70 ms, Wohnungen zählen 82 ms. Die Abschnitte laden parallel; Ziel < 1 s erfüllt. Messdaten wieder gelöscht.
+
+### Korrekturen nach QA (2026-11-07)
+- **BUG-3** (High): Zweispaltige Anordnung erst ab 1440 px (statt 1280 px); Mindestbreite der Dashboard-Zeitleiste 720 px (statt 860 px). Bei 1440 px passen alle 14 Tage neben die Abschnitte. PROJ-9 „Anlegen per Klick“ wieder grün
+- **BUG-1** (Medium): „Belegt heute“ und Unterzeile zählen nur nicht archivierte Wohnungen
+- **BUG-2** (Low): Ortstaxe-Tabelle in eigenem Scrollbereich mit Tastaturfokus (`role="region"`, `tabIndex=0`); der innere Bereich der Tabelle läuft nicht mehr über. axe am Handy ohne Verstöße
+- **BUG-4** (Low): Nutzerentscheidung „Knöpfe ausblenden“: „Neue Buchung“/„Neue Sperre“ erscheinen in der Dashboard-Belegung nur, wenn sie ausschließlich den gewählten Kunden zeigt. Bei mehreren Kunden oder Filter auf einen anderen Kunden legt man per Klick in eine Zeile an (wechselt vorher)
+- Tests: neuer E2E-Test für BUG-4; zwei PROJ-9-Handy-Tests holen die Zeitleiste vorher ins Bild (am Handy steht „Heute“ jetzt darüber)
+- Läufe: PROJ-14 Desktop 13 grün, Handy und Tablet je 2 grün; PROJ-9 Desktop alle grün (ein Lauf „Blättern um 7 Tage“ einmal rot, einzeln grün), PROJ-9 Handy grün; Unit 791 grün
+- **Beobachtung:** Sporadisch (2 von rund 40 Kalender-Klicks direkt nach dem Laden) blieb die Adresse auf „/“ statt zu blättern bzw. das Panel zu öffnen; einzeln nicht reproduzierbar. In /qa erneut beobachten
 
 ## QA Test Results
 

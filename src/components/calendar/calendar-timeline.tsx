@@ -29,7 +29,8 @@ const PAD = 6
 
 // Spalten der Tage; feste Klassen, damit Tailwind sie findet
 const DAY_COLUMNS: Record<number, string> = { 14: 'grid-cols-[repeat(14,minmax(0,1fr))]', 28: 'grid-cols-[repeat(28,minmax(0,1fr))]' }
-const MIN_WIDTH: Record<CalendarVariant, string> = { dashboard: 'min-w-[680px] sm:min-w-[860px]', full: 'min-w-[1100px]' }
+// Dashboard: passt ab 1440 px in die linke Spalte neben den Abschnitten (PROJ-14 BUG-3)
+const MIN_WIDTH: Record<CalendarVariant, string> = { dashboard: 'min-w-[680px] sm:min-w-[720px]', full: 'min-w-[1100px]' }
 const pct = (fraction: number) => `${fraction * 100}%`
 
 // Zeitleiste (PROJ-9): Zeile je Wohnung, Balken in Kanalfarbe, Überschneidungen untereinander.

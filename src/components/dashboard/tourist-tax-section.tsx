@@ -41,10 +41,13 @@ export async function TouristTaxSection({ scope, today }: { scope: DashboardScop
           </Link>
         </div>
       ) : (
-        <Table aria-label={t('tax.tableLabel')} className="min-w-[22rem] tabular-nums">
-          <Part heading={t('tax.current')} periods={periods.current} label={label} blocks={blocks} which="current" showTenant={showTenant} totalLabel={t('tax.total')} />
-          <Part heading={t('tax.past')} periods={periods.past} label={label} blocks={blocks} which="past" showTenant={showTenant} totalLabel={t('tax.total')} separated />
-        </Table>
+        // Eigener Scrollbereich mit Tastaturfokus; der innere der Tabelle läuft nicht über (axe scrollable-region-focusable, BUG-2)
+        <div role="region" aria-label={t('tax.tableLabel')} tabIndex={0} className="overflow-x-auto focus-visible:outline-2 focus-visible:outline-offset-2 [&>div]:overflow-visible">
+          <Table className="min-w-[22rem] tabular-nums">
+            <Part heading={t('tax.current')} periods={periods.current} label={label} blocks={blocks} which="current" showTenant={showTenant} totalLabel={t('tax.total')} />
+            <Part heading={t('tax.past')} periods={periods.past} label={label} blocks={blocks} which="past" showTenant={showTenant} totalLabel={t('tax.total')} separated />
+          </Table>
+        </div>
       )}
     </DashboardSection>
   )

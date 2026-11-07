@@ -84,6 +84,10 @@ export function CalendarView({ variant, state, today, apartments, entries, booka
   const shownIds = new Set(shown.map((a) => a.id))
   const shownEntries = entries.filter((e) => shownIds.has(e.apartmentId))
   const canCreate = bookable.some((a) => !a.archived)
+  // „Neue Buchung“/„Neue Sperre“ nur, wenn die Belegung nur den gewählten Kunden zeigt (PROJ-14 BUG-4); bei mehreren
+  // Kunden legt man per Klick in eine Zeile an
+  const onlyActiveTenant = apartments.every((a) => a.tenantId === activeTenantId)
+  const showButtons = canCreate && onlyActiveTenant
   // Anlegen per Klick auch in Zeilen anderer Kunden (wechselt vorher)
   const canCreateInRows = canCreate || apartments.some((a) => a.tenantId !== activeTenantId && !a.archived)
   const count = TIMELINE_DAYS[variant]
@@ -214,9 +218,9 @@ export function CalendarView({ variant, state, today, apartments, entries, booka
           </div>
         </div>
 
-        {(canCreate || variant === 'dashboard') && (
+        {(showButtons || variant === 'dashboard') && (
           <div className="flex flex-wrap items-center gap-3">
-            {canCreate && <NewBookingButtons apartments={bookable} owner={owner} today={today} afterCreate="refresh" />}
+            {showButtons && <NewBookingButtons apartments={bookable} owner={owner} today={today} afterCreate="refresh" />}
             {variant === 'dashboard' && (
               <Button asChild variant="ghost" className="min-h-11 sm:ml-auto">
                 <Link href={CALENDAR_PATH.full}>

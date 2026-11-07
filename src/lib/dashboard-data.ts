@@ -98,7 +98,7 @@ type TodayDb = {
   cancelled_at: string | null
   apartment_id: string
   guest: GuestDb
-  apartment: { name: string; property: { name: string } }
+  apartment: { name: string; archived_at: string | null; property: { name: string } }
 }
 
 // An- und Abreisen heute, belegte Wohnungen und Abrechnungsstand der Abreisen (Buchungen und Optionen, keine Sperren)
@@ -110,7 +110,7 @@ export const getTodayOverview = cache(async (s: DashboardScope, today: string): 
     supabase
       .from('bookings')
       .select(
-        'id, tenant_id, kind, source, arrival, departure, adults, child_ages, option_until, cancelled_at, apartment_id, guest:guests(last_name, first_name, title_prefix, title_suffix), apartment:apartments!inner(name, property:properties!inner(name))'
+        'id, tenant_id, kind, source, arrival, departure, adults, child_ages, option_until, cancelled_at, apartment_id, guest:guests(last_name, first_name, title_prefix, title_suffix), apartment:apartments!inner(name, archived_at, property:properties!inner(name))'
       )
       .in('tenant_id', ids(s.scope))
       .is('cancelled_at', null)
@@ -149,7 +149,8 @@ export const getTodayOverview = cache(async (s: DashboardScope, today: string): 
   const departuresUnbilled =
     billing && owned.size > 0 ? departures.filter((d) => owned.has(d.tenantId) && d.billing !== null && d.billing !== 'billed').length : null
 
-  const occupied = new Set(active.filter((b) => b.arrival <= today && today < b.departure).map((b) => b.apartment_id))
+  // Wie die Gesamtzahl nur aktive Wohnungen (archivierte können noch laufende Buchungen haben, PROJ-6; BUG-1)
+  const occupied = new Set(active.filter((b) => b.apartment.archived_at === null && b.arrival <= today && today < b.departure).map((b) => b.apartment_id))
   return {
     arrivals,
     departures,

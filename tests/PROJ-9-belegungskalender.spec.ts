@@ -597,6 +597,8 @@ test.describe('Layout und Barrierefreiheit', () => {
     await withCalendar(tenantId)
     await signIn()
     await open(page)
+    // PROJ-14: Am Handy steht „Heute“ über der Belegung; die Zeitleiste erst ins Bild holen
+    await timeline(page).scrollIntoViewIfNeeded()
     await timeline(page).evaluate((el) => el.scrollBy(400, 0))
     await expect.poll(() => timeline(page).evaluate((el) => el.scrollLeft)).toBeGreaterThan(300)
     const box = await page.evaluate(() => {
@@ -629,6 +631,7 @@ test.describe('Layout und Barrierefreiheit', () => {
     // Zeitleiste ist in sich seitlich scrollbar, wenn sie nicht passt
     const fits = await timeline(page).evaluate((el) => el.scrollWidth <= el.clientWidth)
     if (!fits) {
+      await timeline(page).scrollIntoViewIfNeeded()
       await timeline(page).evaluate((el) => el.scrollBy(300, 0))
       await expect(timeline(page).getByText('Top 1', { exact: true })).toBeInViewport()
     }

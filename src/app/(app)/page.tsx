@@ -92,7 +92,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   )
 }
 
-// Anordnung wie im Entwurf: Desktop links „Belegung“, rechts die Abschnitte; Handy und Tablet untereinander mit „Heute“
+// Anordnung wie im Entwurf: ab 1440 px links „Belegung“, rechts die Abschnitte (darunter passt die Zeitleiste nicht
+// neben die Spalte, PROJ-14 BUG-3); Handy und Tablet untereinander mit „Heute“
 // vor „Belegung“. Die zusätzliche letzte Zeile nimmt die Höhe des Kalenders auf, damit rechts keine Lücken entstehen.
 async function DashboardBody({ scope, today, params }: { scope: DashboardScope; today: string; params: Record<string, string | string[] | undefined> }) {
   const t = await getTranslations('dashboard')
@@ -104,29 +105,29 @@ async function DashboardBody({ scope, today, params }: { scope: DashboardScope; 
       <Suspense fallback={<DashboardKpisSkeleton />}>
         <DashboardKpis scope={scope} today={today} />
       </Suspense>
-      <div className="grid items-start gap-8 xl:grid-cols-[minmax(0,1fr)_22rem] xl:grid-rows-[auto_auto_auto_auto_1fr]">
-        <div className="xl:col-start-2 xl:row-start-1">
+      <div className="grid items-start gap-8 min-[1440px]:grid-cols-[minmax(0,1fr)_22rem] min-[1440px]:grid-rows-[auto_auto_auto_auto_1fr]">
+        <div className="min-[1440px]:col-start-2 min-[1440px]:row-start-1">
           <Suspense fallback={<SectionSkeleton title={t('today.title')} />}>
             <TodaySection scope={scope} today={today} />
           </Suspense>
         </div>
-        <div className="min-w-0 xl:col-start-1 xl:row-span-5 xl:row-start-1">
+        <div className="min-w-0 min-[1440px]:col-start-1 min-[1440px]:row-span-5 min-[1440px]:row-start-1">
           <OccupancyCalendar variant="dashboard" searchParams={params} tenants={tenants} />
         </div>
         {owner && (
-          <div className="xl:col-start-2 xl:row-start-2">
+          <div className="min-[1440px]:col-start-2 min-[1440px]:row-start-2">
             <Suspense fallback={<SectionSkeleton title={t('unbilled.title')} />}>
               <UnbilledSection scope={scope} today={today} />
             </Suspense>
           </div>
         )}
-        <div className="xl:col-start-2 xl:row-start-3">
+        <div className="min-[1440px]:col-start-2 min-[1440px]:row-start-3">
           <Suspense fallback={<SectionSkeleton title={t('openInvoices.title')} />}>
             <OpenInvoicesSection scope={scope} />
           </Suspense>
         </div>
         {owner && (
-          <div className="min-w-0 xl:col-start-2 xl:row-start-4">
+          <div className="min-w-0 min-[1440px]:col-start-2 min-[1440px]:row-start-4">
             <Suspense fallback={<SectionSkeleton title={t('tax.title')} rows={4} />}>
               <TouristTaxSection scope={scope} today={today} />
             </Suspense>

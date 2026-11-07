@@ -268,6 +268,19 @@ test.describe('PROJ-14 Dashboard', () => {
     await expect(page.getByRole('button', { name: `Kunden wechseln: Seeblick ${run}` })).toBeVisible()
   })
 
+  test('Belegung: „Neue Buchung“ nur, wenn ausschließlich der gewählte Kunde angezeigt wird', async ({ page }) => {
+    desktopOnly()
+    await signInAs(page, users.olga)
+    await page.goto('/?kunde=alle')
+    const calendar = page.locator('section[aria-labelledby="belegung-titel"]')
+    await expect(calendar.getByRole('heading', { name: 'Belegung' })).toBeVisible()
+    await expect(calendar.getByRole('button', { name: 'Neue Buchung' })).toHaveCount(0)
+    await page.goto(`/?kunde=${tenants.b}`)
+    await expect(calendar.getByRole('button', { name: 'Neue Buchung' })).toHaveCount(0)
+    await page.goto(`/?kunde=${tenants.a}`)
+    await expect(calendar.getByRole('button', { name: 'Neue Buchung' })).toBeVisible()
+  })
+
   test('Person mit nur einem Kunden: kein Filter, keine Kundennamen', async ({ page }) => {
     desktopOnly()
     await signInAs(page, users.paula)
