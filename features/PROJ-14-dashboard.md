@@ -1,6 +1,6 @@
 # PROJ-14: Dashboard
 
-## Status: Approved
+## Status: In Progress
 **Created:** 2026-11-07
 **Last Updated:** 2026-11-07
 
@@ -325,6 +325,8 @@ Die Rechte gelten **je Kunde** nach der Rolle der Person bei diesem Kunden. Gela
 | Keine Umleitung von `/tourismusabgabe` | Menüpunkt war nie freigeschaltet | 2026-11-07 |
 | Dashboard-Belegung: „Neue Buchung“/„Neue Sperre“ nur, wenn ausschließlich der gewählte Kunde angezeigt wird | Nutzerentscheidung (QA BUG-4): sonst wäre unklar, bei welchem Kunden angelegt wird; Klick in eine Zeile wechselt richtig | 2026-11-07 |
 | Zweispaltig ab 1440 px, Dashboard-Zeitleiste mind. 720 px | QA BUG-3: Zeitleiste passt neben die Abschnitte | 2026-11-07 |
+| Anordnung „Zeitung“ (Belegung voll breit, Abschnitte darunter im Raster) | Nutzer nach Auslieferung: Standard-Variante des Entwurfs; „Cockpit“ war ein Umsetzungsfehler (BUG-6) | 2026-11-07 |
+| Alt-Positionen „Nächtigungsabgabe“ einmalig per Migration als Ortstaxe kennzeichnen, nur in Buchungen „noch nicht berechnet“ | Nutzer (BUG-7): eine Regel für Dashboard und PROJ-16; Beträge unverändert; keine Doppelzählung | 2026-11-07 |
 | Ein Deploy für den ganzen Umfang | Nutzerentscheidung; die Mehrkunden-Regeln betreffen jeden Abschnitt, ein QA-Durchgang | 2026-11-07 |
 
 ---
@@ -680,6 +682,27 @@ Keine neuen Pakete.
 - **Security:** Pass (unverändert)
 - **Production Ready:** YES
 - **Recommendation:** Deploy; BUG-5 nach dem Deploy beobachten
+
+### Nachbesserung nach der Auslieferung (2026-11-07)
+Code und Migration `20261107151812` sind seit 2026-11-07 auf Staging und Produktion (`09f8b99`). Bei der Prüfung in Produktion fielen Abweichungen auf; PROJ-14 ist deshalb noch nicht als „Deployed“ verbucht. Die Herleitung erfolgte gemeinsam mit dem Nutzer anhand echter Daten (nur lesend); Einzelheiten stehen bewusst nicht hier.
+
+#### BUG-6: Anordnung „Cockpit“ statt „Zeitung“
+- **Severity:** Medium
+- Der Entwurf hat zwei Varianten; voreingestellt ist „Zeitung“ (`layout ?? 'Zeitung'`): Belegung in voller Breite, darunter die Abschnitte im Raster (`repeat(auto-fit, minmax(260px, 1fr))`). Umgesetzt wurde „Cockpit“ (Spalte rechts neben dem Kalender)
+- **Korrektur:** Kacheln, Belegung in voller Breite, darunter „Heute“, „Noch nicht abgerechnet“, „Offene Rechnungen“, „Ortstaxe“ im Raster; am Handy untereinander in dieser Reihenfolge. Die Ausnahmen aus BUG-3 (zweispaltig ab 1440 px, schmalere Dashboard-Zeitleiste) entfallen
+
+#### BUG-7: Von Hand angelegte Alt-Positionen der Ortstaxe zählen nicht
+- **Severity:** High (Summen zu niedrig)
+- Buchungen von vor PROJ-15 stehen auf „noch nicht berechnet“; ihre Abgabe wurde als normale Zusatzposition „Nächtigungsabgabe“ eingetippt, ohne Ortstaxe-Kennzeichen. Das Dashboard zählt nur gekennzeichnete Positionen
+- **Entscheidung Nutzer:** einmalig per Migration kennzeichnen: Positionen in Buchungen „noch nicht berechnet“, deren Bezeichnung einer Ortstaxe entspricht („Nächtigungsabgabe“, „Ortstaxe“, „Aufenthaltsabgabe“, „Tourismusabgabe“, „Kurtaxe“ oder Tarif-Bezeichnung der Wohnung; ohne Groß-/Kleinschreibung). Ohne Tarif-Verweis und Personennächte; Bezeichnung, Betrag, USt, Buchungsstatus und Rechnungen bleiben unverändert. Auf „noch nicht berechnet“ begrenzt, damit von Hand doppelt erfasste Abgaben in neueren Buchungen nicht mitgezählt werden
+- Vorher in Dev prüfen: Öffnen, Ändern, Speichern solcher Buchungen (Inhaber, Mitarbeiter) und „Abgabe berechnen“
+
+#### BUG-8: Verteilung bei Tarifwechsel
+- **Severity:** Medium
+- Reicht ein Aufenthalt über einen Tarifwechsel, hat er je Tarif eine Position (PROJ-15). Bisher wird jede Position über den ganzen Aufenthalt verteilt; richtig ist nur über die Nächte ihres Tarifzeitraums (ab „gültig ab“ bis vor den nächsten Tarif der Wohnung). Positionen ohne Tarif-Verweis weiter über den ganzen Aufenthalt
+- Bekannte Grenze: Alt-Positionen, die nach der geplanten statt der tatsächlichen Abreise berechnet wurden, ergeben krumme Monatsanteile; die Summe stimmt
+
+**Vorgehen (Nutzer):** alles zusammen über QA und Staging; die Kennzeichnung wird nicht vorgezogen.
 
 ## Deployment
 _To be added by /deploy_
