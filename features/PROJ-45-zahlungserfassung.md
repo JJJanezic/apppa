@@ -1,6 +1,6 @@
 # PROJ-45: Zahlungserfassung
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-11-06
 **Last Updated:** 2026-11-07
 
@@ -683,3 +683,12 @@ Keine neuen Pakete (Bildumwandlung, Hochladen, Griff zum Ordnen und Monatsauswah
 - **Vorprüfung:** Lint, Unit 745, Build, Secret-Scan sauber. Integration: der gemeinsame Lauf von `npm test` scheiterte an Zeitüberschreitungen der Dev-Datenbank (96 Tests, nur Timeouts); einzeln liefen alle Dateien grün, rot blieb zeitweise nur der bekannte RLS-Test „Person ohne Mitgliedschaft“ (Testreste im Dev-Protokoll, ~19.800 Zeilen)
 - **Kein `config push`**, keine neuen Umgebungsvariablen
 - **Hinweis für den Betrieb:** Bestehende nacherfasste Rechnungen gelten als „offen“, bis eine Zahlung erfasst wird (Spec)
+
+### Deployment Refine 2026-11-07 (Felder nach Zahlungsart)
+
+- **Datum:** 2026-11-07
+- **Commit:** `b6fb0e7` (Änderung `3d79b26`), Tag `v1.31.0-PROJ-45`
+- **Staging:** https://staging.apppa.at, vom Nutzer geprüft und freigegeben
+- **Produktion:** https://app.apppa.at, vom Nutzer als „Ready“ und „funktioniert einwandfrei“ gemeldet
+- **Migrationen:** keine; kein `config push`, keine neuen Umgebungsvariablen
+- **Vorprüfung:** Lint und Secret-Scan sauber; Unit 777, Integration `payments` 18, Build und E2E aus der QA mit demselben App-Stand
