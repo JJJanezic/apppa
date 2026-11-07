@@ -6,8 +6,8 @@ import { expect, type Page, test as base } from '@playwright/test'
 import type { Json } from '../src/types/database'
 import { anon, createTenant, createUser, deleteUser, type E2EUser, hasSupabaseEnv, service, signInAs } from './support/supabase'
 
-// PROJ-43: Rechnungsübersicht ausbauen. Filter, Rückweg und „Rechnung erstellen“ in der Oberfläche. Zahlungsfilter, Status
-// „storniert“ und Summen brauchen die Lesesicht aus /backend und werden dort bzw. in /qa geprüft.
+// PROJ-43: Rechnungsübersicht ausbauen. Filter, Summen, Rückweg und „Rechnung erstellen“ in der Oberfläche. Die Regeln für
+// Status „storniert“, Zahlungsstand und Summen prüft supabase/tests/invoice-list.integration.test.ts im Einzelnen.
 
 type Users = (opts?: Parameters<typeof createUser>[0]) => Promise<E2EUser>
 
@@ -276,6 +276,65 @@ test.describe('Filter', () => {
     await expect(page.getByLabel('Status', { exact: true })).toBeVisible()
     const results = await new AxeBuilder({ page }).include('main').analyze()
     expect(results.violations).toEqual([])
+  })
+})
+
+test.describe('Zahlung und Summen', () => {
+  test('AC: „noch nicht bezahlt“ zeigt offene und teilweise bezahlte; Summen über die gefilterte Liste', async ({ page, users }) => {
+    desktopOnly()
+    const { owner, staff, tenantId } = await setup(users, { staff: true })
+    const partial = await addBackfilled(owner, tenantId, { number: 'Z-TEIL', date: '2026-03-01', cents: 45000 })
+    await addBackfilled(owner, tenantId, { number: 'Z-OFFEN', date: '2026-03-02', cents: 20000 })
+    const paid = await addBackfilled(owner, tenantId, { number: 'Z-BEZAHLT', date: '2026-03-03', cents: 30000 })
+    const client = await signedIn(owner)
+    const { data: methods } = await service().from('payment_methods').select('id').eq('tenant_id', tenantId).eq('is_default', true)
+    for (const [invoiceId, cents] of [
+      [partial, 10000],
+      [paid, 30000],
+    ] as const) {
+      const { error } = await client.rpc('record_payment', {
+        p_input: {
+          tenant_id: tenantId,
+          kind: 'payment',
+          invoice_id: invoiceId,
+          paid_on: '2026-03-10',
+          amount_cents: cents,
+          commission_cents: 0,
+          fee_cents: 0,
+          method_id: methods![0].id,
+          note: null,
+          receipt_path: null,
+          confirmed: true,
+        } as unknown as Json,
+      })
+      if (error) throw error
+    }
+    await signInAs(page, owner)
+    await openList(page)
+    await expect(page.getByLabel('Summen der gefilterten Rechnungen')).toContainText('€ 950,00')
+    await expect(page.getByLabel('Summen der gefilterten Rechnungen')).toContainText('€ 400,00')
+    await expect(page.getByLabel('Summen der gefilterten Rechnungen')).toContainText('€ 550,00')
+
+    await chooseOption(page, 'Zahlung', 'noch nicht bezahlt')
+    await expect(page).toHaveURL(/zahlung=unpaid/)
+    await expect(rows(page)).toHaveCount(2)
+    await expect(page.getByRole('link', { name: 'Z-BEZAHLT' })).toHaveCount(0)
+    const sums = page.getByLabel('Summen der gefilterten Rechnungen')
+    await expect(sums.getByRole('definition').nth(0)).toHaveText('€ 650,00')
+    await expect(sums.getByRole('definition').nth(1)).toHaveText('€ 100,00')
+    await expect(sums.getByRole('definition').nth(2)).toHaveText('€ 550,00')
+    await expect(page.getByText('wirken erst nach dem nächsten Update')).toHaveCount(0)
+
+    // Kombination ohne Treffer: keine Summen
+    await chooseOption(page, 'Status', 'storniert')
+    await expect(page.getByText('Keine Rechnungen gefunden')).toBeVisible()
+    await expect(page.getByLabel('Summen der gefilterten Rechnungen')).toHaveCount(0)
+
+    // Mitarbeiter sieht dieselben Summen
+    await page.context().clearCookies()
+    await signInAs(page, staff!)
+    await openList(page, '?zahlung=unpaid')
+    await expect(page.getByLabel('Summen der gefilterten Rechnungen').getByRole('definition').nth(2)).toHaveText('€ 550,00')
   })
 })
 

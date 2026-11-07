@@ -2167,6 +2167,48 @@ export type Database = {
           total: number
         }[]
       }
+      invoice_list_page: {
+        Args: {
+          p_limit: number
+          p_max_cents: number
+          p_min_cents: number
+          p_offset: number
+          p_pattern: string
+          p_payment: string
+          p_status: string
+          p_tenant_id: string
+          p_year: number
+        }
+        Returns: {
+          booking_id: string
+          booking_number: string
+          id: string
+          invoice_date: string
+          kind: string
+          number: string
+          origin: string
+          pdf_path: string
+          recipient: string
+          total_cents: number
+        }[]
+      }
+      invoice_list_totals: {
+        Args: {
+          p_max_cents: number
+          p_min_cents: number
+          p_pattern: string
+          p_payment: string
+          p_status: string
+          p_tenant_id: string
+          p_year: number
+        }
+        Returns: {
+          invoice_count: number
+          open_cents: number
+          paid_cents: number
+          total_cents: number
+        }[]
+      }
       invoice_numbers: { Args: { p_tenant_id: string }; Returns: string[] }
       invoice_preview_data: { Args: { p_tenant_id: string }; Returns: Json }
       issue_credit_note: { Args: { p_input: Json }; Returns: string }

@@ -185,6 +185,9 @@ Die Rechnungsliste (Menüpunkt „Rechnungen“) bekommt Filter, eine Summenzeil
 | Rückweg über den Speicher des Browser-Tabs, Rückfall `/rechnungen` | Kurze Detailadressen, wirkt über Unterseiten; Menüpunkt bleibt ungefiltert | 2026-11-07 |
 | Wählbarkeit der Buchungen in der Suche auf dem Server mit der Regel aus PROJ-40; erneute Prüfung beim Öffnen und Speichern | Preisregeln liegen auf dem Server; gleichzeitige Änderungen bleiben abgesichert | 2026-11-07 |
 | Keine neuen Pakete, keine neuen Tabellen | Alles aus vorhandenen Daten und Bausteinen | 2026-11-07 |
+| Liste und Summen über zwei Datenbankfunktionen (Kern `security definer` in `private` mit einmaliger Mitgliedsprüfung, Hülle in `public`) statt Lesesicht | Messung: Lesesicht mit RLS je Zeile 1,4 s bzw. > 8 s bei 5.000 Rechnungen; Funktionen 60–80 ms | 2026-11-07 |
+| Zahlungsregel in `private.invoice_list_rows` neben der Lesesicht `invoice_payment_status` (PROJ-45 unverändert); Gleichheit per Integrationstest | Lesesicht aus PROJ-45 nicht anfassen (Rechnungsdetail, Buchung, Zahlungen); Abweichungen fallen im Test auf | 2026-11-07 |
+| Anzahl der Treffer aus der Summenfunktion | Stimmt auch auf Seiten hinter dem Ende (vgl. PROJ-37 BUG-5) | 2026-11-07 |
 
 ---
 
@@ -239,7 +242,7 @@ Wiederverwendet werden: Suchfeld und Blättern der Rechnungsliste, Buchungssuche
 | Zahlung, überfällig, Offen, Bezahlt | Lesesicht „Zahlungsstand je Rechnung“ aus PROJ-45 |
 | Betrag | Rechnungsbetrag brutto |
 
-**Neue Lesesicht „Rechnungsliste“:** Sie legt Rechnung und Zahlungsstand zusammen (Entwürfe ohne Zahlungsstand), mit den Kennzeichen „storniert“ und „Gutschrift“. So lassen sich Liste, Anzahl und Blättern mit allen Filtern in einer Abfrage bilden. Die Abschottung je Kunde gilt wie bei den Tabellen, weil die Lesesicht mit den Rechten des Nutzers liest.
+**Neue Lesesicht „Rechnungsliste“** (in /backend durch Funktionen ersetzt, siehe „Umsetzung Backend“): Sie legt Rechnung und Zahlungsstand zusammen (Entwürfe ohne Zahlungsstand), mit den Kennzeichen „storniert“ und „Gutschrift“. So lassen sich Liste, Anzahl und Blättern mit allen Filtern in einer Abfrage bilden. Die Abschottung je Kunde gilt wie bei den Tabellen, weil die Lesesicht mit den Rechten des Nutzers liest.
 
 **Neue Summenabfrage:** gleiche Filter wie die Liste, ergibt Rechnungsbetrag, Bezahlt und Offen über alle Seiten (Muster wie die Summen der Seite „Zahlungen“).
 
@@ -286,20 +289,29 @@ Keine neuen Pakete.
 
 **Tests:** `tests/PROJ-43-rechnungsuebersicht-ausbauen.spec.ts` (Filter, freie Jahreseingabe, Adresse, Zurücksetzen, Mitarbeiter, Handy mit Barrierefreiheit, Rückweg, Rechnung erstellen mit Begründung und Abbrechen) grün; Regression PROJ-37 (Liste, Schalter, Mitarbeiter, Handy-Layout) und PROJ-40 (Knopf, Abbrechen) grün; Unit-Tests `src/lib` 730 grün; Build und Lint sauber.
 
-### Offen für /backend
+### Umsetzung Backend (2026-11-07)
 
-**Lesesicht `public.invoice_list`** (security invoker, Abschottung wie `invoices`), eine Zeile je Rechnung inkl. Entwürfe:
-- Spalten wie die Liste sie liest: `id, tenant_id, number, invoice_date, recipient, total_cents, origin, kind, pdf_path, booking_id, booking_number`
-- `list_status`: `draft` | `issued` | `backfilled` | `cancelled` | `credit_note` (ausgestellt/nacherfasst nur ohne Gutschrift; `cancelled` = es gibt eine Gutschrift dazu; `credit_note` = Art Gutschrift)
-- `payment_status` (offen/teilweise/bezahlt/überzahlt aus `invoice_payment_status`, sonst null) und `overdue` (boolean, false ohne Zahlungsstand)
-- Sortierung der App: `invoice_date desc, number desc nulls first`
+**Migrationen (nur Dev, Reihenfolge für /deploy):**
+1. `20261107064552_invoice_list.sql`: erste Fassung als Lesesicht `invoice_list` + `invoice_list_totals` (wird von 2. wieder entfernt)
+2. `20261107065310_invoice_list_functions.sql`: ersetzt beides durch Funktionen
+3. `20261107065405_invoice_list_wrappers.sql`: Projektmuster (Kern in `private`, Hülle in `public`)
 
-**Funktion `public.invoice_list_totals(p_tenant_id uuid, p_pattern text, p_year integer, p_status text, p_payment text, p_min_cents bigint, p_max_cents bigint)`** → eine Zeile `total_cents, paid_cents, open_cents`:
-- gleiche Filter wie die Liste; `p_pattern` ist das fertige ILIKE-Muster aus `invoiceSearchPattern` (oder null) gegen Nummer und Empfänger; `p_payment = 'unpaid'` = offen + teilweise, `'overdue'` = überfällig
-- `total_cents`: Summe ohne Entwürfe; `paid_cents`: Beglichen (`settled_cents`), bei Gutschriften minus `refunded_cents`; `open_cents`: Summe der positiven `open_cents` zahlbarer Rechnungen
-- Rechte: nur Mitglieder des Kunden (wie die Lesesicht)
+**Warum Funktionen statt Lesesicht (Abweichung vom Tech Design):** Messung mit 5.000 Rechnungen über die Lesesicht: Liste ca. 1,4 s, Summen über 8 s, Summen mit Suche Zeitüberschreitung. Ursache: Die RLS prüft die Mitgliedschaft (`private.is_member`) je Zeile, in der Zahlungsstand-Lesesicht ein zweites Mal; in der Summenfunktion wählte die Datenbank mit Parametern zudem einen schlechteren Plan. Jetzt prüfen die Funktionen die Mitgliedschaft **einmal** je Aufruf und lesen danach nur die Rechnungen dieses Kunden. Neu gemessen: Seite und Summen je ca. 60–80 ms (ohne Filter, mit Jahr + Zahlung, mit Suche, letzte Seite).
 
-Messung mit 5.000 Rechnungen (Ziel < 1 s); die Buchungssuche ruft je Treffer (höchstens 20) Buchung und Rechnungen einzeln ab. Falls zu langsam, in /backend bündeln.
+**Datenbank:**
+- `private.invoice_list_rows(tenant)`: je Rechnung (inkl. Entwürfe) Listen-Status (`draft`/`issued`/`backfilled`/`cancelled`/`credit_note`), Zahlungsmodus, Zahlungsstatus, überfällig, Beglichen, Offen, Rückzahlungen, Buchungsnummer. Gleiche Zahlungsregel wie die Lesesicht `invoice_payment_status` aus PROJ-45 (die unverändert bleibt); ein Integrationstest vergleicht beide Rechnung für Rechnung. Nicht direkt aufrufbar.
+- `public.invoice_list_page(tenant, Muster, Jahr, Status, Zahlung, von, bis, offset, limit)`: Seite der Liste, Datum absteigend, Nummer absteigend (Entwürfe zuerst), höchstens 100 Zeilen.
+- `public.invoice_list_totals(…)`: Anzahl und Summen über alle Seiten (Rechnungsbetrag ohne Entwürfe; Bezahlt = Beglichen, Rückzahlungen an Gutschriften abgezogen; Offen = positive offene Beträge zahlbarer Rechnungen).
+- Beide: Kern `security definer` in `private` mit eigener Prüfung „Mitglied des Kunden“ (sonst leer bzw. 0), Hülle in `public` mit den Rechten der Person. Keine neuen Tabellen, keine RLS-Änderung. Advisors: nur die bekannte Auth-Warnung „OTP-Ablauf“.
+
+**App:** `getInvoicePage` (`src/lib/invoices-data.ts`) ruft beide Funktionen parallel auf; die Anzahl kommt aus den Summen (stimmt auch hinter der letzten Seite). Das Suchmuster wird für SQL von doppeltem auf einfachen Backslash umgestellt. Fehlen die Funktionen, gilt der Rückfall auf die Tabelle wie im Frontend beschrieben.
+
+**Tests:**
+- `supabase/tests/invoice-list.integration.test.ts` (10): Seite und Reihenfolge, Blättern, Anzahl; jeder Status- und Zahlungsfilter; Vergleich mit `invoice_payment_status`; Summen ohne und mit Filtern (Storno + Gutschrift, Rückzahlung, Überzahlung, Entwurf, Betrag ≤ 0); Jahr, Betragsgrenzen, Suche mit „_“ und „%“; Mitarbeiter; fremder Inhaber; fremder Kunde; ohne Anmeldung.
+- E2E `tests/PROJ-43-…spec.ts` um „Zahlung und Summen“ ergänzt (noch nicht bezahlt, Summen, Kombination ohne Treffer, Mitarbeiter); alle PROJ-43-Tests (Desktop, Handy) grün.
+- Regression grün: Integration Zahlungen, Rechnungen, Gutschriften, RLS; E2E PROJ-37 (Liste), PROJ-44 (Mitarbeiter-Liste), PROJ-45 (Spalte „Zahlung“); Unit 776; Build und Lint sauber.
+
+**Offen für /qa:** Die Buchungssuche „Rechnung erstellen“ liest je Treffer (höchstens 20) Buchung und Rechnungen einzeln; Antwortzeit bei vielen Treffern prüfen.
 
 ## QA Test Results
 _To be added by /qa_
