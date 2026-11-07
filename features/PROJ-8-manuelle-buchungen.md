@@ -1,6 +1,6 @@
 # PROJ-8: Manuelle Buchungen
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-10-26
 **Last Updated:** 2026-11-07
 
@@ -957,6 +957,30 @@ Keine neuen Tabellen oder Spalten, keine Änderung der Zugriffsregeln. Ausgestel
 - **Bugs:** 0 Critical, 0 High, 0 Medium, 1 Low (Test, behoben)
 - **Production Ready:** YES
 - **Vor /deploy:** Migration `20261105213314_endreinigung.sql` vor dem Code; in Staging und Produktion vorher lesend zählen, wie viele Positionen umbenannt werden
+
+### QA Refine 2026-11-07 (Buchungsübersicht: Nummer, Gast-Link, über alle Monate)
+
+**Tested:** 2026-11-07 · Produktions-Build gegen Supabase „apppa-dev“ (Prüfung über den Build: als Supabase-Adresse nur `nizgfmvjplhegoosanmu`; `.env.local` ist per Rechteeinstellung gesperrt) · Commits ddad219, 764276b
+
+**Acceptance Criteria: 8/8 bestanden**
+- [x] Erste Spalte „Nr.“ mit apppa-Nummer, Klick öffnet die Buchung (E2E „Safari-Zeilenklick“, Desktop)
+- [x] Name in „Gast bzw. Sperre“ öffnet die Gastseite (E2E, `href` und Klick)
+- [x] Sperre: „–“ in „Nr.“, „Sperre: Renovierung“ öffnet die Sperre (E2E, neu)
+- [x] Gästeblattnummer bzw. Plattform-Nummer bei Suchtreffer unter der Buchungsnummer (E2E PROJ-30, PROJ-47)
+- [x] Ohne Filter kein Häkchen (E2E)
+- [x] Mit „Art: Option“ und Häkchen: alle Monate, neueste zuerst, „2 Einträge in allen Monaten“; über 50: „Seite 1 von 2“, Seite 2 mit dem ältesten Eintrag (E2E, neu mit 51 Buchungen)
+- [x] Abhaken führt in den Monat zurück (E2E)
+- [x] Handy-Karte mit Nummer oben, ganze Karte führt zur Buchung (E2E Projekt „mobile“, neu)
+
+**Edge Cases:** Filterwechsel bei angehaktem Häkchen behält es und springt auf Seite 1 (E2E). Häkchen verschwindet bei Suche bzw. Rechnungsfilter (gelten ohnehin für alle Monate); `alle=1` bleibt dann in der Adresse, die Liste blättert seitenweise statt „neueste 50 Treffer“ (gewollt). Ohne Filter wird `alle=1` beim nächsten Klick aus der Adresse entfernt und wirkt nicht (Unit). Buchungen und Optionen haben laut Datenbank immer einen Gast, Sperren nie (Prüfregel `bookings`), es gibt also keine Buchung ohne Namen-Link. Auf der Gastseite ist der Name kein Link (Code-Review; PROJ-7 komplett grün).
+
+**Security:** Keine neuen Server-Aktionen und keine Datenbankänderung. Der neue Adressparameter `alle` wird nur als `'1'` erkannt, alles andere gilt als „aus“ (Unit). Die Liste liest weiter mit Mandantenfilter und RLS. Die Links zur Gastseite enthalten nur Gast-IDs des eigenen Kunden, die Gastseite prüft selbst; Gastseiten sehen Inhaber und Mitarbeiter ohnehin.
+
+**Tests:** Unit 778/778 (neu: Häkchen-Logik und Adresse). E2E: PROJ-8 komplett (Desktop, 3 Pakete), neue Tests auch auf Tablet und Handy; PROJ-7 15/15; PROJ-31 20/20 Desktop (veraltetes Optionsdatum auf 2037 verlegt, 764276b); PROJ-30, PROJ-37 (Buchungsübersicht), PROJ-47 in den betroffenen Tests grün; Layout/axe der Liste auf Desktop, Tablet und Handy. Firefox: nur 3 Tests, weil die Ablauf-Tests auf das Desktop-Projekt beschränkt sind und dort übersprungen werden. Safari nicht getestet (nur gegen den Entwicklungsserver); die Links sitzen in den Zellen, ohne Klickfläche über die Zeile (Safari-Regel).
+
+**Bugs:** keine.
+
+**Ergebnis:** Production-ready: **JA**.
 
 ## Deployment
 _Stand 2026-10-25 (/deploy, Tag `v1.2.0`)_

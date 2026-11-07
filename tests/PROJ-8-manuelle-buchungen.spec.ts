@@ -787,6 +787,56 @@ test.describe('Über alle Monate (refine 2026-11-07)', () => {
     await expect(page.getByRole('navigation', { name: 'Angezeigter Monat' })).toBeVisible()
     await expect(numbers).toHaveText([early.number!])
   })
+
+  test('Mehr als 50 Einträge über alle Monate: seitenweise je 50, neueste zuerst; Filterwechsel behält das Häkchen, beginnt bei Seite 1', async ({ page, users }) => {
+    desktopOnly()
+    const { tenantId } = await setup(page, users)
+    const { top1, top2 } = await withApartments(tenantId)
+    const guest = await addGuest(tenantId, { last_name: 'Viel', first_name: 'Gast' })
+    const rows = Array.from({ length: 51 }, (_, i) => {
+      const arrival = new Date(Date.UTC(2025, 0, 1 + i * 3)).toISOString().slice(0, 10)
+      const departure = new Date(Date.UTC(2025, 0, 2 + i * 3)).toISOString().slice(0, 10)
+      return { tenant_id: tenantId, apartment_id: top1, kind: 'booking', arrival, planned_departure: departure, departure, guest_id: guest, check_in: '15:00', check_out: '10:00', adults: 2, child_ages: [], number_year: 2025, number_seq: 500 + i }
+    })
+    const { error } = await service().from('bookings').insert(rows as never)
+    expect(error).toBeNull()
+    await addBooking(tenantId, top2, { guestId: guest, arrival: FUTURE, departure: day(2, FUTURE) })
+
+    await openList(page, `?wohnung=${top1}&alle=1`)
+    await expect(page.getByText('51 Einträge in allen Monaten')).toBeVisible()
+    const numbers = page.getByRole('table').getByRole('row').locator('td:first-child a')
+    await expect(numbers).toHaveCount(50)
+    await expect(numbers.first()).toHaveText('2025-0550')
+    await expect(page.getByText('Seite 1 von 2')).toBeVisible()
+    await page.getByRole('link', { name: 'Weiter' }).click()
+    await expect(page).toHaveURL(/alle=1.*seite=2|seite=2.*alle=1/)
+    await expect(numbers).toHaveText(['2025-0500'])
+
+    // anderer Filter: Häkchen bleibt, Seite 1
+    await page.getByRole('combobox', { name: 'Art' }).click()
+    await page.getByRole('option', { name: 'Buchung', exact: true }).click()
+    await expect(page).toHaveURL(/alle=1/)
+    await expect(page).not.toHaveURL(/seite=/)
+    await expect(page.getByRole('checkbox', { name: 'Über alle Monate' })).toBeChecked()
+  })
+
+  test('Sperre: „–“ in „Nr.“; Handy-Karte zeigt die Buchungsnummer oben und führt zur Buchung', async ({ page, users }) => {
+    test.skip(test.info().project.name === 'tablet', 'Desktop und Handy genügen')
+    const { tenantId } = await setup(page, users)
+    const { top1 } = await withApartments(tenantId)
+    const booking = await addBooking(tenantId, top1, { guestId: await addGuest(tenantId, { last_name: 'Karte', first_name: 'Kai' }), arrival: FUTURE, departure: day(2, FUTURE) })
+    await addBooking(tenantId, top1, { kind: 'block', reason: 'renovation', arrival: day(4, FUTURE), departure: day(5, FUTURE) })
+    await openList(page, `?monat=${month(FUTURE)}`)
+    if (test.info().project.name === 'mobile') {
+      const card = page.getByRole('listitem').filter({ hasText: 'Karte, Kai' }).getByRole('link')
+      await expect(card.locator('span').first()).toHaveText(booking.number!)
+      await card.click()
+      await expect(page).toHaveURL(new RegExp(`/buchungen/${booking.id}$`))
+    } else {
+      const blockRow = page.getByRole('table').getByRole('row').filter({ hasText: 'Sperre: Renovierung' })
+      await expect(blockRow.getByRole('cell').first()).toHaveText('–')
+    }
+  })
 })
 
 test.describe('Layout und Barrierefreiheit', () => {
