@@ -1,6 +1,6 @@
 # PROJ-14: Dashboard
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-11-07
 **Last Updated:** 2026-11-07
 
@@ -748,6 +748,14 @@ Code und Migration `20261107151812` sind seit 2026-11-07 auf Staging und Produkt
 - Zeilen-Hover in den Karten eine Stufe dunkler (`neutral-300`); Fehler-/Hinweisfeld in der Karte auf `bg`; stehende Gemeindespalte der Ortstaxe in Kartenfarbe
 - Ortstaxe ab Tablet zwei Spalten breit, damit alle drei Zeiträume ohne seitliches Scrollen Platz haben
 - Tests: Anordnung und axe auf Desktop/Tablet/Handy 6/6, Dashboard Desktop 15/15
+
+### QA-Runde 4 (2026-11-07, BUG-9 `65fe9e3` und Kartenflächen `2862b9c`)
+- [x] BUG-9: Verteilung in ganzen Personennächten über die vereinnahmten Nächte (Integration 18/18; neu: Position mit Tarif bei früherer Abreise über die tatsächlichen Nächte, negative Position anteilig mit stimmender Summe, Alt-Position bis zur späteren Abreise, Betrag kein Vielfaches → anteilig in Cent). Abgleich mit Echtdaten nur lesend: alle Quartalswerte Vielfache des jeweiligen Tarifs
+- [x] Kartenflächen: Kacheln und Abschnitte als Flächen, Ortstaxe ab Tablet zwei Spalten; Bildschirmfotos geprüft; axe auf Desktop/Tablet/Handy ohne Verstöße
+- **Läufe:** PROJ-14 E2E Desktop 15/15, Tablet/Handy 4/4, Firefox Kernabläufe 4/4; PROJ-15 E2E 14/14 (ein Test einmal rot, 3× einzeln grün – sporadisch, ohne Bezug zu den Änderungen); Integration Dashboard 18/18; Unit 791/791
+- **Offen:** BUG-5 (Low) unverändert
+
+**Summary (Runde 4):** keine Critical/High/Medium-Bugs; **Production Ready: YES** – Deploy mit Migration `20261107222638`
 
 ## Deployment
 _To be added by /deploy_

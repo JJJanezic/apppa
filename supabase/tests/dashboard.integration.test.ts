@@ -415,6 +415,13 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-14 Dashboard', () => {
       // Betrag kein Vielfaches des Tarifs (10,01 über 3 Nächte, 30.07.–02.08.): anteilig in Cent
       const odd = await booking(tenantD, apD, '2026-07-30', '2026-08-02')
       await charge(odd, 1001, null)
+      // Automatisch berechnet (mit Tarif) bei früherer Abreise: 28.05.–02.06. tatsächlich (5 Nächte), geplant bis 04.06.
+      const autoEarly = await booking(tenantD, apD, '2026-05-28', '2026-06-02')
+      await service.from('bookings').update({ planned_departure: '2026-06-04' } as never).eq('id', autoEarly)
+      await charge(autoEarly, 1250, r25)
+      // Rabatt als negative Alt-Position im März (zählt mit, anteilig)
+      const credit = await booking(tenantD, apD, '2026-03-30', '2026-04-02')
+      await charge(credit, -500, null)
     }, 60_000)
 
     it('verteilt jede Position nur über die Nächte ihres Tarifzeitraums', async () => {
@@ -429,6 +436,18 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-14 Dashboard', () => {
       const rows = await tax(ownerA, [tenantD], '2026-09-01', '2026-09-30')
       // 3 von 5 vereinnahmten Nächten im September (28., 29., 30.) = 7,50 statt anteilig 9,38 über 4 Nächte
       expect(taxOf(rows, tenantD, '50330', '2026-09-01')).toBe(750)
+    })
+
+    it('Position mit Tarif: über die tatsächlichen Nächte, auch wenn die geplante Abreise später ist', async () => {
+      const rows = await tax(ownerA, [tenantD], '2026-05-01', '2026-06-30')
+      // 4 Nächte im Mai (28.–31.), 1 Nacht im Juni (1.) – nicht über die geplanten 7 Nächte
+      expect(taxOf(rows, tenantD, '50330', '2026-05-01')).toBe(1000)
+      expect(taxOf(rows, tenantD, '50330', '2026-06-01')).toBe(250)
+    })
+
+    it('negative Position: anteilig, Summe stimmt', async () => {
+      const rows = await tax(ownerA, [tenantD], '2026-03-01', '2026-04-30')
+      expect(taxOf(rows, tenantD, '50330', '2026-03-01') + taxOf(rows, tenantD, '50330', '2026-04-01')).toBe(-500)
     })
 
     it('Betrag kein Vielfaches des Tarifs: anteilig in Cent, Summe stimmt', async () => {
