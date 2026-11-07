@@ -633,6 +633,7 @@ Keine neuen Pakete.
 - **Security:** Pass
 - **Production Ready:** NO
 - **Recommendation:** BUG-3 und BUG-1 beheben (BUG-2 mitnehmen, ist klein), dann `/qa` erneut
+- **Entscheidung Nutzer (2026-11-07):** alle vier Bugs vor dem Deploy beheben (BUG-4 eingeschlossen; Verhalten von „Neue Buchung“ bei gefiltertem Kunden in /frontend klären)
 
 ## Deployment
 _To be added by /deploy_
