@@ -29,7 +29,15 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { amountInput, formatCents, formatDate, parseAmountCents } from '@/lib/format'
-import { type Payment, PAYMENT_LIMITS as L, type PaymentKind, type PaymentMethod, settledOf, suggestedAmountCents } from '@/lib/payments'
+import {
+  methodDeductions,
+  type Payment,
+  PAYMENT_LIMITS as L,
+  type PaymentKind,
+  type PaymentMethod,
+  settledOf,
+  suggestedAmountCents,
+} from '@/lib/payments'
 import { type PaymentInput, paymentSchema } from '@/lib/validation/payments'
 
 // Rechnung zur Auswahl: Offen-Betrag (bei Gutschriften: Rückzahlung offen) und ob die Buchung über eine Plattform lief
@@ -79,8 +87,9 @@ const centsOf = (value: string) => {
   return c === null || Number.isNaN(c) ? 0 : c
 }
 
-// Zahlung bzw. Rückzahlung erfassen oder bearbeiten (PROJ-45). Provision und Zahlungsgebühr nur bei Plattform-Buchungen
-// (booking.com, Airbnb): Der Vorschlag für „Ausbezahlt“ sinkt mit ihnen, solange der Nutzer den Betrag nicht selbst geändert hat.
+// Zahlung bzw. Rückzahlung erfassen oder bearbeiten (PROJ-45). Provision und Zahlungsgebühr nach Zahlungsart („über booking.com“:
+// beide, „über Airbnb“: nur Provision), gespeichert nur bei Plattform-Buchungen (booking.com, Airbnb): Der Vorschlag für
+// „Zahlungsbetrag“ sinkt mit ihnen, solange der Nutzer den Betrag nicht selbst geändert hat.
 // Hinweise der Datenbank (Überzahlung, gleiche Zahlung, Rückzahlung über Guthaben) bestätigt der Nutzer in einem Dialog.
 export function PaymentDialog({ open, onOpenChange, kind, invoices, payment = null, methods, today }: PaymentDialogProps) {
   const t = useTranslations('payments.dialog')
@@ -103,10 +112,12 @@ export function PaymentDialog({ open, onOpenChange, kind, invoices, payment = nu
   // Offen-Betrag der gewählten Rechnung; beim Bearbeiten an derselben Rechnung zählt die Zahlung selbst nicht mit
   const ownSettled = payment && payment.invoiceId === values.invoiceId ? (refund ? payment.amountCents : settledOf(payment)) : 0
   const openCents = current ? current.openCents + ownSettled : 0
-  const hasDeductions = centsOf(values.commission ?? '') > 0 || centsOf(values.fee ?? '') > 0
-  // Felder bleiben sichtbar, solange ein Wert eingetragen ist (z. B. Buchungsquelle später geändert)
-  const showDeductions = !refund && (current?.platform || hasDeductions)
   const activeMethods = methods.filter((m) => m.active || m.id === payment?.method?.id)
+  const deductions = methodDeductions(methods.find((m) => m.id === values.methodId)?.name)
+  // Felder bleiben sichtbar, solange ein Wert eingetragen ist (z. B. ältere Zahlung mit anderer Zahlungsart)
+  const showCommission = !refund && (deductions.commission || centsOf(values.commission ?? '') > 0)
+  const showFee = !refund && (deductions.fee || centsOf(values.fee ?? '') > 0)
+  const showDeductions = showCommission || showFee
 
   function suggest(next: { commission?: string; fee?: string; open?: number }) {
     if (amountTouched.current) return
@@ -119,7 +130,7 @@ export function PaymentDialog({ open, onOpenChange, kind, invoices, payment = nu
     setError(null)
     const target = choices.find((i) => i.id === v.invoiceId)
     if (target && !target.platform && !refund && (centsOf(v.commission ?? '') > 0 || centsOf(v.fee ?? '') > 0)) {
-      form.setError('invoiceId', { message: tv('commissionNotAllowed') }, { shouldFocus: true })
+      form.setError('methodId', { message: tv('commissionNotAllowed') }, { shouldFocus: true })
       return
     }
     const result = await callAction(() =>
@@ -128,7 +139,7 @@ export function PaymentDialog({ open, onOpenChange, kind, invoices, payment = nu
         : recordPayment({ kind, values: v, confirmed })
     )
     if (!result.ok) {
-      if (result.error === 'commissionNotAllowed') form.setError('invoiceId', { message: tv('commissionNotAllowed') }, { shouldFocus: true })
+      if (result.error === 'commissionNotAllowed') form.setError('methodId', { message: tv('commissionNotAllowed') }, { shouldFocus: true })
       else if (result.error === 'methodInactive') form.setError('methodId', { message: tv('methodInactive') }, { shouldFocus: true })
       else if (result.error === 'dateInFuture') form.setError('paidOn', { message: tv('dateInFuture') }, { shouldFocus: true })
       else if (result.error !== 'sessionExpired') setError(result.error)
@@ -260,10 +271,48 @@ export function PaymentDialog({ open, onOpenChange, kind, invoices, payment = nu
             )}
           />
 
+          <FormField
+            control={form.control}
+            name="methodId"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t('method')}</FormLabel>
+                <Select
+                  value={field.value}
+                  onValueChange={(id) => {
+                    field.onChange(id)
+                    // Felder, die die neue Zahlungsart nicht kennt, leeren; der Vorschlag folgt
+                    const next = methodDeductions(methods.find((m) => m.id === id)?.name)
+                    const commission = next.commission ? (values.commission ?? '') : ''
+                    const fee = next.fee ? (values.fee ?? '') : ''
+                    if (commission !== (values.commission ?? '')) form.setValue('commission', commission)
+                    if (fee !== (values.fee ?? '')) form.setValue('fee', fee)
+                    suggest({ commission, fee })
+                  }}
+                >
+                  <FormControl>
+                    <SelectTrigger className="min-h-11">
+                      <SelectValue placeholder={t('methodPlaceholder')} />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {activeMethods.map((m) => (
+                      <SelectItem key={m.id} value={m.id} className="min-h-11">
+                        {m.active ? m.name : t('methodInactive', { name: m.name })}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {activeMethods.length === 0 && <FormDescription>{t('noMethods')}</FormDescription>}
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
           {showDeductions && (
-            <div className="grid gap-4 sm:grid-cols-2">
-              {amountField('commission', t('commission'))}
-              {amountField('fee', t('fee'))}
+            <div className={showCommission && showFee ? 'grid gap-4 sm:grid-cols-2' : 'grid gap-4'}>
+              {showCommission && amountField('commission', t('commission'))}
+              {showFee && amountField('fee', t('fee'))}
             </div>
           )}
 
@@ -284,32 +333,6 @@ export function PaymentDialog({ open, onOpenChange, kind, invoices, payment = nu
                   />
                 </FormControl>
                 {showDeductions && <FormDescription>{t('paidOutHint')}</FormDescription>}
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="methodId"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>{t('method')}</FormLabel>
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <FormControl>
-                    <SelectTrigger className="min-h-11">
-                      <SelectValue placeholder={t('methodPlaceholder')} />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {activeMethods.map((m) => (
-                      <SelectItem key={m.id} value={m.id} className="min-h-11">
-                        {m.active ? m.name : t('methodInactive', { name: m.name })}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {activeMethods.length === 0 && <FormDescription>{t('noMethods')}</FormDescription>}
                 <FormMessage />
               </FormItem>
             )}

@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { formatCents, parseAmountCents } from '@/lib/format'
-import type { PaymentMethod } from '@/lib/payments'
+import { methodDeductions, type PaymentMethod } from '@/lib/payments'
 import type { AlreadyPaidInput } from '@/lib/validation/payments'
 
 interface AlreadyPaidFieldsProps {
@@ -19,9 +19,7 @@ interface AlreadyPaidFieldsProps {
   // null: Zahlungsarten werden geladen; [] mit `unavailable`: Zahlungserfassung noch nicht eingerichtet
   methods: PaymentMethod[] | null
   unavailable: boolean
-  // Buchung über booking.com oder Airbnb: Provision und Zahlungsgebühr
-  platform: boolean
-  // Rechnungsbetrag aus den Positionen (Vorschau „Ausbezahlt“)
+  // Rechnungsbetrag aus den Positionen (Vorschau „Zahlungsbetrag“)
   totalCents: number | null
   today: string
 }
@@ -32,10 +30,13 @@ const centsOf = (value: string | undefined) => {
 }
 
 // „Bereits bezahlt“ beim Nacherfassen (PROJ-45, nur beim Anlegen, nur bei Betrag > 0): Beim Speichern entsteht eine Zahlung,
-// die den vollen Rechnungsbetrag begleicht (Betrag = Rechnungsbetrag − Provision − Zahlungsgebühr).
-export function AlreadyPaidFields({ form, on, onToggle, methods, unavailable, platform, totalCents, today }: AlreadyPaidFieldsProps) {
+// die den vollen Rechnungsbetrag begleicht (Betrag = Rechnungsbetrag − Provision − Zahlungsgebühr). Provision und Gebühr
+// nach Zahlungsart wie im Zahlungs-Dialog („über booking.com“: beide, „über Airbnb“: nur Provision).
+export function AlreadyPaidFields({ form, on, onToggle, methods, unavailable, totalCents, today }: AlreadyPaidFieldsProps) {
   const t = useTranslations('payments.alreadyPaid')
   const values = form.watch()
+  const deductions = methodDeductions(methods?.find((m) => m.id === values.methodId)?.name)
+  const fields = (['commission', 'fee'] as const).filter((name) => deductions[name])
   const paidOut = totalCents === null ? null : totalCents - centsOf(values.commission) - centsOf(values.fee)
 
   return (
@@ -74,7 +75,17 @@ export function AlreadyPaidFields({ form, on, onToggle, methods, unavailable, pl
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>{t('method')}</FormLabel>
-                  <Select value={field.value} onValueChange={field.onChange} disabled={methods === null}>
+                  <Select
+                    value={field.value}
+                    onValueChange={(id) => {
+                      field.onChange(id)
+                      // Felder, die die neue Zahlungsart nicht kennt, leeren
+                      const next = methodDeductions(methods?.find((m) => m.id === id)?.name)
+                      if (!next.commission && values.commission) form.setValue('commission', '')
+                      if (!next.fee && values.fee) form.setValue('fee', '')
+                    }}
+                    disabled={methods === null}
+                  >
                     <FormControl>
                       <SelectTrigger className="min-h-11">
                         <SelectValue placeholder={methods === null ? t('loading') : t('methodPlaceholder')} />
@@ -92,9 +103,9 @@ export function AlreadyPaidFields({ form, on, onToggle, methods, unavailable, pl
                 </FormItem>
               )}
             />
-            {platform && (
-              <div className="grid gap-4 sm:grid-cols-2">
-                {(['commission', 'fee'] as const).map((name) => (
+            {fields.length > 0 && (
+              <div className={fields.length > 1 ? 'grid gap-4 sm:grid-cols-2' : 'grid gap-4'}>
+                {fields.map((name) => (
                   <FormField
                     key={name}
                     control={form.control}
@@ -114,7 +125,7 @@ export function AlreadyPaidFields({ form, on, onToggle, methods, unavailable, pl
             )}
             {/* Kein FormDescription: der braucht ein umgebendes FormField (QA BUG-1) */}
             {paidOut !== null && (
-              <p className="text-sm text-muted-foreground">{t(platform ? 'paidOutPlatform' : 'paidOut', { amount: formatCents(paidOut) })}</p>
+              <p className="text-sm text-muted-foreground">{t(fields.length > 0 ? 'paidOutPlatform' : 'paidOut', { amount: formatCents(paidOut) })}</p>
             )}
           </div>
         </Form>

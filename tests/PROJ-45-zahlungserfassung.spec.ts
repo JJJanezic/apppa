@@ -291,7 +291,7 @@ test.describe('Mitarbeiter und Belege', () => {
 })
 
 test.describe('Provisionsabzug und Buchungsdetail', () => {
-  test('AC: Airbnb-Buchung – Provision und Gebühr, „Ausbezahlt“ läuft mit, Rechnung bezahlt; Buchungsdetail mit Bezahlt/Offen', async ({ page, users }) => {
+  test('AC: Felder nach Zahlungsart – „über Airbnb“ nur Provision, „über booking.com“ mit Gebühr, „Zahlungsbetrag“ läuft mit, Rechnung bezahlt; Buchungsdetail mit Bezahlt/Offen', async ({ page, users }) => {
     desktopOnly()
     const s = await setup(users)
     const bookingId = await addBooking(s, 'airbnb')
@@ -302,12 +302,19 @@ test.describe('Provisionsabzug und Buchungsdetail', () => {
     const invoices = page.getByRole('heading', { name: 'Rechnungen' }).locator('..')
     await expect(invoices.getByText('offen', { exact: true })).toBeVisible()
     await invoices.getByRole('button', { name: 'Zahlung erfassen' }).click()
-    await expect(panel(page).getByLabel('Ausbezahlt')).toHaveValue('500,00')
-    await panel(page).getByLabel('Provision').fill('70')
-    await panel(page).getByLabel('Zahlungsgebühr').fill('5')
-    await expect(panel(page).getByLabel('Ausbezahlt')).toHaveValue('425,00')
-    await panel(page).getByRole('combobox', { name: 'Zahlungsart' }).click()
+    const method = panel(page).getByRole('combobox', { name: 'Zahlungsart' })
+    await expect(method).toHaveText('Überweisung')
+    await expect(panel(page).getByLabel('Provision')).toHaveCount(0)
+    await expect(panel(page).getByLabel('Betrag')).toHaveValue('500,00')
+    await method.click()
     await page.getByRole('option', { name: 'über Airbnb' }).click()
+    await expect(panel(page).getByLabel('Zahlungsgebühr')).toHaveCount(0)
+    await panel(page).getByLabel('Provision').fill('70')
+    await expect(panel(page).getByLabel('Zahlungsbetrag')).toHaveValue('430,00')
+    await method.click()
+    await page.getByRole('option', { name: 'über booking.com' }).click()
+    await panel(page).getByLabel('Zahlungsgebühr').fill('5')
+    await expect(panel(page).getByLabel('Zahlungsbetrag')).toHaveValue('425,00')
     await panel(page).getByRole('button', { name: 'Speichern' }).click()
     await expect(page.getByText('Zahlung erfasst.', { exact: true })).toBeVisible()
     await expect(invoices.getByText('bezahlt', { exact: true })).toBeVisible()
@@ -316,7 +323,7 @@ test.describe('Provisionsabzug und Buchungsdetail', () => {
     expect(data).toEqual({ amount_cents: 42500, commission_cents: 7000, fee_cents: 500 })
   })
 
-  test('AC: Buchungsquelle „Airbnb“ im Buchungsfilter; andere Buchungsquelle ohne Provisionsfelder', async ({ page, users }) => {
+  test('AC: Buchungsquelle „Airbnb“ im Buchungsfilter; andere Buchungsquelle: Provision nicht speicherbar', async ({ page, users }) => {
     desktopOnly()
     const s = await setup(users)
     const bookingId = await addBooking(s, 'website')
@@ -326,6 +333,11 @@ test.describe('Provisionsabzug und Buchungsdetail', () => {
     await section(page).getByRole('button', { name: 'Zahlung erfassen' }).click()
     await expect(panel(page).getByLabel('Betrag')).toBeVisible()
     await expect(panel(page).getByLabel('Provision')).toHaveCount(0)
+    await panel(page).getByRole('combobox', { name: 'Zahlungsart' }).click()
+    await page.getByRole('option', { name: 'über booking.com' }).click()
+    await panel(page).getByLabel('Provision').fill('10')
+    await panel(page).getByRole('button', { name: 'Speichern' }).click()
+    await expect(panel(page).getByText(/nur bei Buchungen über booking.com oder Airbnb möglich/)).toBeVisible()
     await page.goto('/buchungen?monat=2026-10&quelle=airbnb')
     await ready(page)
     await expect(page.getByRole('combobox', { name: 'Quelle' })).toHaveText('Airbnb')

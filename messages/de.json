@@ -2692,8 +2692,8 @@
       "date": "Zahlungsdatum",
       "refundDate": "Datum der Rückzahlung",
       "amount": "Betrag",
-      "paidOut": "Ausbezahlt",
-      "paidOutHint": "Tatsächlich eingegangen. Ausbezahlt, Provision und Zahlungsgebühr zusammen gelten als beglichen.",
+      "paidOut": "Zahlungsbetrag",
+      "paidOutHint": "Tatsächlich eingegangen. Zahlungsbetrag und Abzüge zusammen gelten als beglichen.",
       "commission": "Provision",
       "fee": "Zahlungsgebühr",
       "method": "Zahlungsart",
@@ -2728,7 +2728,7 @@
       "commission": "Provision",
       "fee": "Zahlungsgebühr",
       "paidOut": "Betrag der Zahlung: {amount}",
-      "paidOutPlatform": "Ausbezahlt (Rechnungsbetrag minus Provision und Gebühr): {amount}"
+      "paidOutPlatform": "Zahlungsbetrag (Rechnungsbetrag minus Abzüge): {amount}"
     },
     "receipt": {
       "choose": "Beleg wählen oder fotografieren",

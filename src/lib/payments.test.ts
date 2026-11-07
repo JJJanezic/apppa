@@ -9,6 +9,7 @@ import {
   dueByToday,
   isOverdue,
   isPlatformSource,
+  methodDeductions,
   overpaidByCents,
   parsePaymentFilters,
   paymentListHref,
@@ -134,6 +135,13 @@ describe('Vorschläge und Hinweise', () => {
     expect(isPlatformSource('airbnb')).toBe(true)
     expect(isPlatformSource('website')).toBe(false)
     expect(isPlatformSource(null)).toBe(false)
+  })
+
+  it('Abzugsfelder nach Zahlungsart: booking.com mit Gebühr, Airbnb nur Provision', () => {
+    expect(methodDeductions('über booking.com')).toEqual({ commission: true, fee: true })
+    expect(methodDeductions('Über Airbnb')).toEqual({ commission: true, fee: false })
+    expect(methodDeductions('Überweisung')).toEqual({ commission: false, fee: false })
+    expect(methodDeductions(null)).toEqual({ commission: false, fee: false })
   })
 })
 

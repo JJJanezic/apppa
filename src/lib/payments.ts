@@ -56,6 +56,15 @@ export type PaymentMethod = { id: string; name: string; active: boolean; isDefau
 export const PLATFORM_SOURCES: readonly BookingSource[] = ['booking_com', 'airbnb']
 export const isPlatformSource = (source: BookingSource | null | undefined) => source !== null && source !== undefined && PLATFORM_SOURCES.includes(source)
 
+// Abzugsfelder nach Zahlungsart: „über booking.com“ mit Provision und Zahlungsgebühr, „über Airbnb“ nur mit Provision.
+// Erkannt am Namen der Zahlungsart (Groß-/Kleinschreibung egal); die Buchungsquelle prüft weiterhin die Datenbank.
+export function methodDeductions(name: string | null | undefined): { commission: boolean; fee: boolean } {
+  const n = (name ?? '').toLowerCase()
+  if (n.includes('booking.com')) return { commission: true, fee: true }
+  if (n.includes('airbnb')) return { commission: true, fee: false }
+  return { commission: false, fee: false }
+}
+
 export type Payment = {
   id: string
   kind: PaymentKind
@@ -180,7 +189,7 @@ export function refundLabel(state: PaymentState): 'refundOpen' | 'refunded' | nu
   return state.refundedCents > 0 ? 'refunded' : null
 }
 
-// Vorschlag für „Betrag“ bzw. „Ausbezahlt“: Offen-Betrag minus eingetragener Provision und Gebühr; leer, wenn nichts offen ist
+// Vorschlag für „Betrag“ bzw. „Zahlungsbetrag“: Offen-Betrag minus eingetragener Provision und Gebühr; leer, wenn nichts offen ist
 export function suggestedAmountCents(openCents: number, commissionCents = 0, feeCents = 0): number | null {
   const value = openCents - commissionCents - feeCents
   return value > 0 ? value : null

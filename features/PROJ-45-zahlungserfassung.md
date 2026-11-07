@@ -1,8 +1,8 @@
 # PROJ-45: Zahlungserfassung
 
-## Status: Deployed
+## Status: In Progress
 **Created:** 2026-11-06
-**Last Updated:** 2026-11-06
+**Last Updated:** 2026-11-07
 
 ## Dependencies
 - Requires: PROJ-4 (Kundenkonten & Rollen): Inhaber und Mitarbeiter, Mandantentrennung
@@ -23,10 +23,10 @@ Der Inhaber und seine Mitarbeiter erfassen eingegangene Zahlungen von Hand und o
 |------|---------|--------|
 | Rechnung | ja | genau eine; aus dem Rechnungsdetail fest, aus dem Buchungsdetail Auswahl unter den zahlbaren Rechnungen der Buchung |
 | Zahlungsdatum | ja | vorbelegt mit heute; nicht in der Zukunft; darf vor dem Rechnungsdatum liegen (Vorauszahlung) |
-| Betrag (bei Plattform-Buchungen „Ausbezahlt“) | ja | €, zwei Nachkommastellen, größer als 0; tatsächlich eingegangenes Geld; vorbelegt mit dem Offen-Betrag minus eingetragener Provision und Zahlungsgebühr (bei „bezahlt“/„überzahlt“ leer) |
-| Provision | nein, nur bei Plattform-Buchungen | €, zwei Nachkommastellen, ≥ 0; von booking.com/Airbnb einbehalten |
-| Zahlungsgebühr | nein, nur bei Plattform-Buchungen | €, zwei Nachkommastellen, ≥ 0; z. B. Gebühr von „Payments by Booking.com“ |
-| Zahlungsart | ja | Auswahl aus den aktiven Zahlungsarten des Kunden (Einstellungen → Zahlungen); vorbelegt mit der Standard-Zahlungsart |
+| Zahlungsart | ja | direkt nach dem Datum; Auswahl aus den aktiven Zahlungsarten des Kunden (Einstellungen → Zahlungen); vorbelegt mit der Standard-Zahlungsart („Überweisung“) |
+| Provision | nein, nur bei Zahlungsart „über booking.com“ oder „über Airbnb“ | €, zwei Nachkommastellen, ≥ 0; von booking.com/Airbnb einbehalten |
+| Zahlungsgebühr | nein, nur bei Zahlungsart „über booking.com“ | €, zwei Nachkommastellen, ≥ 0; z. B. Gebühr von „Payments by Booking.com“ |
+| Betrag (mit Provision/Zahlungsgebühr „Zahlungsbetrag“) | ja | €, zwei Nachkommastellen, größer als 0; tatsächlich eingegangenes Geld; vorbelegt mit dem Offen-Betrag minus eingetragener Provision und Zahlungsgebühr (bei „bezahlt“/„überzahlt“ leer) |
 | Notiz | nein | Freitext, höchstens 300 Zeichen (z. B. Verwendungszweck) |
 | Beleg | nein | höchstens eine Datei: PDF bis 10 MB (unverändert) oder Bild (JPEG, PNG, HEIC/HEIF, WebP), verkleinert und als JPEG gespeichert wie beim Reisedokument (PROJ-29); am Handy direkt fotografieren; privat je Kunde |
 
@@ -37,8 +37,9 @@ Der Inhaber und seine Mitarbeiter erfassen eingegangene Zahlungen von Hand und o
 ### Provisionsabzug (Plattform-Buchungen)
 Zahlen booking.com oder Airbnb aus, fehlen Provision und Gebühren am Konto. Die Rechnung an den Gast bleibt unverändert (die Umsatzsteuer fällt auf den vollen Betrag an); Provision und Zahlungsgebühr verringern nur den **Offen-Betrag**.
 - **Plattform-Buchung** = Buchungsquelle „booking.com“ oder „Airbnb“; nach dem Import (PROJ-11) zusätzlich Kanal booking.com bzw. Airbnb.
-- Die Felder „Provision“ und „Zahlungsgebühr“ erscheinen nur bei Zahlungen an Rechnungen, die mit einer Plattform-Buchung verknüpft sind. Rechnungen ohne Buchung und andere Buchungsquellen: keine Felder.
-- Beim Eintragen von Provision oder Gebühr sinkt der Vorschlag für „Ausbezahlt“ entsprechend, solange der Nutzer den Betrag nicht selbst geändert hat.
+- **Felder nach Zahlungsart (refine 2026-11-07):** „Provision“ und „Zahlungsgebühr“ erscheinen erst, wenn die Zahlungsart „über booking.com“ gewählt ist; bei „über Airbnb“ nur „Provision“. Erkannt wird die Zahlungsart an ihrem Namen („booking.com“ bzw. „Airbnb“ darin, Groß-/Kleinschreibung egal). Wechselt der Nutzer auf eine Zahlungsart ohne das Feld, wird es geleert. Die Felder stehen vor dem Betragsfeld, das dann „Zahlungsbetrag“ heißt.
+- **Buchungsquelle bleibt Pflicht:** Gespeichert werden Provision und Zahlungsgebühr nur an Rechnungen, die mit einer Plattform-Buchung verknüpft sind. Sonst erscheint an der Zahlungsart der Hinweis, die Werte zuerst auf 0 zu setzen.
+- Beim Eintragen von Provision oder Gebühr sinkt der Vorschlag für „Zahlungsbetrag“ entsprechend, solange der Nutzer den Betrag nicht selbst geändert hat.
 - Anzeige: „€ 425,00 + Provision € 70,00 + Gebühr € 5,00“; ohne Abzüge nur der Betrag.
 - Zahlt der Gast direkt an den Vermieter und die Plattform verrechnet die Provision später gesondert, ist das eine Eingangsrechnung der Plattform und **kein** Abzug an der Gästerechnung; die Zahlung wird dann ohne Provision erfasst.
 - **Buchungsquelle „Airbnb“ (Ergänzung an PROJ-30):** Die Auswahl der Buchungsquelle bekommt den Wert „Airbnb“ hinter „booking.com“, auch im Filter der Buchungsübersicht. Keine eigene Kalenderfarbe (wie bisher entschieden).
@@ -144,20 +145,23 @@ Bezahlt (beglichen) = Summe aller Zahlungen einschließlich Provision und Zahlun
 - [ ] Angenommen der Server ist nicht erreichbar, wenn der Nutzer speichert, dann erscheint eine Fehlermeldung und die Eingaben bleiben erhalten
 
 ### Provisionsabzug
-- [ ] Angenommen eine Rechnung über € 500,00 zu einer Buchung mit Buchungsquelle „Airbnb“, wenn „Zahlung erfassen“ geöffnet wird, dann gibt es die Felder „Ausbezahlt“, „Provision“ und „Zahlungsgebühr“
-- [ ] Angenommen eine Rechnung zu einer Buchung mit anderer Buchungsquelle oder ohne Buchung, wenn „Zahlung erfassen“ geöffnet wird, dann gibt es weder „Provision“ noch „Zahlungsgebühr“, und das Betragsfeld heißt „Betrag“
-- [ ] Angenommen das Formular mit Offen € 500,00, wenn der Nutzer Provision € 70,00 und Zahlungsgebühr € 5,00 einträgt und den Betrag nicht selbst geändert hat, dann ist „Ausbezahlt“ mit € 425,00 vorbelegt
-- [ ] Angenommen der Nutzer hat „Ausbezahlt“ selbst geändert, wenn er danach die Provision ändert, dann bleibt sein Betrag stehen
-- [ ] Angenommen Ausbezahlt € 425,00, Provision € 70,00, Zahlungsgebühr € 5,00, wenn gespeichert wird, dann ist die Rechnung „bezahlt“ mit Offen € 0,00, der Rechnungsbetrag bleibt € 500,00, und die Zahlung zeigt „€ 425,00 + Provision € 70,00 + Gebühr € 5,00“
+- [ ] Angenommen „Zahlung erfassen“ wird geöffnet, wenn das Formular erscheint, dann folgt die Zahlungsart direkt auf das Zahlungsdatum, ist mit „Überweisung“ vorbelegt, und es gibt weder „Provision“ noch „Zahlungsgebühr“; das Betragsfeld heißt „Betrag“
+- [ ] Angenommen eine Rechnung über € 500,00 zu einer Buchung mit Buchungsquelle „Airbnb“, wenn der Nutzer die Zahlungsart „über booking.com“ wählt, dann erscheinen vor dem Betragsfeld „Provision“ und „Zahlungsgebühr“, und das Betragsfeld heißt „Zahlungsbetrag“
+- [ ] Angenommen das Formular, wenn der Nutzer die Zahlungsart „über Airbnb“ wählt, dann erscheint nur „Provision“, keine „Zahlungsgebühr“
+- [ ] Angenommen eingetragene Provision und Zahlungsgebühr, wenn der Nutzer auf eine Zahlungsart ohne diese Felder wechselt, dann verschwinden sie samt Werten, und der Vorschlag für den Betrag steigt wieder
+- [ ] Angenommen eine Rechnung zu einer Buchung mit anderer Buchungsquelle oder ohne Buchung und Zahlungsart „über booking.com“ mit Provision > 0, wenn gespeichert wird, dann erscheint der Hinweis, dass Provision und Zahlungsgebühr nur bei Buchungen über booking.com oder Airbnb möglich sind, und nichts wird gespeichert
+- [ ] Angenommen das Formular mit Offen € 500,00, wenn der Nutzer Provision € 70,00 und Zahlungsgebühr € 5,00 einträgt und den Betrag nicht selbst geändert hat, dann ist „Zahlungsbetrag“ mit € 425,00 vorbelegt
+- [ ] Angenommen der Nutzer hat „Zahlungsbetrag“ selbst geändert, wenn er danach die Provision ändert, dann bleibt sein Betrag stehen
+- [ ] Angenommen Zahlungsbetrag € 425,00, Provision € 70,00, Zahlungsgebühr € 5,00, wenn gespeichert wird, dann ist die Rechnung „bezahlt“ mit Offen € 0,00, der Rechnungsbetrag bleibt € 500,00, und die Zahlung zeigt „€ 425,00 + Provision € 70,00 + Gebühr € 5,00“
 - [ ] Angenommen eine Rechnung mit Provisionsabzug, wenn das Rechnungsdetail erscheint, dann stehen darunter getrennt „Eingegangen“, „Provision“, „Zahlungsgebühr“ und „Beglichen“
 - [ ] Angenommen negative Werte in Provision oder Zahlungsgebühr, wenn gespeichert wird, dann erscheint „Der Betrag darf nicht negativ sein“
-- [ ] Angenommen Ausbezahlt + Provision + Zahlungsgebühr übersteigen den Offen-Betrag, wenn gespeichert wird, dann erscheint der Hinweis auf Überzahlung wie bei anderen Zahlungen
+- [ ] Angenommen Zahlungsbetrag + Provision + Zahlungsgebühr übersteigen den Offen-Betrag, wenn gespeichert wird, dann erscheint der Hinweis auf Überzahlung wie bei anderen Zahlungen
 - [ ] Angenommen die Buchungsquelle-Auswahl, wenn sie geöffnet wird, dann enthält sie „Airbnb“ hinter „booking.com“, auch im Filter der Buchungsübersicht
 - [ ] Angenommen eine Zahlung mit Provision, wenn die Buchungsquelle der Buchung später auf „Website“ geändert wird, dann bleibt die Provision an der Zahlung und zählt weiter zu „Beglichen“
 - [ ] Angenommen eine Zahlung mit Provision > 0, wenn der Inhaber sie auf eine Rechnung ohne Plattform-Buchung umhängen will, dann erscheint der Hinweis, Provision und Zahlungsgebühr zuerst auf 0 zu setzen, und nichts wird gespeichert
-- [ ] Angenommen eine Airbnb-Rechnung mit Ausbezahlt € 425,00 und Provision € 75,00 wird storniert, wenn die Gutschrift erscheint, dann zeigt sie „Rückzahlung offen € 425,00“ (ohne Provision)
+- [ ] Angenommen eine Airbnb-Rechnung mit Zahlungsbetrag € 425,00 und Provision € 75,00 wird storniert, wenn die Gutschrift erscheint, dann zeigt sie „Rückzahlung offen € 425,00“ (ohne Provision)
 - [ ] Angenommen die Zahlungsliste mit Plattform-Zahlungen, wenn ein Zeitraum gewählt ist, dann zeigt sie je Zahlung Provision und Zahlungsgebühr und darunter getrennte Summen für eingegangen, Provision und Zahlungsgebühr
-- [ ] Angenommen „Rechnung nacherfassen“ mit verknüpfter booking.com-Buchung und „Bereits bezahlt“, wenn der Inhaber Provision € 60,00 einträgt und speichert, dann begleicht die Zahlung den vollen Betrag mit Betrag = Rechnungsbetrag − € 60,00
+- [ ] Angenommen „Rechnung nacherfassen“ mit verknüpfter booking.com-Buchung, „Bereits bezahlt“ und Zahlungsart „über booking.com“, wenn der Inhaber Provision € 60,00 einträgt und speichert, dann begleicht die Zahlung den vollen Betrag mit Betrag = Rechnungsbetrag − € 60,00
 
 ### Beleg
 - [ ] Angenommen das Formular, wenn der Nutzer ein PDF bis 10 MB anhängt und speichert, dann zeigt die Zahlung ein Beleg-Symbol, das das PDF öffnet
@@ -295,6 +299,7 @@ Bezahlt (beglichen) = Summe aller Zahlungen einschließlich Provision und Zahlun
 | Provision und Zahlungsgebühr als zwei optionale Felder an der Zahlung; verringern den Offen-Betrag, nicht den Rechnungsbetrag | Nutzerwunsch (getrennte Felder für spätere Auswertung); Rechnung an den Gast bleibt steuerlich unverändert; Provision als Feld der Zahlung, weil sie nur bei Auszahlung durch die Plattform am Konto fehlt | 2026-11-06 |
 | Provisionsfelder nur bei Buchungsquelle booking.com oder Airbnb (später auch Kanal aus dem Import) | Nutzerentscheidung; Provision fällt nur bei Plattform-Buchungen an | 2026-11-06 |
 | Buchungsquelle „Airbnb“ ergänzen (ohne Kalenderfarbe), mit PROJ-45 gebaut | Nutzerentscheidung; von Hand erfasste Airbnb-Buchungen gibt es vor dem Import (PROJ-11); Ergänzung an PROJ-30 | 2026-11-06 |
+| Provisionsfelder erscheinen nach Zahlungsart („über booking.com“: Provision und Zahlungsgebühr, „über Airbnb“: nur Provision), erkannt am Namen; Zahlungsart direkt nach dem Datum; „Ausbezahlt“ heißt „Zahlungsbetrag“; Buchungsquelle booking.com/Airbnb bleibt Voraussetzung fürs Speichern; gilt auch für „Bereits bezahlt“ | Nutzerentscheidung (refine 2026-11-07); Felder nur, wenn sie zur Zahlung passen; kein eigenes Kennzeichen an der Zahlungsart | 2026-11-07 |
 | Direktzahlung des Gastes mit gesonderter Provisionsrechnung der Plattform = kein Abzug | Gast hat voll bezahlt; die Provision ist eine Eingangsrechnung des Vermieters | 2026-11-06 |
 | Guthaben nach Storno nur aus tatsächlich eingegangenem Geld | Provision ist nie am Konto eingegangen und kann nicht an den Gast zurückgezahlt werden | 2026-11-06 |
 | Filter nach Zahlungsstatus in der Rechnungsliste erst in PROJ-43 | Hält PROJ-45 klein; PROJ-43 baut darauf auf | 2026-11-06 |
@@ -354,9 +359,9 @@ Rechnungsdetail (besteht)
 
 Zahlungs-Dialog (neu, ein Baustein für Erfassen, Bearbeiten, Rückzahlung)
 +-- Rechnung: fest, oder Auswahl (aus der Buchung; beim Umhängen mit Suche, gleiche Buchung zuerst)
-+-- Zahlungsdatum · Betrag bzw. „Ausbezahlt“
-+-- Provision · Zahlungsgebühr (nur Plattform-Buchung; Vorschlag für „Ausbezahlt“ folgt)
-+-- Zahlungsart (aktive Arten, Standard vorbelegt) · Notiz mit Zähler
++-- Zahlungsdatum · Zahlungsart (aktive Arten, Standard vorbelegt)
++-- Provision · Zahlungsgebühr (nach Zahlungsart: booking.com beide, Airbnb nur Provision; Vorschlag für „Zahlungsbetrag“ folgt)
++-- Betrag bzw. „Zahlungsbetrag“ · Notiz mit Zähler
 +-- Beleg: Datei wählen / am Handy fotografieren, Vorschau, ersetzen/entfernen (Inhaber)
 +-- Hinweise vor dem Speichern: Überzahlung, gleiche Zahlung schon erfasst, Rückzahlung über Guthaben
     (Bestätigen und trotzdem speichern)
@@ -429,7 +434,7 @@ Lesen ist über die Zugriffsregeln (RLS) für alle Mitglieder des Kunden erlaubt
 - Wird ein Beleg ersetzt, entfernt oder die Zahlung gelöscht, löscht der Server die alte Datei. Liegengebliebene Dateien (Hochladen gelungen, Speichern nicht) entfernt die **bestehende nächtliche Aufräumaufgabe**, erweitert um diesen Bereich.
 
 ### Zahlungsstatus, Fälligkeit und Vorschläge
-- Die **Datenbank** bildet Status und Summen (Lesesicht). Eine **gleichlautende Regel in der App** berechnet nur Vorschläge und Hinweise im Dialog (Offen-Betrag, „Ausbezahlt“ nach Abzug von Provision und Gebühr, Überzahlung). Gespeichert und angezeigt wird immer das Ergebnis der Datenbank.
+- Die **Datenbank** bildet Status und Summen (Lesesicht). Eine **gleichlautende Regel in der App** berechnet nur Vorschläge und Hinweise im Dialog (Offen-Betrag, „Zahlungsbetrag“ nach Abzug von Provision und Gebühr, Überzahlung). Gespeichert und angezeigt wird immer das Ergebnis der Datenbank.
 - „Überfällig“: heute (Wien) nach einem Fälligkeitstag, und Beglichen kleiner als bis dahin fällig. Nacherfasste Rechnungen haben keinen Zahlungsplan.
 
 ### Listen
@@ -486,6 +491,8 @@ Keine neuen Pakete (Bildumwandlung, Hochladen, Griff zum Ordnen und Monatsauswah
 - `save_invoice`: optional `already_paid { paid_on, method_id, commission_cents, fee_cents }` nur beim Anlegen, Zahlung über den vollen Betrag im selben Schritt; `delete_invoice` mit Zahlungen → P0961
 - Speicherbereich `payment-receipts` (privat, PDF/JPEG, 10 MB, Ordner je Kunde; Mitglieder laden hoch, Server löscht), tägliche Bereinigung erweitern
 - Buchungsquelle `airbnb` in der Prüfregel der Spalte `bookings.source`
+
+**Refine 2026-11-07 (Felder nach Zahlungsart):** Im Zahlungs-Dialog steht die Zahlungsart direkt nach dem Datum (vorbelegt mit der Standard-Zahlungsart „Überweisung“). „Provision“ und „Zahlungsgebühr“ erscheinen nach Zahlungsart (`methodDeductions` in `src/lib/payments.ts`: Name enthält „booking.com“ → beide, „Airbnb“ → nur Provision), vor dem Betragsfeld, das dann „Zahlungsbetrag“ heißt (früher „Ausbezahlt“). Beim Wechsel der Zahlungsart werden nicht mehr passende Felder geleert, der Vorschlag folgt. Felder mit Wert > 0 bleiben beim Bearbeiten älterer Zahlungen sichtbar. Die Sperre nach Buchungsquelle bleibt (Hinweis jetzt an der Zahlungsart). „Bereits bezahlt“ beim Nacherfassen gleich: Felder nach Zahlungsart, Hinweis bei Rechnung ohne Plattform-Buchung statt stillem Verwerfen. Keine Datenbankänderung.
 
 ## Implementation Notes (Backend)
 

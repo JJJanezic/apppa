@@ -47,7 +47,7 @@ import {
 import { EMPTY_GUEST_INPUT, type GuestInput, guestSchema } from '@/lib/validation/guests'
 import { type InvoiceInput, type InvoiceLineInput, invoiceSchema } from '@/lib/validation/invoices'
 import { type AlreadyPaidInput, alreadyPaidSchema } from '@/lib/validation/payments'
-import type { PaymentMethod } from '@/lib/payments'
+import { methodDeductions, type PaymentMethod } from '@/lib/payments'
 import { CHARGE_CHOICES, formatVatRate, parseVatRate, VAT_DEFAULTS, vatBreakdown, vatRateInput } from '@/lib/vat'
 import { vatStatusOn } from '@/lib/vat-status'
 
@@ -236,7 +236,18 @@ export function InvoicePanel({ open, onOpenChange, invoice, today }: InvoicePane
     // „Bereits bezahlt“ nur beim Anlegen und bei Betrag > 0
     const withPayment = !invoice && alreadyPaid && total !== null && total > 0
     if (withPayment && !(await paidForm.trigger())) return
-    const paid = withPayment ? { ...paidForm.getValues(), ...(platform ? {} : { commission: '', fee: '' }) } : undefined
+    // Provision und Gebühr nach Zahlungsart; gespeichert nur bei Buchungen über booking.com oder Airbnb (wie im Zahlungs-Dialog)
+    const paid = withPayment ? paidForm.getValues() : undefined
+    if (paid) {
+      const deductions = methodDeductions(paidMethods?.find((m) => m.id === paid.methodId)?.name)
+      if (!deductions.commission) paid.commission = ''
+      if (!deductions.fee) paid.fee = ''
+      const amountOf = (v: string | undefined) => parseAmountCents(v ?? '') ?? 0
+      if (!platform && (amountOf(paid.commission) > 0 || amountOf(paid.fee) > 0)) {
+        paidForm.setError('methodId', { message: tpv('commissionNotAllowed') }, { shouldFocus: true })
+        return
+      }
+    }
     const result: SaveInvoiceResult = await callAction(() =>
       saveInvoice({ id: invoice?.id, updatedAt: invoice?.updatedAt, values, newGuest, alreadyPaid: paid })
     )
@@ -637,7 +648,6 @@ export function InvoicePanel({ open, onOpenChange, invoice, today }: InvoicePane
               onToggle={(on) => void toggleAlreadyPaid(on)}
               methods={paidMethods}
               unavailable={paidUnavailable}
-              platform={platform}
               totalCents={total}
               today={today}
             />
