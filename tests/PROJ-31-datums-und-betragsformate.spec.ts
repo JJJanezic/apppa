@@ -34,6 +34,10 @@ const money = (value: string) => new RegExp(`€\\s?${re(value)}`)
 const ARRIVAL = '2026-10-28' // Mi
 const DEPARTURE = '2026-11-03' // Di
 const OPTION_UNTIL = '2026-11-05' // Do
+// Option in der Zukunft (sonst verfallen und ohne Zustandsfilter nicht in der Liste): 2037 hat dieselben Wochentage wie 2026
+const FUTURE_ARRIVAL = '2037-10-28' // Mi
+const FUTURE_DEPARTURE = '2037-11-03' // Di
+const FUTURE_OPTION_UNTIL = '2037-11-05' // Do
 
 async function setup(page: Page, users: Users, role: 'owner' | 'staff' = 'owner') {
   const owner = await users({ displayName: 'Olga Owner' })
@@ -145,22 +149,28 @@ test.describe('Datum', () => {
     await expect(page.getByText('Sa, 02.01.2027').first()).toBeVisible()
   })
 
-  test('AC: Option gilt bis „Do, 05.11.2026“ in Detail, Liste und Kalender', async ({ page, users }) => {
+  test('AC: Option gilt bis „Do, 05.11.2037“ in Detail, Liste und Kalender (Format wie „Do, 05.11.2026“)', async ({ page, users }) => {
     desktopOnly()
     const { tenantId } = await setup(page, users)
     const apt = await addApartment(tenantId)
     const guest = await addGuest(tenantId, 'Huber', 'Anna')
-    const option = await addBooking(tenantId, apt, { kind: 'option', guestId: guest, arrival: ARRIVAL, departure: DEPARTURE })
+    const option = await addBooking(tenantId, apt, {
+      kind: 'option',
+      guestId: guest,
+      arrival: FUTURE_ARRIVAL,
+      departure: FUTURE_DEPARTURE,
+      optionUntil: FUTURE_OPTION_UNTIL,
+    })
 
     await open(page, `/buchungen/${option.id}`)
-    await expect(page.getByText('Do, 05.11.2026').first()).toBeVisible()
+    await expect(page.getByText('Do, 05.11.2037').first()).toBeVisible()
 
-    await open(page, '/buchungen?monat=2026-10')
-    await expect(page.getByRole('table').getByText('Option bis Do, 05.11.2026')).toBeVisible()
+    await open(page, '/buchungen?monat=2037-10')
+    await expect(page.getByRole('table').getByText('Option bis Do, 05.11.2037')).toBeVisible()
 
     // Kalender: Detail des Eintrags zeigt „Option gilt bis“ im Standardformat
-    await open(page, `/belegung?ansicht=monat&monat=2026-10&tag=${ARRIVAL}&eintrag=${option.id}`)
-    await expect(page.getByRole('dialog').getByText('Do, 05.11.2026').first()).toBeVisible()
+    await open(page, `/belegung?ansicht=monat&monat=2037-10&tag=${FUTURE_ARRIVAL}&eintrag=${option.id}`)
+    await expect(page.getByRole('dialog').getByText('Do, 05.11.2037').first()).toBeVisible()
   })
 
   test('AC: Tagesliste der Monatsansicht: Tag und „bis …“ im Standardformat', async ({ page, users }) => {
@@ -261,7 +271,8 @@ test.describe('Buchungsliste', () => {
     await addBooking(tenantId, apt, { guestId: guest, arrival: ARRIVAL, departure: DEPARTURE })
 
     await open(page, '/buchungen?monat=2026-10')
-    const cell = page.getByRole('table').getByRole('row').nth(1).getByRole('cell').first()
+    // Spalte „Zeitraum“ nach der Buchungsnummer (refine PROJ-8 2026-11-07)
+    const cell = page.getByRole('table').getByRole('row').nth(1).getByRole('cell').nth(1)
     const lines = cell.locator('span.block')
     await expect(lines).toHaveText(['Mi, 28.10.2026', 'Di, 03.11.2026'])
     const [top, bottom] = await Promise.all([lines.nth(0).boundingBox(), lines.nth(1).boundingBox()])
@@ -506,7 +517,7 @@ test.describe('Safari', () => {
     await addBooking(tenantId, apt, { guestId: bernd, arrival: ARRIVAL, departure: DEPARTURE })
 
     await open(page, '/buchungen?monat=2026-10')
-    await page.getByRole('link', { name: 'Huber, Anna' }).click()
+    await page.getByRole('link', { name: first.number, exact: true }).click()
     await expect(page).toHaveURL(new RegExp(`/buchungen/${first.id}$`))
     await ready(page)
     await page.getByRole('button', { name: 'Bearbeiten', exact: true }).click()
