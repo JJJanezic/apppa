@@ -693,7 +693,7 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
                         autoComplete="off"
                         autoCapitalize="none"
                         spellCheck={false}
-                        className="min-h-11 font-mono tabular-nums"
+                        className="min-h-11 tabular-nums"
                         {...field}
                         onBlur={() => {
                           const clean = normalizePlatformNumber(field.value)

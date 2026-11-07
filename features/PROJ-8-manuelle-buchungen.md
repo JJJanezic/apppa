@@ -69,7 +69,7 @@ Neues optionales Feld **Reinigungsgebühr** (Euro) je Wohnung, nur vom Inhaber p
 - **Häkchen „Über alle Monate“:** erscheint, sobald Wohnung, Art, Zustand oder Quelle gewählt ist (Suche und Rechnungsfilter gelten ohnehin für alle Monate). Angehakt: alle passenden Einträge aller Monate, Anreise absteigend, je 50 pro Seite mit Blättern; Überschrift „Alle Monate“, Anzahl „… in allen Monaten“; in der Adresse `alle=1`. Abhaken führt in den zuvor gewählten Monat zurück; ohne Filter verschwindet das Häkchen.
 
 ### Buchungsdetail: Zahlungen und Schrift der Plattform-Nummer (refine 2026-11-07)
-- **Schrift der booking.com-/Airbnb-Nummer:** im Detail bisher in Festbreitenschrift (`font-mono`), ohne festgehaltenen Grund (weder PROJ-47 noch Design-System); jetzt in der normalen Schrift wie der übrige Text, Ziffern weiter gleich breit (`tabular-nums`). Das Eingabefeld im Formular bleibt unverändert.
+- **Schrift der booking.com-/Airbnb-Nummer:** im Detail bisher in Festbreitenschrift (`font-mono`), ohne festgehaltenen Grund (weder PROJ-47 noch Design-System); jetzt in der normalen Schrift wie der übrige Text, Ziffern weiter gleich breit (`tabular-nums`). Auf Nutzerwunsch auch das Eingabefeld im Buchungsformular (Nachtrag nach der QA).
 - **Neuer Abschnitt „Zahlungen“** zwischen „Rechnungen“ und der Zusammenfassung (Verrechnet, In Entwürfen, Gesamtpreis, Bezahlt, Offen, Hinweis „Verrechnet mehr als Gesamtpreis“):
   - Liste aller Zahlungen und Rückzahlungen der Rechnungen dieser Buchung, Datum aufsteigend: Datum · Zahlungsart, Betrag (Rückzahlung mit Minus) mit „+ Provision … + Gebühr …“, „Rechnung [Nummer]“ als Link (bei Rückzahlungen „Rückzahlung · Rechnung …“), Notiz, Beleg-Symbol.
   - Ohne Zahlungen der Hinweis „Noch keine Zahlung erfasst.“
@@ -1019,6 +1019,8 @@ Keine neuen Tabellen oder Spalten, keine Änderung der Zugriffsregeln. Ausgestel
 **Tests:** Unit 778/778. E2E: PROJ-45 (Buchungsdetail-Ablauf, Storno mit Rückzahlung, neuer Layout-/axe-Test auf Desktop, Tablet, Handy), Firefox 4/4; Regression vor dem Commit mit demselben App-Stand: PROJ-37 und PROJ-40 (Zusammenfassung, 17), PROJ-42 und PROJ-44 (Buchungsdetail, 5), PROJ-8 und PROJ-47 (Layout/Detail, 12). Safari nicht getestet (nur gegen den Entwicklungsserver).
 
 **Bugs:** keine.
+
+**Nachtrag nach der QA (Nutzerwunsch):** Auch das Eingabefeld „booking.com-Buchungsnummer“/„Airbnb-Bestätigungscode“ im Buchungsformular ohne `font-mono` (nur Klasse entfernt; Typprüfung, Lint, PROJ-47-Formulartests grün).
 
 **Ergebnis:** Production-ready: **JA**.
 
