@@ -408,6 +408,13 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-14 Dashboard', () => {
       // Alt-Position ohne Tarif (wie nach der Kennzeichnung): 30.10.–02.11.2026, 3 Nächte, 15,00
       const legacy = await booking(tenantD, apD, '2026-10-30', '2026-11-02')
       await charge(legacy, 1500, null)
+      // Alt-Position für 5 vereinbarte Nächte (28.09.–03.10.), Gast reiste nach 4 Nächten ab (02.10.): 5 × 2,50
+      const early = await booking(tenantD, apD, '2026-09-28', '2026-10-02')
+      await service.from('bookings').update({ planned_departure: '2026-10-03' } as never).eq('id', early)
+      await charge(early, 1250, null)
+      // Betrag kein Vielfaches des Tarifs (10,01 über 3 Nächte, 30.07.–02.08.): anteilig in Cent
+      const odd = await booking(tenantD, apD, '2026-07-30', '2026-08-02')
+      await charge(odd, 1001, null)
     }, 60_000)
 
     it('verteilt jede Position nur über die Nächte ihres Tarifzeitraums', async () => {
@@ -418,10 +425,22 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-14 Dashboard', () => {
       expect(taxOf(rows, tenantD, '50330', '2026-12-01')).toBe(560)
     })
 
+    it('Alt-Position: über die vereinnahmten Nächte bis zur späteren Abreise, in ganzen Personennächten', async () => {
+      const rows = await tax(ownerA, [tenantD], '2026-09-01', '2026-09-30')
+      // 3 von 5 vereinnahmten Nächten im September (28., 29., 30.) = 7,50 statt anteilig 9,38 über 4 Nächte
+      expect(taxOf(rows, tenantD, '50330', '2026-09-01')).toBe(750)
+    })
+
+    it('Betrag kein Vielfaches des Tarifs: anteilig in Cent, Summe stimmt', async () => {
+      const rows = await tax(ownerA, [tenantD], '2026-07-01', '2026-08-31')
+      expect(taxOf(rows, tenantD, '50330', '2026-07-01')).toBe(667)
+      expect(taxOf(rows, tenantD, '50330', '2026-08-01')).toBe(334)
+    })
+
     it('Position ohne Tarif-Verweis wird über den ganzen Aufenthalt verteilt', async () => {
       const rows = await tax(ownerA, [tenantD], '2026-10-01', '2026-10-31')
-      // 2 von 3 Nächten (30. und 31.10.)
-      expect(taxOf(rows, tenantD, '50330', '2026-10-01')).toBe(1000)
+      // 2 von 3 Nächten (30. und 31.10.) der Alt-Position + 2 Nächte (1. und 2.10.) der früh abgereisten Alt-Position
+      expect(taxOf(rows, tenantD, '50330', '2026-10-01')).toBe(1000 + 500)
     })
   })
 

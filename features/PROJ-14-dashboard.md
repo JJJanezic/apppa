@@ -1,6 +1,6 @@
 # PROJ-14: Dashboard
 
-## Status: Approved
+## Status: In Progress
 **Created:** 2026-11-07
 **Last Updated:** 2026-11-07
 
@@ -327,6 +327,7 @@ Die Rechte gelten **je Kunde** nach der Rolle der Person bei diesem Kunden. Gela
 | Zweispaltig ab 1440 px, Dashboard-Zeitleiste mind. 720 px | QA BUG-3: Zeitleiste passt neben die Abschnitte | 2026-11-07 |
 | Anordnung „Zeitung“ (Belegung voll breit, Abschnitte darunter im Raster) | Nutzer nach Auslieferung: Standard-Variante des Entwurfs; „Cockpit“ war ein Umsetzungsfehler (BUG-6) | 2026-11-07 |
 | Alt-Positionen „Nächtigungsabgabe“ einmalig per Migration als Ortstaxe kennzeichnen, nur in Buchungen „noch nicht berechnet“ | Nutzer (BUG-7): eine Regel für Dashboard und PROJ-16; Beträge unverändert; keine Doppelzählung | 2026-11-07 |
+| Ortstaxe in ganzen Personennächten über die vereinnahmten Nächte verteilen | Nutzer (BUG-9): vereinnahmte Abgabe ist abzuführen; Monatsbeträge müssen Vielfache des Tarifs sein | 2026-11-07 |
 | Ein Deploy für den ganzen Umfang | Nutzerentscheidung; die Mehrkunden-Regeln betreffen jeden Abschnitt, ein QA-Durchgang | 2026-11-07 |
 
 ---
@@ -733,6 +734,14 @@ Code und Migration `20261107151812` sind seit 2026-11-07 auf Staging und Produkt
 - **Security:** unverändert Pass (Migration ändert nur Kennzeichen, Funktion behält Rechte und Prüfung je Kunde)
 - **Production Ready:** YES
 - **Recommendation:** Deploy (zweite Migration `20261107194628` und Code über Staging nach Produktion)
+
+#### BUG-9: Ortstaxe-Monatsbeträge keine Vielfachen des Tarifs (2026-11-07, nach Auslieferung der Nachbesserung)
+- **Severity:** High (Summen fachlich falsch verteilt)
+- Ursache: Positionen wurden anteilig in Cent auf die Nächte verteilt. Passt der Betrag nicht genau zu den Nächten (Alt-Position für die vereinbarten Nächte, Gast reiste früher ab), entstehen Beträge wie x,13 €
+- **Entscheidung Nutzer:** Die vereinnahmte Ortstaxe ist abzuführen, auch wenn der Gast früher abreist. Verteilt wird in **ganzen Personennächten zum Tarif** über die **vereinnahmten Nächte**: mit Tarif-Verweis (automatisch berechnet) bis zur tatsächlichen Abreise innerhalb des Tarifzeitraums, ohne Tarif-Verweis (Alt-Positionen) bis zur späteren Abreise (geplant oder tatsächlich). Gleich viele Personennächte je Nacht, Rest in die letzten Nächte. Nur Beträge, die kein Vielfaches des Tarifs sind (Prozent-Tarif, frei geänderter Betrag, ohne Tarif), weiter anteilig in Cent
+- **Umsetzung:** Migration `20261107222638_dashboard_tourist_tax_units.sql` (`private.tourist_tax_monthly` ersetzt; Dev eingespielt, Advisors nur `auth_otp_long_expiry`). Gilt auch für PROJ-16
+- **Tests:** Integration 16/16 (neu: Alt-Position mit früherer Abreise in ganzen Personennächten; Betrag kein Vielfaches → anteilig in Cent). E2E Ortstaxe/Altbuchung/Anordnung 3/3. Abgleich mit Echtdaten nur lesend: alle Quartalswerte Vielfache des jeweiligen Tarifs (Einzelheiten nur im Chat)
+- Anordnung: Prüfung der ausgelieferten Stylesheets (Staging und Produktion) zeigt die Zeitungs-Anordnung; Rückmeldung des Nutzers zur Darstellung ausstehend
 
 ## Deployment
 _To be added by /deploy_
