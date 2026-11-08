@@ -20,13 +20,14 @@ import { getVatStatusHistory } from '@/lib/vat-status-data'
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   await requireAppUser()
   const shell = await getShellInfo()
-  // Einstellungen und Ortstaxe (PROJ-16) nur für Inhaber, Betreiber-Bereich nur für den Admin: hier (vor dem Streaming
-  // der Seite) prüfen, damit die Antwort 404 lautet
+  // Einstellungen, Ortstaxe (PROJ-16) und Auswertungen (PROJ-18) nur für Inhaber, Betreiber-Bereich nur für den Admin: hier
+  // (vor dem Streaming der Seite) prüfen, damit die Antwort 404 lautet
   const path = (await headers()).get('x-pathname') ?? ''
   const viewer = viewerOf(shell)
   if (isActivePath('/einstellungen', path) && !isAreaAvailable('settings', viewer)) notFound()
   if (isActivePath('/betreiber', path) && !isAreaAvailable('operator', viewer)) notFound()
   if (isActivePath('/ortstaxe', path) && !isAreaAvailable('tax', viewer)) notFound()
+  if (isActivePath('/auswertungen', path) && !isAreaAvailable('reports', viewer)) notFound()
   // Detailseite eines Kunden: gibt es ihn (noch)? Sonst ebenfalls 404 statt 200 (BUG-2 aus QA PROJ-5).
   // Die Abfrage ist pro Anfrage zwischengespeichert; die Seite nutzt dasselbe Ergebnis.
   const tenantPath = /^\/betreiber\/kunden\/([^/]+)/.exec(path)

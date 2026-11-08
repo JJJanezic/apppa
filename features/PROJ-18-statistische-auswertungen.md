@@ -506,7 +506,7 @@ Neue E2E-Datei `tests/PROJ-18-statistische-auswertungen.spec.ts` (16 Tests) mit 
 #### Zugriff
 - [x] Menüpunkt „Auswertungen“ für Inhaber ohne „bald verfügbar“ (E2E)
 - [x] Mitarbeiter sieht den Menüpunkt nicht (E2E)
-- [ ] BUG-1: Mitarbeiter, direkter Aufruf `/auswertungen`: Ansicht „Seite nicht gefunden“, keine Daten, aber Status 200 statt 404. Downloads antworten korrekt mit 403 (E2E)
+- [x] Mitarbeiter, direkter Aufruf `/auswertungen`: „Seite nicht gefunden“ mit Status 404 (war BUG-1, behoben), Downloads 403 (E2E)
 - [x] Nur Daten des gewählten Kunden; Inhaberin bei A und Mitarbeiterin bei B erhält für B nichts (Integration)
 
 #### Zeitraum und Filter
@@ -594,7 +594,7 @@ Neue E2E-Datei `tests/PROJ-18-statistische-auswertungen.spec.ts` (16 Tests) mit 
 - [x] Rechenkerne von außen nicht aufrufbar (Integration)
 - [x] Eingaben: Adresse streng geprüft (Zahlen, UUID), CSV-Formelschutz, React/PDF ohne HTML-Einfügung
 - [x] Last: PDF über die gemeinsame Lastgrenze (503 bei Auslastung, Route-Test); Abfragen < 0,5 s bei 5.000 Buchungen
-- [ ] BUG-1 (Low): Statuscode 200 für Mitarbeiter, keine Daten betroffen
+- [x] BUG-1 (Low) behoben: Mitarbeiter erhalten echte 404
 
 ### Regression
 - [x] PROJ-14 Dashboard: 15/15 (E2E desktop)
@@ -608,7 +608,7 @@ Neue E2E-Datei `tests/PROJ-18-statistische-auswertungen.spec.ts` (16 Tests) mit 
 
 ### Bugs Found
 
-#### BUG-1: Statuscode 200 statt 404 für Mitarbeiter auf `/auswertungen`
+#### BUG-1: Statuscode 200 statt 404 für Mitarbeiter auf `/auswertungen` — ✅ behoben (Nachprüfung 2026-11-08)
 - **Severity:** Low
 - **Steps to Reproduce:**
   1. Als Mitarbeiter anmelden und `/auswertungen` direkt aufrufen
@@ -618,11 +618,14 @@ Neue E2E-Datei `tests/PROJ-18-statistische-auswertungen.spec.ts` (16 Tests) mit 
 - **Priority:** Nice to have (E2E-Test erwartet 404 und schlägt bis zur Behebung fehl)
 
 ### Summary
-- **Acceptance Criteria:** 55/56 passed
-- **Bugs Found:** 1 total (0 critical, 0 high, 0 medium, 1 low)
-- **Security:** Pass (BUG-1 ohne Datenzugriff)
+- **Acceptance Criteria:** 56/56 passed (nach Behebung von BUG-1)
+- **Bugs Found:** 1 total (0 critical, 0 high, 0 medium, 1 low), behoben
+- **Security:** Pass
 - **Production Ready:** YES
-- **Recommendation:** BUG-1 vor dem Deploy beheben (eine Zeile, wie bei PROJ-16), dann deployen
+- **Recommendation:** Deploy
+
+### Nachprüfung (2026-11-08)
+- **BUG-1:** Der App-Rahmen (`src/app/(app)/layout.tsx`) prüft `/auswertungen` vor dem Streaming wie `/ortstaxe`. E2E PROJ-18 desktop 14/14 (Handy-Test dort übersprungen), PROJ-2 „Sichtbarkeit der Navigation“ 5/5, PROJ-16 Mitarbeiter-Test grün.
 
 ## Deployment
 _To be added by /deploy_
