@@ -1,6 +1,6 @@
 # PROJ-49: Firmen wiederverwenden
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-11-08
 **Last Updated:** 2026-11-08
 
@@ -372,4 +372,10 @@ Hinweis zum Testlauf: Zwei E2E-Tests schlugen im ersten Lauf fehl, weil der Test
 - **Recommendation:** Deploy. Bei der Abnahme auf Staging die Liste einmal am Handy mit Bildschirmtastatur ansehen.
 
 ## Deployment
-_To be added by /deploy_
+- **Datum:** 2026-11-08
+- **Commit:** 4325cf5 (Tag `v1.41.0-PROJ-49`)
+- **Staging:** https://staging.apppa.at (2026-11-08)
+- **Production:** https://app.apppa.at (2026-11-08). Der Nutzer hat bestätigt, dass die Bereitstellung funktioniert. Die Vorschläge erschienen in Safari erst nach dem Neuladen ohne Cache (⌥⌘R).
+- **Migrationen:** `20261108142504_guest_company_suggestions` auf Staging und Produktion, Advisor-Prüfung danach jeweils leer. Keine Änderung der Supabase-Konfiguration, keine neuen Umgebungsvariablen.
+- **Vorab-Prüfungen:** Lint, 927 Unit-Tests, 23 Integrationstests (Gäste, Firmenvorschläge) und Secret-Scan grün. Der Build stammt aus der QA, danach gab es keine Codeänderung.
+- **Rückmeldung nach dem Deploy:** Der Nutzer wünscht statt der Vorschläge im Feld „Firmenname“ eine Auswahl „Bestehende Firma“/„Neue Firma“ wie bei „Bestehender Gast“/„Neuer Gast“ in der Buchung. Folgt mit `/refine PROJ-49`.
