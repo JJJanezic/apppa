@@ -819,3 +819,15 @@ Neue E2E-Datei `tests/PROJ-18-statistische-auswertungen.spec.ts` (16 Tests) mit 
 - **Kein** `config push`, keine neuen Umgebungsvariablen.
 - **Vor dem Release geprüft:** Lint, Unit 891/891, Integration (Auswertungen, Dashboard, Ortstaxe-Bericht, Buchungen) 74/74, Build, Secret-Scan.
 - **Wünsche nach der Abnahme** (über `/refine PROJ-18`): Auswertung über alle Kunden, bei denen die Person Inhaber ist, oder je Kunde (wie der Kundenfilter im Dashboard); Kacheln der Auswertungsseite zentriert.
+
+### Erweiterung Kundenauswahl (refine 2026-11-08)
+- **Datum:** 2026-11-08
+- **Commit:** `53da76c` (main → staging → production)
+- **Tag:** `v1.38.0-PROJ-18`
+- **Staging:** https://staging.apppa.at (2026-11-08), vom Nutzer geprüft
+- **Production:** https://app.apppa.at (2026-11-08), vom Nutzer geprüft („läuft einwandfrei“)
+- **Migrationen** (Staging und Production, Advisors nur mit `auth_otp_long_expiry`):
+  - `20261108114454_statistics_tenants`
+- **Kein** `config push`, keine neuen Umgebungsvariablen.
+- **Vor dem Release geprüft:** Lint, Unit 906/906, Integration Auswertungen und Dashboard 33/33, Build, Secret-Scan.
+- **Offen:** Aufräum-Migration für die nicht mehr genutzten Funktionen `statistics_rows` und `statistics_origin` (bleiben bis dahin bestehen, schaden nicht).
