@@ -1,6 +1,6 @@
 # PROJ-16: Ortstaxen-Berichte
 
-## Status: In Progress
+## Status: In Review
 **Created:** 2026-11-08
 **Last Updated:** 2026-11-08
 
@@ -476,7 +476,132 @@ Die Messdaten wurden wieder gelöscht.
 2. Der Rechenkern war ohne `materialized` langsam (2,2 s). Das betraf schon die Dashboard-Funktion seit der Nachbesserung BUG-9 aus PROJ-14.
 
 ## QA Test Results
-_To be added by /qa_
+
+**Tested:** 2026-11-08 (Runde 1)
+**App URL:** http://localhost:3000 (gebauter Server, Supabase „apppa-dev“)
+**Tester:** QA Engineer (AI)
+**Stand:** Commits `40e75ec` (Frontend) und `251c269` (Backend)
+
+### Automatisierte Tests
+- **Unit (Vitest):** 840 grün, davon für PROJ-16:
+  - Regeln: 38
+  - Downloads: 7
+  - PDF mit dem gebauten Arbeitsprozess: 4
+- **Integration gegen Dev:** 11 Tests zum Bericht und 18 zum Dashboard, alle grün.
+- **E2E `tests/PROJ-16-ortstaxen-berichte.spec.ts`:**
+  - Desktop (Chrome) 13 Abläufe; Handy und Tablet je Anordnung und axe: 17 grün
+  - Safari 13 grün, Firefox 13 grün (je 1 übersprungen: Handy-Anordnung)
+- **Regression:** PROJ-2 (App-Rahmen, Menü) und PROJ-14 (Dashboard): Desktop 33, Handy 18 grün.
+
+### Acceptance Criteria Status
+
+#### Zugriff
+- [x] Inhaber: Menüpunkt „Ortstaxe“ führt zu `/ortstaxe` (E2E)
+- [x] Mitarbeiter: kein Menüpunkt (E2E, Unit Navigation)
+- [x] Mitarbeiter, direkter Aufruf: keine Daten. Die Seite zeigt „Seite nicht gefunden“ statt „Kein Zugriff“ (bewusste Abweichung, siehe Frontend). Downloads antworten mit 403 (E2E). **Statuscode der Seite 200 statt 404 → BUG-1**
+- [x] Inhaberin bei A und Mitarbeiterin bei B: keine Daten von B (Integration)
+- [x] Nur Buchungen des gewählten Kunden (Integration, E2E)
+
+#### Zeitraum und Filter
+- [x] Standard letzter abgelaufener Monat, „Alle Gemeinden“ (E2E, Unit)
+- [x] Schnellwahl Quartal und Jahr, Jänner → Dezember des Vorjahres (Unit, E2E für „Letztes Jahr“ und „Letzter Monat“)
+- [x] Hinweis bei laufendem Monat, keiner bei abgelaufenem Zeitraum (E2E)
+- [x] Neu laden behält Zeitraum und Gemeinde (E2E)
+- [x] Ungültige Adresse führt auf den Standard (E2E, Unit)
+- [x] „Bis“-Monate vor „Von“ nicht wählbar (Komponente: gesperrte Einträge)
+- [x] Gemeindefilter wirkt auf Übersicht und Liste (E2E)
+
+#### Übersicht
+- [x] Je Gemeinde alphabetisch, „Gesamt“ nur bei mehreren Gemeinden (E2E, Unit)
+- [x] Gleiche Beträge wie das Dashboard je Monat und Gemeinde; Quartal = Summe der Monate (Integration)
+- [x] Kind unter der Altersgrenze und Häkchen „befreit“ zählen als befreite Personennächte (Integration)
+- [x] Hinweis „inkl. 1 Position ohne Personennächte“ (E2E)
+- [ ] **BUG-2:** Befreite Personennächte in der Übersicht zu niedrig, wenn Alt-Positionen bekannte abgabepflichtige Personennächte haben
+
+#### Buchungsliste
+- [x] Gruppiert je Gemeinde, nach Anreise (E2E, Unit), bei gleicher Anreise nach Nummer (Unit)
+- [x] „anteilig“ über die Monatsgrenze, Tarifwechsel als eine Zeile, tatsächliche Abreise (Integration, E2E)
+- [x] Anonymisierter Gast (Integration; Anzeige „Anonymisiert“ Unit/Frontend)
+- [x] Nummer führt zum Buchungsdetail (E2E)
+- [x] Alt-Position und Prozent-Tarif mit „–“ und Hinweis (Integration, E2E)
+- [x] Option, Sperre, Storno und Positionen ohne Kennzeichen zählen nicht; archivierte Wohnung zählt (Integration, E2E für Option)
+- [x] Handy und Tablet: Seite ohne seitliches Scrollen, Liste im eigenen Scrollbereich mit stehender Spalte „Nr.“ (E2E)
+
+#### Leerer Zustand
+- [x] Hinweis und gesperrte Exporte (E2E)
+- [x] Ohne Tarife zusätzlich der Link zu Einstellungen → Wohnungen (E2E)
+
+#### PDF
+- [x] Eine Gemeinde: Dateiname, Briefkopf, Angaben, Übersicht, Liste (E2E, PDF-Test, Sichtprüfung)
+- [x] Alle Gemeinden: Gesamtübersicht und je Gemeinde eine neue Seite (PDF-Test)
+- [x] „Stand“ und „Seite X von Y“ auf jeder Seite, Tabellenkopf auf Folgeseiten (PDF-Test mit 90 Buchungen)
+- [x] Aussteller-Block abgeschaltet; Hinweis auf offenen Zeitraum (PDF-Test)
+- [x] Gleiche Zahlen wie auf dem Bildschirm (gleiche Aufbereitung `buildTaxReport`)
+
+#### CSV
+- [x] Dateiname mit Stand, Kopfzeile, eine Zeile je Buchung, Gemeinde zuerst, keine Summen (E2E, Route-Test)
+- [x] BOM, Strichpunkt, Komma, CRLF (E2E, Unit)
+- [x] Unbekannte Personennächte leer, Hinweis „Alt-Position“ (Unit)
+- [x] Strichpunkt und Anführungszeichen im Namen (Unit); Formelschutz (Unit, E2E mit „=Formel“)
+
+#### Dashboard
+- [x] Kein Knopf „Meldung vorbereiten“ (E2E PROJ-14)
+
+### Edge Cases Status
+- [x] Änderung nach dem Export: Bericht rechnet immer aktuell, PDF trägt den „Stand“
+- [x] Buchung „noch nicht berechnet“ ohne Position zählt nicht (wie Dashboard)
+- [x] Aufenthalt über den Jahreswechsel: anteilig in beiden Berichten (Integration, Monatsgrenze; gleiche Regel)
+- [x] Position ohne Nächte: zählt im Anreisemonat, Personennächte 0 (Rechenkern wie Dashboard)
+- [x] Befreite Personennächte nie negativ (Integration)
+- [x] Gemeinde ohne Ortstaxe im neuen Zeitraum: Filter fällt auf „Alle Gemeinden“ (Unit)
+- [x] Viele Buchungen: 5.000 Zeilen vollständig (seitenweises Laden), PDF mit Folgeseiten
+- [x] Export scheitert: Meldung, Bericht bleibt sichtbar, Knopf wieder bedienbar (E2E)
+- [x] Kein Logo: PDF ohne Logo (PDF-Test ohne Logo)
+
+### Security Audit Results
+- [x] Anmeldung: Downloads ohne Anmeldung 401, mit offener Zwei-Faktor-Anmeldung 403 (E2E, Route-Test)
+- [x] Berechtigung:
+  - Mitarbeiter erhalten weder Seite noch Downloads (403); die Datenbankfunktion liefert ihnen nichts (Integration)
+  - Fremde Kunden und Kunden, bei denen die Person nur Mitarbeiterin ist, bleiben leer
+  - Der Rechenkern ist von außen nicht aufrufbar
+- [x] Kunde kommt nie aus der Anfrage, immer der gewählte Kunde der Sitzung
+- [x] Eingaben: Jahr, Monate und Gemeindecode streng geprüft (nur Ziffern bzw. `[A-Za-z0-9_-]`); Datenbankaufruf mit typisierten Parametern
+- [x] CSV-Formeleinschleusung entschärft; `Content-Disposition` nur aus bereinigtem Gemeindenamen (kein Header-Einschleusen)
+- [x] XSS: Gastnamen werden als Text gesetzt (React, PDF-Text)
+- [x] Keine Zwischenspeicherung (`cache-control: no-store`) der Gästedaten
+- [x] Last: PDF-Erzeugung mit gemeinsamer Lastgrenze (3 gleichzeitig, 12 wartend, sonst 503). CSV und Seite rechnen in der Datenbank (Monat 0,15 s, Jahr ≤ 2 s bei 5.000 Buchungen)
+- Hinweis (kein Bug): Die Lastgrenze teilen sich Bericht und Rechnungen. Viele gleichzeitige Berichts-PDFs eines Inhabers könnten das Ausstellen von Rechnungen kurz verzögern. Das gilt nur für den eigenen Kunden und je Server-Instanz.
+
+### Bugs Found
+
+#### BUG-1: Statuscode 200 statt 404 für Mitarbeiter auf `/ortstaxe`
+- **Severity:** Low
+- **Steps to Reproduce:**
+  1. Als Mitarbeiter anmelden und `/ortstaxe` direkt aufrufen
+  2. Erwartet: „Seite nicht gefunden“ mit Status 404 (wie `/einstellungen`, PROJ-4 BUG-2)
+  3. Tatsächlich: Ansicht „Seite nicht gefunden“, keine Daten, aber Status 200. Die Seite wird mit Ladeanzeige gestreamt, bevor `requireArea` greift.
+- **Ursache:** Der App-Rahmen (`src/app/(app)/layout.tsx`) prüft vor dem Streaming nur `/einstellungen` und `/betreiber`.
+- **Priority:** Nice to have
+
+#### BUG-2: Befreite Personennächte in der Übersicht zu niedrig bei Alt-Positionen
+- **Severity:** Medium
+- **Steps to Reproduce:**
+  1. Buchung mit 2 Erwachsenen und 2 Kindern, 2 Nächte, Alt-Position (ohne Tarif-Verweis) € 10,00 bei Tarif € 2,50
+  2. Bericht für den Monat öffnen
+  3. Erwartet laut Spec: befreite Personennächte bei Alt-Positionen unbekannt. Die Gemeindesumme enthält nur bekannte Werte und weist das aus.
+  4. Tatsächlich:
+     - Liste: abgabepflichtig 4, befreit „–“ (korrekt)
+     - Übersicht „Zell am See“: abgabepflichtig 4, befreit **0**, ohne jeden Hinweis
+- **Folge:** An die Gemeinde würde eine zu niedrige Zahl befreiter Nächtigungen gemeldet, ohne dass das erkennbar ist (gilt für Bildschirm und PDF). Der Hinweis „inkl. N Positionen ohne Personennächte“ erscheint nur, wenn die abgabepflichtigen Personennächte unbekannt sind.
+- **Vorschlag:** In der Übersicht auch Positionen ohne bestimmbare befreite Personennächte zählen und ausweisen (z. B. „befreit: inkl. N Buchungen ohne Angabe“), oder die befreite Summe als unvollständig kennzeichnen.
+- **Priority:** Fix before deployment
+
+### Summary
+- **Acceptance Criteria:** 50/51 bestanden; 1 nicht bestanden (BUG-2). Zu BUG-1 ist das Kriterium erfüllt (keine Daten), nur der Statuscode weicht ab.
+- **Bugs Found:** 2 (0 critical, 0 high, 1 medium, 1 low)
+- **Security:** bestanden
+- **Production Ready:** YES (keine Critical oder High). BUG-2 sollte vor dem Deploy behoben werden, weil er die gemeldeten Zahlen betrifft.
+- **Recommendation:** BUG-2 (und nebenbei BUG-1) beheben, dann Nachprüfung und Deploy
 
 ## Deployment
 _To be added by /deploy_
