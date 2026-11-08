@@ -1,6 +1,6 @@
 # PROJ-48: Ort und Staat aus der PLZ
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-11-08
 **Last Updated:** 2026-11-08
 
@@ -196,7 +196,7 @@ Da das Gastformular auch im Buchungsformular und beim Nacherfassen von Rechnunge
 **Ortslisten** (je Land eine Datei, öffentlich abrufbar, ohne Gastdaten):
 - je PLZ die zugehörigen Postorte, alphabetisch
 - AT: ca. 2.200 PLZ, jede mit genau einem Postort (Stand RTR 04.11.2026)
-- DE: ca. 9.800 PLZ, davon ca. 2.000 mit mehreren Orten
+- DE: 8.173 PLZ, davon 1.420 mit mehreren Orten (nach Bereinigung, siehe Umsetzung)
 
 **Rohdaten und Herkunft** (im Repository, mit README zu Quelle, Lizenz, Stand und Pflicht-Quellenangabe):
 - `supabase/data/rtr/`: PLZ-Verzeichnis der RTR (data.rtr.at, CC BY 3.0 AT). Übernommen werden nur gültige PLZ (ohne „gültig bis“) mit Adressierung.
@@ -227,6 +227,15 @@ Neuer Runbook-Abschnitt „PLZ-Ortslisten aktualisieren (PROJ-48)“ in `docs/ru
 
 ### F) Abhängigkeiten (Pakete)
 Keine neuen Pakete.
+
+### Umsetzung Frontend (2026-11-08)
+- **Baustein** `src/components/guests/postal-place-fields.tsx` (PLZ, Ort, Ortsauswahl, Quellenzeile 11 px, Live-Bereich für Screenreader), in `guest-fields.tsx` je einmal für Gast- und Firmenanschrift eingesetzt. Ausgelöst wird nur durch Eingaben im PLZ-Feld. Öffnen, Zurücksetzen oder Übernehmen eines Gastes lösen nichts aus.
+- **Logik** `src/lib/postal-places.ts`: PLZ-Erkennung (Präfixe A/AT/D/DE, Leerzeichen), Listenwahl, Befüllungsregel, Laden der Listen, Bereinigung. Unit-Tests in `postal-places.test.ts`.
+- **Ortslisten** `src/lib/postal-places-data/at.json` (2.234 PLZ) und `de.json` (8.173 PLZ). Erzeugt mit `scripts/build-postal-places.mts` aus `supabase/data/rtr/plz.json` (RTR, Version 61407 vom 04.11.2026) und `supabase/data/geonames/DE.txt` (Stand 08.11.2026). Runbook Abschnitt 16.
+- **Abweichung Auslieferung:** Die Listen kommen nicht als Datei unter `public/`, sondern als eigene Bundle-Teile, die erst bei Bedarf geladen werden (`import()`). Gründe: Die Dateinamen enthalten einen Hash, dadurch dauerhaft zwischenspeicherbar und nach einer Aktualisierung automatisch neu. Sie liegen unter `_next/static`, wo die Sitzungsprüfung (`proxy.ts`) nicht läuft. Größe komprimiert: AT ca. 15 KB, DE ca. 87 KB.
+- **Abweichung Bereinigung DE:** Der Firmenfilter allein reichte nicht, es blieben Behörden, Banken und Versicherungen mit eigener PLZ. Neu entfallen alle GeoNames-Einträge ohne Genauigkeitsangabe (Großkunden- und Postfach-PLZ). Danach bleiben 8.173 PLZ, das entspricht etwa der Zahl der Zustell-PLZ. Dabei gehen vereinzelt kleine Orte verloren (z. B. Marienborn bei 39365); der Ort wird dann von Hand eingetragen.
+- **Messages:** `guests.postalPlaces` (Auswahl, Quellenangabe, Ansagen).
+- **E2E** `tests/PROJ-48-plz-ort-staat.spec.ts` (5 Abläufe, Desktop) grün; Regression PROJ-33 (Desktop, Mobil) grün. Buchungsformular und Rechnungsnacherfassung nutzen dieselbe Komponente und werden in `/qa` geprüft.
 
 ## QA Test Results
 _To be added by /qa_

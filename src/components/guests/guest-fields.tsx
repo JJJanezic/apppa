@@ -7,6 +7,7 @@ import { useFormContext, useWatch } from 'react-hook-form'
 
 import { CountryPicker } from '@/components/guests/country-picker'
 import { DocumentImageField } from '@/components/guests/document-image-field'
+import { PostalPlaceFields } from '@/components/guests/postal-place-fields'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
@@ -189,10 +190,16 @@ export function GuestFields({ documentImages = {} }: GuestFieldsProps) {
       <fieldset className="flex flex-col gap-4 rounded-lg border p-4">
         <legend className="px-1 text-sm font-semibold">{t('address')}</legend>
         {text('street', t('street'), { max: LIMITS.streetMax })}
-        <div className="grid grid-cols-[minmax(0,7rem)_1fr] gap-3">
-          {text('postalCode', t('postalCode'), { max: LIMITS.postalCodeMax })}
-          {text('city', t('city'), { max: LIMITS.cityMax })}
-        </div>
+        <PostalPlaceFields
+          postalName="postalCode"
+          cityName="city"
+          countryName="addressCountry"
+          postalLabel={t('postalCode')}
+          cityLabel={t('city')}
+          postalMax={LIMITS.postalCodeMax}
+          cityMax={LIMITS.cityMax}
+          gridClassName="grid grid-cols-[minmax(0,7rem)_1fr] gap-3"
+        />
         <FormField
           control={control}
           name="addressCountry"
@@ -258,10 +265,16 @@ export function GuestFields({ documentImages = {} }: GuestFieldsProps) {
             <p className="-mt-2 text-[13px] text-ds-neutral-700">{t('billingAddressHint')}</p>
             {text('companyAddressLine1', t('addressLine1'), { max: LIMITS.companyAddressLineMax })}
             {text('companyAddressLine2', t('addressLine2'), { max: LIMITS.companyAddressLineMax })}
-            <div className="grid gap-4 sm:grid-cols-[minmax(0,7rem)_1fr]">
-              {text('companyPostalCode', t('postalCode'), { max: LIMITS.companyPostalCodeMax })}
-              {text('companyCity', t('city'), { max: LIMITS.companyCityMax })}
-            </div>
+            <PostalPlaceFields
+              postalName="companyPostalCode"
+              cityName="companyCity"
+              countryName="companyCountry"
+              postalLabel={t('postalCode')}
+              cityLabel={t('city')}
+              postalMax={LIMITS.companyPostalCodeMax}
+              cityMax={LIMITS.companyCityMax}
+              gridClassName="grid gap-4 sm:grid-cols-[minmax(0,7rem)_1fr]"
+            />
             <FormField
               control={control}
               name="companyCountry"

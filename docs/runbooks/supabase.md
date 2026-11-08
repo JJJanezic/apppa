@@ -250,3 +250,18 @@ Die Gemeinden (Auswahl bei Objekten, später Grundlage der Tourismusabgabe) stam
 - **Zugriff:** Hochladen Inhaber bzw. Betreiber-Admin mit 2FA, nur bei aktiven Kunden; Lesen nur das eingetragene Logo, durch Inhaber und Betreiber-Admin (Mitarbeiter nicht). Löschen und Überschreiben nur mit dem geheimen Schlüssel.
 - **Löschen:** Die Stammdaten-Funktion meldet ein ersetztes oder entferntes Logo (`unused_logo`), der Server löscht es sofort; beim Löschen eines Kunden der ganze Ordner.
 - **Tägliche Bereinigung:** derselbe Zeitplan wie bei den Ausweisbildern (`/api/cron/ausweisbilder`, Abschnitt 14) löscht auch Logos, die älter als 24 Stunden sind und an keinem Kunden hängen (`public.unused_tenant_logos`, nur `service_role`). Antwortfeld `logosRemoved`.
+
+## 16. PLZ-Ortslisten aktualisieren (PROJ-48)
+Ort und Land aus der PLZ im Gastformular kommen aus zwei Ortslisten, die mit der App ausgeliefert werden (`src/lib/postal-places-data/at.json`, `de.json`). Keine Datenbank beteiligt. Halbjährlich bzw. bei Hinweisen auf fehlende PLZ:
+
+1. Rohdaten ersetzen:
+   - AT: `curl -sSL -o supabase/data/rtr/plz.json https://data.rtr.at/api/v1/tables/plz.json` (PLZ-Verzeichnis der RTR, CC BY 3.0 AT)
+   - DE: `DE.zip` von https://download.geonames.org/export/zip/DE.zip laden, `DE.txt` nach `supabase/data/geonames/DE.txt` (CC BY 4.0)
+   - Stand und Version in den beiden `README.md` anpassen.
+2. Ortslisten erzeugen:
+   ```
+   npx tsx scripts/build-postal-places.mts supabase/data/rtr/plz.json supabase/data/geonames/DE.txt src/lib/postal-places-data
+   ```
+   Das Skript bricht bei ungültigen Zeilen oder zu kurzen Listen ab. Deutschland: Einträge ohne Genauigkeitsangabe (Großkunden, Behörden, Postfächer), Firmennamen und Ortsteile neben dem Hauptort entfallen.
+3. `npx vitest run src/lib/postal-places.test.ts`, dann mit dem nächsten Deploy ausliefern. Gespeicherte Gäste bleiben unverändert.
+4. **Quellenangabe** „Daten: RTR, GeoNames“ steht unter dem Feld „Ort“, sobald ein Ort aus der PLZ stammt. Sie darf nicht entfernt werden (Lizenzen).

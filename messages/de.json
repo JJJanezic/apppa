@@ -1017,6 +1017,12 @@
       "titleSuffixHint": "z. B. „LL.M.“, „MSc“, „PhD“",
       "gender": "Geschlecht"
     },
+    "postalPlaces": {
+      "choicesLabel": "Mehrere Orte zu dieser PLZ, bitte wählen:",
+      "source": "Ort aus der PLZ · Daten: RTR, GeoNames",
+      "filled": "Ort aus der PLZ übernommen: {place}",
+      "choices": "{count} Orte zu dieser PLZ gefunden, bitte unter dem Feld Ort einen wählen."
+    },
     "countryPicker": {
       "placeholder": "Land wählen",
       "search": "Land suchen",
