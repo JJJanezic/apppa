@@ -13,7 +13,7 @@ import { DashboardSection, SectionEmpty, SectionProblem } from './section'
 const STICKY = 'sticky left-0 z-10 bg-ds-surface'
 
 // Abschnitt „Ortstaxe“ (PROJ-14, nur Inhaber-Kunden): je Kunde und Gemeinde laufender Monat/Quartal/Jahr, Trennstrich,
-// letzter abgelaufener Monat/Quartal/Jahr. Der Knopf „Meldung vorbereiten“ kommt mit PROJ-16.
+// letzter abgelaufener Monat/Quartal/Jahr. Berichte stehen unter „Ortstaxe“ (PROJ-16), ohne Knopf hier.
 export async function TouristTaxSection({ scope, today }: { scope: DashboardScope; today: string }) {
   const t = await getTranslations('dashboard')
   const data = await getTouristTaxMonths(scope, today)

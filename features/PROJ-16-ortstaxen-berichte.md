@@ -1,6 +1,6 @@
 # PROJ-16: Ortstaxen-Berichte
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-11-08
 **Last Updated:** 2026-11-08
 
@@ -384,6 +384,43 @@ Eine gemeinsame Regeldatei für Seite, PDF und CSV:
 
 ### Abhängigkeiten (Pakete)
 Keine neuen. Genutzt werden das vorhandene `@react-pdf/renderer` (über den PDF-Arbeitsprozess) und die bestehenden shadcn/ui-Bausteine (Card, Table, Select, Button, Alert).
+
+### Umsetzung Frontend (2026-11-08)
+**Gebaut:**
+- `src/lib/tourist-tax-report.ts` (reine Regeln, 38 Unit-Tests in `tourist-tax-report.test.ts`):
+  - Filter aus der Adresse (`?jahr=&von=&bis=&gemeinde=`), Standard und Schnellwahl
+  - Zeitraum offen, Zeitraumart, Dateischlüssel und Dateinamen
+  - Gruppierung, Summen, Hinweise je Zeile
+  - CSV-Aufbau mit BOM, Strichpunkt, Komma, CRLF, Anführungszeichen und Formelschutz
+- `src/lib/tourist-tax-report-data.ts`: Abruf der Datenbankfunktion `tourist_tax_report` (nur Inhaber, gewählter Kunde; ohne Funktion „ready: false“ mit Hinweis) und `hasTouristTaxRates` für den Tarif-Hinweis.
+- Seite `src/app/(app)/ortstaxe/page.tsx`:
+  - Kopf mit Kundenname und Export-Knöpfen
+  - Filter, Hinweis „Zeitraum noch nicht abgeschlossen“
+  - Übersicht und Buchungsliste
+  - leerer Zustand (mit Tarif-Hinweis, wenn keine Tarife), Fehler- und „wird eingerichtet“-Hinweis
+- `src/components/tourist-tax/`:
+  - `report-filters.tsx`: Schnellwahl als Links, Jahr/Von/Bis/Gemeinde als Auswahl. „Bis“-Monate vor „Von“ sind gesperrt; liegt „Von“ nach „Bis“, zieht „Bis“ mit.
+  - `report-tables.tsx`: Übersicht und Buchungsliste. Am Handy kurze Spaltenköpfe in der Übersicht. Die Buchungsliste hat einen eigenen Scrollbereich mit Tastaturfokus und stehender Spalte „Nr.“.
+  - `export-buttons.tsx`: lädt `/api/ortstaxe/pdf|csv` im Hintergrund. Der Dateiname kommt aus `Content-Disposition`, sonst aus der Seite. Fehlermeldung auf der Seite.
+- Menüpunkt „Ortstaxe“ freigeschaltet (`navigation.ts`, Unit-Test und E2E PROJ-2 angepasst). Kommentar im Dashboard-Abschnitt ohne Knopf. Texte unter `touristTaxReport` in `messages/de.json` (Du-Form wie in der übrigen App).
+
+**Abweichung:** Mitarbeiter, die `/ortstaxe` direkt aufrufen, sehen „Seite nicht gefunden“ (404) statt eines Hinweises „Kein Zugriff“. So handhabt die App alle Inhaber-Bereiche (`requireArea`), und Daten gibt es so oder so keine.
+
+**Vertrag für /backend:**
+- `tourist_tax_report(p_tenant_id uuid, p_from date, p_to date)` liefert je Buchung und Gemeinde:
+  - Buchung und Gast: `booking_id`, `booking_number`, `guest_last_name`, `guest_first_name`, `guest_anonymized`
+  - Wohnung und Gemeinde: `property_name`, `apartment_name`, `municipality_id`, `municipality_name`
+  - Aufenthalt: `arrival`, `departure` (tatsächlich), `persons`
+  - Zahlen: `amount_cents`, `taxable_person_nights` (null bei unbekannten Positionen), `known_taxable_person_nights`, `exempt_person_nights` (null, wenn nicht bestimmbar, sonst ≥ 0), `unknown_positions`
+  - Kennzeichen: `partial`, `legacy`, `percent`
+  - Nur für Inhaber, sonst leer.
+- Download-Adressen `GET /api/ortstaxe/pdf` und `/api/ortstaxe/csv`:
+  - gleiche Abfrageparameter wie die Seite, Filter mit `parseTaxReportFilters`
+  - Antwort mit `Content-Disposition` (`filename*=UTF-8''…`, Name aus `taxReportFileName`)
+  - Fehler mit Status ≠ 200
+  - CSV aus `buildTaxReportCsv` mit `touristTaxReport.csv.columns`
+
+**Sichtprüfung:** mit temporären Musterdaten (danach entfernt) bei 1440 px und 375 px. Die Seite scrollt nicht seitlich, die Browser-Konsole ist ohne Fehler, axe meldet keine Verstöße. Build, Lint und alle 829 Unit-Tests sind grün.
 
 ## QA Test Results
 _To be added by /qa_

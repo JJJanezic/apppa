@@ -2942,5 +2942,98 @@
       "notImplemented": "Diese Funktion wird gerade eingerichtet.",
       "unknown": "Etwas ist schiefgelaufen. Bitte versuche es erneut."
     }
+  },
+  "touristTaxReport": {
+    "title": "Ortstaxe",
+    "lead": "Ortstaxe je Gemeinde mit Personennächten und den eingerechneten Buchungen – für die Meldung an die Gemeinde.",
+    "notReady": "Die Ortstaxen-Berichte werden gerade eingerichtet. Der Bericht erscheint, sobald sie fertig sind.",
+    "failed": "Der Bericht konnte nicht geladen werden. Bitte lade die Seite neu.",
+    "periodOpen": "Zeitraum noch nicht abgeschlossen – Werte können sich noch ändern.",
+    "monthName": "{month, select, 1 {Jänner} 2 {Februar} 3 {März} 4 {April} 5 {Mai} 6 {Juni} 7 {Juli} 8 {August} 9 {September} 10 {Oktober} 11 {November} 12 {Dezember} other {}}",
+    "period": {
+      "month": "{month, select, 1 {Jänner} 2 {Februar} 3 {März} 4 {April} 5 {Mai} 6 {Juni} 7 {Juli} 8 {August} 9 {September} 10 {Oktober} 11 {November} 12 {Dezember} other {}} {year}",
+      "year": "{year}",
+      "range": "{from, select, 1 {Jänner} 2 {Februar} 3 {März} 4 {April} 5 {Mai} 6 {Juni} 7 {Juli} 8 {August} 9 {September} 10 {Oktober} 11 {November} 12 {Dezember} other {}} – {to, select, 1 {Jänner} 2 {Februar} 3 {März} 4 {April} 5 {Mai} 6 {Juni} 7 {Juli} 8 {August} 9 {September} 10 {Oktober} 11 {November} 12 {Dezember} other {}} {year}"
+    },
+    "filters": {
+      "label": "Zeitraum und Gemeinde",
+      "year": "Jahr",
+      "from": "Von Monat",
+      "to": "Bis Monat",
+      "quick": "Schnellwahl",
+      "lastMonth": "Letzter Monat",
+      "lastQuarter": "Letztes Quartal",
+      "lastYear": "Letztes Jahr",
+      "municipality": "Gemeinde",
+      "allMunicipalities": "Alle Gemeinden"
+    },
+    "summary": {
+      "title": "Übersicht",
+      "municipality": "Gemeinde",
+      "taxable": "Abgabepflichtige Personennächte",
+      "taxableShort": "Abgabepfl. PN",
+      "exempt": "Befreite Personennächte",
+      "exemptShort": "Befreite PN",
+      "amount": "Betrag",
+      "total": "Gesamt",
+      "unknown": "inkl. {count, plural, one {# Position} other {# Positionen}} ohne Personennächte",
+      "tableLabel": "Übersicht je Gemeinde"
+    },
+    "bookings": {
+      "title": "Buchungen",
+      "tableLabel": "Eingerechnete Buchungen je Gemeinde",
+      "count": "{count, plural, one {# Buchung} other {# Buchungen}}",
+      "col": {
+        "number": "Nr.",
+        "guest": "Hauptgast",
+        "apartment": "Wohnung",
+        "stay": "Aufenthalt",
+        "persons": "Personen",
+        "taxable": "Abgabepflichtige PN",
+        "exempt": "Befreite PN",
+        "amount": "Betrag",
+        "note": "Hinweis"
+      },
+      "taxableLong": "Abgabepflichtige Personennächte",
+      "exemptLong": "Befreite Personennächte",
+      "noGuest": "Ohne Hauptgast",
+      "anonymized": "Anonymisiert",
+      "noNumber": "Buchung",
+      "notes": {
+        "partial": "anteilig",
+        "legacy": "Alt-Position",
+        "percent": "Prozent-Tarif"
+      }
+    },
+    "empty": {
+      "title": "Im gewählten Zeitraum keine Ortstaxe erfasst.",
+      "noRates": "Tarife hinterlegst du je Wohnung unter Einstellungen → Wohnungen.",
+      "toApartments": "Zu den Wohnungen"
+    },
+    "export": {
+      "label": "Exportieren",
+      "pdf": "PDF",
+      "csv": "CSV",
+      "pdfLabel": "Bericht als PDF herunterladen",
+      "csvLabel": "Bericht als CSV-Datei für Excel herunterladen",
+      "busy": "Wird erstellt …",
+      "failed": "Export konnte nicht erstellt werden. Bitte erneut versuchen.",
+      "disabled": "Kein Export ohne Ortstaxe im Zeitraum"
+    },
+    "csv": {
+      "columns": [
+        "Gemeinde",
+        "Nr.",
+        "Hauptgast",
+        "Wohnung",
+        "Anreise",
+        "Abreise",
+        "Personen",
+        "Abgabepflichtige Personennächte",
+        "Befreite Personennächte",
+        "Betrag",
+        "Hinweis"
+      ]
+    }
   }
 }

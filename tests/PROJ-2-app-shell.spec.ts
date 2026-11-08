@@ -135,13 +135,13 @@ test.describe('Sichtbarkeit der Navigation', () => {
   test('nicht fertige Bereiche fehlen in der Navigation', async ({ page }) => {
     await page.goto('/')
     if (!isDesktop(page)) await page.getByRole('button', { name: 'Mehr' }).click()
-    // „Einstellungen“ ist seit PROJ-4 für Inhaber sichtbar, „Belegung“ seit PROJ-9, „Zahlungen“ seit PROJ-45
-    for (const name of ['Auswertungen', 'Ortstaxe', 'Kanäle & Kalender']) {
+    // „Einstellungen“ ist seit PROJ-4 für Inhaber sichtbar, „Belegung“ seit PROJ-9, „Zahlungen“ seit PROJ-45, „Ortstaxe“ seit PROJ-16
+    for (const name of ['Auswertungen', 'Kanäle & Kalender']) {
       await expect(page.getByRole('link', { name })).toHaveCount(0)
     }
   })
 
-  for (const path of ['/auswertungen', '/ortstaxe']) {
+  for (const path of ['/auswertungen']) {
     test(`direkter Aufruf von ${path} zeigt „Seite nicht gefunden“`, async ({ page }) => {
       const res = await page.goto(path)
       expect(res?.status()).toBe(404)
@@ -169,8 +169,8 @@ test.describe('Barrierefreiheit', () => {
     await page.goto('/')
     const expected = isDesktop(page) ? ['Dashboard', 'Benutzermenü'] : ['Dashboard', 'Mehr']
     const reached: string[] = []
-    // Seit PROJ-45 ein Menüpunkt mehr („Zahlungen“) vor dem Benutzermenü
-    for (let i = 0; i < 9; i++) {
+    // Seit PROJ-45 („Zahlungen“) und PROJ-16 („Ortstaxe“) je ein Menüpunkt mehr vor dem Benutzermenü
+    for (let i = 0; i < 10; i++) {
       await page.keyboard.press('Tab')
       const info = await page.evaluate(() => {
         const el = document.activeElement as HTMLElement | null
