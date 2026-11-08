@@ -1128,7 +1128,7 @@
       "dateInvalid": "Bitte ein gültiges Datum eingeben.",
       "issuedOnFuture": "Das Ausstellungsdatum darf nicht in der Zukunft liegen.",
       "documentTypeRequired": "Bitte die Art des Dokuments wählen.",
-      "documentNumberRequired": "Bitte die Nummer des Dokuments eingeben.",
+      "documentNumberRequired": "Bitte die Dokument-ID eingeben.",
       "documentUploading": "Bitte warte, bis das Bild hochgeladen ist."
     },
     "gender": {
@@ -1149,7 +1149,7 @@
       "hint": "Reisepass, Personalausweis oder Führerschein, mit Bildern.",
       "type": "Art des Dokuments",
       "typeNone": "Kein Dokument",
-      "number": "Nummer des Dokuments",
+      "number": "Dokument-ID",
       "issuedOn": "Ausstellungsdatum",
       "authority": "Behörde",
       "authorityHint": "z. B. „BH Graz-Umgebung“",

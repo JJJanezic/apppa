@@ -1,6 +1,6 @@
 # PROJ-29: Gast-Erweiterung: Titel, Geschlecht, Reisedokument
 
-## Status: Deployed
+## Status: In Progress
 **Created:** 2026-10-26
 **Last Updated:** 2026-11-08
 
@@ -378,6 +378,11 @@ Gleiche Lösung wie in der Betreiber-Kundenliste: Die unsichtbare Klickfläche �
 - `save_booking` (neuer Gast mit neuen Spalten), `merge_guests` (Wahl `titles`, `gender`, `document`), `anonymize_guest` (neue Felder leeren, Geschlecht zurücksetzen), `guest_list` (Titel zurückgeben).
 - Kunde löschen: Ordner des Kunden im Speicher entfernen; tägliche Bereinigung (Vercel Cron, `CRON_SECRET`).
 - Integrationstests laut Tech Design J.
+
+### Refine 2026-11-08: Beschriftung Dokument-ID
+- `messages/de.json`: `guests.document.number` → „Dokument-ID“, `documentNumberRequired` → „Bitte die Dokument-ID eingeben.“ Das Gastformular (`guest-fields.tsx`) ist für Gästeseite, Buchungsformular und Rechnungsnacherfassung dasselbe, daher keine Codeänderung.
+- E2E `tests/PROJ-29-…spec.ts`: Feldsuche und Fehlermeldung auf den neuen Text umgestellt.
+- Kein Backend, keine Datenbankänderung.
 
 ## Implementation Notes (Backend)
 **Stand 2026-10-26.** Migration `supabase/migrations/20261026181450_guest_titles_gender_documents.sql`, eingespielt in Dev („apppa-dev“).
