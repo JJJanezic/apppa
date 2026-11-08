@@ -1,6 +1,6 @@
 # PROJ-16: Ortstaxen-Berichte
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-11-08
 **Last Updated:** 2026-11-08
 
@@ -613,3 +613,17 @@ Die Messdaten wurden wieder gelöscht.
 - **Security:** bestanden
 - **Production Ready:** YES
 - **Recommendation:** Deploy
+
+## Deployment
+- **Datum:** 2026-11-08
+- **Commit:** `16b20d1` (main → staging → production)
+- **Tag:** `v1.36.0-PROJ-16`
+- **Staging:** https://staging.apppa.at (2026-11-08), vom Nutzer geprüft
+- **Production:** https://app.apppa.at (2026-11-08), vom Nutzer geprüft
+- **Migrationen** (Staging und Production, Advisors nur mit dem bekannten Hinweis `auth_otp_long_expiry`):
+  - `20261108071036_tourist_tax_report`
+  - `20261108072054_tourist_tax_parts_materialized`
+  - `20261108073000_tourist_tax_report_order`
+- **Kein** `config push`, keine neuen Umgebungsvariablen.
+- **Nebenwirkung:** Der Dashboard-Abschnitt „Ortstaxe“ (PROJ-14) nutzt jetzt den gemeinsamen Rechenkern und ist deutlich schneller. Die Zahlen sind unverändert.
+- **Hinweis aus der Abnahme:** In der Spalte „Befreite PN“ heißt „–“ „nicht bestimmbar“ (Alt-Position), nicht „keine“. Bei automatisch berechneter Ortstaxe steht der Zahlenwert, auch „0“. Der Nutzer hat das so bestätigt.

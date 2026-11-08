@@ -31,7 +31,7 @@ Die App wird als Mehrmandanten-SaaS betrieben: Jeder Kunde (Vermieter) hat ein e
 | P0 (Pilot) | Channex-Anbindung: Buchungsimport von booking.com/Airbnb und Verfügbarkeitssperren | Roadmap |
 | P0 (Pilot) | Zahlungserfassung je Rechnung mit Provisionsabzug booking.com/Airbnb (PROJ-45), Zahlungen aus Channex (PROJ-13), Dashboard über alle Kunden der Person (PROJ-14) | Deployed (PROJ-45, PROJ-14); Roadmap (PROJ-13) |
 | P0 (Pilot) | Ortstaxe je Wohnung: Tarife mit Stichtag, Altersbefreiung, persönliche Befreiung, automatische Position in der Buchung | Deployed (PROJ-15) |
-| P0 (Pilot) | Ortstaxen-Berichte (Monat, Quartal, Jahr) mit Bildschirmanzeige und Export (PDF, CSV) | Planned (PROJ-16) |
+| P0 (Pilot) | Ortstaxen-Berichte (Monat, Quartal, Jahr) mit Bildschirmanzeige und Export (PDF, CSV) | Deployed (PROJ-16) |
 | P0 (Pilot) | Gast-Erweiterung: Titel, Geschlecht, Reisedokument | Deployed (PROJ-29) |
 | P0 (Pilot) | Buchungs-Erweiterung: Meldedaten, Buchungsquelle, Monatsauswahl; Preisregel bei Verlängerung wählbar | Deployed (PROJ-30) |
 | P0 (Pilot) | Einheitliche Datums- und Betragsformate | Deployed (PROJ-31) |
