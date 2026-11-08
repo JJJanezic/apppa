@@ -217,7 +217,7 @@ const DETAIL_COLUMNS =
   'id, number, invoice_date, origin, kind, recipient, small_business, total_cents, pdf_path, updated_at, ' +
   'issued_at, issued_without_logo, issued_snapshot, issued_profile:profiles!invoices_issued_by_fkey(display_name), ' +
   'lines:invoice_lines(position, label, amount_cents, vat_rate), ' +
-  'guest:guests(id, last_name, first_name, title_prefix, title_suffix, country, company_name, anonymized_at), ' +
+  'guest:guests(id, last_name, first_name, title_prefix, title_suffix, country, anonymized_at, company:companies!guests_company_fkey(name)), ' +
   'booking:bookings(id, kind, number, arrival, departure, cancelled_at, guest:guests(last_name, first_name), apartment:apartments!inner(name, property:properties!inner(name)))'
 
 type DetailDbRow = {
@@ -243,7 +243,7 @@ type DetailDbRow = {
     title_prefix: string | null
     title_suffix: string | null
     country: string
-    company_name: string | null
+    company: { name: string } | null
     anonymized_at: string | null
   } | null
   booking: {
@@ -307,7 +307,7 @@ export const getInvoice = cache(async (id: string): Promise<Invoice> => {
       titlePrefix: r.guest.title_prefix,
       titleSuffix: r.guest.title_suffix,
       country: r.guest.country,
-      companyName: r.guest.company_name,
+      companyName: r.guest.company?.name ?? null,
       anonymized: r.guest.anonymized_at !== null,
     },
     booking: b && {

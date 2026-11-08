@@ -1,6 +1,8 @@
 // Gäste-Datenbank (PROJ-7): Typen und reine Regeln für Browser und Server.
 // Lesefunktionen: src/lib/guests-data.ts (nur Server), Aktionen: src/app/(app)/gaeste/actions.ts.
 
+import type { CompanySummary } from '@/lib/companies'
+
 export type GuestErrorCode =
   | 'notFound'
   | 'staleGuest'
@@ -8,6 +10,8 @@ export type GuestErrorCode =
   | 'mergeInvalid'
   | 'ownerOnly'
   | 'documentImageMissing'
+  // PROJ-50: gewählte Firma gibt es nicht mehr (gelöscht oder zusammengeführt)
+  | 'companyMissing'
 
 export const GUEST_PAGE_SIZE = 50
 
@@ -19,12 +23,7 @@ export const LIMITS = {
   postalCodeMax: 20,
   cityMax: 100,
   marketingCustomMax: 100,
-  companyNameMax: 200,
-  vatIdMax: 30,
-  // Firmenanschrift (PROJ-33), wie Kundenstammdaten (PROJ-28)
-  companyAddressLineMax: 200,
-  companyPostalCodeMax: 10,
-  companyCityMax: 100,
+  // Firmenfelder: COMPANY_LIMITS in src/lib/companies.ts (PROJ-50)
   noteMax: 2000,
   // PROJ-29
   titleMax: 50,
@@ -118,14 +117,8 @@ export type Guest = {
   addressCountry: string | null
   marketingSource: MarketingSource | null
   marketingCustom: string | null
-  companyName: string | null
-  companyVatId: string | null
-  // Rechnungsadresse der Firma (PROJ-33)
-  companyAddressLine1: string | null
-  companyAddressLine2: string | null
-  companyPostalCode: string | null
-  companyCity: string | null
-  companyCountry: string | null
+  // Verknüpfte Firma (PROJ-50); null = keine Firma
+  company: CompanySummary | null
   note: string | null
   // PROJ-29
   titlePrefix: string | null
@@ -152,6 +145,8 @@ export type GuestRow = {
   firstName: string | null
   titlePrefix: string | null
   titleSuffix: string | null
+  // Verknüpfte Firma (PROJ-50)
+  companyId: string | null
   companyName: string | null
   country: string
   stayCount: number
@@ -280,32 +275,14 @@ export const privateAddressLines = (g: Guest, locale = 'de') =>
   addressLines({ lines: [g.street], postalCode: g.postalCode, city: g.city, country: g.addressCountry }, locale)
 
 export const companyAddressLines = (g: Guest, locale = 'de') =>
-  addressLines(
-    { lines: [g.companyAddressLine1, g.companyAddressLine2], postalCode: g.companyPostalCode, city: g.companyCity, country: g.companyCountry },
-    locale
-  )
+  g.company
+    ? addressLines(
+        { lines: [g.company.addressLine1, g.company.addressLine2], postalCode: g.company.postalCode, city: g.company.city, country: g.company.country },
+        locale
+      )
+    : []
 
-export const hasCompany = (g: Guest) => Boolean(g.companyName || g.companyVatId || companyAddressLines(g).length)
-
-// Firmenvorschläge im Gastformular (PROJ-49): eine Fassung der Firma eines anderen Gastes desselben Kunden
-export interface CompanySuggestion {
-  name: string
-  vatId: string | null
-  addressLine1: string | null
-  addressLine2: string | null
-  postalCode: string | null
-  city: string | null
-  country: string | null
-}
-
-export const COMPANY_SUGGESTION_MIN_CHARS = 2
-export const COMPANY_SUGGESTION_LIMIT = 8
-
-// Zweite Zeile eines Vorschlags: UID · „PLZ Ort“ · Adresszeile 1; leere Teile entfallen
-export function companySuggestionDetail(s: CompanySuggestion): string {
-  const place = [s.postalCode, s.city].filter(Boolean).join(' ')
-  return [s.vatId, place, s.addressLine1].filter(Boolean).join(' · ')
-}
+export const hasCompany = (g: Guest) => g.company !== null
 
 export function languageName(code: string, locale = 'de'): string {
   try {
@@ -376,16 +353,9 @@ export function mergeFieldValues(g: Guest, field: MergeField): Partial<Guest> {
       return { street: g.street, postalCode: g.postalCode, city: g.city, addressCountry: g.addressCountry }
     case 'marketing':
       return { marketingSource: g.marketingSource, marketingCustom: g.marketingCustom }
+    // PROJ-50: gewählt wird die Verknüpfung, nicht einzelne Firmenfelder
     case 'company':
-      return {
-        companyName: g.companyName,
-        companyVatId: g.companyVatId,
-        companyAddressLine1: g.companyAddressLine1,
-        companyAddressLine2: g.companyAddressLine2,
-        companyPostalCode: g.companyPostalCode,
-        companyCity: g.companyCity,
-        companyCountry: g.companyCountry,
-      }
+      return { company: g.company }
     case 'note':
       return { note: g.note }
     case 'document':

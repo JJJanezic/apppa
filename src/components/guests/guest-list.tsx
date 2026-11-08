@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Pagination, PaginationContent, PaginationItem } from '@/components/ui/pagination'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { formatDate, formatNumber } from '@/lib/format'
+import { companyHref } from '@/lib/companies'
 import { countryName, guestHref, guestListHref, type GuestPage, type GuestRow, guestSortName } from '@/lib/guests'
 
 // Gästeliste (PROJ-7): ab 768 px Tabelle (der Name ist der Link), darunter Karten
@@ -46,7 +47,12 @@ export function GuestList({ page }: { page: GuestPage }) {
                   </Link>
                   {anonymizedBadge(row)}
                 </span>
-                {row.companyName && <span className="block break-words text-[13px] text-ds-neutral-800">{row.companyName}</span>}
+                {/* Firmenname führt zum Firmendetail (PROJ-50) */}
+                {row.companyName && row.companyId && (
+                  <Link href={companyHref(row.companyId)} className="block w-fit break-words text-[13px] text-ds-neutral-800 underline-offset-[3px] hover:text-ds-accent-700 hover:underline">
+                    {row.companyName}
+                  </Link>
+                )}
               </TableCell>
               <TableCell>{countryName(row.country, locale)}</TableCell>
               <TableCell className="text-right tabular-nums">{formatNumber(row.stayCount)}</TableCell>

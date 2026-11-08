@@ -998,18 +998,6 @@
       "marketingHint": "Wie kam der Gast erstmals zu uns?",
       "marketingCustom": "Eigene Angabe",
       "marketingCustomHint": "z. B. „Messe Graz 2026“",
-      "company": "Firma",
-      "companyHint": "Für Dienstwohnungen, wenn eine Firma bucht.",
-      "companyName": "Firmenname",
-      "companySuggestions": "Firmen anderer Gäste",
-      "companySuggestionsFound": "{count, plural, one {# Firma} other {# Firmen}} gefunden, mit Pfeiltasten wählen.",
-      "companySuggestionApplied": "Firmenangaben von „{name}“ übernommen.",
-      "vatId": "UID-Nummer",
-      "billingAddress": "Rechnungsadresse",
-      "billingAddressHint": "Nur angeben, wenn sie von der Adresse oben abweicht.",
-      "addressLine1": "Adresszeile 1",
-      "addressLine2": "Adresszeile 2",
-      "companyCountry": "Staat",
       "note": "Notiz",
       "noteHint": "Nur intern sichtbar.",
       "save": "Speichern",
@@ -1123,7 +1111,8 @@
       "sessionExpired": "Deine Sitzung ist abgelaufen. Bitte melde dich erneut an.",
       "notImplemented": "Diese Funktion wird gerade eingerichtet.",
       "unknown": "Etwas ist schiefgelaufen. Bitte versuche es erneut.",
-      "documentImageMissing": "Ein Ausweisbild ist nicht mehr verfügbar. Bitte lade es erneut hoch und speichere noch einmal."
+      "documentImageMissing": "Ein Ausweisbild ist nicht mehr verfügbar. Bitte lade es erneut hoch und speichere noch einmal.",
+      "companyMissing": "Die gewählte Firma gibt es nicht mehr. Bitte eine andere Firma wählen."
     },
     "validation": {
       "lastNameRequired": "Bitte den Nachnamen eingeben.",
@@ -1138,7 +1127,10 @@
       "issuedOnFuture": "Das Ausstellungsdatum darf nicht in der Zukunft liegen.",
       "documentTypeRequired": "Bitte die Art des Dokuments wählen.",
       "documentNumberRequired": "Bitte die Dokument-ID eingeben.",
-      "documentUploading": "Bitte warte, bis das Bild hochgeladen ist."
+      "documentUploading": "Bitte warte, bis das Bild hochgeladen ist.",
+      "companyNameRequired": "Bitte den Firmennamen eingeben.",
+      "companyPick": "Bitte eine Firma suchen und wählen oder „Keine Firma“ nehmen.",
+      "websiteInvalid": "Bitte eine gültige Webadresse eingeben, z. B. www.firma.at."
     },
     "gender": {
       "male": "männlich",
@@ -1186,6 +1178,176 @@
         "imageFailed": "Das Bild konnte nicht verarbeitet werden. Bitte versuche es mit einem anderen Foto.",
         "uploadFailed": "Das Bild konnte nicht hochgeladen werden. Bitte prüfe deine Internetverbindung und versuche es erneut."
       }
+    }
+  },
+  "companies": {
+    "title": "Firmen",
+    "lead": "Firmen, die für deine Gäste buchen oder zahlen. Änderungen gelten für alle verknüpften Gäste.",
+    "back": "Zurück zu den Firmen",
+    "create": "Firma anlegen",
+    "tabs": {
+      "label": "Gäste und Firmen",
+      "guests": "Gäste",
+      "companies": "Firmen"
+    },
+    "fields": {
+      "name": "Firmenname",
+      "vatId": "UID-Nummer",
+      "billingAddress": "Rechnungsadresse",
+      "addressLine1": "Adresszeile 1",
+      "addressLine2": "Adresszeile 2",
+      "postalCode": "PLZ",
+      "city": "Ort",
+      "country": "Staat",
+      "email": "E-Mail",
+      "website": "Webadresse",
+      "websiteHint": "z. B. www.firma.at",
+      "contact": "Ansprechpartner",
+      "contactHint": "Freier Text, z. B. Name, Abteilung oder Telefon"
+    },
+    "section": {
+      "title": "Firma",
+      "hint": "Für Dienstwohnungen, wenn eine Firma bucht.",
+      "mode": {
+        "none": "Keine Firma",
+        "existing": "Bestehende Firma",
+        "new": "Neue Firma"
+      },
+      "pickLabel": "Firma suchen (Name oder UID)",
+      "keepCurrent": "Bei „{name}“ bleiben",
+      "sameName": "{count, plural, one {Diese Firma gibt es bereits.} other {Firmen mit diesem Namen gibt es bereits (#).}}",
+      "useExisting": "Bestehende Firma verwenden"
+    },
+    "picker": {
+      "placeholder": "Name oder UID …",
+      "minChars": "Mindestens 2 Zeichen eingeben.",
+      "loading": "Suche läuft …",
+      "none": "Keine Firma gefunden.",
+      "failed": "Die Suche ist gerade nicht möglich. Bitte später erneut versuchen oder „Neue Firma“ wählen."
+    },
+    "card": {
+      "change": "Ändern",
+      "readOnlyHint": "Änderungen an der Firma im Reiter „Firmen“",
+      "nameMissing": "Name fehlt"
+    },
+    "list": {
+      "searchLabel": "Firmen durchsuchen",
+      "searchPlaceholder": "Name oder UID …",
+      "count": "{count, plural, =0 {Keine Firmen} one {# Firma} other {# Firmen}}",
+      "duplicatesLink": "{count, plural, one {# mögliche doppelte Firma} other {# mögliche doppelte Firmen}}",
+      "colName": "Firmenname",
+      "colVatId": "UID",
+      "colPlace": "PLZ Ort",
+      "colCountry": "Staat",
+      "colGuests": "Gäste",
+      "guestsShort": "{count, plural, =0 {keine Gäste} one {# Gast} other {# Gäste}}",
+      "nameMissing": "Name fehlt",
+      "emptyTitle": "Noch keine Firmen",
+      "emptyTextOwner": "Firmen entstehen beim Anlegen von Gästen mit „Neue Firma“ oder hier mit „Firma anlegen“.",
+      "emptyTextStaff": "Firmen entstehen beim Anlegen eines neuen Gastes in einer Buchung.",
+      "noResultsTitle": "Keine Firmen gefunden",
+      "noResultsText": "Bitte einen anderen Suchbegriff versuchen.",
+      "clearSearch": "Suche zurücksetzen",
+      "pagination": "Seiten der Firmenliste",
+      "previous": "Zurück",
+      "next": "Weiter",
+      "pageOf": "Seite {page} von {pageCount}"
+    },
+    "detail": {
+      "data": "Angaben",
+      "vatId": "UID-Nummer",
+      "billingAddress": "Rechnungsadresse",
+      "email": "E-Mail",
+      "website": "Webadresse",
+      "contact": "Ansprechpartner",
+      "missing": "Keine Angabe",
+      "guests": "{count, plural, =0 {Gäste} one {Gast (#)} other {Gäste (#)}}",
+      "guestsEmpty": "Mit dieser Firma ist kein Gast verknüpft.",
+      "bookings": "Buchungen",
+      "bookingsEmpty": "Keine Buchungen.",
+      "invoices": "Rechnungen",
+      "invoicesHint": "Rechnungen und Gutschriften mit Empfänger „Firma“ zu Buchungen der verknüpften Gäste.",
+      "invoicesEmpty": "Keine Rechnungen an diese Firma.",
+      "limited": "Es werden die neuesten {count} Einträge gezeigt.",
+      "edit": "Bearbeiten",
+      "merge": "Mit anderer Firma zusammenführen",
+      "delete": "Firma löschen"
+    },
+    "panel": {
+      "createTitle": "Firma anlegen",
+      "editTitle": "Firma bearbeiten",
+      "createDescription": "Die Firma steht danach im Gastformular unter „Bestehende Firma“ zur Auswahl.",
+      "editDescription": "{count, plural, =0 {Mit dieser Firma ist noch kein Gast verknüpft.} one {Die Änderung gilt für den verknüpften Gast. Ausgestellte Rechnungen bleiben unverändert.} other {Die Änderung gilt für alle # verknüpften Gäste. Ausgestellte Rechnungen bleiben unverändert.}}",
+      "save": "Speichern",
+      "createSubmit": "Firma anlegen"
+    },
+    "stale": {
+      "text": "Diese Firma wurde inzwischen geändert. Bitte die aktuelle Fassung laden und die Änderung erneut eintragen.",
+      "reload": "Aktuelle Fassung laden"
+    },
+    "delete": {
+      "title": "„{name}“ löschen?",
+      "text": "Die Firma wird endgültig gelöscht. Rechnungen bleiben unverändert.",
+      "textGuests": "{count, plural, one {# Gast ist} other {# Gäste sind}} mit dieser Firma verknüpft und {count, plural, one {hat} other {haben}} danach keine Firma mehr. Die Firma wird endgültig gelöscht, Rechnungen bleiben unverändert.",
+      "confirm": "Firma löschen",
+      "cancel": "Abbrechen"
+    },
+    "merge": {
+      "title": "Firmen zusammenführen",
+      "description": "Wähle je Angabe, welcher Wert bleibt. Die Gäste beider Firmen hängen danach an Firma A, Firma B wird gelöscht.",
+      "pickLabel": "Zweite Firma suchen",
+      "loading": "Firma wird geladen …",
+      "companyA": "Firma A (bleibt)",
+      "companyB": "Firma B (wird gelöscht)",
+      "guests": "{count, plural, =0 {keine Gäste} one {# Gast} other {# Gäste}}",
+      "field": {
+        "name": "Firmenname",
+        "vatId": "UID-Nummer",
+        "address": "Rechnungsadresse",
+        "email": "E-Mail",
+        "website": "Webadresse",
+        "contact": "Ansprechpartner"
+      },
+      "addressHint": "Die Rechnungsadresse wird als Ganzes übernommen.",
+      "same": "bei beiden gleich",
+      "empty": "–",
+      "irreversible": "Das Zusammenführen lässt sich nicht rückgängig machen.",
+      "change": "Andere Firma wählen",
+      "cancel": "Abbrechen",
+      "submit": "Zusammenführen",
+      "confirmTitle": "Firmen endgültig zusammenführen?",
+      "confirmText": "„{removed}“ wird gelöscht, {count, plural, =0 {sie hat keine Gäste} one {ihr Gast geht} other {ihre # Gäste gehen}} auf „{kept}“ über. Das lässt sich nicht rückgängig machen.",
+      "done": "Firmen zusammengeführt."
+    },
+    "duplicates": {
+      "title": "Mögliche doppelte Firmen",
+      "lead": "Firmen mit gleichem Namen oder gleicher UID. Führe sie zusammen oder blende den Vorschlag aus.",
+      "reasons": "Gleich: {reasons}",
+      "reason": {
+        "name": "Firmenname",
+        "vatId": "UID-Nummer"
+      },
+      "merge": "Zusammenführen",
+      "dismiss": "Keine doppelte Firma",
+      "emptyTitle": "Keine möglichen doppelten Firmen",
+      "emptyText": "Derzeit gibt es keine Vorschläge."
+    },
+    "done": {
+      "created": "Firma „{name}“ angelegt.",
+      "saved": "Firma gespeichert.",
+      "deleted": "Firma gelöscht.",
+      "dismissed": "Vorschlag ausgeblendet."
+    },
+    "errors": {
+      "notFound": "Diese Firma gibt es nicht mehr.",
+      "staleCompany": "Diese Firma wurde inzwischen geändert.",
+      "mergeInvalid": "Diese Firmen lassen sich nicht zusammenführen.",
+      "ownerOnly": "Nur Inhaber dürfen Firmen ändern.",
+      "companyMissing": "Diese Firma gibt es nicht mehr.",
+      "network": "Keine Verbindung. Bitte prüfe deine Internetverbindung und versuche es erneut.",
+      "sessionExpired": "Deine Sitzung ist abgelaufen. Bitte melde dich erneut an.",
+      "notImplemented": "Diese Funktion wird gerade eingerichtet.",
+      "unknown": "Etwas ist schiefgelaufen. Bitte versuche es erneut."
     }
   },
   "bookings": {
@@ -1522,7 +1684,8 @@
       "documentImageMissing": "Ein Ausweisbild ist nicht mehr verfügbar. Bitte lade es erneut hoch und speichere noch einmal.",
       "guestSheetDuplicate": "Die Gästeblattnummer ist bereits vergeben. Bitte prüfen und „Trotzdem speichern“ bestätigen.",
       "billedTooHigh": "Der hochgerechnete Übernachtungspreis übersteigt den Höchstbetrag von € 1.000.000,00. Bitte den vereinbarten Preis oder die Abreise prüfen.",
-      "tooManyCharges": "Mit der Ortstaxe hätte diese Buchung mehr als 20 Zusatzkosten-Positionen. Ein Inhaber muss zuerst Positionen entfernen."
+      "tooManyCharges": "Mit der Ortstaxe hätte diese Buchung mehr als 20 Zusatzkosten-Positionen. Ein Inhaber muss zuerst Positionen entfernen.",
+      "companyMissing": "Die gewählte Firma des neuen Gastes gibt es nicht mehr. Bitte eine andere Firma wählen."
     },
     "validation": {
       "apartmentRequired": "Bitte eine Wohnung wählen.",
@@ -1855,7 +2018,8 @@
       "unknown": "Etwas ist schiefgelaufen. Bitte versuche es erneut.",
       "deductedByIssued": "Die ausgestellte Schlussrechnung {number} zieht diese Rechnung ab. Sie lässt sich nicht löschen, und Positionen, Beträge, Kleinunternehmer-Schalter und Buchung bleiben unverändert.",
       "invoiceHasPayments": "Diese Rechnung hat Zahlungen. Bitte zuerst die Zahlungen einer anderen Rechnung zuordnen oder löschen.",
-      "alreadyPaidInvalid": "Die Angaben unter „Bereits bezahlt“ sind ungültig (Datum, Zahlungsart oder Beträge). Bitte prüfen."
+      "alreadyPaidInvalid": "Die Angaben unter „Bereits bezahlt“ sind ungültig (Datum, Zahlungsart oder Beträge). Bitte prüfen.",
+      "companyMissing": "Die gewählte Firma des neuen Gastes gibt es nicht mehr. Bitte eine andere Firma wählen."
     },
     "kind": {
       "invoice": "Rechnung",

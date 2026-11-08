@@ -6,7 +6,7 @@ import { redirect } from 'next/navigation'
 import type { ActionResult, CommonErrorCode } from '@/lib/auth/result'
 import { getSessionUser, pendingMfaStep } from '@/lib/auth/session'
 import { type BlockReason, type BookingErrorCode, type BookingKind, type BookingWarnings, isIsoDate, isPlatformSource, LIMITS, normalizePlatformNumber } from '@/lib/bookings'
-import { guestDbColumns } from '@/lib/guests-data'
+import { guestCompanyPayload, guestDbColumns } from '@/lib/guests-data'
 import { createClient } from '@/lib/supabase/server'
 import { getTenantContext, type TenantSummary } from '@/lib/tenant'
 import {
@@ -76,6 +76,9 @@ function dbFail(error: DbError, context: string): Failure {
     // PROJ-29: Ausweisbild des neuen Gastes fehlt im Speicher oder gehört schon einem anderen Gast
     case 'P0705':
       return fail('documentImageMissing')
+    // PROJ-50: gewählte Firma des neuen Gastes gibt es nicht mehr
+    case 'P0707':
+      return fail('companyMissing')
   }
   console.error(`[buchungen] ${context}`, error.code, error.message)
   return fail('unknown')
@@ -228,12 +231,12 @@ export async function saveBooking(input: SaveBooking): Promise<Result<{ id: stri
   if (input.id !== undefined && !isId(input.id)) return fail('notFound')
   const v = parsed.data
 
-  let newGuest: ReturnType<typeof guestDbColumns> | null = null
+  let newGuest: (ReturnType<typeof guestDbColumns> & ReturnType<typeof guestCompanyPayload>) | null = null
   if (input.values.guestMode === 'new') {
     const guest = guestSchema(key).safeParse(input.newGuest)
     if (!guest.success) return fail('unknown')
     // Gleiche Spalten wie beim Anlegen in der Gäste-Datenbank, inkl. Titel, Geschlecht und Reisedokument (PROJ-29)
-    newGuest = guestDbColumns(guest.data)
+    newGuest = { ...guestDbColumns(guest.data), ...guestCompanyPayload(guest.data.company) }
   }
 
   const supabase = await createClient()

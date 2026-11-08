@@ -116,7 +116,7 @@ export function MergeDialog({ open, onOpenChange, guest, presetOtherId }: MergeD
       case 'marketing':
         return g.marketingSource ? tm(g.marketingSource) : (g.marketingCustom ?? '')
       case 'company':
-        return join(g.companyName, g.companyVatId, ...companyAddressLines(g, locale))
+        return join(g.company?.name ?? null, g.company?.vatId ?? null, ...companyAddressLines(g, locale))
       case 'note':
         return g.note ?? ''
       case 'document': {

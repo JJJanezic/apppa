@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import { companyInputFromSuggestion, EMPTY_GUEST_INPUT, guestSchema } from './guests'
+import { companySchema } from './companies'
+import { EMPTY_GUEST_INPUT, guestSchema } from './guests'
 
 const schema = guestSchema((key) => key)
 const valid = { ...EMPTY_GUEST_INPUT, lastName: 'Huber', country: 'AT' }
@@ -60,33 +61,34 @@ describe('guestSchema', () => {
     expect(errors({ note: 'x'.repeat(2001) })).toEqual(['tooLong'])
   })
 
-  describe('Firmenanschrift (PROJ-33)', () => {
-    it('lässt alle Felder leer zu und speichert leer bzw. nur Leerzeichen als null', () => {
-      const result = schema.parse({ ...valid, companyAddressLine1: '   ' })
-      expect(result.companyAddressLine1).toBeNull()
-      expect(result.companyAddressLine2).toBeNull()
-      expect(result.companyPostalCode).toBeNull()
-      expect(result.companyCity).toBeNull()
-      expect(result.companyCountry).toBeNull()
+  describe('Firma (PROJ-50)', () => {
+    const companyId = '00000000-0000-4000-8000-0000000000c1'
+
+    it('speichert ohne Firma, auch wenn noch Firmenfelder im Formular stehen', () => {
+      expect(schema.parse({ ...valid, companyName: 'Rest GmbH' }).company).toEqual({ mode: 'none' })
     })
 
-    it('erlaubt PLZ und Ort ohne Adresszeile, auch ausländische PLZ', () => {
-      const result = schema.parse({ ...valid, companyPostalCode: ' SW1A 1AA ', companyCity: 'London', companyCountry: 'GB' })
-      expect(result.companyPostalCode).toBe('SW1A 1AA')
-      expect(result.companyCity).toBe('London')
-      expect(result.companyCountry).toBe('GB')
+    it('verlangt bei „Bestehende Firma“ eine gewählte Firma', () => {
+      expect(errors({ companyMode: 'existing' })).toEqual(['companyPick'])
+      expect(schema.parse({ ...valid, companyMode: 'existing', companyId, companyName: 'Muster GmbH' }).company).toEqual({ mode: 'existing', id: companyId })
     })
 
-    it('begrenzt Adresszeilen auf 200, PLZ auf 10 und Ort auf 100 Zeichen', () => {
-      expect(errors({ companyAddressLine1: 'x'.repeat(200), companyAddressLine2: 'x'.repeat(200), companyPostalCode: 'x'.repeat(10), companyCity: 'x'.repeat(100) })).toEqual([])
-      expect(errors({ companyAddressLine1: 'x'.repeat(201) })).toEqual(['tooLong'])
-      expect(errors({ companyAddressLine2: 'x'.repeat(201) })).toEqual(['tooLong'])
-      expect(errors({ companyPostalCode: 'x'.repeat(11) })).toEqual(['tooLong'])
-      expect(errors({ companyCity: 'x'.repeat(101) })).toEqual(['tooLong'])
+    it('verlangt bei „Neue Firma“ den Firmennamen und prüft die Firmenfelder', () => {
+      expect(errors({ companyMode: 'new' })).toEqual(['companyNameRequired'])
+      expect(errors({ companyMode: 'new', companyName: 'A', companyEmail: 'info@firma' })).toEqual(['emailInvalid'])
+      expect(errors({ companyMode: 'new', companyName: 'A', companyAddressLine1: 'x'.repeat(201) })).toEqual(['tooLong'])
     })
 
-    it('lehnt unbekannte Ländercodes beim Staat ab', () => {
-      expect(errors({ companyCountry: 'XX' })).toEqual(['unknown'])
+    it('liefert bei „Neue Firma“ die geprüften Werte, leere Felder als null', () => {
+      const result = schema.parse({ ...valid, companyMode: 'new', companyName: ' Muster GmbH ', companyPostalCode: '1010', companyCity: 'Wien', companyCountry: 'AT' })
+      expect(result.company).toEqual({
+        mode: 'new',
+        values: { name: 'Muster GmbH', vatId: null, addressLine1: null, addressLine2: null, postalCode: '1010', city: 'Wien', country: 'AT', email: null, website: null, contact: null },
+      })
+    })
+
+    it('enthält keine Firmenfelder am Gast', () => {
+      expect(Object.keys(schema.parse(valid)).filter((k) => k.startsWith('company') && k !== 'company')).toEqual([])
     })
   })
 
@@ -141,26 +143,43 @@ describe('guestSchema', () => {
   })
 })
 
-describe('companyInputFromSuggestion (PROJ-49)', () => {
-  it('setzt alle sieben Firmenfelder, leere Werte als leere Felder', () => {
-    expect(
-      companyInputFromSuggestion({
-        name: 'Muster GmbH',
-        vatId: 'ATU12345678',
-        addressLine1: 'Hauptstraße 1',
-        addressLine2: null,
-        postalCode: '1010',
-        city: 'Wien',
-        country: null,
-      })
-    ).toEqual({
-      companyName: 'Muster GmbH',
-      companyVatId: 'ATU12345678',
-      companyAddressLine1: 'Hauptstraße 1',
-      companyAddressLine2: '',
-      companyPostalCode: '1010',
-      companyCity: 'Wien',
-      companyCountry: '',
-    })
+describe('companySchema (PROJ-50)', () => {
+  const company = companySchema((key) => key)
+  const base = {
+    companyName: 'Muster GmbH',
+    companyVatId: '',
+    companyAddressLine1: '',
+    companyAddressLine2: '',
+    companyPostalCode: '',
+    companyCity: '',
+    companyCountry: '',
+    companyEmail: '',
+    companyWebsite: '',
+    companyContact: '',
+  }
+  const errs = (over: Partial<typeof base>) => {
+    const result = company.safeParse({ ...base, ...over })
+    return result.success ? [] : result.error.issues.map((i) => i.message)
+  }
+
+  it('verlangt den Firmennamen', () => {
+    expect(errs({ companyName: '  ' })).toEqual(['companyNameRequired'])
+  })
+
+  it('erlaubt Webadressen mit und ohne https://', () => {
+    expect(errs({ companyWebsite: 'www.firma.at' })).toEqual([])
+    expect(errs({ companyWebsite: 'https://firma.at/kontakt' })).toEqual([])
+    expect(errs({ companyWebsite: 'firma' })).toEqual(['websiteInvalid'])
+    expect(errs({ companyWebsite: 'www.fir ma.at' })).toEqual(['websiteInvalid'])
+    expect(errs({ companyWebsite: 'javascript:alert(1).at' })).toEqual(['websiteInvalid'])
+  })
+
+  it('begrenzt Ansprechpartner auf 200 Zeichen und schreibt die E-Mail klein', () => {
+    expect(errs({ companyContact: 'x'.repeat(201) })).toEqual(['tooLong'])
+    expect(company.parse({ ...base, companyEmail: ' Office@Firma.AT ' }).email).toBe('office@firma.at')
+  })
+
+  it('lehnt unbekannte Ländercodes beim Staat ab', () => {
+    expect(errs({ companyCountry: 'XX' })).toEqual(['unknown'])
   })
 })

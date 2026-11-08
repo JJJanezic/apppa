@@ -10,6 +10,8 @@ import type { TouristTaxMark, TouristTaxMode, TouristTaxRate } from '@/lib/touri
 export { suggestedNightsCents } from '@/lib/apartments'
 
 export type BookingErrorCode =
+  // PROJ-50: gewählte Firma des neuen Gastes gibt es nicht mehr
+  | 'companyMissing'
   | 'notFound'
   | 'staleBooking'
   | 'ownerOnly'

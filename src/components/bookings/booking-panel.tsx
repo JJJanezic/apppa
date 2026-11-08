@@ -471,6 +471,8 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
         setError(result.error)
         // Inzwischen neue Überschneidung (z. B. gleichzeitig angelegt): Warnung neu laden
         if (result.error === 'warnings' || result.error === 'ownerOnly' || result.error === 'guestSheetDuplicate') recheck()
+        // Gewählte Firma des neuen Gastes gibt es nicht mehr (PROJ-50): Suche statt Karte
+        if (result.error === 'companyMissing') guestForm.setValue('companyId', '')
       }
       return
     }

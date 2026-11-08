@@ -55,7 +55,9 @@ const docFromDb = (value: unknown): RichDoc | null => (value ? (isRichDoc(value)
 // ---- Buchung -------------------------------------------------------------------------------------
 
 const GUEST_COLUMNS =
-  'id, last_name, first_name, title_prefix, title_suffix, gender, anonymized_at, street, postal_code, city, address_country, company_name, company_vat_id, company_address_line1, company_address_line2, company_postal_code, company_city, company_country'
+  'id, last_name, first_name, title_prefix, title_suffix, gender, anonymized_at, street, postal_code, city, address_country, ' +
+  // Firma über die Verknüpfung (PROJ-50)
+  'company:companies!guests_company_fkey(name, vat_id, address_line1, address_line2, postal_code, city, country)'
 
 const BOOKING_COLUMNS =
   'id, kind, number, arrival, departure, cancelled_at, ' +
@@ -80,13 +82,15 @@ type GuestDb = {
   postal_code: string | null
   city: string | null
   address_country: string | null
-  company_name: string | null
-  company_vat_id: string | null
-  company_address_line1: string | null
-  company_address_line2: string | null
-  company_postal_code: string | null
-  company_city: string | null
-  company_country: string | null
+  company: {
+    name: string
+    vat_id: string | null
+    address_line1: string | null
+    address_line2: string | null
+    postal_code: string | null
+    city: string | null
+    country: string | null
+  } | null
 }
 
 type BookingDb = {
@@ -171,13 +175,13 @@ export const getDraftBooking = cache(async (bookingId: string): Promise<DraftBoo
       postalCode: g.postal_code,
       city: g.city,
       addressCountry: g.address_country,
-      companyName: g.company_name,
-      companyVatId: g.company_vat_id,
-      companyAddressLine1: g.company_address_line1,
-      companyAddressLine2: g.company_address_line2,
-      companyPostalCode: g.company_postal_code,
-      companyCity: g.company_city,
-      companyCountry: g.company_country,
+      companyName: g.company?.name ?? null,
+      companyVatId: g.company?.vat_id ?? null,
+      companyAddressLine1: g.company?.address_line1 ?? null,
+      companyAddressLine2: g.company?.address_line2 ?? null,
+      companyPostalCode: g.company?.postal_code ?? null,
+      companyCity: g.company?.city ?? null,
+      companyCountry: g.company?.country ?? null,
     },
     companions: [...b.companions].sort((x, y) => x.position - y.position).map((c) => ({ firstName: c.first_name, lastName: c.last_name })),
     lines:

@@ -2,19 +2,20 @@
 
 import { CaretDown } from '@phosphor-icons/react'
 import { useLocale, useTranslations } from 'next-intl'
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { useFormContext, useWatch } from 'react-hook-form'
 
-import { CompanyNameField } from '@/components/guests/company-name-field'
+import { CompanySection } from '@/components/companies/company-section'
 import { CountryPicker } from '@/components/guests/country-picker'
 import { DocumentImageField } from '@/components/guests/document-image-field'
-import { PostalPlaceFields, type PostalPlaceFieldsHandle } from '@/components/guests/postal-place-fields'
+import { PostalPlaceFields } from '@/components/guests/postal-place-fields'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
+import type { CompanySummary } from '@/lib/companies'
 import {
   DOCUMENT_SIDES,
   DOCUMENT_TYPES,
@@ -39,13 +40,13 @@ const PATH_FIELD: Record<DocumentSide, 'documentFrontPath' | 'documentBackPath'>
 interface GuestFieldsProps {
   // Abruf-Links der gespeicherten Ausweisbilder (Bearbeiten eines Gastes, PROJ-29)
   documentImages?: Guest['documentImages']
-  // Bearbeiteter Gast: liefert keine eigenen Firmenvorschläge (PROJ-49)
-  guestId?: string
+  // Firma des bearbeiteten Gastes: Bereich „Firma“ öffnet mit ihrer Karte (PROJ-50)
+  company?: CompanySummary | null
 }
 
 // Felder eines Gastes (PROJ-7). Wiederverwendbar: Gast-Panel und später das Buchungsformular (PROJ-8).
 // Muss innerhalb eines react-hook-form <Form> mit GuestInput-Werten stehen.
-export function GuestFields({ documentImages = {}, guestId }: GuestFieldsProps) {
+export function GuestFields({ documentImages = {}, company = null }: GuestFieldsProps) {
   const t = useTranslations('guests.panel')
   const tm = useTranslations('guests.marketing')
   const tg = useTranslations('guests.gender')
@@ -70,16 +71,6 @@ export function GuestFields({ documentImages = {}, guestId }: GuestFieldsProps) 
     Boolean(initial?.documentType && documentType && documentType !== initial.documentType) &&
     ((Boolean(initial?.documentFrontPath) && frontPath === initial?.documentFrontPath) ||
       (Boolean(initial?.documentBackPath) && backPath === initial?.documentBackPath))
-  // Übernommener Firmenvorschlag (PROJ-49) setzt die PLZ-Automatik der Firmenanschrift zurück
-  const companyPostal = useRef<PostalPlaceFieldsHandle>(null)
-  // Firma aufgeklappt, wenn schon Firmenangaben vorhanden sind
-  const [companyOpen, setCompanyOpen] = useState(() => {
-    const v = getValues()
-    return Boolean(
-      v.companyName || v.companyVatId || v.companyAddressLine1 || v.companyAddressLine2 || v.companyPostalCode || v.companyCity || v.companyCountry
-    )
-  })
-
   const text = (name: keyof GuestInput, label: string, opts: { max: number; hint?: string; type?: string; autoComplete?: string; inputMode?: 'email' | 'tel' } ) => (
     <FormField
       control={control}
@@ -254,49 +245,7 @@ export function GuestFields({ documentImages = {}, guestId }: GuestFieldsProps) 
       {marketing === MARKETING_CUSTOM &&
         text('marketingCustom', t('marketingCustom'), { max: LIMITS.marketingCustomMax, hint: t('marketingCustomHint') })}
 
-      <Collapsible open={companyOpen} onOpenChange={setCompanyOpen} className="rounded-lg border">
-        <CollapsibleTrigger className="flex min-h-11 w-full items-center justify-between gap-3 px-4 py-2 text-left">
-          <span className="flex flex-col">
-            <span className="text-sm font-semibold">{t('company')}</span>
-            <span className="text-[13px] text-ds-neutral-700">{t('companyHint')}</span>
-          </span>
-          <CaretDown size={16} aria-hidden="true" className={companyOpen ? 'rotate-180 transition-transform' : 'transition-transform'} />
-        </CollapsibleTrigger>
-        <CollapsibleContent className="flex flex-col gap-4 px-4 pb-4">
-          <CompanyNameField guestId={guestId} onApplied={() => companyPostal.current?.reset()} />
-          {text('companyVatId', t('vatId'), { max: LIMITS.vatIdMax })}
-          <fieldset className="flex flex-col gap-4">
-            <legend className="text-sm font-semibold">{t('billingAddress')}</legend>
-            <p className="-mt-2 text-[13px] text-ds-neutral-700">{t('billingAddressHint')}</p>
-            {text('companyAddressLine1', t('addressLine1'), { max: LIMITS.companyAddressLineMax })}
-            {text('companyAddressLine2', t('addressLine2'), { max: LIMITS.companyAddressLineMax })}
-            <PostalPlaceFields
-              postalName="companyPostalCode"
-              cityName="companyCity"
-              countryName="companyCountry"
-              postalLabel={t('postalCode')}
-              cityLabel={t('city')}
-              postalMax={LIMITS.companyPostalCodeMax}
-              cityMax={LIMITS.companyCityMax}
-              gridClassName="grid gap-4 sm:grid-cols-[minmax(0,7rem)_1fr]"
-              ref={companyPostal}
-            />
-            <FormField
-              control={control}
-              name="companyCountry"
-              render={({ field, fieldState }) => (
-                <FormItem>
-                  <FormLabel>{t('companyCountry')}</FormLabel>
-                  <FormControl>
-                    <CountryPicker value={field.value} onChange={field.onChange} clearable invalid={Boolean(fieldState.error)} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </fieldset>
-        </CollapsibleContent>
-      </Collapsible>
+      <CompanySection initialCompany={company} />
 
       <Collapsible open={documentOpen || documentError} onOpenChange={setDocumentOpen} className="rounded-lg border">
         <CollapsibleTrigger className="flex min-h-11 w-full items-center justify-between gap-3 px-4 py-2 text-left">

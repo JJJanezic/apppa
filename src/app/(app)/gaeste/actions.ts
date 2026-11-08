@@ -5,9 +5,6 @@ import { revalidatePath } from 'next/cache'
 import type { ActionResult, CommonErrorCode } from '@/lib/auth/result'
 import { getSessionUser, pendingMfaStep } from '@/lib/auth/session'
 import {
-  COMPANY_SUGGESTION_LIMIT,
-  COMPANY_SUGGESTION_MIN_CHARS,
-  type CompanySuggestion,
   DOCUMENT_BUCKET,
   type DuplicateMatch,
   type DuplicateReason,
@@ -18,7 +15,7 @@ import {
   type MergeChoice,
 } from '@/lib/guests'
 import { removeDocumentFiles, unusedPaths } from '@/lib/guest-documents'
-import { documentImageLinks, GUEST_COLUMNS, guestDbColumns, guestStays, listRow, toGuest, toRow } from '@/lib/guests-data'
+import { documentImageLinks, GUEST_COLUMNS, guestCompanyPayload, guestDbColumns, guestStays, listRow, toGuest, toRow } from '@/lib/guests-data'
 import { createClient } from '@/lib/supabase/server'
 import { getTenantContext, type TenantSummary } from '@/lib/tenant'
 import { guestSchema, type GuestInput } from '@/lib/validation/guests'
@@ -37,6 +34,7 @@ const fail = (error: GuestErrorCode | CommonErrorCode): Failure => ({ ok: false,
 const isId = (value: unknown): value is string => typeof value === 'string' && /^[0-9a-f-]{36}$/i.test(value)
 const SEARCH_LIMIT = 10
 const LIST = '/gaeste'
+const COMPANIES = '/gaeste/firmen'
 
 async function requireMember(): Promise<{ ok: true; tenant: TenantSummary } | Failure> {
   const user = await getSessionUser()
@@ -67,6 +65,11 @@ function dbFail(error: DbError, context: string): Failure {
     // PROJ-29: Ausweisbild fehlt im Speicher oder gehört schon einem anderen Gast
     case 'P0705':
       return fail('documentImageMissing')
+    // PROJ-50: Gast inzwischen geändert (Funktion „Gast speichern“) bzw. gewählte Firma gibt es nicht mehr
+    case 'P0706':
+      return fail('staleGuest')
+    case 'P0707':
+      return fail('companyMissing')
   }
   console.error(`[gaeste] ${context}`, error.code, error.message)
   return fail('unknown')
@@ -108,23 +111,24 @@ export async function checkGuestDuplicates(values: GuestInput): Promise<Result<D
   }
 }
 
+// Gast und gegebenenfalls neue Firma (PROJ-50) gemeinsam speichern: geschützte Datenbank-Funktion „save_guest“
+// (nur Inhaber; prüft auch, dass eine gewählte Firma zum Kunden gehört)
 export async function createGuest(values: GuestInput): Promise<Result<{ id: string }>> {
   const parsed = guestSchema(key).safeParse(values)
   if (!parsed.success) return fail('unknown')
   const guard = await requireOwner()
   if (!guard.ok) return guard
   const supabase = await createClient()
-  const { data, error } = await supabase
-    .from('guests')
-    .insert({ tenant_id: guard.tenant.id, ...guestDbColumns(parsed.data) })
-    .select('id')
-    .single()
+  const { data, error } = await supabase.rpc('save_guest', {
+    p_input: { tenant_id: guard.tenant.id, ...guestDbColumns(parsed.data), ...guestCompanyPayload(parsed.data.company) },
+  })
   if (error || !data) return dbFail(error ?? {}, 'Gast nicht angelegt')
   revalidate()
-  return { ok: true, data: { id: data.id } }
+  revalidatePath(COMPANIES)
+  return { ok: true, data: { id: data } }
 }
 
-// updatedAt: Stand beim Öffnen des Formulars. Wurde der Gast seitdem geändert → „staleGuest“
+// updatedAt: Stand beim Öffnen des Formulars. Wurde der Gast seitdem geändert → „staleGuest“ (prüft die Datenbank)
 export async function updateGuest(values: { id: string; updatedAt: string } & GuestInput): Promise<Result> {
   const parsed = guestSchema(key).safeParse(values)
   if (!isId(values?.id) || typeof values?.updatedAt !== 'string' || !parsed.success) return fail('unknown')
@@ -134,36 +138,31 @@ export async function updateGuest(values: { id: string; updatedAt: string } & Gu
   // Selbst geänderte Kontaktangaben gelten als „direkt erfasst“, auch wenn der alte Wert von der Plattform kam
   const { data: before } = await supabase
     .from('guests')
-    .select(`email, phone, ${DOCUMENT_PATHS}`)
+    .select(`email, phone, company_id, ${DOCUMENT_PATHS}`)
     .eq('id', values.id)
     .eq('tenant_id', guard.tenant.id)
     .maybeSingle()
+  if (!before) return fail('notFound')
   const sources = {
-    ...(before && before.email !== parsed.data.email ? { email_source: 'direct' } : {}),
-    ...(before && before.phone !== parsed.data.phone ? { phone_source: 'direct' } : {}),
+    ...(before.email !== parsed.data.email ? { email_source: 'direct' } : {}),
+    ...(before.phone !== parsed.data.phone ? { phone_source: 'direct' } : {}),
   }
-  const { data, error } = await supabase
-    .from('guests')
-    .update({ ...guestDbColumns(parsed.data), ...sources })
-    .eq('id', values.id)
-    .eq('tenant_id', guard.tenant.id)
-    .eq('updated_at', values.updatedAt)
-    .select('id')
+  const { error } = await supabase.rpc('save_guest', {
+    p_input: {
+      id: values.id,
+      updated_at: values.updatedAt,
+      tenant_id: guard.tenant.id,
+      ...guestDbColumns(parsed.data),
+      ...sources,
+      ...guestCompanyPayload(parsed.data.company),
+    },
+  })
   if (error) return dbFail(error, 'Gast nicht geändert')
-  if (!data?.length) {
-    // Kein Treffer: inzwischen geändert, anonymisiert oder gelöscht?
-    const { data: current } = await supabase
-      .from('guests')
-      .select('anonymized_at')
-      .eq('id', values.id)
-      .eq('tenant_id', guard.tenant.id)
-      .maybeSingle()
-    if (!current) return fail('notFound')
-    return fail(current.anonymized_at ? 'guestAnonymized' : 'staleGuest')
-  }
   // Ersetzte oder entfernte Ausweisbilder sofort löschen (PROJ-29)
   await removeDocumentFiles(unusedPaths(pathsOf(before), [parsed.data.documentFrontPath, parsed.data.documentBackPath]))
   revalidate(values.id)
+  // Anzahl Gäste der alten und neuen Firma ändert sich
+  revalidatePath(COMPANIES, 'layout')
   return { ok: true }
 }
 
@@ -178,6 +177,7 @@ export async function deleteGuest(values: { id: string }): Promise<Result<{ mode
   if (error) return dbFail(error, 'Gast nicht gelöscht')
   // Gelöscht oder anonymisiert: Ausweisbilder endgültig entfernen (PROJ-29)
   await removeDocumentFiles(pathsOf(before))
+  revalidatePath(COMPANIES, 'layout')
   if (data === 'anonymized') {
     revalidate(values.id)
     return { ok: true, data: { mode: 'anonymized' } }
@@ -210,6 +210,7 @@ export async function mergeGuests(values: { keepId: string; removeId: string; ch
   await removeDocumentFiles(unusedPaths((before ?? []).flatMap(pathsOf), pathsOf(kept)))
   revalidate(values.keepId)
   revalidatePath(`${LIST}/dubletten`)
+  revalidatePath(COMPANIES, 'layout')
   return { ok: true }
 }
 
@@ -247,35 +248,6 @@ export async function searchGuests(values: { query: string; excludeId?: string }
     .filter((r) => r.id !== values?.excludeId && r.anonymized_at === null)
     .slice(0, SEARCH_LIMIT)
     .map((r): GuestRow => listRow(r))
-  return { ok: true, data: rows }
-}
-
-// Firmenvorschläge im Gastformular (PROJ-49), alle Mitglieder: Fassungen der Firmen anderer Gäste des gewählten
-// Kunden, deren Firmenname den Suchtext enthält. Die Datenbank fasst gleiche Fassungen zusammen und sortiert
-// nach „zuletzt geändert“; geliefert werden nur Firmenfelder.
-export async function suggestCompanies(values: { query: string; excludeId?: string }): Promise<Result<CompanySuggestion[]>> {
-  const guard = await requireMember()
-  if (!guard.ok) return guard
-  const query = String(values?.query ?? '').slice(0, 200)
-  if (query.trim().length < COMPANY_SUGGESTION_MIN_CHARS) return { ok: true, data: [] }
-  const supabase = await createClient()
-  const { data, error } = await supabase.rpc('guest_company_suggestions', {
-    p_tenant_id: guard.tenant.id,
-    p_query: query,
-    p_exclude_id: isId(values?.excludeId) ? values.excludeId : undefined,
-  })
-  if (error) return dbFail(error, 'Firmenvorschläge')
-  const rows = (data ?? []).slice(0, COMPANY_SUGGESTION_LIMIT).map(
-    (r): CompanySuggestion => ({
-      name: r.company_name,
-      vatId: r.company_vat_id,
-      addressLine1: r.company_address_line1,
-      addressLine2: r.company_address_line2,
-      postalCode: r.company_postal_code,
-      city: r.company_city,
-      country: r.company_country,
-    })
-  )
   return { ok: true, data: rows }
 }
 

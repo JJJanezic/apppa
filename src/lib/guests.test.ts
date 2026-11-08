@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest'
 import {
   addressLines,
   companyAddressLines,
-  companySuggestionDetail,
   countryName,
   countryOptions,
   defaultMergeChoice,
@@ -39,13 +38,7 @@ const guest = (over: Partial<Guest> = {}): Guest => ({
   addressCountry: null,
   marketingSource: null,
   marketingCustom: null,
-  companyName: null,
-  companyVatId: null,
-  companyAddressLine1: null,
-  companyAddressLine2: null,
-  companyPostalCode: null,
-  companyCity: null,
-  companyCountry: null,
+  company: null,
   note: null,
   titlePrefix: null,
   titleSuffix: null,
@@ -201,15 +194,30 @@ describe('Zusammenführen', () => {
   })
 })
 
-describe('Anschrift als Zeilen (PROJ-33)', () => {
-  it('zeigt Zeile 1, Zeile 2, „PLZ Ort“ und Staat untereinander', () => {
-    const g = guest({ companyAddressLine1: 'Musterstraße 1', companyAddressLine2: 'Top 5', companyPostalCode: '1010', companyCity: 'Wien', companyCountry: 'AT' })
+// Firma eines Gastes (PROJ-50: verknüpfte Firma statt Felder am Gast)
+const company = (over: Partial<NonNullable<Guest['company']>> = {}): NonNullable<Guest['company']> => ({
+  id: '00000000-0000-4000-8000-0000000000c1',
+  name: 'Muster GmbH',
+  nameMissing: false,
+  vatId: null,
+  addressLine1: null,
+  addressLine2: null,
+  postalCode: null,
+  city: null,
+  country: null,
+  ...over,
+})
+
+describe('Anschrift als Zeilen (PROJ-33, PROJ-50)', () => {
+  it('zeigt Zeile 1, Zeile 2, „PLZ Ort“ und Staat der Firma untereinander', () => {
+    const g = guest({ company: company({ addressLine1: 'Musterstraße 1', addressLine2: 'Top 5', postalCode: '1010', city: 'Wien', country: 'AT' }) })
     expect(companyAddressLines(g)).toEqual(['Musterstraße 1', 'Top 5', '1010 Wien', 'Österreich'])
   })
 
   it('lässt leere Teile ohne Leerzeilen weg', () => {
-    expect(companyAddressLines(guest({ companyCity: 'Wien' }))).toEqual(['Wien'])
-    expect(companyAddressLines(guest({ companyCountry: 'DE' }))).toEqual(['Deutschland'])
+    expect(companyAddressLines(guest({ company: company({ city: 'Wien' }) }))).toEqual(['Wien'])
+    expect(companyAddressLines(guest({ company: company({ country: 'DE' }) }))).toEqual(['Deutschland'])
+    expect(companyAddressLines(guest({ company: company() }))).toEqual([])
     expect(companyAddressLines(guest())).toEqual([])
     expect(addressLines({ lines: [null, ''], postalCode: '1010', city: null, country: null })).toEqual(['1010'])
   })
@@ -218,30 +226,16 @@ describe('Anschrift als Zeilen (PROJ-33)', () => {
     expect(privateAddressLines(guest({ street: 'Hauptplatz 2', postalCode: '8010', city: 'Graz' }))).toEqual(['Hauptplatz 2', '8010 Graz'])
   })
 
-  it('zeigt den Abschnitt Firma auch bei reiner Firmenanschrift', () => {
+  it('zeigt den Abschnitt Firma, sobald eine Firma verknüpft ist', () => {
     expect(hasCompany(guest())).toBe(false)
-    expect(hasCompany(guest({ companyCity: 'Wien' }))).toBe(true)
-    expect(hasCompany(guest({ companyVatId: 'ATU12345678' }))).toBe(true)
+    expect(hasCompany(guest({ company: company() }))).toBe(true)
   })
 
-  it('übernimmt beim Zusammenführen Firma samt Anschrift gemeinsam', () => {
-    const a = guest({ companyName: 'A GmbH', companyCity: 'Wien' })
-    expect(sameMergeValue(a, guest({ id: 'b', companyName: 'A GmbH', companyCity: 'Graz' }), 'company')).toBe(false)
-    expect(defaultMergeChoice(guest(), guest({ id: 'b', companyPostalCode: '1010' })).company).toBe('b')
-  })
-})
-
-describe('companySuggestionDetail (PROJ-49)', () => {
-  const base = { name: 'Muster GmbH', vatId: null, addressLine1: null, addressLine2: null, postalCode: null, city: null, country: null }
-
-  it('zeigt UID, „PLZ Ort“ und Adresszeile 1', () => {
-    expect(companySuggestionDetail({ ...base, vatId: 'ATU12345678', addressLine1: 'Hauptstraße 1', postalCode: '1010', city: 'Wien', country: 'AT' })).toBe(
-      'ATU12345678 · 1010 Wien · Hauptstraße 1'
-    )
-  })
-
-  it('lässt leere Teile ohne Trennzeichen weg', () => {
-    expect(companySuggestionDetail({ ...base, city: 'Wien' })).toBe('Wien')
-    expect(companySuggestionDetail(base)).toBe('')
+  it('wählt beim Zusammenführen die Verknüpfung als Ganzes', () => {
+    const a = guest({ company: company() })
+    expect(sameMergeValue(a, guest({ id: 'b', company: company() }), 'company')).toBe(true)
+    expect(sameMergeValue(a, guest({ id: 'b', company: company({ id: '00000000-0000-4000-8000-0000000000c2' }) }), 'company')).toBe(false)
+    expect(defaultMergeChoice(guest(), guest({ id: 'b', company: company() })).company).toBe('b')
+    expect(defaultMergeChoice(a, guest({ id: 'b' })).company).toBe('a')
   })
 })

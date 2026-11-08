@@ -425,6 +425,25 @@ export const findBooking = cache(async (id: string): Promise<Booking | null> => 
 })
 
 // Buchungen eines Gastes (Gast-Detail, PROJ-7), neueste zuerst
+// Buchungen aller Gäste einer Firma (PROJ-50, Firmendetail): Hauptgast heute mit der Firma verknüpft, neueste zuerst
+export async function getCompanyBookings(guestIds: string[]): Promise<BookingRow[]> {
+  if (!guestIds.length) return []
+  const { tenantId, role } = await requireMember()
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('bookings')
+    .select(ROW_COLUMNS)
+    .eq('tenant_id', tenantId)
+    .in('guest_id', guestIds)
+    .order('arrival', { ascending: false })
+    .limit(COMPANY_BOOKING_LIMIT)
+  if (error) console.error('[buchungen] Buchungen der Firma nicht lesbar', error.message)
+  const today = todayIso()
+  return ((data ?? []) as unknown as ListDbRow[]).map((r) => toRow(r, role === 'owner', today, []))
+}
+
+export const COMPANY_BOOKING_LIMIT = 200
+
 export async function getGuestBookings(guestId: string): Promise<BookingRow[]> {
   const { tenantId, role } = await requireMember()
   const supabase = await createClient()

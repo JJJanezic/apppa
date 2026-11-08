@@ -1,8 +1,8 @@
 # PROJ-50: Firmenliste
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-11-08
-**Last Updated:** 2026-11-08 (Tech Design)
+**Last Updated:** 2026-11-08 (Frontend)
 
 ## Dependencies
 - Requires: PROJ-4 (Kundenkonten & Rollen): Rollen Inhaber/Mitarbeiter, gewählter Kunde
@@ -431,6 +431,33 @@ Reihenfolge beim Ausliefern wie gewohnt: zuerst die Migration, dann der App-Code
 
 ### G) Pakete
 Keine neuen Pakete. Alle Bausteine sind vorhanden (shadcn RadioGroup, Command, Table, AlertDialog, Pagination, Tabs-Bauart der Einstellungen).
+
+### Frontend-Umsetzung (2026-11-08)
+**Gebaut**
+- Reiter „Gäste“ | „Firmen“ (`src/components/guests/guest-tabs.tsx`) auf `/gaeste` und `/gaeste/firmen`
+- Seiten: `/gaeste/firmen` (Liste mit Suche, Anzahl, Dubletten-Link, leerer Zustand, Seiten), `/gaeste/firmen/[id]` (Angaben, Gäste, Buchungen, Rechnungen an die Firma, Aktionen für Inhaber), `/gaeste/firmen/dubletten`
+- Komponenten in `src/components/companies/`: `company-fields` (gemeinsame Felder mit PLZ-Automatik), `company-section` (Bereich „Firma“ im Gastformular: Keine/Bestehende/Neue Firma, Karte, „Ändern“ mit „Bei … bleiben“, Hinweis „Diese Firma gibt es bereits“), `company-picker`, `company-card`, `company-panel`, `create-company-button`, `company-actions` (Bearbeiten, Zusammenführen, Löschen mit Anzahl Gäste), `company-merge-dialog` (Feldwahl, Adresse als Ganzes), `company-duplicate-list`, `company-search`, `company-list`
+- Typen und Regeln: `src/lib/companies.ts`, Prüfregeln `src/lib/validation/companies.ts`; Gastformular mit `companyMode`/`companyId` und Firmenfeldern (Präfix „company“), beim Speichern als `{ mode: none | existing | new }`
+- Lesefunktionen `src/lib/companies-data.ts` (Liste, Detail, Gäste, Buchungen über `getCompanyBookings`, Rechnungen mit Empfänger „Firma“ inkl. Gutschriften, Dubletten); Aktionen `src/app/(app)/gaeste/firmen/actions.ts`
+- Gast liest die Firma über die Verknüpfung (`company:companies!guests_company_fkey(...)`): Gast-Detail (Name als Link), Gästeliste (Firmenname als Link in der Tabelle), Zusammenführen von Gästen (Verknüpfung als Ganzes), Rechnungsentwurf, Rechnungs-Buchungssuche, Rechnung nacherfassen
+- Gast speichern über die neue DB-Funktion `save_guest` (statt direktem Tabellen-Schreiben); Buchung und Rechnung mit neuem Gast schicken `company_id` bzw. `new_company` im `new_guest`
+- Fehler `companyMissing` (P0707) in Gäste, Buchungen, Rechnungen: Meldung, Auswahl springt auf die Suche
+- PROJ-49 entfernt: `company-name-field.tsx`, Aktion `suggestCompanies`, Unit-Tests, E2E `tests/PROJ-49-firmen-wiederverwenden.spec.ts`, Integrationstest `guest-company-suggestions`
+
+**Vorab eingetragene DB-Typen (für /backend verbindlich)** in `src/types/database.ts`
+- Tabelle `companies` (id, tenant_id, name, name_missing, vat_id, address_line1/2, postal_code, city, country, email, website, contact, search_text, name_key, created/updated_at/_by), Fremdschlüssel `guests_company_fkey` (company_id, tenant_id) → companies (id, tenant_id); Tabelle `company_duplicate_dismissals` (company_a, company_b, tenant_id, dismissed_at/_by)
+- `company_list(p_tenant_id, p_query?, p_exact_name?, p_exclude_id?, p_limit?, p_offset?)` → id, name, name_missing, vat_id, address_line1, postal_code, city, country, guest_count, total; Sortierung nach Name; `p_exact_name` = gleicher vereinheitlichter Name
+- `company_duplicate_pairs(p_tenant_id)` → company_a, company_b, reasons (`name`, `vatId`)
+- `save_guest(p_input jsonb)` → uuid; Eingabe: tenant_id, Gastspalten, optional id + updated_at (Bearbeiten), email_source/phone_source, company_id oder new_company (Spalten wie `companyDbColumns`); Fehler P0701 Rolle, P0702 nicht gefunden, P0703 anonymisiert, P0705 Ausweisbild, **P0706 inzwischen geändert**, **P0707 Firma fehlt**
+- `delete_company(p_company_id)`, `merge_companies(p_keep, p_remove, p_choice)` mit Feldern name, vatId, address, email, website, contact
+- `guest_list` liefert zusätzlich `company_id`; `company_name` aus der verknüpften Firma; Suche auch über den Suchtext der Firma
+- `save_booking`/`save_invoice`: `new_guest` enthält `company_id` bzw. `new_company`; P0707, wenn die Firma fehlt
+- `name_missing` fällt in der Datenbank bei der ersten Namensänderung weg (die App sendet es nicht)
+
+**Offen für /backend und /qa**
+- Ohne Migration funktionieren Firmen-Seiten und Gast speichern noch nicht (Funktionen fehlen in Dev)
+- E2E-Tests, die Gäste mit `company_*`-Spalten direkt anlegen oder das alte Firmenfeld bedienen, müssen umgestellt werden: PROJ-14, 15, 33, 37, 40, 41, 42, 43, 44, 45
+- Firmen-Abschnitte im Detail zeigen höchstens 200 Buchungen bzw. Rechnungen mit Hinweis (statt Seiten)
 
 ### H) Abweichung von der Spec (bestätigt 2026-11-08)
 Die Spec sah ein „Änderungsprotokoll der Firma“ zum Ansehen für Inhaber vor. In der App gibt es bisher **keine** Anzeige des Protokolls, auch nicht für Gäste (PROJ-7). Entschieden: Das Protokoll wird wie bei Gästen nur in der Datenbank geführt. Eine Anzeige kommt bei Bedarf als eigenes Feature für alle Bereiche. Rechte-Tabelle und Akzeptanzkriterien sind angepasst.

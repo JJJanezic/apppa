@@ -640,6 +640,119 @@ export type Database = {
           },
         ]
       }
+      companies: {
+        Row: {
+          address_line1: string | null
+          address_line2: string | null
+          city: string | null
+          contact: string | null
+          country: string | null
+          created_at: string
+          created_by: string | null
+          email: string | null
+          id: string
+          name: string
+          name_key: string
+          name_missing: boolean
+          postal_code: string | null
+          search_text: string
+          tenant_id: string
+          updated_at: string
+          updated_by: string | null
+          vat_id: string | null
+          website: string | null
+        }
+        Insert: {
+          address_line1?: string | null
+          address_line2?: string | null
+          city?: string | null
+          contact?: string | null
+          country?: string | null
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          id?: string
+          name: string
+          name_key?: string
+          name_missing?: boolean
+          postal_code?: string | null
+          search_text?: string
+          tenant_id: string
+          updated_at?: string
+          updated_by?: string | null
+          vat_id?: string | null
+          website?: string | null
+        }
+        Update: {
+          address_line1?: string | null
+          address_line2?: string | null
+          city?: string | null
+          contact?: string | null
+          country?: string | null
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          id?: string
+          name?: string
+          name_key?: string
+          name_missing?: boolean
+          postal_code?: string | null
+          search_text?: string
+          tenant_id?: string
+          updated_at?: string
+          updated_by?: string | null
+          vat_id?: string | null
+          website?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "companies_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      company_duplicate_dismissals: {
+        Row: {
+          company_a: string
+          company_b: string
+          dismissed_at: string
+          dismissed_by: string | null
+          tenant_id: string
+        }
+        Insert: {
+          company_a: string
+          company_b: string
+          dismissed_at?: string
+          dismissed_by?: string | null
+          tenant_id: string
+        }
+        Update: {
+          company_a?: string
+          company_b?: string
+          dismissed_at?: string
+          dismissed_by?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_duplicate_dismissals_a_fkey"
+            columns: ["company_a", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "company_duplicate_dismissals_b_fkey"
+            columns: ["company_b", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id", "tenant_id"]
+          },
+        ]
+      }
       guest_duplicate_dismissals: {
         Row: {
           dismissed_at: string
@@ -692,6 +805,7 @@ export type Database = {
           anonymized_at: string | null
           birth_date: string | null
           city: string | null
+          company_id: string | null
           company_address_line1: string | null
           company_address_line2: string | null
           company_city: string | null
@@ -738,6 +852,7 @@ export type Database = {
           anonymized_at?: string | null
           birth_date?: string | null
           city?: string | null
+          company_id?: string | null
           company_address_line1?: string | null
           company_address_line2?: string | null
           company_city?: string | null
@@ -784,6 +899,7 @@ export type Database = {
           anonymized_at?: string | null
           birth_date?: string | null
           city?: string | null
+          company_id?: string | null
           company_address_line1?: string | null
           company_address_line2?: string | null
           company_city?: string | null
@@ -826,6 +942,13 @@ export type Database = {
           updated_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "guests_company_fkey"
+            columns: ["company_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id", "tenant_id"]
+          },
           {
             foreignKeyName: "guests_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -2171,17 +2294,47 @@ export type Database = {
         Returns: undefined
       }
       delete_payment: { Args: { p_payment_id: string }; Returns: Json }
-      guest_company_suggestions: {
-        Args: { p_exclude_id?: string; p_query: string; p_tenant_id: string }
+      company_duplicate_pairs: {
+        Args: { p_tenant_id: string }
         Returns: {
-          company_address_line1: string
-          company_address_line2: string
-          company_city: string
-          company_country: string
-          company_name: string
-          company_postal_code: string
-          company_vat_id: string
+          company_a: string
+          company_b: string
+          reasons: string[]
         }[]
+      }
+      company_list: {
+        Args: {
+          p_exact_name?: string
+          p_exclude_id?: string
+          p_limit?: number
+          p_offset?: number
+          p_query?: string
+          p_tenant_id: string
+        }
+        Returns: {
+          address_line1: string
+          city: string
+          country: string
+          guest_count: number
+          id: string
+          name: string
+          name_missing: boolean
+          postal_code: string
+          total: number
+          vat_id: string
+        }[]
+      }
+      delete_company: {
+        Args: { p_company_id: string }
+        Returns: number
+      }
+      merge_companies: {
+        Args: { p_choice: Json; p_keep: string; p_remove: string }
+        Returns: undefined
+      }
+      save_guest: {
+        Args: { p_input: Json }
+        Returns: string
       }
       guest_duplicate_candidates: {
         Args: {
@@ -2216,6 +2369,7 @@ export type Database = {
         }
         Returns: {
           anonymized_at: string
+          company_id: string
           company_name: string
           country: string
           first_name: string

@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
+import { COMPANY_INPUT_KEYS, companySchema, type CompanyValues, EMPTY_COMPANY_INPUT } from '@/lib/validation/companies'
 import {
-  type CompanySuggestion,
   DOCUMENT_TYPES,
   GENDER_DEFAULT,
   GENDERS,
@@ -83,16 +83,19 @@ export const guestSchema = (t: T) =>
       // Standardwert, „custom“ (mit Freitext) oder „none“
       marketing: z.enum([...MARKETING_SOURCES, MARKETING_CUSTOM, MARKETING_NONE]),
       marketingCustom: optional(t, LIMITS.marketingCustomMax),
-      companyName: optional(t, LIMITS.companyNameMax),
-      companyVatId: optional(t, LIMITS.vatIdMax),
-      companyAddressLine1: optional(t, LIMITS.companyAddressLineMax),
-      companyAddressLine2: optional(t, LIMITS.companyAddressLineMax),
-      companyPostalCode: optional(t, LIMITS.companyPostalCodeMax),
-      companyCity: optional(t, LIMITS.companyCityMax),
-      companyCountry: z
-        .string()
-        .refine((v) => v === '' || isCountry(v), t('unknown'))
-        .transform((v) => v || null),
+      // Firma (PROJ-50): keine, bestehende (Kennung) oder neue (Firmenfelder, geprüft wie im Firmen-Panel)
+      companyMode: z.enum(COMPANY_MODES),
+      companyId: z.string(),
+      companyName: z.string(),
+      companyVatId: z.string(),
+      companyAddressLine1: z.string(),
+      companyAddressLine2: z.string(),
+      companyPostalCode: z.string(),
+      companyCity: z.string(),
+      companyCountry: z.string(),
+      companyEmail: z.string(),
+      companyWebsite: z.string(),
+      companyContact: z.string(),
       note: optional(t, LIMITS.noteMax),
       // Reisedokument (PROJ-29): höchstens eines je Gast
       documentType: z
@@ -129,12 +132,45 @@ export const guestSchema = (t: T) =>
       if (!v.documentType) ctx.addIssue({ code: 'custom', path: ['documentType'], message: t('documentTypeRequired') })
       if (!v.documentNumber) ctx.addIssue({ code: 'custom', path: ['documentNumber'], message: t('documentNumberRequired') })
     })
+    // „Bestehende Firma“ verlangt eine gewählte Firma, „Neue Firma“ gültige Firmenfelder (Fehler an denselben Feldern)
+    .superRefine((v, ctx) => {
+      if (v.companyMode === 'existing' && !isId(v.companyId)) {
+        ctx.addIssue({ code: 'custom', path: ['companyId'], message: t('companyPick') })
+      }
+      if (v.companyMode === 'new') {
+        const company = companySchema(t).safeParse(pickCompanyInput(v))
+        if (!company.success) for (const issue of company.error.issues) ctx.addIssue({ ...issue, code: 'custom' } as never)
+      }
+    })
     // Freitext gilt nur bei „Eigene Angabe“; leer = keine Angabe (Spec)
-    .transform(({ marketing, marketingCustom, ...rest }) => ({
-      ...rest,
-      marketingSource: (MARKETING_SOURCES as readonly string[]).includes(marketing) ? (marketing as (typeof MARKETING_SOURCES)[number]) : null,
-      marketingCustom: marketing === MARKETING_CUSTOM ? marketingCustom : null,
-    }))
+    .transform(({ marketing, marketingCustom, companyMode, companyId, ...rest }) => {
+      const guest = Object.fromEntries(Object.entries(rest).filter(([k]) => !(COMPANY_INPUT_KEYS as readonly string[]).includes(k))) as Omit<
+        typeof rest,
+        (typeof COMPANY_INPUT_KEYS)[number]
+      >
+      return {
+        ...guest,
+        marketingSource: (MARKETING_SOURCES as readonly string[]).includes(marketing) ? (marketing as (typeof MARKETING_SOURCES)[number]) : null,
+        marketingCustom: marketing === MARKETING_CUSTOM ? marketingCustom : null,
+        company: guestCompany(t, companyMode, companyId, rest),
+      }
+    })
+
+// Firma eines Gastes beim Speichern (PROJ-50)
+export const COMPANY_MODES = ['none', 'existing', 'new'] as const
+export type CompanyMode = (typeof COMPANY_MODES)[number]
+export type GuestCompanyValue = { mode: 'none' } | { mode: 'existing'; id: string } | { mode: 'new'; values: CompanyValues }
+
+const isId = (value: string) => /^[0-9a-f-]{36}$/i.test(value)
+
+const pickCompanyInput = (v: Record<(typeof COMPANY_INPUT_KEYS)[number], string>) =>
+  Object.fromEntries(COMPANY_INPUT_KEYS.map((k) => [k, v[k]])) as Record<(typeof COMPANY_INPUT_KEYS)[number], string>
+
+function guestCompany(t: T, mode: CompanyMode, id: string, v: Record<(typeof COMPANY_INPUT_KEYS)[number], string>): GuestCompanyValue {
+  if (mode === 'existing') return { mode, id }
+  if (mode === 'new') return { mode, values: companySchema(t).parse(pickCompanyInput(v)) }
+  return { mode: 'none' }
+}
 
 export type GuestInput = z.input<ReturnType<typeof guestSchema>>
 export type GuestValues = z.infer<ReturnType<typeof guestSchema>>
@@ -156,13 +192,9 @@ export const EMPTY_GUEST_INPUT: GuestInput = {
   addressCountry: '',
   marketing: MARKETING_NONE,
   marketingCustom: '',
-  companyName: '',
-  companyVatId: '',
-  companyAddressLine1: '',
-  companyAddressLine2: '',
-  companyPostalCode: '',
-  companyCity: '',
-  companyCountry: '',
+  companyMode: 'none',
+  companyId: '',
+  ...EMPTY_COMPANY_INPUT,
   note: '',
   documentType: '',
   documentNumber: '',
@@ -192,13 +224,11 @@ export function guestInput(g: Guest): GuestInput {
     addressCountry: g.addressCountry ?? '',
     marketing: g.marketingSource ?? (g.marketingCustom ? MARKETING_CUSTOM : MARKETING_NONE),
     marketingCustom: g.marketingCustom ?? '',
-    companyName: g.companyName ?? '',
-    companyVatId: g.companyVatId ?? '',
-    companyAddressLine1: g.companyAddressLine1 ?? '',
-    companyAddressLine2: g.companyAddressLine2 ?? '',
-    companyPostalCode: g.companyPostalCode ?? '',
-    companyCity: g.companyCity ?? '',
-    companyCountry: g.companyCountry ?? '',
+    // Gast mit Firma öffnet mit „Bestehende Firma“ und Karte; der Name steht für Karte und Rechnungsempfänger bereit
+    companyMode: g.company ? 'existing' : 'none',
+    companyId: g.company?.id ?? '',
+    ...EMPTY_COMPANY_INPUT,
+    companyName: g.company?.name ?? '',
     note: g.note ?? '',
     documentType: g.documentType ?? '',
     documentNumber: g.documentNumber ?? '',
@@ -209,15 +239,3 @@ export function guestInput(g: Guest): GuestInput {
     documentBackPath: g.documentBackPath ?? '',
   }
 }
-
-// Gewählter Firmenvorschlag (PROJ-49): ersetzt alle sieben Firmenfelder, leere Werte leeren das Feld
-export const companyInputFromSuggestion = (s: CompanySuggestion) =>
-  ({
-    companyName: s.name,
-    companyVatId: s.vatId ?? '',
-    companyAddressLine1: s.addressLine1 ?? '',
-    companyAddressLine2: s.addressLine2 ?? '',
-    companyPostalCode: s.postalCode ?? '',
-    companyCity: s.city ?? '',
-    companyCountry: s.country ?? '',
-  }) satisfies Partial<GuestInput>

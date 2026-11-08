@@ -23,11 +23,13 @@ import {
   type Language,
   type MarketingSource,
 } from '@/lib/guests'
+import type { CompanySummary } from '@/lib/companies'
 import type { Role } from '@/lib/navigation'
 import { createClient } from '@/lib/supabase/server'
 import type { Database } from '@/types/database'
 import { getTenantContext } from '@/lib/tenant'
-import type { GuestValues } from '@/lib/validation/guests'
+import { companyDbColumns } from '@/lib/validation/companies'
+import type { GuestCompanyValue, GuestValues } from '@/lib/validation/guests'
 
 // Lesefunktionen der Gäste-Datenbank (PROJ-7) für alle Mitglieder des gewählten Kunden.
 // Rechte prüft die Datenbank zusätzlich (RLS: Lesen für Mitglieder, Dubletten nur für Inhaber).
@@ -49,13 +51,6 @@ export const guestDbColumns = (v: GuestValues) => ({
   address_country: v.addressCountry,
   marketing_source: v.marketingSource,
   marketing_custom: v.marketingCustom,
-  company_name: v.companyName,
-  company_vat_id: v.companyVatId,
-  company_address_line1: v.companyAddressLine1,
-  company_address_line2: v.companyAddressLine2,
-  company_postal_code: v.companyPostalCode,
-  company_city: v.companyCity,
-  company_country: v.companyCountry,
   note: v.note,
   title_prefix: v.titlePrefix,
   title_suffix: v.titleSuffix,
@@ -69,8 +64,43 @@ export const guestDbColumns = (v: GuestValues) => ({
   document_back_path: v.documentBackPath,
 })
 
+// Firma eines Gastes beim Speichern (PROJ-50): bestehende Firma per Kennung, neue Firma als Spalten. Die Datenbank legt eine
+// neue Firma zusammen mit dem Gast (bzw. der Buchung oder Rechnung mit neuem Gast) an.
+export const guestCompanyPayload = (company: GuestCompanyValue) => ({
+  company_id: company.mode === 'existing' ? company.id : null,
+  new_company: company.mode === 'new' ? companyDbColumns(company.values) : null,
+})
+
+// Firma des Gastes (PROJ-50) über die Verknüpfung; die alten Firmenspalten am Gast werden nicht mehr gelesen
+export const GUEST_COMPANY_COLUMNS = 'company:companies!guests_company_fkey(id, name, name_missing, vat_id, address_line1, address_line2, postal_code, city, country)'
+
 export const GUEST_COLUMNS =
-  'id, last_name, first_name, country, email, email_source, phone, phone_source, language, birth_date, street, postal_code, city, address_country, marketing_source, marketing_custom, company_name, company_vat_id, company_address_line1, company_address_line2, company_postal_code, company_city, company_country, note, title_prefix, title_suffix, gender, document_type, document_number, document_issued_on, document_authority, document_country, document_front_path, document_back_path, anonymized_at, updated_at'
+  `id, last_name, first_name, country, email, email_source, phone, phone_source, language, birth_date, street, postal_code, city, address_country, marketing_source, marketing_custom, company_id, ${GUEST_COMPANY_COLUMNS}, note, title_prefix, title_suffix, gender, document_type, document_number, document_issued_on, document_authority, document_country, document_front_path, document_back_path, anonymized_at, updated_at` as const
+
+type CompanyEmbed = {
+  id: string
+  name: string
+  name_missing: boolean
+  vat_id: string | null
+  address_line1: string | null
+  address_line2: string | null
+  postal_code: string | null
+  city: string | null
+  country: string | null
+} | null
+
+export const toCompanySummary = (c: CompanyEmbed): CompanySummary | null =>
+  c && {
+    id: c.id,
+    name: c.name,
+    nameMissing: c.name_missing,
+    vatId: c.vat_id,
+    addressLine1: c.address_line1,
+    addressLine2: c.address_line2,
+    postalCode: c.postal_code,
+    city: c.city,
+    country: c.country,
+  }
 
 // Aufenthalte werden aus den Buchungen berechnet (PROJ-8), nicht am Gast gespeichert
 const NO_STAYS: GuestStays = { count: 0, bookings: 0, invoices: 0, last: null, next: null, channels: [] }
@@ -104,7 +134,20 @@ async function requireMember(): Promise<{ tenantId: string; role: Role }> {
   return { tenantId: active.id, role: active.role }
 }
 
-export function toGuest(g: Pick<GuestDbRow, Exclude<keyof GuestDbRow, 'tenant_id' | 'created_at' | 'created_by' | 'updated_by' | 'search_text' | 'email_key' | 'phone_key' | 'name_key'>>): Guest {
+type LegacyCompanyColumn =
+  | 'company_name'
+  | 'company_vat_id'
+  | 'company_address_line1'
+  | 'company_address_line2'
+  | 'company_postal_code'
+  | 'company_city'
+  | 'company_country'
+
+export function toGuest(
+  g: Pick<GuestDbRow, Exclude<keyof GuestDbRow, 'tenant_id' | 'created_at' | 'created_by' | 'updated_by' | 'search_text' | 'email_key' | 'phone_key' | 'name_key' | LegacyCompanyColumn>> & {
+    company: CompanyEmbed
+  }
+): Guest {
   return {
     id: g.id,
     lastName: g.last_name,
@@ -122,13 +165,7 @@ export function toGuest(g: Pick<GuestDbRow, Exclude<keyof GuestDbRow, 'tenant_id
     addressCountry: g.address_country,
     marketingSource: g.marketing_source as MarketingSource | null,
     marketingCustom: g.marketing_custom,
-    companyName: g.company_name,
-    companyVatId: g.company_vat_id,
-    companyAddressLine1: g.company_address_line1,
-    companyAddressLine2: g.company_address_line2,
-    companyPostalCode: g.company_postal_code,
-    companyCity: g.company_city,
-    companyCountry: g.company_country,
+    company: toCompanySummary(g.company),
     note: g.note,
     titlePrefix: g.title_prefix,
     titleSuffix: g.title_suffix,
@@ -153,7 +190,8 @@ export const toRow = (g: Guest): GuestRow => ({
   firstName: g.firstName,
   titlePrefix: g.titlePrefix,
   titleSuffix: g.titleSuffix,
-  companyName: g.companyName,
+  companyId: g.company?.id ?? null,
+  companyName: g.company?.name ?? null,
   country: g.country,
   stayCount: g.stays.count,
   lastStay: g.stays.last,
@@ -166,6 +204,7 @@ type ListRow = {
   first_name: string | null
   title_prefix: string | null
   title_suffix: string | null
+  company_id: string | null
   company_name: string | null
   country: string
   anonymized_at: string | null
@@ -180,6 +219,7 @@ export const listRow = (r: Omit<ListRow, 'total'>): GuestRow => ({
   firstName: r.first_name,
   titlePrefix: r.title_prefix,
   titleSuffix: r.title_suffix,
+  companyId: r.company_id,
   companyName: r.company_name,
   country: r.country,
   stayCount: r.stay_count,

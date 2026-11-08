@@ -8,6 +8,7 @@ import { CreateGuestButton } from '@/components/guests/create-guest-button'
 import { DeletedNotice } from '@/components/guests/deleted-notice'
 import { GuestFilterBar } from '@/components/guests/guest-filters'
 import { GuestList } from '@/components/guests/guest-list'
+import { GuestTabs } from '@/components/guests/guest-tabs'
 import { PageHeader } from '@/components/page-header'
 import { Button } from '@/components/ui/button'
 import { requireArea } from '@/lib/areas'
@@ -50,6 +51,7 @@ export default async function GuestsPage({ searchParams }: { searchParams: Searc
       <>
         <DeletedNotice />
         <PageHeader title={t('title')} lead={t('lead')} />
+        <GuestTabs />
         <EmptyState
           icon={UsersThree}
           title={t('emptyTitle')}
@@ -64,6 +66,7 @@ export default async function GuestsPage({ searchParams }: { searchParams: Searc
     <>
       <DeletedNotice />
       <PageHeader title={t('title')} lead={t('lead')} action={isOwner && <CreateGuestButton />} />
+      <GuestTabs />
       <section className="flex flex-col gap-4">
         <GuestFilterBar filters={page} />
         <div className="flex flex-wrap items-center justify-between gap-3">

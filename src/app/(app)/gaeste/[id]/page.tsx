@@ -13,6 +13,7 @@ import { requireArea } from '@/lib/areas'
 import { formatDate, formatDatePlain, formatNumber } from '@/lib/format'
 import { companyAddressLines, countryName, type Guest, guestDisplayName, hasCompany, languageName, privateAddressLines } from '@/lib/guests'
 import { getGuestBookings } from '@/lib/bookings-data'
+import { companyHref } from '@/lib/companies'
 import { getGuest } from '@/lib/guests-data'
 import { getTenantContext } from '@/lib/tenant'
 
@@ -56,7 +57,7 @@ export default async function GuestDetailPage({ params }: { params: Params }) {
         {t('back')}
       </Link>
       <PageHeader
-        eyebrow={[guest.companyName, countryName(guest.country, locale)].filter(Boolean).join(' · ')}
+        eyebrow={[guest.company?.name, countryName(guest.country, locale)].filter(Boolean).join(' · ')}
         title={<span className="break-words">{guestDisplayName(guest)}</span>}
       />
 
@@ -134,10 +135,15 @@ export default async function GuestDetailPage({ params }: { params: Params }) {
           <Fact label={t('detail.note')}>{guest.note ? <span className="whitespace-pre-line break-words">{guest.note}</span> : missing}</Fact>
         </DetailSection>
 
-        {showCompany && (
+        {showCompany && guest.company && (
           <DetailSection title={t('detail.company')}>
-            <Fact label={t('detail.companyName')}>{guest.companyName ?? missing}</Fact>
-            <Fact label={t('detail.vatId')}>{guest.companyVatId ?? missing}</Fact>
+            {/* Firma aus der Firmenliste (PROJ-50): der Name führt zum Firmendetail */}
+            <Fact label={t('detail.companyName')}>
+              <Link href={companyHref(guest.company.id)} className="break-words text-ds-accent-700 underline underline-offset-[3px] hover:decoration-2">
+                {guest.company.name}
+              </Link>
+            </Fact>
+            <Fact label={t('detail.vatId')}>{guest.company.vatId ?? missing}</Fact>
             <Fact label={t('detail.billingAddress')}>
               {companyAddress.length ? (
                 <span className="flex flex-col">

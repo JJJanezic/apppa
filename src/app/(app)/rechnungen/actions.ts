@@ -9,7 +9,7 @@ import { getSessionUser, pendingMfaStep } from '@/lib/auth/session'
 import { bookingHref, type BookingSource, todayIso } from '@/lib/bookings'
 import { billableCents, lineSourceToDb, partialLabel, splitByVat } from '@/lib/invoice-drafts'
 import { currentFingerprint, getDraftBooking, getInvoiceButtonStates } from '@/lib/invoice-drafts-data'
-import { guestDbColumns } from '@/lib/guests-data'
+import { guestCompanyPayload, guestDbColumns } from '@/lib/guests-data'
 import { removeInvoiceFiles } from '@/lib/invoice-files'
 import {
   bookingGuestName,
@@ -82,6 +82,9 @@ function dbFail(error: DbError, context: string): Failure {
     // neuer Gast: Ausweisbild fehlt im Speicher oder gehört schon einem anderen Gast (PROJ-29)
     case 'P0705':
       return fail('documentImageMissing')
+    // PROJ-50: gewählte Firma des neuen Gastes gibt es nicht mehr
+    case 'P0707':
+      return fail('companyMissing')
     // Entwurf (PROJ-40): nichts mehr zu verrechnen (Sperre, Storno ohne Gebühr, Summenregel beim Anlegen)
     case 'P0920':
       return fail('nothingToBill')
@@ -141,11 +144,11 @@ export async function saveInvoice(input: SaveInvoice): Promise<SaveInvoiceResult
   if (input.id !== undefined && (!isId(input.id) || typeof input.updatedAt !== 'string')) return fail('notFound')
   const v = parsed.data
 
-  let newGuest: ReturnType<typeof guestDbColumns> | null = null
+  let newGuest: (ReturnType<typeof guestDbColumns> & ReturnType<typeof guestCompanyPayload>) | null = null
   if (v.guestMode === 'new') {
     const guest = guestSchema(key).safeParse(input.newGuest)
     if (!guest.success) return fail('unknown')
-    newGuest = guestDbColumns(guest.data)
+    newGuest = { ...guestDbColumns(guest.data), ...guestCompanyPayload(guest.data.company) }
   }
 
   let alreadyPaid: { paid_on: string; method_id: string; commission_cents: number; fee_cents: number } | null = null
@@ -282,7 +285,7 @@ export async function loadInvoiceBooking(input: { id: string }): Promise<Result<
   const { data: b, error } = await supabase
     .from('bookings')
     .select(
-      'id, kind, source, cancelled_at, guest:guests(id, last_name, first_name, title_prefix, title_suffix, country, company_name, anonymized_at), amounts:booking_amounts(billed_nights_cents, nights_cents, nights_vat_rate, cancellation_fee_cents, cancellation_fee_vat_rate), charges:booking_charges(position, label, amount_cents, vat_rate)'
+      'id, kind, source, cancelled_at, guest:guests(id, last_name, first_name, title_prefix, title_suffix, country, anonymized_at, company:companies!guests_company_fkey(name)), amounts:booking_amounts(billed_nights_cents, nights_cents, nights_vat_rate, cancellation_fee_cents, cancellation_fee_vat_rate), charges:booking_charges(position, label, amount_cents, vat_rate)'
     )
     .eq('id', input.id)
     .eq('tenant_id', guard.tenant.id)
@@ -301,7 +304,7 @@ export async function loadInvoiceBooking(input: { id: string }): Promise<Result<
         titlePrefix: b.guest.title_prefix,
         titleSuffix: b.guest.title_suffix,
         country: b.guest.country,
-        companyName: b.guest.company_name,
+        companyName: b.guest.company?.name ?? null,
         anonymized: b.guest.anonymized_at !== null,
       },
       amounts: a

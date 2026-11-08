@@ -61,6 +61,8 @@ export function GuestPanel({ open, onOpenChange, guest }: GuestPanelProps) {
     if (!result.ok) {
       if (result.error === 'staleGuest') setStale(true)
       else setError(result.error)
+      // Gewählte Firma gibt es nicht mehr (PROJ-50): Suche statt Karte, übrige Eingaben bleiben
+      if (result.error === 'companyMissing') form.setValue('companyId', '')
       return
     }
     const name = guestDisplayName({
@@ -101,7 +103,7 @@ export function GuestPanel({ open, onOpenChange, guest }: GuestPanelProps) {
             </Alert>
           )}
 
-          <GuestFields documentImages={guest?.documentImages} guestId={guest?.id} />
+          <GuestFields documentImages={guest?.documentImages} company={guest?.company} />
 
           {duplicates && (
             <Alert role="alert" className="border-ds-accent-700/40 bg-ds-accent-100">

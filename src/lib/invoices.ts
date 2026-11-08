@@ -8,6 +8,8 @@ import type { PaymentState } from '@/lib/payments'
 import { vatBreakdown, type VatShare } from '@/lib/vat'
 
 export type InvoiceErrorCode =
+  // PROJ-50: gewählte Firma des neuen Gastes gibt es nicht mehr
+  | 'companyMissing'
   | 'ownerOnly'
   | 'notFound'
   | 'staleInvoice'

@@ -259,6 +259,8 @@ export function InvoicePanel({ open, onOpenChange, invoice, today }: InvoicePane
       } else if (result.error === 'dateInFuture') form.setError('invoiceDate', { message: tv('dateInFuture') }, { shouldFocus: true })
       else if (result.error === 'deductedByIssued') setDeductedBy((result as SaveInvoiceResult).deductedBy ?? '')
       else setError(result.error)
+      // Gewählte Firma des neuen Gastes gibt es nicht mehr (PROJ-50): Suche statt Karte
+      if (result.error === 'companyMissing') guestForm.setValue('companyId', '')
       return
     }
     toast.success(invoice ? t('done.saved') : t('done.created'))
