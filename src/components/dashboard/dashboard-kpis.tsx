@@ -23,6 +23,7 @@ export async function DashboardKpis({ scope, today }: { scope: DashboardScope; t
   const openKnown = open.ready && !open.failed
   const openTile = (
     <KpiTile
+      centered
       label={t('kpiOpen')}
       value={openKnown ? formatCents(open.totalCents) : dash}
       sub={openKnown ? t('kpiOpenSub', { count: open.count, overdue: open.overdue }) : undefined}
@@ -42,12 +43,14 @@ export async function DashboardKpis({ scope, today }: { scope: DashboardScope; t
     return (
       <KpiGrid label={t('kpiLabel')}>
         <KpiTile
+          centered
           label={t('kpiOccupancyMonth', { month })}
           value={known && occ !== null ? formatPercent(occ) : dash}
           sub={known ? t('kpiOccupancyMonthSub', { occupied: formatNumber(stats.occupiedNights), available: formatNumber(stats.availableNights) }) : undefined}
           link={link}
         />
         <KpiTile
+          centered
           label={t('kpiRevenueMonth', { month })}
           value={known ? formatCents(stats.revenueCents) : dash}
           sub={known ? (stats.vatCents === 0 ? vat('none') : vat('included', { amount: formatCents(stats.vatCents) })) : undefined}
@@ -55,6 +58,7 @@ export async function DashboardKpis({ scope, today }: { scope: DashboardScope; t
         />
         {openTile}
         <KpiTile
+          centered
           label={t('kpiToday')}
           value={day.failed ? dash : `${formatNumber(day.arrivals.length)} / ${formatNumber(day.departures.length)}`}
           sub={day.departuresUnbilled ? `${t('kpiTodaySub')} · ${t('kpiTodayUnbilled', { count: formatNumber(day.departuresUnbilled) })}` : t('kpiTodaySub')}
@@ -66,16 +70,19 @@ export async function DashboardKpis({ scope, today }: { scope: DashboardScope; t
   return (
     <KpiGrid label={t('kpiLabel')}>
       <KpiTile
+        centered
         label={t('kpiArrivals')}
         value={day.failed ? dash : formatNumber(day.arrivals.length)}
         sub={day.failed ? undefined : t('kpiArrivalsSub', { count: day.arrivingGuests })}
       />
       <KpiTile
+        centered
         label={t('kpiDepartures')}
         value={day.failed ? dash : formatNumber(day.departures.length)}
         sub={day.departuresUnbilled ? t('kpiDeparturesSub', { count: formatNumber(day.departuresUnbilled) }) : undefined}
       />
       <KpiTile
+        centered
         label={t('kpiOccupied')}
         value={day.failed ? dash : `${formatNumber(day.occupied)} / ${formatNumber(day.apartments)}`}
         sub={t('kpiOccupiedSub')}

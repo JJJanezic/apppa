@@ -18,6 +18,8 @@ interface KpiTileProps {
   link?: KpiLink
   // Kleinere Zahl, wenn fünf Kacheln nebeneinander stehen (PROJ-18: Beträge wie „€ 152.120,00“)
   compact?: boolean
+  // Inhalt waagrecht und senkrecht mittig (Kacheln über der Zeitleiste im Dashboard, Wunsch Nutzer)
+  centered?: boolean
 }
 
 // Die Beschriftung trägt den Link, eine Fläche darüber macht die ganze Kachel klickbar
@@ -45,9 +47,9 @@ function TileLabel({ label, link }: { label: string; link?: KpiLink }) {
 }
 
 // Kennzahl-Kachel wie im Entwurf: Beschriftung, große Zahl, Unterzeile; als Fläche abgesetzt (PROJ-14, Wunsch Nutzer)
-export function KpiTile({ label, value, sub, note, link, compact = false }: KpiTileProps) {
+export function KpiTile({ label, value, sub, note, link, compact = false, centered = false }: KpiTileProps) {
   return (
-    <div className="relative flex min-w-0 flex-col gap-1 rounded-lg bg-ds-surface p-4">
+    <div className={`relative flex min-w-0 flex-col gap-1 rounded-lg bg-ds-surface p-4 ${centered ? 'items-center justify-center text-center' : ''}`}>
       <dt className="text-[13px] text-ds-neutral-700">
         <TileLabel label={label} link={link} />
       </dt>
