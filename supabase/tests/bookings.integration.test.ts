@@ -181,22 +181,23 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-8 Manuelle Buchungen', () => {
 
     it('legt einen neuen Gast nur zusammen mit der Buchung an (alles oder nichts), auch für Mitarbeiter', async () => {
       const apt = await apartment(tenantA, 'Neugast')
-      // PROJ-33: Firmenanschrift in Feldern
-      const company = { company_name: 'Nina GmbH', company_address_line1: 'Hauptstraße 1', company_postal_code: '80331', company_city: 'München', company_country: 'DE' }
-      const newGuest = { last_name: `Neu ${runId}`, first_name: 'Nina', country: 'DE', ...company }
+      // PROJ-50: neue Firma entsteht im selben Vorgang
+      const company = { name: `Nina GmbH ${runId}`, address_line1: 'Hauptstraße 1', postal_code: '80331', city: 'München', country: 'DE' }
+      const newGuest = { last_name: `Neu ${runId}`, first_name: 'Nina', country: 'DE', company_id: null, new_company: company }
       const bad = await save(staffA, bookingInput(tenantA, apt, '', '2027-07-05', '2027-07-01', { guest_id: null, new_guest: newGuest }))
       expect(bad.error).not.toBeNull()
       expect((await service.from('guests').select('id').eq('last_name', newGuest.last_name)).data).toHaveLength(0)
+      expect((await service.from('companies').select('id').eq('name', company.name)).data).toHaveLength(0)
 
       const id = savedId(await save(staffA, bookingInput(tenantA, apt, '', '2027-07-01', '2027-07-05', { guest_id: null, new_guest: newGuest })))
       const created = (
         await service
           .from('guests')
-          .select('id, tenant_id, company_name, company_address_line1, company_address_line2, company_postal_code, company_city, company_country')
+          .select('id, tenant_id, company:companies!guests_company_fkey(tenant_id, name, address_line1, address_line2, postal_code, city, country)')
           .eq('last_name', newGuest.last_name)
       ).data!
       expect(created).toHaveLength(1)
-      expect(created[0]).toMatchObject({ ...company, company_address_line2: null })
+      expect(created[0].company).toMatchObject({ ...company, tenant_id: tenantA, address_line2: null })
       expect((await row(id)).guest_id).toBe(created[0].id)
     })
 

@@ -102,7 +102,10 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-7 Gäste-Datenbank', () => {
 
   describe('Suche', () => {
     it('findet ohne Groß-/Kleinschreibung und Akzente, auch über Firma und Telefon; blättert', async () => {
-      await guest(ownerA, tenantA, { last_name: 'Dupré', first_name: 'René', country: 'FR', company_name: 'Søren Bau GmbH', phone: '+43 664 9876543' })
+      // PROJ-50: Firma über die Verknüpfung
+      const { data: soren } = await ownerA.from('companies').insert({ tenant_id: tenantA, name: 'Søren Bau GmbH' }).select('id').single()
+      const dupre = await guest(ownerA, tenantA, { last_name: 'Dupré', first_name: 'René', country: 'FR', phone: '+43 664 9876543' })
+      await service.from('guests').update({ company_id: soren!.id }).eq('id', dupre.id)
       const byName = await ownerA.rpc('guest_list', { p_tenant_id: tenantA, p_query: 'rene dupre' })
       expect(byName.data?.map((r) => r.last_name)).toContain('Dupré')
       const byCompany = await ownerA.rpc('guest_list', { p_tenant_id: tenantA, p_query: 'soren' })
@@ -212,63 +215,6 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-7 Gäste-Datenbank', () => {
       expect((await staffA.rpc('merge_guests', { p_keep: a.id, p_remove: b.id, p_choice: choice() })).error?.code).toBe('P0701')
       // nichts verändert
       expect((await ownerA.from('guests').select('id').in('id', [a.id, b.id])).data).toHaveLength(2)
-    })
-  })
-
-  describe('PROJ-33 Firmenanschrift', () => {
-    const address = {
-      company_name: 'Muster GmbH',
-      company_vat_id: 'ATU12345678',
-      company_address_line1: 'Musterstraße 1',
-      company_address_line2: 'Top 5',
-      company_postal_code: '1010',
-      company_city: 'Wien',
-      company_country: 'AT',
-    }
-    const columns = Object.keys(address).join(', ')
-
-    it('speichert die Felder und lehnt zu lange Werte sowie ungültige Ländercodes ab', async () => {
-      const g = await guest(ownerA, tenantA, { last_name: 'Firma', country: 'AT', ...address })
-      expect((await ownerA.from('guests').select(columns).eq('id', g.id).single()).data).toEqual(address)
-      const bad = [
-        { company_address_line1: 'x'.repeat(201) },
-        { company_address_line2: 'x'.repeat(201) },
-        { company_postal_code: 'x'.repeat(11) },
-        { company_city: 'x'.repeat(101) },
-        { company_country: 'at' },
-        { company_address_line1: '   ' },
-      ]
-      for (const fields of bad) {
-        const { error } = await ownerA.from('guests').insert({ tenant_id: tenantA, last_name: 'X', country: 'AT', ...fields })
-        expect(error?.code, JSON.stringify(fields)).toBe('23514')
-      }
-      // Grenzwerte erlaubt, ausländische PLZ frei
-      const edge = await ownerA.from('guests').insert({
-        tenant_id: tenantA, last_name: 'Grenze', country: 'GB',
-        company_address_line1: 'x'.repeat(200), company_postal_code: 'SW1A 1AA', company_city: 'x'.repeat(100),
-      })
-      expect(edge.error).toBeNull()
-    })
-
-    it('übernimmt beim Zusammenführen Firma samt Anschrift gemeinsam vom gewählten Gast', async () => {
-      const keep = await guest(ownerA, tenantA, { last_name: 'FirmaMerge', country: 'AT', company_name: 'Alt GmbH', company_city: 'Graz' })
-      const remove = await guest(ownerA, tenantA, { last_name: 'FirmaMerge', country: 'AT', ...address })
-      const choice = { name: 'a', country: 'a', email: 'a', phone: 'a', language: 'a', birthDate: 'a', address: 'a', marketing: 'a', company: 'b', note: 'a' }
-      expect((await ownerA.rpc('merge_guests', { p_keep: keep.id, p_remove: remove.id, p_choice: choice })).error).toBeNull()
-      expect((await ownerA.from('guests').select(columns).eq('id', keep.id).single()).data).toEqual(address)
-    })
-
-    it('leert die Anschrift beim Anonymisieren und protokolliert Änderungen', async () => {
-      const g = await guest(ownerA, tenantA, { last_name: 'FirmaAnonym', country: 'AT', ...address })
-      await ownerA.from('guests').update({ company_city: 'Linz' }).eq('id', g.id)
-      const before = await service.from('audit_log').select('new_data').eq('table_name', 'guests').eq('record_id', g.id).eq('action', 'update')
-      expect(before.data?.some((e) => (e.new_data as { company_city?: string } | null)?.company_city === 'Linz')).toBe(true)
-
-      expect((await service.rpc('anonymize_guest', { p_guest_id: g.id })).error).toBeNull()
-      const { data } = await ownerA.from('guests').select(columns).eq('id', g.id).single()
-      expect(Object.values(data ?? {}).every((v) => v === null)).toBe(true)
-      const log = await service.from('audit_log').select('old_data, new_data').eq('table_name', 'guests').eq('record_id', g.id)
-      expect(log.data?.every((e) => e.old_data === null && e.new_data === null)).toBe(true)
     })
   })
 

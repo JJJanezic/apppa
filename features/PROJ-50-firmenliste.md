@@ -2,7 +2,7 @@
 
 ## Status: In Progress
 **Created:** 2026-11-08
-**Last Updated:** 2026-11-08 (Frontend)
+**Last Updated:** 2026-11-08 (Backend)
 
 ## Dependencies
 - Requires: PROJ-4 (Kundenkonten & Rollen): Rollen Inhaber/Mitarbeiter, gewählter Kunde
@@ -310,6 +310,11 @@ Firmen werden zu eigenen Einträgen je Kunde. Ein Gast ist mit höchstens einer 
 | Webadresse so gespeichert wie eingegeben, Link ergänzt „https://“ | Nutzer tippt „www.firma.at“; keine Umformung der Daten | 2026-11-08 |
 | Änderungsprotokoll der Firma nur in der Datenbank, keine Anzeige in der App | Wie bei Gästen; Anzeige wäre ein eigenes, bereichsübergreifendes Feature (vom Nutzer bestätigt) | 2026-11-08 |
 | Keine neuen Pakete | Alle Bausteine vorhanden | 2026-11-08 |
+| Überführung als private Funktion `transfer_guest_companies`, in der Migration aufgerufen und behalten | Mit Probedaten in einer zurückgerollten Transaktion prüfbar; bei Bedarf für Staging/Prod nachvollziehbar | 2026-11-08 |
+| Länge der Adresszeile 1 der Firma als `not valid`-Regel nach der Überführung | Altdaten über 200 Zeichen (PROJ-33) werden übernommen; Regel greift beim Bearbeiten | 2026-11-08 |
+| Neue Firma im selben Vorgang über `guest_company_from_input` in save_guest, save_booking, save_invoice | Eine Stelle für „bestehende Firma prüfen / neue Firma anlegen“; Mitarbeiter legen Firmen nur innerhalb der Buchung an | 2026-11-08 |
+| Eigene Migration für Aufrufrechte der privaten Funktionen | Schema „private“ vergibt keine Ausführungsrechte; erste Migration war in Dev schon eingespielt | 2026-11-08 |
+| Keine Protokolleinträge und kein „zuletzt geändert“ während der Überführung (Trigger am Gast vorübergehend aus) | Wie im Tech Design: Protokoll nicht mit Systemeinträgen fluten, Reihenfolge „zuletzt geändert“ bleibt | 2026-11-08 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
@@ -458,6 +463,24 @@ Keine neuen Pakete. Alle Bausteine sind vorhanden (shadcn RadioGroup, Command, T
 - Ohne Migration funktionieren Firmen-Seiten und Gast speichern noch nicht (Funktionen fehlen in Dev)
 - E2E-Tests, die Gäste mit `company_*`-Spalten direkt anlegen oder das alte Firmenfeld bedienen, müssen umgestellt werden: PROJ-14, 15, 33, 37, 40, 41, 42, 43, 44, 45
 - Firmen-Abschnitte im Detail zeigen höchstens 200 Buchungen bzw. Rechnungen mit Hinweis (statt Seiten)
+
+### Backend-Umsetzung (2026-11-08)
+**Migrationen (nur Dev):** `20261108164726_company_list.sql`, `20261108165414_company_list_grants.sql` (Aufrufrechte der privaten Funktionen)
+- Tabellen `companies` (RLS: Lesen Mitglieder/Admin, Anlegen/Ändern nur Inhaber, kein direktes Löschen; Standardfelder + Protokoll über `enable_tenant_table`) und `company_duplicate_dismissals` (nur Inhaber); `guests.company_id` mit Fremdschlüssel (company_id, tenant_id) → companies, `on delete set null (company_id)`
+- Trigger `companies_before_write`: Suchtext (Name, UID auch ohne Leerzeichen), Namensschlüssel; „Name fehlt“ fällt bei Namensänderung weg, außer er wird mitgesetzt (Zusammenführen)
+- Überführung `private.transfer_guest_companies()` (bleibt für Nachprüfungen bestehen, verknüpft nur Gäste ohne Firma): Gruppen nach den 7 Feldern (lower/btrim), Werte des zuletzt geänderten Gastes, Platzhalter „Firma ohne Namen“ + Merker, Zählprüfung mit Abbruch; während der Überführung Protokoll- und „zuletzt geändert“-Trigger am Gast aus; danach Suchtext aller Gäste neu (ohne Firmenname). Länge Adresszeile 1 der Firma als `not valid`-Regel nach der Überführung (gilt für neue und geänderte Firmen)
+- Alte Firmenspalten am Gast: Schreibrechte entzogen, Anonymisieren leert sie weiter; Entfernen in späterer Aufräum-Migration
+- Neue Funktionen: `save_guest` (Inhaber; Anlegen/Bearbeiten mit P0706 bei veraltetem Stand), `private.guest_company_from_input` (bestehende Firma prüfen → P0707, neue Firma anlegen; auch für Mitarbeiter innerhalb `save_booking`), `company_list` (Suche nach Wörtern in Name/UID, `p_exact_name`, `p_exclude_id`, Anzahl Gäste), `company_duplicate_pairs`, `delete_company` (Rückgabe Anzahl Gäste, Protokoll bereinigt), `merge_companies`
+- Umgestellt: `guests_before_write`, `guest_list` (neu angelegt, liefert `company_id`, Suche im Gast- oder Firmen-Suchtext), `merge_guests` (Verknüpfung), `anonymize_guest` (Verknüpfung leeren), `save_booking`, `save_invoice` (neuer Gast mit `company_id`/`new_company`), `search_invoice_bookings` (Firmenname über Verknüpfung); entfernt: `guest_company_suggestions`
+- Typen neu erzeugt; Advisors: nur die bekannte Auth-Warnung „OTP long expiry“ (nicht aus dieser Migration)
+
+**Tests**
+- Überführung mit Probedaten in einer zurückgerollten Transaktion geprüft (gleiche Fassung inkl. Schreibung/Rand-Leerzeichen → eine Firma mit Werten des zuletzt geänderten Gastes; andere Adresse → eigene Firma; nur UID → „Firma ohne Namen“ mit Merker; Adresszeile 250 Zeichen übernommen; zweiter Kunde getrennt; Gast ohne Firma unverknüpft; Suchtext ohne Firmenname)
+- Neu `supabase/tests/companies.integration.test.ts` (15): Rollen und Abschottung, Schreibsperre alte Spalten, Prüfregeln, Merker „Name fehlt“, save_guest (neue/bestehende/fremde Firma, P0706, P0707, P0701), Liste und Suche (Umlaute, UID, gleicher Name, Ausschluss), Gästesuche über Firmenname nach Umbenennung, Dubletten (Name, UID, Platzhalter, Ausblenden), Löschen (Verknüpfungen leer, Protokoll bereinigt), Zusammenführen (Feldwahl, Gäste umgehängt, Fehlerfälle), Gäste zusammenführen und anonymisieren
+- Angepasst: `guests.integration` (Suche über Firma; Abschnitt PROJ-33 entfernt), `bookings.integration` (neuer Gast mit neuer Firma, alles oder nichts), `invoices.integration` (Firma über Verknüpfung)
+- Grün: companies 15, guests + bookings 44, invoices + invoice-drafts 49, rls + guest-documents 33; Unit 937; Lint und Build
+
+**Beim Ausliefern beachten:** Migration vor dem App-Code; in der Zwischenzeit übernimmt eine Buchung mit neuem Gast über die alte App keine Firmendaten (Felder werden ignoriert). Deshalb außerhalb der Arbeitszeiten ausliefern. Danach Zahl der Firmen und verknüpften Gäste in Staging/Prod prüfen.
 
 ### H) Abweichung von der Spec (bestätigt 2026-11-08)
 Die Spec sah ein „Änderungsprotokoll der Firma“ zum Ansehen für Inhaber vor. In der App gibt es bisher **keine** Anzeige des Protokolls, auch nicht für Gäste (PROJ-7). Entschieden: Das Protokoll wird wie bei Gästen nur in der Datenbank geführt. Eine Anzeige kommt bei Bedarf als eigenes Feature für alle Bereiche. Rechte-Tabelle und Akzeptanzkriterien sind angepasst.

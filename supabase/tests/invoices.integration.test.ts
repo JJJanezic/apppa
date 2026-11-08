@@ -319,7 +319,7 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-37 Rechnungen nacherfassen', () => {
         .select(
           'id, number, invoice_date, origin, recipient, small_business, total_cents, pdf_path, updated_at, ' +
             'lines:invoice_lines(position, label, amount_cents, vat_rate), ' +
-            'guest:guests(id, last_name, first_name, title_prefix, title_suffix, country, company_name, anonymized_at), ' +
+            'guest:guests(id, last_name, first_name, title_prefix, title_suffix, country, anonymized_at, company:companies!guests_company_fkey(name)), ' +
             'booking:bookings(id, kind, number, arrival, departure, cancelled_at, guest:guests(last_name, first_name), apartment:apartments!inner(name, property:properties!inner(name)))'
         )
         .eq('id', id)
