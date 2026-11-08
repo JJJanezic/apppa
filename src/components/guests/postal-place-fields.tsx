@@ -1,7 +1,7 @@
 'use client'
 
 import { useLocale, useTranslations } from 'next-intl'
-import { type ChangeEvent, useRef, useState } from 'react'
+import { type ChangeEvent, type Ref, useImperativeHandle, useRef, useState } from 'react'
 import { useFormContext, useWatch } from 'react-hook-form'
 
 import { Button } from '@/components/ui/button'
@@ -24,12 +24,19 @@ interface PostalPlaceFieldsProps {
   cityMax: number
   // Raster für PLZ und Ort (Gast- und Firmenanschrift unterscheiden sich auf dem Handy)
   gridClassName: string
+  // reset(): Ort/Staat wurden von außen gesetzt (Firmenvorschlag, PROJ-49). Merker „automatisch befüllt“ und offene
+  // Ortsauswahl verwerfen, damit die Automatik die gesetzten Werte nicht überschreibt
+  ref?: Ref<PostalPlaceFieldsHandle>
+}
+
+export interface PostalPlaceFieldsHandle {
+  reset: () => void
 }
 
 // PLZ und Ort einer Anschrift im Gastformular (PROJ-48): Eine österreichische oder deutsche PLZ füllt Ort und Land aus.
 // Nur Eingaben im PLZ-Feld lösen das aus – Öffnen eines Gastes oder Zurücksetzen des Formulars nicht.
 // Welche Werte automatisch eingetragen wurden, gilt nur für die laufende Bearbeitung und wird nicht gespeichert.
-export function PostalPlaceFields({ postalName, cityName, countryName: countryKey, postalLabel, cityLabel, postalMax, cityMax, gridClassName }: PostalPlaceFieldsProps) {
+export function PostalPlaceFields({ postalName, cityName, countryName: countryKey, postalLabel, cityLabel, postalMax, cityMax, gridClassName, ref }: PostalPlaceFieldsProps) {
   const t = useTranslations('guests.postalPlaces')
   const locale = useLocale()
   const { control, getValues, setValue, setFocus, formState } = useFormContext<GuestInput>()
@@ -44,6 +51,15 @@ export function PostalPlaceFields({ postalName, cityName, countryName: countryKe
     auto.current = next
     setAutoCity(next.city)
   }
+
+  useImperativeHandle(ref, () => ({
+    reset: () => {
+      // Noch laufende Nachschlage-Antwort verwerfen
+      sequence.current++
+      remember({ city: null, country: null })
+      setChoices([])
+    },
+  }))
 
   const set = (name: TextKey | CountryKey, value: string) =>
     setValue(name, value, { shouldDirty: true, shouldValidate: formState.isSubmitted })

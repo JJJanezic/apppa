@@ -2171,6 +2171,18 @@ export type Database = {
         Returns: undefined
       }
       delete_payment: { Args: { p_payment_id: string }; Returns: Json }
+      guest_company_suggestions: {
+        Args: { p_exclude_id?: string; p_query: string; p_tenant_id: string }
+        Returns: {
+          company_address_line1: string
+          company_address_line2: string
+          company_city: string
+          company_country: string
+          company_name: string
+          company_postal_code: string
+          company_vat_id: string
+        }[]
+      }
       guest_duplicate_candidates: {
         Args: {
           p_email: string

@@ -5,7 +5,8 @@ import { forwardRef, useId, useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 
-export type LabelChoice = { key: string; label: string }
+// detail: zweite, kleinere Zeile im Eintrag (z. B. UID und Ort eines Firmenvorschlags, PROJ-49)
+export type LabelChoice = { key: string; label: string; detail?: string }
 
 type LabelComboboxProps = Omit<React.ComponentProps<typeof Input>, 'value' | 'onChange'> & {
   value: string
@@ -17,6 +18,8 @@ type LabelComboboxProps = Omit<React.ComponentProps<typeof Input>, 'value' | 'on
   // Liste offen? Der Aufrufer verhindert damit, dass Escape das Seitenpanel schließt
   onListOpenChange?: (open: boolean) => void
   listLabel: string
+  // false: Einträge kommen schon passend vom Aufrufer (z. B. Suche auf dem Server) und werden nicht nach dem Text gefiltert
+  filter?: boolean
   // Bleibt unbenutzt; erlaubt {...field} aus react-hook-form
   onChange?: unknown
 }
@@ -27,14 +30,14 @@ type LabelComboboxProps = Omit<React.ComponentProps<typeof Input>, 'value' | 'on
 export const LabelCombobox = forwardRef<HTMLInputElement, LabelComboboxProps>(function LabelCombobox(
   // onChange aus {...field} wird bewusst nicht weitergegeben
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  { value, onValueChange, onChoose, choices, onListOpenChange, listLabel, onBlur, onFocus, onKeyDown, onChange: _onChange, className, ...props },
+  { value, onValueChange, onChoose, choices, onListOpenChange, listLabel, filter = true, onBlur, onFocus, onKeyDown, onChange: _onChange, className, ...props },
   ref
 ) {
   const listId = useId()
   const [open, setOpenState] = useState(false)
   const [active, setActive] = useState(-1)
   const query = value.trim().toLocaleLowerCase('de')
-  const visible = choices.filter((c) => !query || c.label.toLocaleLowerCase('de').includes(query))
+  const visible = filter ? choices.filter((c) => !query || c.label.toLocaleLowerCase('de').includes(query)) : choices
   const expanded = open && visible.length > 0
 
   function setOpen(next: boolean) {
@@ -112,9 +115,14 @@ export const LabelCombobox = forwardRef<HTMLInputElement, LabelComboboxProps>(fu
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => choose(choice)}
             onMouseEnter={() => setActive(i)}
-            className={cn('flex min-h-11 cursor-default items-center rounded-sm px-2 text-sm', i === active && 'bg-accent text-accent-foreground')}
+            className={cn(
+              'flex min-h-11 cursor-default flex-col justify-center rounded-sm px-2 text-sm',
+              choice.detail && 'py-1.5',
+              i === active && 'bg-accent text-accent-foreground'
+            )}
           >
             {choice.label}
+            {choice.detail && <span className={cn('text-[13px]', i === active ? 'text-accent-foreground' : 'text-ds-neutral-700')}>{choice.detail}</span>}
           </li>
         ))}
       </ul>

@@ -15,13 +15,17 @@ interface DetailPanelProps {
 }
 
 // Detail-Panel wie im Entwurf: fährt von rechts herein (max. 440 px), am Handy bildschirmfüllend.
-// Esc, Klick außerhalb und „Schließen“ schließen es; der Fokus kehrt zum auslösenden Element zurück.
+// Esc (außer bei offener Auswahlliste), Klick außerhalb und „Schließen“ schließen es; der Fokus kehrt zum auslösenden Element zurück.
 export function DetailPanel({ open, onOpenChange, title, eyebrow, description, children, onEscapeKeyDown }: DetailPanelProps) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        onEscapeKeyDown={onEscapeKeyDown}
+        onEscapeKeyDown={(e) => {
+          // Offene Auswahlliste eines Kombinationsfelds: Escape schließt nur die Liste, nicht das Panel (PROJ-49)
+          if (e.target instanceof Element && e.target.closest('[role="combobox"][aria-expanded="true"]')) e.preventDefault()
+          onEscapeKeyDown?.(e)
+        }}
         className="flex w-full flex-col gap-6 overflow-y-auto bg-ds-bg p-6 sm:max-w-[440px] [&>button:last-child]:right-2 [&>button:last-child]:top-2 [&>button:last-child]:p-3.5"
       >
         <SheetHeader className="gap-1 pr-10 text-left">

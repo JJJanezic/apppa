@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
 import {
+  type CompanySuggestion,
   DOCUMENT_TYPES,
   GENDER_DEFAULT,
   GENDERS,
@@ -208,3 +209,15 @@ export function guestInput(g: Guest): GuestInput {
     documentBackPath: g.documentBackPath ?? '',
   }
 }
+
+// Gewählter Firmenvorschlag (PROJ-49): ersetzt alle sieben Firmenfelder, leere Werte leeren das Feld
+export const companyInputFromSuggestion = (s: CompanySuggestion) =>
+  ({
+    companyName: s.name,
+    companyVatId: s.vatId ?? '',
+    companyAddressLine1: s.addressLine1 ?? '',
+    companyAddressLine2: s.addressLine2 ?? '',
+    companyPostalCode: s.postalCode ?? '',
+    companyCity: s.city ?? '',
+    companyCountry: s.country ?? '',
+  }) satisfies Partial<GuestInput>

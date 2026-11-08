@@ -2,12 +2,13 @@
 
 import { CaretDown } from '@phosphor-icons/react'
 import { useLocale, useTranslations } from 'next-intl'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useFormContext, useWatch } from 'react-hook-form'
 
+import { CompanyNameField } from '@/components/guests/company-name-field'
 import { CountryPicker } from '@/components/guests/country-picker'
 import { DocumentImageField } from '@/components/guests/document-image-field'
-import { PostalPlaceFields } from '@/components/guests/postal-place-fields'
+import { PostalPlaceFields, type PostalPlaceFieldsHandle } from '@/components/guests/postal-place-fields'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
@@ -38,11 +39,13 @@ const PATH_FIELD: Record<DocumentSide, 'documentFrontPath' | 'documentBackPath'>
 interface GuestFieldsProps {
   // Abruf-Links der gespeicherten Ausweisbilder (Bearbeiten eines Gastes, PROJ-29)
   documentImages?: Guest['documentImages']
+  // Bearbeiteter Gast: liefert keine eigenen Firmenvorschläge (PROJ-49)
+  guestId?: string
 }
 
 // Felder eines Gastes (PROJ-7). Wiederverwendbar: Gast-Panel und später das Buchungsformular (PROJ-8).
 // Muss innerhalb eines react-hook-form <Form> mit GuestInput-Werten stehen.
-export function GuestFields({ documentImages = {} }: GuestFieldsProps) {
+export function GuestFields({ documentImages = {}, guestId }: GuestFieldsProps) {
   const t = useTranslations('guests.panel')
   const tm = useTranslations('guests.marketing')
   const tg = useTranslations('guests.gender')
@@ -67,6 +70,8 @@ export function GuestFields({ documentImages = {} }: GuestFieldsProps) {
     Boolean(initial?.documentType && documentType && documentType !== initial.documentType) &&
     ((Boolean(initial?.documentFrontPath) && frontPath === initial?.documentFrontPath) ||
       (Boolean(initial?.documentBackPath) && backPath === initial?.documentBackPath))
+  // Übernommener Firmenvorschlag (PROJ-49) setzt die PLZ-Automatik der Firmenanschrift zurück
+  const companyPostal = useRef<PostalPlaceFieldsHandle>(null)
   // Firma aufgeklappt, wenn schon Firmenangaben vorhanden sind
   const [companyOpen, setCompanyOpen] = useState(() => {
     const v = getValues()
@@ -258,7 +263,7 @@ export function GuestFields({ documentImages = {} }: GuestFieldsProps) {
           <CaretDown size={16} aria-hidden="true" className={companyOpen ? 'rotate-180 transition-transform' : 'transition-transform'} />
         </CollapsibleTrigger>
         <CollapsibleContent className="flex flex-col gap-4 px-4 pb-4">
-          {text('companyName', t('companyName'), { max: LIMITS.companyNameMax })}
+          <CompanyNameField guestId={guestId} onApplied={() => companyPostal.current?.reset()} />
           {text('companyVatId', t('vatId'), { max: LIMITS.vatIdMax })}
           <fieldset className="flex flex-col gap-4">
             <legend className="text-sm font-semibold">{t('billingAddress')}</legend>
@@ -274,6 +279,7 @@ export function GuestFields({ documentImages = {} }: GuestFieldsProps) {
               postalMax={LIMITS.companyPostalCodeMax}
               cityMax={LIMITS.companyCityMax}
               gridClassName="grid gap-4 sm:grid-cols-[minmax(0,7rem)_1fr]"
+              ref={companyPostal}
             />
             <FormField
               control={control}

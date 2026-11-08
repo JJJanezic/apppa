@@ -287,6 +287,26 @@ export const companyAddressLines = (g: Guest, locale = 'de') =>
 
 export const hasCompany = (g: Guest) => Boolean(g.companyName || g.companyVatId || companyAddressLines(g).length)
 
+// Firmenvorschläge im Gastformular (PROJ-49): eine Fassung der Firma eines anderen Gastes desselben Kunden
+export interface CompanySuggestion {
+  name: string
+  vatId: string | null
+  addressLine1: string | null
+  addressLine2: string | null
+  postalCode: string | null
+  city: string | null
+  country: string | null
+}
+
+export const COMPANY_SUGGESTION_MIN_CHARS = 2
+export const COMPANY_SUGGESTION_LIMIT = 8
+
+// Zweite Zeile eines Vorschlags: UID · „PLZ Ort“ · Adresszeile 1; leere Teile entfallen
+export function companySuggestionDetail(s: CompanySuggestion): string {
+  const place = [s.postalCode, s.city].filter(Boolean).join(' ')
+  return [s.vatId, place, s.addressLine1].filter(Boolean).join(' · ')
+}
+
 export function languageName(code: string, locale = 'de'): string {
   try {
     return new Intl.DisplayNames([locale], { type: 'language' }).of(code) ?? code

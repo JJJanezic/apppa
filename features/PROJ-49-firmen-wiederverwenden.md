@@ -1,6 +1,6 @@
 # PROJ-49: Firmen wiederverwenden
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-11-08
 **Last Updated:** 2026-11-08
 
@@ -250,6 +250,17 @@ Keine Änderung. Die Firma bleibt eine Gruppe von sieben Feldern am Gast (PROJ-3
 
 ### Abhängigkeiten (Pakete)
 Keine neuen Pakete. Genutzt werden die vorhandene shadcn-Komponente „Command“, react-hook-form und die bestehende Vereinheitlichung der Gästesuche in der Datenbank.
+
+### Umsetzung Frontend (2026-11-08)
+- **Baustein** `src/components/guests/company-name-field.tsx`: Feld „Firmenname“ mit Vorschlagsliste, in `guest-fields.tsx` anstelle des bisherigen Textfelds. Die Suche startet nur bei Eingaben im Feld (0,2 s Verzögerung, ab 2 Zeichen). Veraltete Antworten werden verworfen. Fehler führen still zu einer leeren Liste. Ein Live-Bereich sagt die Trefferzahl und die Übernahme an.
+- **Wiederverwendung statt neuem Kombinationsfeld:** `src/components/vat/label-combobox.tsx` (PROJ-35) bekam zwei optionale Erweiterungen: `detail` als zweite, kleinere Zeile je Eintrag und `filter={false}` für Listen, die schon passend vom Server kommen. Das bisherige Verhalten bei Zusatzkosten und Rechnungspositionen bleibt unverändert. Tab schließt die Liste ohne Übernahme.
+- **Esc im Seitenpanel:** `src/components/detail-panel.tsx` lässt das Panel offen, wenn Esc in einem Kombinationsfeld mit offener Liste gedrückt wird. Die Regel gilt allgemein für alle Panels. Die bisherigen Einzel-Abfragen in Buchungs- und Rechnungsformular bleiben bestehen und schaden nicht.
+- **Zusammenspiel mit PROJ-48:** `postal-place-fields.tsx` bietet über einen Ref `reset()` an. Das Gastformular ruft es für die Firmenanschrift nach jeder Übernahme auf. Damit gelten Ort und Staat als von Hand eingegeben, und eine laufende Nachschlage-Antwort wird verworfen.
+- **Ausschluss des eigenen Gastes:** `GuestFields` hat die neue optionale Angabe `guestId`. Nur `guest-panel.tsx` übergibt sie beim Bearbeiten. Buchungsformular und Rechnungsnacherfassung legen immer neue Gäste an.
+- **Logik** `src/lib/guests.ts`: Typ `CompanySuggestion`, Grenzen (2 Zeichen, 8 Vorschläge), `companySuggestionDetail` (UID · „PLZ Ort“ · Adresszeile 1). In `src/lib/validation/guests.ts`: `companyInputFromSuggestion` (alle sieben Felder, leere Werte als leere Felder). Unit-Tests in `guests.test.ts` und `validation/guests.test.ts`.
+- **Server-Aktion** `suggestCompanies` in `src/app/(app)/gaeste/actions.ts`: alle Mitglieder, Kunde aus der Sitzung, Suchtext auf 200 Zeichen begrenzt, ungültige Gast-Kennung ignoriert. Sie ruft die Datenbankfunktion `guest_company_suggestions` auf. Deren Typ ist in `src/types/database.ts` vorab eingetragen, die Funktion selbst entsteht mit `/backend`. Bis dahin bleibt die Liste leer.
+- **Messages:** `guests.panel.companySuggestions`, `companySuggestionsFound`, `companySuggestionApplied`.
+- **Prüfung:** `tsc`, ESLint, Unit-Tests (65) und `npm run build` grün. E2E folgt nach `/backend`, weil die Vorschläge die Datenbankfunktion brauchen.
 
 ## QA Test Results
 _To be added by /qa_

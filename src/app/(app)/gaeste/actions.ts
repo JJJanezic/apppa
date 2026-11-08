@@ -4,7 +4,19 @@ import { revalidatePath } from 'next/cache'
 
 import type { ActionResult, CommonErrorCode } from '@/lib/auth/result'
 import { getSessionUser, pendingMfaStep } from '@/lib/auth/session'
-import { DOCUMENT_BUCKET, type DuplicateMatch, type DuplicateReason, type Guest, type GuestErrorCode, type GuestRow, MERGE_FIELDS, type MergeChoice } from '@/lib/guests'
+import {
+  COMPANY_SUGGESTION_LIMIT,
+  COMPANY_SUGGESTION_MIN_CHARS,
+  type CompanySuggestion,
+  DOCUMENT_BUCKET,
+  type DuplicateMatch,
+  type DuplicateReason,
+  type Guest,
+  type GuestErrorCode,
+  type GuestRow,
+  MERGE_FIELDS,
+  type MergeChoice,
+} from '@/lib/guests'
 import { removeDocumentFiles, unusedPaths } from '@/lib/guest-documents'
 import { documentImageLinks, GUEST_COLUMNS, guestDbColumns, guestStays, listRow, toGuest, toRow } from '@/lib/guests-data'
 import { createClient } from '@/lib/supabase/server'
@@ -235,6 +247,35 @@ export async function searchGuests(values: { query: string; excludeId?: string }
     .filter((r) => r.id !== values?.excludeId && r.anonymized_at === null)
     .slice(0, SEARCH_LIMIT)
     .map((r): GuestRow => listRow(r))
+  return { ok: true, data: rows }
+}
+
+// Firmenvorschläge im Gastformular (PROJ-49), alle Mitglieder: Fassungen der Firmen anderer Gäste des gewählten
+// Kunden, deren Firmenname den Suchtext enthält. Die Datenbank fasst gleiche Fassungen zusammen und sortiert
+// nach „zuletzt geändert“; geliefert werden nur Firmenfelder.
+export async function suggestCompanies(values: { query: string; excludeId?: string }): Promise<Result<CompanySuggestion[]>> {
+  const guard = await requireMember()
+  if (!guard.ok) return guard
+  const query = String(values?.query ?? '').slice(0, 200)
+  if (query.trim().length < COMPANY_SUGGESTION_MIN_CHARS) return { ok: true, data: [] }
+  const supabase = await createClient()
+  const { data, error } = await supabase.rpc('guest_company_suggestions', {
+    p_tenant_id: guard.tenant.id,
+    p_query: query,
+    p_exclude_id: isId(values?.excludeId) ? values.excludeId : undefined,
+  })
+  if (error) return dbFail(error, 'Firmenvorschläge')
+  const rows = (data ?? []).slice(0, COMPANY_SUGGESTION_LIMIT).map(
+    (r): CompanySuggestion => ({
+      name: r.company_name,
+      vatId: r.company_vat_id,
+      addressLine1: r.company_address_line1,
+      addressLine2: r.company_address_line2,
+      postalCode: r.company_postal_code,
+      city: r.company_city,
+      country: r.company_country,
+    })
+  )
   return { ok: true, data: rows }
 }
 

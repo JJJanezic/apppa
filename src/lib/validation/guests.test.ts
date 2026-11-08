@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { EMPTY_GUEST_INPUT, guestSchema } from './guests'
+import { companyInputFromSuggestion, EMPTY_GUEST_INPUT, guestSchema } from './guests'
 
 const schema = guestSchema((key) => key)
 const valid = { ...EMPTY_GUEST_INPUT, lastName: 'Huber', country: 'AT' }
@@ -137,6 +137,30 @@ describe('guestSchema', () => {
 
     it('blockiert das Speichern, solange ein Bild hochgeladen wird', () => {
       expect(errors({ documentType: 'passport', documentNumber: '1', documentBackPath: 'uploading' })).toEqual(['documentUploading'])
+    })
+  })
+})
+
+describe('companyInputFromSuggestion (PROJ-49)', () => {
+  it('setzt alle sieben Firmenfelder, leere Werte als leere Felder', () => {
+    expect(
+      companyInputFromSuggestion({
+        name: 'Muster GmbH',
+        vatId: 'ATU12345678',
+        addressLine1: 'Hauptstraße 1',
+        addressLine2: null,
+        postalCode: '1010',
+        city: 'Wien',
+        country: null,
+      })
+    ).toEqual({
+      companyName: 'Muster GmbH',
+      companyVatId: 'ATU12345678',
+      companyAddressLine1: 'Hauptstraße 1',
+      companyAddressLine2: '',
+      companyPostalCode: '1010',
+      companyCity: 'Wien',
+      companyCountry: '',
     })
   })
 })

@@ -101,7 +101,7 @@ export function GuestPanel({ open, onOpenChange, guest }: GuestPanelProps) {
             </Alert>
           )}
 
-          <GuestFields documentImages={guest?.documentImages} />
+          <GuestFields documentImages={guest?.documentImages} guestId={guest?.id} />
 
           {duplicates && (
             <Alert role="alert" className="border-ds-accent-700/40 bg-ds-accent-100">

@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   addressLines,
   companyAddressLines,
+  companySuggestionDetail,
   countryName,
   countryOptions,
   defaultMergeChoice,
@@ -227,5 +228,20 @@ describe('Anschrift als Zeilen (PROJ-33)', () => {
     const a = guest({ companyName: 'A GmbH', companyCity: 'Wien' })
     expect(sameMergeValue(a, guest({ id: 'b', companyName: 'A GmbH', companyCity: 'Graz' }), 'company')).toBe(false)
     expect(defaultMergeChoice(guest(), guest({ id: 'b', companyPostalCode: '1010' })).company).toBe('b')
+  })
+})
+
+describe('companySuggestionDetail (PROJ-49)', () => {
+  const base = { name: 'Muster GmbH', vatId: null, addressLine1: null, addressLine2: null, postalCode: null, city: null, country: null }
+
+  it('zeigt UID, „PLZ Ort“ und Adresszeile 1', () => {
+    expect(companySuggestionDetail({ ...base, vatId: 'ATU12345678', addressLine1: 'Hauptstraße 1', postalCode: '1010', city: 'Wien', country: 'AT' })).toBe(
+      'ATU12345678 · 1010 Wien · Hauptstraße 1'
+    )
+  })
+
+  it('lässt leere Teile ohne Trennzeichen weg', () => {
+    expect(companySuggestionDetail({ ...base, city: 'Wien' })).toBe('Wien')
+    expect(companySuggestionDetail(base)).toBe('')
   })
 })
