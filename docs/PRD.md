@@ -48,7 +48,7 @@ Die App wird als Mehrmandanten-SaaS betrieben: Jeder Kunde (Vermieter) hat ein e
 | P0 (Pilot) | Rechnung ausstellen mit PDF, Rechnungsstorno, Rechnungsübersicht mit Zahlungsstatus | Deployed (PROJ-42, PROJ-44, Zahlungserfassung PROJ-45, Übersicht mit Filtern und Summen PROJ-43) |
 | P0 (Pilot) | Gästeblatt (Meldewesen) | Roadmap (PROJ-26) |
 | P0 (Pilot) | Kalender-Abo-Link für Outlook/M365 und Google Calendar | Roadmap |
-| P0 (MVP-Abschluss) | Statistische Auswertungen (Auslastung, Umsatz, Gästeherkunft; Kanäle als Prüfpunkt bei PROJ-11) und Dashboard-Kacheln Auslastung/Umsatz | Planned (PROJ-18) |
+| P0 (MVP-Abschluss) | Statistische Auswertungen (Auslastung, Umsatz, Gästeherkunft; Kanäle als Prüfpunkt bei PROJ-11) und Dashboard-Kacheln Auslastung/Umsatz | Deployed (PROJ-18) |
 | P0 (MVP-Abschluss) | Marketing: DSGVO-Einwilligung, Segmente, CSV-Export | Roadmap |
 | P2 | Zwei-Wege-Kalendersync, Selbstregistrierung & Abo, E-Mail-Versand, Englisch, Online-Zahlung, Bankabgleich | Roadmap |
 

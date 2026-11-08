@@ -1,6 +1,6 @@
 # PROJ-18: Statistische Auswertungen
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-11-08
 **Last Updated:** 2026-11-08
 
@@ -628,4 +628,13 @@ Neue E2E-Datei `tests/PROJ-18-statistische-auswertungen.spec.ts` (16 Tests) mit 
 - **BUG-1:** Der App-Rahmen (`src/app/(app)/layout.tsx`) prüft `/auswertungen` vor dem Streaming wie `/ortstaxe`. E2E PROJ-18 desktop 14/14 (Handy-Test dort übersprungen), PROJ-2 „Sichtbarkeit der Navigation“ 5/5, PROJ-16 Mitarbeiter-Test grün.
 
 ## Deployment
-_To be added by /deploy_
+- **Datum:** 2026-11-08
+- **Commit:** `8b96929` (main → staging → production)
+- **Tag:** `v1.37.0-PROJ-18`
+- **Staging:** https://staging.apppa.at (2026-11-08), vom Nutzer geprüft
+- **Production:** https://app.apppa.at (2026-11-08), vom Nutzer geprüft („Das Auswertungsmodul funktioniert perfekt“)
+- **Migrationen** (Staging und Production, Advisors nur mit dem bekannten Hinweis `auth_otp_long_expiry`):
+  - `20261108100012_statistics`
+- **Kein** `config push`, keine neuen Umgebungsvariablen.
+- **Vor dem Release geprüft:** Lint, Unit 891/891, Integration (Auswertungen, Dashboard, Ortstaxe-Bericht, Buchungen) 74/74, Build, Secret-Scan.
+- **Wünsche nach der Abnahme** (über `/refine PROJ-18`): Auswertung über alle Kunden, bei denen die Person Inhaber ist, oder je Kunde (wie der Kundenfilter im Dashboard); Kacheln der Auswertungsseite zentriert.
