@@ -4,7 +4,7 @@ import AxeBuilder from '@axe-core/playwright'
 import { expect, type Page, test as base } from '@playwright/test'
 
 import type { Json } from '../src/types/database'
-import { anon, createTenant, createUser, deleteUser, type E2EUser, hasSupabaseEnv, service, signInAs } from './support/supabase'
+import { anon, createTenant, createUser, deleteUser, type E2EUser, hasSupabaseEnv, service, signInAs, withCompany } from './support/supabase'
 
 // PROJ-40: Rechnungsdaten sammeln (Entwurf). Die Datenbank-Regeln prüft supabase/tests/invoice-drafts.integration.test.ts;
 // hier die Abläufe in der Oberfläche. Abläufe im Desktop-Projekt, Layout auch auf Tablet und Handy.
@@ -86,7 +86,7 @@ async function addGuest(tenantId: string, g: GuestSeed = {}) {
       postal_code: '5020',
       city: 'Salzburg',
       address_country: 'AT',
-      ...company,
+      ...(await withCompany(tenantId, company)),
     } as never)
     .select('id')
     .single()

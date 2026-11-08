@@ -14,6 +14,7 @@ import {
   service,
   signInAs,
   signInAsAdmin,
+  withCompany,
 } from './support/supabase'
 
 // PROJ-37: Rechnungen nacherfassen. Die Datenbank-Regeln prüft supabase/tests/invoices.integration.test.ts;
@@ -82,7 +83,7 @@ async function addApartment(tenantId: string) {
 async function addGuest(tenantId: string, g: { last: string; first: string; company?: string }) {
   const { data, error } = await service()
     .from('guests')
-    .insert({ tenant_id: tenantId, country: 'AT', last_name: g.last, first_name: g.first, company_name: g.company ?? null } as never)
+    .insert({ tenant_id: tenantId, country: 'AT', last_name: g.last, first_name: g.first, ...(await withCompany(tenantId, { company_name: g.company ?? null })) } as never)
     .select('id')
     .single()
   if (error) throw error

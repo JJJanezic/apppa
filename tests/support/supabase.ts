@@ -202,3 +202,31 @@ export async function membershipRole(tenantId: string, userId: string) {
 export async function signInAsAdmin(page: Page, admin: { id: string; email: string }) {
   await signInAs(page, admin, { enrollTotp: true })
 }
+
+// PROJ-50: Firmenangaben im alten Format (company_name, company_vat_id, company_address_line1 …) als Firma anlegen und
+// die Verknüpfung liefern; die übrigen Gastfelder bleiben unverändert
+const LEGACY_COMPANY: Record<string, string> = {
+  company_name: 'name',
+  company_vat_id: 'vat_id',
+  company_address_line1: 'address_line1',
+  company_address_line2: 'address_line2',
+  company_postal_code: 'postal_code',
+  company_city: 'city',
+  company_country: 'country',
+}
+export async function withCompany(tenantId: string, fields: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const rest = Object.fromEntries(Object.entries(fields).filter(([k]) => !(k in LEGACY_COMPANY)))
+  const company = Object.fromEntries(
+    Object.entries(fields)
+      .filter(([k, v]) => k in LEGACY_COMPANY && v !== null && v !== undefined)
+      .map(([k, v]) => [LEGACY_COMPANY[k], v])
+  )
+  if (!Object.keys(company).length) return rest
+  const { data, error } = await service()
+    .from('companies')
+    .insert({ tenant_id: tenantId, name: 'Firma ohne Namen', ...company } as never)
+    .select('id')
+    .single()
+  if (error) throw error
+  return { ...rest, company_id: (data as { id: string }).id }
+}

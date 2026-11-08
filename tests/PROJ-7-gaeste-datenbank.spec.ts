@@ -1,7 +1,7 @@
 import AxeBuilder from '@axe-core/playwright'
 import { expect, type Page, test as base } from '@playwright/test'
 
-import { createTenant, createUser, deleteUser, type E2EUser, hasSupabaseEnv, service, signInAs } from './support/supabase'
+import { createTenant, createUser, deleteUser, type E2EUser, hasSupabaseEnv, service, signInAs, withCompany } from './support/supabase'
 
 // PROJ-7: Gäste-Datenbank. Abläufe nur im Projekt „desktop“, Layout und Barrierefreiheit in allen Breiten.
 // Testdaten werden über die Datenbank angelegt; die Kunden verschwinden mit dem Löschen ihrer Inhaber.
@@ -26,10 +26,13 @@ const ready = (page: Page) =>
   page.waitForFunction(() => Object.keys(document.querySelector('main') ?? {}).some((k) => k.startsWith('__reactFiber')))
 const panel = (page: Page) => page.getByRole('dialog')
 
+// Namen der Gäste in der Tabelle (seit PROJ-50 ist auch der Firmenname ein Link zum Firmendetail)
+const guestLinks = (page: Page) => page.getByRole('table').getByRole('link').and(page.locator('a[href^="/gaeste/"]:not([href^="/gaeste/firmen"])'))
+
 async function addGuest(tenantId: string, fields: Record<string, unknown>) {
   const { data, error } = await service()
     .from('guests')
-    .insert({ tenant_id: tenantId, country: 'AT', ...fields } as never)
+    .insert({ tenant_id: tenantId, country: 'AT', ...(await withCompany(tenantId, fields)) } as never)
     .select('id')
     .single()
   if (error) throw error
@@ -110,17 +113,17 @@ test.describe('Liste, Suche und Filter', () => {
     await addGuest(tenantId, { last_name: 'Zeller', country: 'DE', marketing_custom: 'Messe Graz 2026' })
 
     await openList(page)
-    await expect(page.getByRole('table').getByRole('link')).toHaveText(['Bauer, Eva', 'Müller, René', 'Zeller'])
+    await expect(guestLinks(page)).toHaveText(['Bauer, Eva', 'Müller, René', 'Zeller'])
     await expect(page.getByRole('table').getByText('Bau GmbH')).toBeVisible()
 
     await page.getByRole('searchbox', { name: 'Gäste durchsuchen' }).fill('rene muller')
     await expect(page).toHaveURL(/q=rene\+muller|q=rene%20muller/)
-    await expect(page.getByRole('table').getByRole('link')).toHaveText(['Müller, René'])
+    await expect(guestLinks(page)).toHaveText(['Müller, René'])
 
     await openList(page, '?land=DE&quelle=instagram')
-    await expect(page.getByRole('table').getByRole('link')).toHaveText(['Bauer, Eva'])
+    await expect(guestLinks(page)).toHaveText(['Bauer, Eva'])
     await openList(page, '?quelle=custom')
-    await expect(page.getByRole('table').getByRole('link')).toHaveText(['Zeller'])
+    await expect(guestLinks(page)).toHaveText(['Zeller'])
 
     await openList(page, '?q=niemand')
     await expect(page.getByRole('heading', { name: 'Keine Gäste gefunden' })).toBeVisible()
@@ -136,10 +139,10 @@ test.describe('Liste, Suche und Filter', () => {
     expect(error).toBeNull()
     await openList(page)
     await expect(page.getByText('51 Gäste')).toBeVisible()
-    await expect(page.getByRole('table').getByRole('link')).toHaveCount(50)
+    await expect(guestLinks(page)).toHaveCount(50)
     await expect(page.getByText('Seite 1 von 2')).toBeVisible()
     await page.getByRole('link', { name: 'Weiter' }).click()
-    await expect(page.getByRole('table').getByRole('link')).toHaveCount(1)
+    await expect(guestLinks(page)).toHaveCount(1)
   })
 })
 
@@ -168,6 +171,8 @@ test.describe('Anlegen und Bearbeiten', () => {
     await page.getByRole('option', { name: 'Eigene Angabe' }).click()
     await panel(page).getByLabel('Eigene Angabe').fill('Messe Graz 2026')
     await panel(page).getByRole('button', { name: /Firma/ }).click()
+    // PROJ-50: Auswahl „Neue Firma“
+    await panel(page).getByRole('radio', { name: 'Neue Firma' }).click()
     await panel(page).getByLabel('Firmenname').fill('Montagebau Schmidt GmbH')
     await panel(page).getByLabel('UID-Nummer').fill('DE123456789')
     await panel(page).getByRole('button', { name: 'Gast anlegen' }).click()

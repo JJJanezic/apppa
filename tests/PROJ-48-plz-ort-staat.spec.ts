@@ -125,6 +125,8 @@ test.describe('Firmenanschrift', () => {
     await setup(page, users)
     await openCreate(page)
     await panel(page).getByRole('button', { name: /Firma/ }).click()
+    // PROJ-50: Firmenfelder erst nach „Neue Firma“
+    await panel(page).getByRole('radio', { name: 'Neue Firma' }).click()
     await billing(page).getByLabel('PLZ').fill('A-1010')
     await expect(billing(page).getByLabel('Ort', { exact: true })).toHaveValue('Wien')
     await expect(billing(page).getByRole('combobox', { name: 'Staat' })).toHaveText('Österreich')

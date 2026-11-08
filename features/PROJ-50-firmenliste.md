@@ -1,6 +1,6 @@
 # PROJ-50: Firmenliste
 
-## Status: In Progress
+## Status: In Review
 **Created:** 2026-11-08
 **Last Updated:** 2026-11-08 (Backend)
 
@@ -486,7 +486,112 @@ Keine neuen Pakete. Alle Bausteine sind vorhanden (shadcn RadioGroup, Command, T
 Die Spec sah ein „Änderungsprotokoll der Firma“ zum Ansehen für Inhaber vor. In der App gibt es bisher **keine** Anzeige des Protokolls, auch nicht für Gäste (PROJ-7). Entschieden: Das Protokoll wird wie bei Gästen nur in der Datenbank geführt. Eine Anzeige kommt bei Bedarf als eigenes Feature für alle Bereiche. Rechte-Tabelle und Akzeptanzkriterien sind angepasst.
 
 ## QA Test Results
-_To be added by /qa_
+
+**Tested:** 2026-11-08
+**App URL:** http://localhost:3000 (gebauter Server, Supabase „apppa-dev“; `.env.local` durfte nicht gelesen werden, die Tests verweigern Staging/Produktion über `assertTestableProject`)
+**Tester:** QA Engineer (AI)
+
+### Acceptance Criteria Status
+
+#### Reiter und Rechte
+- [x] Reiter „Gäste“/„Firmen“, `/gaeste/firmen` (über den Reiter)
+- [x] Mitarbeiter: Liste und Detail ohne Anlegen/Bearbeiten/Zusammenführen/Löschen/Dubletten-Link
+- [x] Direktes Ändern, Löschen, Zusammenführen durch Mitarbeiter abgelehnt (Integrationstests)
+- [ ] BUG-1: Fremde Firma per Adresse → „Seite nicht gefunden“ (stimmt), aber auch die eigene Liste, jedes Firmendetail und die Dubletten-Seite liefern beim direkten Aufruf „Seite nicht gefunden“
+
+#### Firmenliste
+- [x] Spalten Name, UID, PLZ Ort, Staat, Gäste (auch „0“), alphabetisch, „Name fehlt“
+- [x] Suche nach Umlaut („muller“) und UID („ATU123“), „Keine Firmen gefunden“
+- [x] Leerer Zustand (Mitarbeiter ohne Knopf; Inhaber mit „Firma anlegen“ laut Code, nicht eigens per E2E)
+- [x] Handy: Karten, kein seitliches Scrollen
+- [ ] Seitenweise ab 50: nicht per E2E geprüft (gleiche Bauart wie Gästeliste)
+
+#### Firma anlegen und bearbeiten
+- [x] Pflichtname, E-Mail- und Webadress-Prüfung, PLZ-Automatik im Firmen-Panel
+- [ ] BUG-1: Nach „Firma anlegen“ erscheint „Seite nicht gefunden“ statt des Firmendetails (Firma ist gespeichert)
+- [x] Änderung gilt für alle verknüpften Gäste; ausgestellte Rechnungen/Entwürfe unverändert (Kopie, Integrationstests PROJ-40)
+- [x] Veralteter Stand → Hinweis, nichts überschrieben
+- [ ] BUG-1: „Aktuelle Fassung laden“ und das Neuladen nach dem Speichern führen auf „Seite nicht gefunden“
+- [x] Änderungsprotokoll in der Datenbank (Integrationstests)
+
+#### Firmendetail
+- [x] E-Mail als Mail-Link, Webadresse als https-Link, Ansprechpartner
+- [x] Gäste mit Link, Buchungen der Gäste, nur Rechnungen mit Empfänger „Firma“
+- [x] Leere Abschnitte mit Hinweis
+- [x] Gast-Detail: Firmenname führt zum Firmendetail
+- [ ] Gutschrift zu einer Firmenrechnung und Wechsel der Firma eines Gastes im Detail: nicht per E2E geprüft (Abfrage über Buchung und Empfänger-Art, im Code geprüft)
+
+#### Gastformular
+- [x] Neuer Gast startet mit „Keine Firma“
+- [x] „Bestehende Firma“: Suche nach Name/UID, Treffer mit UID · PLZ Ort · Adresszeile 1, Karte nur zum Lesen
+- [x] Ohne Auswahl Hinweis „Bitte eine Firma suchen und wählen …“
+- [x] Gast mit Firma öffnet mit Karte; „Ändern“ ohne Auswahl behält die Firma; andere Firma wählen; „Keine Firma“ löst, Firma bleibt
+- [x] „Neue Firma“ mit leeren Feldern, Pflichtname
+- [x] Gleicher Name → „Diese Firma gibt es bereits“; „Bestehende Firma verwenden“ wechselt zur Karte; Speichern trotzdem erzeugt zweite Firma
+- [x] Mitarbeiter im Buchungsformular: bestehende Firma suchen und „Neue Firma“ (Speichern mit neuer Firma als Ganzes: Integrationstest)
+- [x] Rechnung nacherfassen: dieselbe Auswahl, Firma wird Empfänger-Vorschlag
+- [x] Keine Vorschläge mehr aus PROJ-49
+
+#### Löschen
+- [x] Dialog nennt die Zahl der Gäste („3 Gäste sind …“)
+- [x] Verknüpfungen geleert, Protokoll ohne Altwerte (Integrationstests)
+- [ ] BUG-1: Nach dem Löschen bleibt „Seite nicht gefunden“ statt der Liste mit „Firma gelöscht.“
+
+#### Zusammenführen und Dubletten
+- [x] Feldwahl, Rechnungsadresse als Ganzes, Gäste umgehängt, zweite Firma gelöscht
+- [x] Endgültig-Hinweis und Bestätigung
+- [x] Dubletten nach Name/UID, Platzhalter ohne Paar, „Keine doppelte Firma“ blendet aus (über den Link aus der Liste)
+
+#### Gäste zusammenführen, löschen, anonymisieren
+- [x] Feldwahl „Firma“ wählt die Verknüpfung; Anonymisieren löst, Firma bleibt (Integrationstests)
+
+#### Gästeliste, Rechnungsentwurf
+- [x] Firmenname als Link in der Tabelle; Suche über Firmennamen auch nach Umbenennung
+- [x] Rechnungsentwurf „Firma“ vorausgewählt mit Firmendaten (E2E PROJ-40); ohne Firma nicht wählbar
+
+#### Überführung
+- [x] Gleiche Fassung → eine Firma (Werte des zuletzt geänderten Gastes), andere Adresse → eigene Firma, nur UID → „Firma ohne Namen“, zwei Kunden getrennt, ohne Firmendaten ohne Firma, Zählprüfung (zurückgerollte Probe in Dev, siehe Backend)
+
+### Edge Cases Status
+- [x] Gewählte Firma inzwischen gelöscht → P0707 / „companyMissing“, Auswahl springt auf Suche (Integrationstest + Code)
+- [x] Altdaten über 200 Zeichen übernommen
+- [x] Ähnliche Schreibweisen nur über UID gepaart
+- [x] Handy-Darstellung, keine WCAG-2.1-AA-Verstöße in Liste, Detail und Formular (desktop, tablet, mobile)
+- [ ] Safari/Firefox nicht gelaufen
+
+### Security Audit Results
+- [x] Mandantentrennung: fremde Firmen nicht lesbar, nicht verknüpfbar (P0707), nicht zusammenführbar (P0704), Liste fremder Kunden leer
+- [x] Rollen: Mitarbeiter legen nicht direkt an, ändern/löschen/führen nicht zusammen, keine Dubletten (P0701, RLS)
+- [x] Alte Firmenspalten am Gast nicht mehr beschreibbar
+- [x] Webadresse: nur http(s) wird als Link ausgegeben, „javascript:“ abgelehnt (Prüfregel und `websiteHref`); E-Mail geprüft
+- [x] Löschen entfernt Ansprechpartner/E-Mail aus dem Protokoll
+- [x] Keine neuen Schlüssel oder Umgebungsvariablen
+
+### Regression
+- [x] E2E PROJ-7 (15, Linkprüfung auf Gastnamen eingegrenzt, weil der Firmenname jetzt ein Link ist), PROJ-48 (10, „Neue Firma“ vor den Firmenfeldern), PROJ-40 Firmen-Tests (4), PROJ-37 Buchungssuche mit Firma (3), PROJ-8 neuer Gast und Gast-Detail (4)
+- [x] Seed-Hilfe `withCompany` in `tests/support/supabase.ts` für Tests, die Gäste mit Firmenangaben anlegen
+- [x] `tests/PROJ-33-firmenanschrift-aufteilen.spec.ts` entfernt: das Formular ist durch PROJ-50 ersetzt; Felder, PLZ-Automatik, Detail und Zusammenführen deckt `tests/PROJ-50-firmenliste.spec.ts` ab
+- [x] Integrationstests (Backend) und 937 Unit-Tests grün
+
+### Bugs Found
+
+#### BUG-1: Firmen-Seiten liefern beim Laden vom Server „Seite nicht gefunden“
+- **Severity:** Critical
+- **Ursache:** `src/app/(app)/layout.tsx` prüft jede Adresse `/gaeste/<x>` als Gast-Detail (`getGuest(x)`); `/gaeste/firmen…` wird als Gast mit der Kennung „firmen“ gelesen → 404. Nur Ausnahme ist `/gaeste/dubletten`.
+- **Steps to Reproduce:**
+  1. Als Inhaber `/gaeste/firmen` direkt aufrufen oder neu laden (ebenso `/gaeste/firmen/<id>`, `/gaeste/firmen/dubletten`)
+  2. Expected: Firmenliste bzw. Detail
+  3. Actual: „Seite nicht gefunden“ (ohne App-Rahmen)
+  4. Folgen: nach „Firma anlegen“ (Weiterleitung), nach dem Speichern bzw. „Aktuelle Fassung laden“ (Neuladen), nach „Firma löschen“ (Wechsel zur Liste), bei Lesezeichen und geteilten Links. Über den Reiter (Navigation im Browser) funktionieren Liste und Detail.
+- **Priority:** Fix before deployment
+- **Test:** `PROJ-50 … Direkter Aufruf › BUG-1` (schlägt bis zur Behebung fehl); die Tests „Anlegen …“, „Änderung gilt …“ und „Löschen …“ scheitern ebenfalls daran
+
+### Summary
+- **Acceptance Criteria:** 57/62 geprüft bestanden; 5 Kriterien scheitern an BUG-1; 3 nicht per E2E geprüft (Seiten ab 50, Gutschrift/Firmenwechsel im Detail – im Code und über Integrationstests abgesichert)
+- **Bugs Found:** 1 (1 critical)
+- **Security:** Pass
+- **Production Ready:** NO
+- **Recommendation:** BUG-1 beheben (Layout-Prüfung `/gaeste/firmen` ausnehmen bzw. dort Firma prüfen), danach `/qa` erneut: Pakete „Direkter Aufruf“, „Firma anlegen, bearbeiten, Detail“, „Löschen und Zusammenführen“
 
 ## Deployment
 _To be added by /deploy_
