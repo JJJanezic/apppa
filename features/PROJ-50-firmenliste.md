@@ -1,8 +1,8 @@
 # PROJ-50: Firmenliste
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-11-08
-**Last Updated:** 2026-11-08 (QA, BUG-1 behoben)
+**Last Updated:** 2026-11-08 (Deployed v1.42.0-PROJ-50)
 
 ## Dependencies
 - Requires: PROJ-4 (Kundenkonten & Rollen): Rollen Inhaber/Mitarbeiter, gewählter Kunde
@@ -595,4 +595,11 @@ Die Spec sah ein „Änderungsprotokoll der Firma“ zum Ansehen für Inhaber vo
 - **Recommendation:** Deploy (außerhalb der Arbeitszeit, Migration vor App-Code; danach Zahl der Firmen und verknüpften Gäste prüfen). Safari/Firefox auf Staging kurz ansehen
 
 ## Deployment
-_To be added by /deploy_
+- **Datum:** 2026-11-08
+- **Commit:** `8f9f2ad` (Tag `v1.42.0-PROJ-50`)
+- **Staging:** https://staging.apppa.at (2026-11-08), Prüfung durch den Nutzer bestanden
+- **Production:** https://app.apppa.at (2026-11-08), außerhalb der Arbeitszeit, Stichprobe durch den Nutzer bestanden
+- **Migrationen:** `20261108164726_company_list.sql`, `20261108165414_company_list_grants.sql` (Staging und Production); kein `config push`
+- **Advisors:** nur der bekannte Auth-Hinweis „OTP long expiry“
+- **Überführung Production:** vorher 92 Gäste, davon 19 mit Firmendaten; nachher 19 Gäste verknüpft mit 17 Firmen (zwei gleiche Fassungen zusammengefasst), 0 „Firma ohne Namen“, 0 Verknüpfungen über Kundengrenzen, Suchtext der Gäste ohne Firmennamen. Staging hatte keine Gäste
+- **Offen:** Aufräum-Migration für die alten Firmenspalten am Gast (siehe Open Questions); Safari/Firefox nicht automatisiert getestet

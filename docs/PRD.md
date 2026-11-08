@@ -47,8 +47,8 @@ Die App wird als Mehrmandanten-SaaS betrieben: Jeder Kunde (Vermieter) hat ein e
 | P0 (Pilot) | Briefpapier: Gestaltung der Rechnung (Schrift, Abstände, Logo, Aussteller-Block) mit Vorschau | Deployed (PROJ-41) |
 | P0 (Pilot) | Rechnung ausstellen mit PDF, Rechnungsstorno, Rechnungsübersicht mit Zahlungsstatus | Deployed (PROJ-42, PROJ-44, Zahlungserfassung PROJ-45, Übersicht mit Filtern und Summen PROJ-43) |
 | P0 (Pilot) | Ort und Staat aus der PLZ im Gastformular (AT/DE) | Deployed (PROJ-48) |
-| P0 (Pilot) | Firmen anderer Gäste im Gastformular übernehmen (Vorschläge beim Firmennamen, Kopie) | Deployed (PROJ-49) |
-| P0 (Pilot) | Firmenliste: Firmen als eigene Einträge, Gäste verknüpft, Auswahl „Bestehende Firma“/„Neue Firma“ (löst PROJ-49 ab) | Planned (PROJ-50) |
+| P0 (Pilot) | Firmen anderer Gäste im Gastformular übernehmen (Vorschläge beim Firmennamen, Kopie) | Deployed (PROJ-49), abgelöst durch PROJ-50 |
+| P0 (Pilot) | Firmenliste: Firmen als eigene Einträge, Gäste verknüpft, Auswahl „Bestehende Firma“/„Neue Firma“ (löst PROJ-49 ab) | Deployed (PROJ-50) |
 | P0 (Pilot) | Gästeblatt (Meldewesen) | Roadmap (PROJ-26) |
 | P0 (Pilot) | Kalender-Abo-Link für Outlook/M365 und Google Calendar | Roadmap |
 | P0 (MVP-Abschluss) | Statistische Auswertungen (Auslastung, Umsatz, Gästeherkunft; Kanäle als Prüfpunkt bei PROJ-11) und Dashboard-Kacheln Auslastung/Umsatz | Deployed (PROJ-18) |
