@@ -2,7 +2,7 @@
 
 ## Status: Deployed
 **Created:** 2026-11-08
-**Last Updated:** 2026-11-08
+**Last Updated:** 2026-11-08 (refine: wird durch PROJ-50 „Firmenliste“ abgelöst)
 
 ## Dependencies
 - Requires: PROJ-7 (Gäste-Datenbank): Firma als Zusatzangabe am Gast, Gastformular, Suche ohne Rücksicht auf Groß-/Kleinschreibung und Umlaute
@@ -12,6 +12,8 @@
 - Wirkt mit: PROJ-40 (Rechnungsentwurf): Empfänger „Firma“ liest die Firmendaten des Gastes. Daran ändert sich nichts.
 
 ## Überblick
+> **Abgelöst durch PROJ-50 (refine 2026-11-08):** Nach dem Deploy hat der Nutzer entschieden, Firmen als eigene Liste mit Verknüpfung zu führen. Im Gastformular gibt es dann die Auswahl „Bestehende Firma“/„Neue Firma“ wie beim Gast in der Buchung. Diese Spec beschreibt den ausgelieferten Stand v1.41.0. Er bleibt in Produktion, bis PROJ-50 ausgeliefert ist.
+
 Bei Dienstwohnungen buchen oft mehrere Personen derselben Firma. Bisher müssen Firmenname, UID und Rechnungsadresse bei jedem Gast neu eingetippt werden. Künftig schlägt die App beim Tippen des Firmennamens Firmen vor, die schon bei anderen Gästen desselben Kunden erfasst sind. Ein Klick übernimmt Firmenname, UID und Rechnungsadresse in das Formular.
 
 Die Daten werden **kopiert**, nicht verknüpft. Nach der Übernahme gehören sie allein diesem Gast. Eine spätere Änderung bei einem Gast wirkt nicht auf andere Gäste. Es gibt keine eigene Firmenliste.
@@ -146,8 +148,8 @@ Die Daten werden **kopiert**, nicht verknüpft. Nach der Übernahme gehören sie
 - Browser: Chrome, Firefox, Safari (Desktop und mobil)
 
 ## Open Questions
-- [ ] Reichen 8 Vorschläge und 2 Zeichen Mindestlänge in der Praxis? Nach den ersten Wochen im Pilotbetrieb prüfen
-- [ ] Braucht es später eine echte Firmenliste mit Verknüpfung (z. B. für gemeinsame Adressänderung oder „Alle Gäste der Firma“)? Bei Bedarf als eigenes Feature
+- [x] Reichen 8 Vorschläge und 2 Zeichen Mindestlänge in der Praxis? → Entfällt, die Vorschläge im Feld werden durch PROJ-50 ersetzt (2026-11-08)
+- [x] Braucht es später eine echte Firmenliste mit Verknüpfung? → Ja, als neues Feature PROJ-50 „Firmenliste“ (refine 2026-11-08)
 
 ## Decision Log
 
@@ -161,6 +163,9 @@ Die Daten werden **kopiert**, nicht verknüpft. Nach der Übernahme gehören sie
 | Ab 2 Zeichen, „enthält“-Suche wie die Gästesuche, nur im Firmennamen, höchstens 8 Vorschläge | Kurze, überschaubare Liste; gleiche Suchlogik wie bekannt; UID-Suche nicht nötig | 2026-11-08 |
 | Nur Gäste des gewählten Kunden, ohne den bearbeiteten Gast | Mandantentrennung; eigene Fassung als Vorschlag wäre sinnlos | 2026-11-08 |
 | Vorschläge an allen drei Stellen des Gastformulars, für Inhaber und Mitarbeiter | Größter Nutzen beim Anlegen im Buchungsformular; Mitarbeiter sehen Firmendaten ohnehin in Gästeliste und Detail | 2026-11-08 |
+| Refine nach Deploy: Statt Vorschlägen im Feld eine Auswahl „Bestehende Firma“/„Neue Firma“ wie „Bestehender Gast“/„Neuer Gast“ in der Buchung | Rückmeldung des Nutzers nach dem Ausprobieren in Produktion; gewohntes Bedienmuster aus dem Buchungsformular | 2026-11-08 |
+| Gewählte bestehende Firma erscheint als Karte nur zum Lesen mit „Ändern“; „Neue Firma“ beginnt leer; ein Gast mit Firma öffnet mit „Bestehende Firma“ und Karte | Nutzer will Firmen als eigenständige Einträge behandeln, nicht je Gast bearbeiten | 2026-11-08 |
+| Entscheidung „Kopie statt Firmenliste“ zurückgenommen: eigene Firmenliste mit Verknüpfung, als neues Feature PROJ-50 | Mit Karte ohne Bearbeiten wären Korrekturen nur durch Neueingabe je Gast möglich; eine Firma soll an einer Stelle gepflegt werden und für alle ihre Gäste gelten. Eigenes Feature wegen neuer Datenart, Datenüberführung und eigener Verwaltung | 2026-11-08 |
 
 ### Technical Decisions
 <!-- Added by /architecture -->
