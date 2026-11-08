@@ -2,7 +2,9 @@
 
 ## Status: Deployed
 **Created:** 2026-10-26
-**Last Updated:** 2026-10-26
+**Last Updated:** 2026-11-08
+
+> Grundumfang in Produktion. Refine 2026-11-08: Feld „Dokument-ID“ statt „Nummer des Dokuments“ (Abschnitt „Beschriftung Dokument-ID“), noch nicht ausgeliefert.
 
 ## Dependencies
 - Requires: PROJ-7 (Gäste-Datenbank): Gast, Gast-Formular, Gast-Detail, Länderauswahl, Zusammenführen, Löschen/Anonymisieren
@@ -29,7 +31,7 @@ Der Hauptgast bekommt zusätzliche Angaben: akademische Grade vor und nach dem N
 | Angabe | Pflicht | Regeln |
 |---|---|---|
 | Art des Dokuments | ja, sobald ein Dokument erfasst wird | Auswahl: Reisepass, Führerschein, Personalausweis |
-| Nummer des Dokuments | ja, sobald ein Dokument erfasst wird | Freitext, höchstens 30 Zeichen |
+| Dokument-ID (bis refine 2026-11-08: „Nummer des Dokuments“) | ja, sobald ein Dokument erfasst wird | Freitext, höchstens 30 Zeichen |
 | Ausstellungsdatum | nein | darf nicht in der Zukunft liegen |
 | Behörde | nein | Freitext, höchstens 100 Zeichen, z. B. „BH Graz-Umgebung“ |
 | Staat | nein | Länderauswahl aus PROJ-7 (deutsche Namen, häufige Länder oben), **keine Vorauswahl** |
@@ -44,6 +46,9 @@ Der Hauptgast bekommt zusätzliche Angaben: akademische Grade vor und nach dem N
 - Abrufen: Das Gast-Detail zeigt kleine Vorschauen. Ein Klick öffnet das Bild groß, von dort kann es heruntergeladen werden.
 - Ein neues Bild ersetzt das bisherige auf demselben Platz (Vorderseite bzw. Rückseite). Einzelne Bilder können entfernt werden.
 - Die Bilder sind nur für Mitglieder des eigenen Kunden abrufbar, nie über eine öffentliche Adresse.
+
+### Beschriftung Dokument-ID (refine 2026-11-08)
+Das Feld für die Nummer des Reisedokuments heißt „Dokument-ID“ statt „Nummer des Dokuments“. Die lange Beschriftung verschob die Eingabefelder. Die Fehlermeldung lautet „Bitte die Dokument-ID eingeben.“ Das gilt überall, wo das Gastformular erscheint: Gästeseite, neuer Gast im Buchungsformular, Rechnungsnacherfassung. Gespeicherte Daten ändern sich nicht.
 
 ### Rollen
 | Aktion | Inhaber | Mitarbeiter |
@@ -128,6 +133,11 @@ In Safari öffnet ein Klick auf eine beliebige Zeile der Gästeliste immer den l
 - [ ] Angenommen ein Gast ohne Buchungen wird gelöscht, wenn das Löschen abgeschlossen ist, dann sind auch seine Ausweisbilder endgültig entfernt
 - [ ] Angenommen ein Gast mit Buchungen wird anonymisiert, wenn das Anonymisieren abgeschlossen ist, dann sind Titel und Reisedokument entfernt, das Geschlecht steht auf „keine Angabe“, die Ausweisbilder sind endgültig gelöscht und das Änderungsprotokoll enthält keine dieser Altwerte mehr
 
+### Beschriftung Dokument-ID (refine 2026-11-08)
+- [ ] Angenommen ein Inhaber öffnet das Gastformular (Gästeseite, neuer Gast im Buchungsformular oder Rechnungsnacherfassung), wenn er den Abschnitt „Reisedokument“ aufklappt, dann heißt das Feld „Dokument-ID“; „Nummer des Dokuments“ kommt nicht mehr vor
+- [ ] Angenommen ein Inhaber füllt nur die Art des Dokuments aus, wenn er speichert, dann erscheint beim Feld „Dokument-ID“ die Meldung „Bitte die Dokument-ID eingeben.“
+- [ ] Angenommen das Formular wird in normaler Breite angezeigt, wenn der Abschnitt „Reisedokument“ aufgeklappt ist, dann stehen die Eingabefelder von „Art des Dokuments“ und „Dokument-ID“ auf gleicher Höhe
+
 ### Fehlerbehebung Gästeliste
 - [ ] Angenommen die Gästeliste zeigt mehrere Gäste, wenn ein Nutzer in Safari (Mac, iPhone, iPad) auf den Namen eines Gastes klickt, dann öffnet sich genau dieser Gast
 - [ ] Angenommen die Gästeliste zeigt mehrere Gäste, wenn ein Nutzer mit der Tastatur zum Namen eines Gastes springt und Enter drückt, dann öffnet sich dieser Gast
@@ -175,6 +185,7 @@ In Safari öffnet ein Klick auf eine beliebige Zeile der Gästeliste immer den l
 | Gästeblatt braucht keine weiteren Angaben zum Gast | Vom Nutzer bestätigt; PROJ-29 deckt die Gastdaten ab, Buchungsangaben kommen im nächsten Arbeitspaket | 2026-10-26 |
 | Beim Zusammenführen wird das Reisedokument als Ganzes gewählt | Angaben und Bilder eines Dokuments gehören zusammen; Mischen zweier Dokumente ergäbe falsche Daten | 2026-10-26 |
 | Safari-Fehler: nur der unterstrichene Name ist Link | Gleiche Lösung wie in der Kundenliste (vom Nutzer dort gewählt) | 2026-10-26 |
+| Feld „Dokument-ID“ statt „Nummer des Dokuments“, Fehlermeldung „Bitte die Dokument-ID eingeben.“ | Nutzerwunsch (refine 2026-11-08): die lange Beschriftung verschob die Eingabefelder; Meldung passend zum Feld | 2026-11-08 |
 
 ### Technical Decisions
 | Decision | Rationale | Date |
