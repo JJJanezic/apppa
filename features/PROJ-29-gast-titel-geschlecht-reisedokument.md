@@ -1,10 +1,10 @@
 # PROJ-29: Gast-Erweiterung: Titel, Geschlecht, Reisedokument
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-10-26
 **Last Updated:** 2026-11-08
 
-> Grundumfang in Produktion. Refine 2026-11-08: Feld „Dokument-ID“ statt „Nummer des Dokuments“ (Abschnitt „Beschriftung Dokument-ID“), noch nicht ausgeliefert.
+> Grundumfang in Produktion. Seit v1.39.0 (refine 2026-11-08): Feld „Dokument-ID“ statt „Nummer des Dokuments“ (Abschnitt „Beschriftung Dokument-ID“).
 
 ## Dependencies
 - Requires: PROJ-7 (Gäste-Datenbank): Gast, Gast-Formular, Gast-Detail, Länderauswahl, Zusammenführen, Löschen/Anonymisieren
@@ -535,6 +535,11 @@ _Getestet 2026-11-08 gegen Dev (gebauter Server, Chromium)_
 - **Bugs:** keine. **Empfehlung:** bereit für den Deploy
 
 ## Deployment
+_Refine 2026-11-08 (/deploy, Tag `v1.39.0-PROJ-29`)_
+
+- **Beschriftung „Dokument-ID“** ausgeliefert: Staging https://staging.apppa.at und Production https://app.apppa.at am 2026-11-08, Commit `30e53b3`; Builds vom Nutzer als „Ready“ bestätigt, Staging und Production vom Nutzer geprüft
+- **Migrationen:** keine; kein `config push`, keine neuen Umgebungsvariablen
+
 _Stand 2026-10-26 (/deploy, Tag `v1.6.0`)_
 
 - **Staging:** https://staging.apppa.at (Vercel `apppa-staging`, Supabase `iikzjqjjxoznrkkixfqa`), Build vom Nutzer als „Ready“ bestätigt; der Nutzer hat die Auslieferung nach Production freigegeben. Die manuelle Prüfung in Safari (Zeilenklick) und am Handy (Kamera-Upload) wurde nicht zurückgemeldet
