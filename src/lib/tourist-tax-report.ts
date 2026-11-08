@@ -161,7 +161,16 @@ export type TaxReportRow = {
   percent: boolean
 }
 
-export type TaxReportSum = { taxableNights: number; exemptNights: number; amountCents: number; unknownPositions: number }
+export type TaxReportSum = {
+  taxableNights: number
+  // nur bekannte Werte
+  exemptNights: number
+  amountCents: number
+  // Positionen ohne bekannte abgabepflichtige Personennächte
+  unknownPositions: number
+  // Buchungen ohne bestimmbare befreite Personennächte (Alt-Position, Prozent-Tarif; QA BUG-2)
+  exemptUnknown: number
+}
 export type TaxReportGroup = { id: string; name: string; rows: TaxReportRow[]; sum: TaxReportSum }
 export type TaxReportView = {
   groups: TaxReportGroup[]
@@ -181,7 +190,7 @@ export function compareRows(a: TaxReportRow, b: TaxReportRow): number {
   return (a.bookingNumber ?? '').localeCompare(b.bookingNumber ?? '', 'de', { numeric: true })
 }
 
-const emptySum = (): TaxReportSum => ({ taxableNights: 0, exemptNights: 0, amountCents: 0, unknownPositions: 0 })
+const emptySum = (): TaxReportSum => ({ taxableNights: 0, exemptNights: 0, amountCents: 0, unknownPositions: 0, exemptUnknown: 0 })
 
 function addRow(s: TaxReportSum, r: TaxReportRow): TaxReportSum {
   return {
@@ -189,6 +198,7 @@ function addRow(s: TaxReportSum, r: TaxReportRow): TaxReportSum {
     exemptNights: s.exemptNights + (r.exemptNights ?? 0),
     amountCents: s.amountCents + r.amountCents,
     unknownPositions: s.unknownPositions + r.unknownPositions,
+    exemptUnknown: s.exemptUnknown + (r.exemptNights === null ? 1 : 0),
   }
 }
 
@@ -197,6 +207,7 @@ const addSum = (a: TaxReportSum, b: TaxReportSum): TaxReportSum => ({
   exemptNights: a.exemptNights + b.exemptNights,
   amountCents: a.amountCents + b.amountCents,
   unknownPositions: a.unknownPositions + b.unknownPositions,
+  exemptUnknown: a.exemptUnknown + b.exemptUnknown,
 })
 
 export function buildTaxReport(rows: readonly TaxReportRow[], municipality: string | null): TaxReportView {
@@ -220,8 +231,12 @@ export function buildTaxReport(rows: readonly TaxReportRow[], municipality: stri
 }
 
 export type RowNote = 'partial' | 'legacy' | 'percent'
-export const rowNotes = (r: Pick<TaxReportRow, 'partial' | 'legacy' | 'percent'>): RowNote[] =>
-  (['partial', 'legacy', 'percent'] as const).filter((n) => r[n])
+// „Alt-Position“ auch, wenn nur die befreiten Personennächte fehlen: Ohne Prozent-Tarif und mit bekannten abgabepflichtigen
+// Personennächten liegt das immer an einer Alt-Position (QA BUG-2), sonst stünde in der Zeile ein unerklärtes „–“
+export const rowNotes = (r: Pick<TaxReportRow, 'partial' | 'legacy' | 'percent' | 'exemptNights'>): RowNote[] => {
+  const legacy = r.legacy || (r.exemptNights === null && !r.percent)
+  return (['partial', 'legacy', 'percent'] as const).filter((n) => (n === 'legacy' ? legacy : r[n]))
+}
 
 // ---- CSV ------------------------------------------------------------------------------------
 

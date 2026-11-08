@@ -2977,6 +2977,7 @@
       "amount": "Betrag",
       "total": "Gesamt",
       "unknown": "inkl. {count, plural, one {# Position} other {# Positionen}} ohne Personennächte",
+      "exemptUnknown": "Befreite Personennächte ohne Angabe bei {count, plural, one {# Buchung} other {# Buchungen}}",
       "tableLabel": "Übersicht je Gemeinde"
     },
     "bookings": {

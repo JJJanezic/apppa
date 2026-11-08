@@ -22,6 +22,7 @@ export function TaxReportSummary({ view, period }: { view: TaxReportView; period
       <TableHead scope="row" className={cn('h-auto min-w-24 break-words px-0 py-2 pr-2 align-top font-normal text-ds-text', total && 'font-semibold')}>
         {name}
         {s.unknownPositions > 0 && <span className="block text-[13px] font-normal text-ds-neutral-800">{t('unknown', { count: s.unknownPositions })}</span>}
+        {s.exemptUnknown > 0 && <span className="block text-[13px] font-normal text-ds-neutral-800">{t('exemptUnknown', { count: s.exemptUnknown })}</span>}
       </TableHead>
       <TableCell className="px-2 py-2 text-right align-top">{s.taxableNights}</TableCell>
       <TableCell className="px-2 py-2 text-right align-top">{s.exemptNights}</TableCell>

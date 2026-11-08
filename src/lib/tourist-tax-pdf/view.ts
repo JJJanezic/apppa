@@ -52,7 +52,11 @@ function issuerLines(i: TaxPdfIssuer, v: LetterheadValues, t: T, locale: string)
   return [{ text: i.name, bold: true }, ...rest.map((text) => ({ text }))]
 }
 
-const unknownNote = (s: TaxReportSum, t: T) => (s.unknownPositions > 0 ? t('summary.unknown', { count: s.unknownPositions }) : null)
+// Hinweise unter einer Übersichtszeile: unbekannte abgabepflichtige und nicht bestimmbare befreite Personennächte
+const unknownNote = (s: TaxReportSum, t: T) =>
+  [s.unknownPositions > 0 ? t('summary.unknown', { count: s.unknownPositions }) : null, s.exemptUnknown > 0 ? t('summary.exemptUnknown', { count: s.exemptUnknown }) : null]
+    .filter(Boolean)
+    .join(' · ') || null
 
 const summaryRow = (label: string, s: TaxReportSum, t: T, bold = false): TaxPdfSummaryRow => ({
   label,

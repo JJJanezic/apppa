@@ -163,8 +163,8 @@ describe('Gruppierung und Summen', () => {
 
   it('Summen je Gemeinde und Gesamt bei mehreren Gemeinden', () => {
     const v = buildTaxReport(rows, null)
-    expect(v.groups[0].sum).toEqual({ taxableNights: 18, exemptNights: 9, amountCents: 4500, unknownPositions: 0 })
-    expect(v.total).toEqual({ taxableNights: 24, exemptNights: 12, amountCents: 4900, unknownPositions: 0 })
+    expect(v.groups[0].sum).toEqual({ taxableNights: 18, exemptNights: 9, amountCents: 4500, unknownPositions: 0, exemptUnknown: 0 })
+    expect(v.total).toEqual({ taxableNights: 24, exemptNights: 12, amountCents: 4900, unknownPositions: 0, exemptUnknown: 0 })
   })
 
   it('kein Gesamt bei einer Gemeinde', () => {
@@ -187,7 +187,23 @@ describe('Gruppierung und Summen', () => {
 
   it('unbekannte Personennächte zählen nicht, werden aber gezählt', () => {
     const v = buildTaxReport([row(), row({ bookingId: 'alt', taxableNights: null, knownTaxableNights: 0, exemptNights: null, unknownPositions: 1, legacy: true, amountCents: 999 })], null)
-    expect(v.groups[0].sum).toEqual({ taxableNights: 6, exemptNights: 3, amountCents: 2499, unknownPositions: 1 })
+    expect(v.groups[0].sum).toEqual({ taxableNights: 6, exemptNights: 3, amountCents: 2499, unknownPositions: 1, exemptUnknown: 1 })
+  })
+
+  // QA BUG-2: Alt-Position mit bekannten abgabepflichtigen, aber nicht bestimmbaren befreiten Personennächten
+  it('nicht bestimmbare befreite Personennächte werden je Gemeinde und gesamt gezählt', () => {
+    const legacyKnown = row({ bookingId: 'lk', exemptNights: null, municipalityId: '2', municipalityName: 'Zell am See' })
+    const v = buildTaxReport([row(), legacyKnown, row({ bookingId: 'p', percent: true, taxableNights: null, knownTaxableNights: 0, exemptNights: null, unknownPositions: 1 })], null)
+    expect(v.groups.map((g) => [g.name, g.sum.exemptNights, g.sum.exemptUnknown, g.sum.unknownPositions])).toEqual([
+      ['Saalbach', 3, 1, 1],
+      ['Zell am See', 0, 1, 0],
+    ])
+    expect(v.total).toMatchObject({ exemptUnknown: 2, unknownPositions: 1 })
+  })
+
+  it('„Alt-Position“ auch, wenn nur die befreiten Personennächte fehlen; nicht bei Prozent-Tarif', () => {
+    expect(rowNotes(row({ exemptNights: null }))).toEqual(['legacy'])
+    expect(rowNotes(row({ exemptNights: null, percent: true, taxableNights: null }))).toEqual(['percent'])
   })
 
   it('leer ohne Zeilen', () => {
