@@ -19,12 +19,13 @@ const tenant = { active: null as { id: string; name: string; role: 'owner' | 'st
 vi.mock('@/lib/tenant', () => ({ getTenantContext: async () => ({ list: [], active: tenant.active }) }))
 const getStatsData = vi.fn()
 vi.mock('@/lib/statistics-data', () => ({ getStatsData: (f: unknown, o: unknown) => getStatsData(f, o) }))
-vi.mock('@/lib/invoice-drafts-data', () => ({
-  getDraftPreviewData: async () => ({
-    issuer: { name: 'Muster GmbH', nameLine2: null, addressLine1: 'Seestraße 12', addressLine2: null, postalCode: '5753', city: 'Saalbach', country: 'AT', vatId: null },
-    letterhead: { fontFamily: 'carlito', fontSize: 11, lineSpacing: 'normal', paragraphSpacing: 'normal', logoPosition: 'left', logoHeightMm: 25, showIssuer: true },
-  }),
-}))
+// Briefpapier je Kunde (refine 2026-11-08): wird mit der Kunden-ID geladen
+const PREVIEW = {
+  issuer: { name: 'Muster GmbH', nameLine2: null, addressLine1: 'Seestraße 12', addressLine2: null, postalCode: '5753', city: 'Saalbach', country: 'AT', vatId: null },
+  letterhead: { fontFamily: 'carlito', fontSize: 11, lineSpacing: 'normal', paragraphSpacing: 'normal', logoPosition: 'left', logoHeightMm: 25, showIssuer: true },
+}
+const getPreviewDataFor = vi.fn()
+vi.mock('@/lib/invoice-drafts-data', () => ({ getPreviewDataFor: (id: string) => getPreviewDataFor(id) }))
 vi.mock('@/lib/letterhead-data', () => ({ loadPdfLogo: async () => ({ logo: null, failed: false }) }))
 const { PdfBusyError } = vi.hoisted(() => ({ PdfBusyError: class PdfBusyError extends Error {} }))
 const renderStatsPdf = vi.fn()
@@ -77,6 +78,7 @@ describe('Auswertungen: Downloads', () => {
     tenant.active = { id: 't1', name: 'Muster GmbH', role: 'owner' }
     getStatsData.mockReset().mockResolvedValue(data())
     renderStatsPdf.mockReset().mockResolvedValue({ pdf: new Uint8Array([37, 80, 68, 70]), pages: 1 })
+    getPreviewDataFor.mockReset().mockResolvedValue(PREVIEW)
   })
 
   it('ohne Anmeldung 401, mit offener Zwei-Faktor-Anmeldung 403', async () => {
@@ -147,6 +149,35 @@ describe('Auswertungen: Downloads', () => {
     expect(view.kpis[0].value).toMatch(/^32\s%$/)
     expect(view.tables.map((t) => t.title)).toEqual(['Je Monat', 'Je Wohnung', 'Gästeherkunft'])
     expect(view.stand).toMatch(/^Stand: \w{2}, \d{2}\.\d{2}\.\d{4}, \d{2}:\d{2}$/)
+  })
+
+  it('PDF bei mehreren Kunden: ohne Briefpapier und Aussteller, Zeile „Kunden“, Je Kunde (refine)', async () => {
+    const T2 = 'cccccccc-cccc-4ccc-8ccc-ccccccccccc2'
+    const B1 = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1'
+    getStatsData.mockResolvedValue(
+      data({
+        tenants: [...TENANTS, { id: T2, name: 'Bergblick KG' }],
+        apartments: [...APARTMENTS, { id: B1, name: 'Top 1', propertyId: P1.replace('1111', '2222'), propertyName: 'Haus Berg', archived: false, tenantId: T2, tenantName: 'Bergblick KG' }],
+        rows: [...ROWS, row(B1, '2026-10')],
+      })
+    )
+    const res = await pdf(request('pdf?jahr=2026&von=10&bis=10'))
+    expect(res.status).toBe(200)
+    expect(getPreviewDataFor).not.toHaveBeenCalled()
+    expect(res.headers.get('content-disposition')).toContain('filename="Auswertung_2026-10_Alle-Kunden_Stand-')
+    const view = renderStatsPdf.mock.calls[0][0] as { issuer: unknown; logo: unknown; meta: string[]; tables: { title: string }[] }
+    expect(view.issuer).toBeNull()
+    expect(view.logo).toBeNull()
+    expect(view.meta[2]).toBe('Kunden: Alpenhof GmbH, Bergblick KG')
+    expect(view.tables.map((t) => t.title)).toEqual(['Je Monat', 'Je Kunde', 'Je Wohnung', 'Gästeherkunft'])
+  })
+
+  it('PDF eines einzelnen Kunden lädt dessen Briefpapier (nicht das des gewählten Kunden)', async () => {
+    const T2 = 'cccccccc-cccc-4ccc-8ccc-ccccccccccc2'
+    getStatsData.mockResolvedValue(data({ tenants: [...TENANTS, { id: T2, name: 'Bergblick KG' }] }))
+    const res = await pdf(request(`pdf?jahr=2026&von=10&bis=10&kunde=${TENANTS[0].id}`))
+    expect(res.status).toBe(200)
+    expect(getPreviewDataFor).toHaveBeenCalledWith(TENANTS[0].id)
   })
 
   it('PDF: Arbeitsprozess ausgelastet 503, Fehler 500', async () => {

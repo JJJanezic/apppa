@@ -32,6 +32,8 @@ export type StatsPdfInput = {
   scope: string
   periodOpen: boolean
   tenantName: string
+  // Mehrere Kunden (refine 2026-11-08): deren Namen; dann ohne Aussteller-Block und Logo, Zeile „Kunden: …“
+  tenantNames: string[] | null
   issuer: TaxPdfIssuer
   letterhead: LetterheadValues
   logo: { data: Uint8Array; widthPx: number; heightPx: number } | null
@@ -170,10 +172,27 @@ export function buildStatsPdfView(p: StatsPdfInput): { view: StatsPdfView; logo:
     { title: t('chart.title'), note: t('months.previousHint'), columns: [t('months.col.month'), ...metricColumns(t, 'months')], firstWidth: 112, groups: {}, rows: monthRows },
   ]
 
+  // Je Kunde (refine 2026-11-08), nur bei mehreren Kunden
+  if (view.tenants.length > 0) {
+    tables.push({
+      title: t('tenants.title'),
+      note: null,
+      columns: [t('tenants.col.tenant'), ...metricColumns(t, 'months')],
+      firstWidth: 112,
+      groups: {},
+      rows: [
+        ...view.tenants.map((l) => ({ cells: [{ main: l.tenant.name, small: [] }, ...metricCells(l, t)] })),
+        { bold: true, cells: [{ main: t('tenants.total'), small: [] }, ...metricCells(view.totals, t)] },
+      ],
+    })
+  }
+
   if (view.apartments.length > 0) {
     const groups: Record<number, string> = {}
     view.apartments.forEach((l, i) => {
-      if (i === 0 || view.apartments[i - 1].apartment.propertyId !== l.apartment.propertyId) groups[i] = l.apartment.propertyName
+      // bei mehreren Kunden „Kunde · Objekt“ als Zwischenüberschrift
+      if (i === 0 || view.apartments[i - 1].apartment.propertyId !== l.apartment.propertyId)
+        groups[i] = view.multiTenant ? `${l.apartment.tenantName} · ${l.apartment.propertyName}` : l.apartment.propertyName
     })
     tables.push({
       title: t('apartments.title'),
@@ -207,10 +226,14 @@ export function buildStatsPdfView(p: StatsPdfInput): { view: StatsPdfView; logo:
       kind: STATS_PDF_KIND,
       title: `${t('title')} ${p.period}`,
       letterhead: v,
-      logo: p.logo && box ? { data: p.logo.data, widthMm: box.widthMm, heightMm: box.heightMm } : null,
-      issuer: issuerLines(p.issuer, v, t, p.locale),
+      logo: !p.tenantNames && p.logo && box ? { data: p.logo.data, widthMm: box.widthMm, heightMm: box.heightMm } : null,
+      issuer: p.tenantNames ? null : issuerLines(p.issuer, v, t, p.locale),
       heading: t('pdf.heading'),
-      meta: [t('pdf.period', { period: p.period }), t('pdf.scope', { scope: p.scope }), t('pdf.customer', { customer })],
+      meta: [
+        t('pdf.period', { period: p.period }),
+        t('pdf.scope', { scope: p.scope }),
+        p.tenantNames ? t('pdf.customers', { customers: p.tenantNames.join(', ') }) : t('pdf.customer', { customer }),
+      ],
       notice: p.periodOpen ? t('periodOpen') : null,
       kpis: kpis(view.totals, t),
       charts: [chart(view, 'occupancy', p.year, t), chart(view, 'revenue', p.year, t)],

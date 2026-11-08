@@ -21,10 +21,11 @@ const t = (key: string, values?: Record<string, string | number>) => translator(
 const P1 = '11111111-1111-4111-8111-111111111111'
 const P2 = '22222222-2222-4222-8222-222222222222'
 const TENANTS = [{ id: 'cccccccc-cccc-4ccc-8ccc-ccccccccccc1', name: 'Alpenhof GmbH' }]
+const TWO = [...TENANTS, { id: 'cccccccc-cccc-4ccc-8ccc-ccccccccccc2', name: 'Bergblick KG' }]
 const apartments: StatsApartment[] = [
   { id: 'a1', name: 'Top 1', propertyId: P1, propertyName: 'Haus Alpenblick', archived: false, tenantId: 'cccccccc-cccc-4ccc-8ccc-ccccccccccc1', tenantName: 'Alpenhof GmbH' },
   { id: 'a2', name: 'Top 2', propertyId: P1, propertyName: 'Haus Alpenblick', archived: true, tenantId: 'cccccccc-cccc-4ccc-8ccc-ccccccccccc1', tenantName: 'Alpenhof GmbH' },
-  { id: 'a3', name: 'Studio', propertyId: P2, propertyName: 'Zentrum', archived: false, tenantId: 'cccccccc-cccc-4ccc-8ccc-ccccccccccc1', tenantName: 'Alpenhof GmbH' },
+  { id: 'a3', name: 'Studio', propertyId: P2, propertyName: 'Zentrum', archived: false, tenantId: 'cccccccc-cccc-4ccc-8ccc-ccccccccccc2', tenantName: 'Bergblick KG' },
 ]
 
 const row = (apartmentId: string, month: string, over: Partial<StatsMonthRow> = {}): StatsMonthRow => ({
@@ -57,16 +58,17 @@ const origin: StatsOriginRow[] = COUNTRIES.flatMap((country, i) => [
   { apartmentId: 'a1', country, previous: true, arrivals: 10, guestNights: 80, revenueCents: 40000 },
 ])
 
-function view(f: StatsFilters, over: Partial<StatsPdfView> = {}): StatsPdfView {
+function view(f: StatsFilters, over: Partial<StatsPdfView> = {}, tenants = TENANTS): StatsPdfView {
   const name = (c: string) => countryName(c, 'de')
   const { view: v } = buildStatsPdfView({
-    view: buildStats(rows, apartments, f, TENANTS),
+    view: buildStats(rows, apartments, f, tenants),
     origin: buildOrigin(origin, new Set(apartments.map((a) => a.id)), name, Number.POSITIVE_INFINITY),
     year: f.year,
     period: f.from === 1 && f.to === 12 ? String(f.year) : 'Oktober 2026',
     scope: f.apartment ? 'Haus Alpenblick · Top 1' : 'Alle Wohnungen',
     periodOpen: false,
     tenantName: 'Muster GmbH',
+    tenantNames: tenants.length > 1 ? tenants.map((x) => x.name) : null,
     issuer: { name: 'Muster GmbH', nameLine2: null, addressLine1: 'Seestraße 12', addressLine2: null, postalCode: '5753', city: 'Saalbach', country: 'AT', vatId: 'ATU12345678' },
     letterhead: DEFAULT_LETTERHEAD,
     logo: null,
@@ -148,6 +150,19 @@ describe('PDF Auswertung', () => {
     const all = (await pageTexts(r.pdf)).join(' ')
     expect(all).toContain('Wohnungen: Haus Alpenblick · Top 1')
     expect(all).not.toContain('Je Wohnung')
+  })
+
+  it('mehrere Kunden (refine): ohne Briefpapier-Kopf, Zeile „Kunden“, Tabelle „Je Kunde“, Kunde bei den Objekten', async () => {
+    const r = await render(view(YEAR, {}, TWO))
+    keep('auswertung-alle-kunden', r.pdf)
+    const texts = await pageTexts(r.pdf)
+    const all = texts.join(' ')
+    expect(texts[0]).not.toContain('Seestraße 12 5753')
+    expect(texts[0]).not.toContain('UID: ATU12345678')
+    expect(all).toContain('Kunden: Alpenhof GmbH, Bergblick KG')
+    expect(all).not.toContain('Vermieter:')
+    expect(all).toContain('Je Kunde')
+    expect(all).toContain('Bergblick KG · Zentrum')
   })
 
   it('ohne Aussteller-Block und mit Hinweis auf offenen Zeitraum', async () => {

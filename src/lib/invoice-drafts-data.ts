@@ -301,6 +301,12 @@ type PreviewDb = {
 // Für Inhaber und Mitarbeiter (Mitarbeiter lesen Stammdaten und Rechnungseinstellungen sonst nicht)
 export const getDraftPreviewData = cache(async (): Promise<DraftPreviewData> => {
   const { tenantId } = await requireMember()
+  return getPreviewDataFor(tenantId)
+})
+
+// Aussteller, Briefpapier usw. eines bestimmten Kunden, bei dem die Person Mitglied ist (PROJ-18: PDF der Auswertung mit
+// dem Briefpapier des ausgewerteten Kunden, auch wenn er nicht der gewählte ist); die Datenbankfunktion prüft das selbst
+export const getPreviewDataFor = cache(async (tenantId: string): Promise<DraftPreviewData> => {
   const supabase = await createClient()
   const { data, error } = await supabase.rpc('invoice_preview_data', { p_tenant_id: tenantId })
   if (error) console.error('[rechnungsentwurf] Vorschau-Daten nicht lesbar', error.message)

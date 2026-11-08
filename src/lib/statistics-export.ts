@@ -7,8 +7,9 @@ import { getSessionUser, pendingMfaStep } from '@/lib/auth/session'
 import { todayIso } from '@/lib/bookings'
 import { formatDateTime } from '@/lib/format'
 import { countryName } from '@/lib/guests'
-import { getDraftPreviewData } from '@/lib/invoice-drafts-data'
+import { getPreviewDataFor } from '@/lib/invoice-drafts-data'
 import { PdfBusyError, renderStatsPdf } from '@/lib/invoice-pdf/render'
+import { DEFAULT_LETTERHEAD } from '@/lib/letterhead'
 import { loadPdfLogo } from '@/lib/letterhead-data'
 import {
   buildOrigin,
@@ -88,12 +89,13 @@ export async function statsPdfResponse(request: Request): Promise<Response> {
   if (loaded instanceof Response) return loaded
   try {
     const { filters, data } = loaded
+    // Ein Kunde: dessen Briefpapier, Aussteller und Logo (auch wenn er nicht der gewählte Kunde ist). Mehrere Kunden: neutraler
+    // Kopf ohne Briefpapier, Grundwerte der Gestaltung, Zeile „Kunden: …“ (refine 2026-11-08)
     const [t, tTax, locale, preview, { logo }] = await Promise.all([
       getTranslations('statistics'),
       getTranslations('touristTaxReport'),
       getLocale(),
-      getDraftPreviewData(),
-      // Briefpapier nur bei einem einzelnen Kunden; Aussteller und Logo kommen mit /backend je Kunde (Tech Design B)
+      loaded.tenant ? getPreviewDataFor(loaded.tenant.id) : Promise.resolve(null),
       loaded.tenant ? loadPdfLogo(loaded.tenant.id) : Promise.resolve({ logo: null, failed: false }),
     ])
     const tt = (key: string, values?: Record<string, string | number>) => t(key as never, values as never)
@@ -107,8 +109,9 @@ export async function statsPdfResponse(request: Request): Promise<Response> {
       scope: scopeLabel(filters, data.apartments, t('filters.allApartments')),
       periodOpen: periodOpen(filters, loaded.today),
       tenantName: loaded.tenant?.name ?? '',
-      issuer: preview.issuer,
-      letterhead: preview.letterhead,
+      tenantNames: loaded.tenant ? null : tenantsInScope(filters, data.tenants).map((x) => x.name),
+      issuer: preview?.issuer ?? null,
+      letterhead: preview?.letterhead ?? { ...DEFAULT_LETTERHEAD, showIssuer: false },
       logo,
       t: tt,
       countryName: name,

@@ -621,6 +621,14 @@ Seite „Auswertungen“
 - `statistics_tenant_origin(p_tenant_ids uuid[], p_from date, p_to date)` – wie `statistics_origin`, zusätzlich `tenant_id`.
 - Alte Funktionen bleiben bis zu einer späteren Migration.
 
+### Umsetzung Backend Erweiterung Kundenauswahl (refine 2026-11-08)
+- Migration `20261108114454_statistics_tenants.sql` (nur Dev; Staging/Prod mit `/deploy`): `statistics_tenant_rows` und `statistics_tenant_origin` (mehrere Kunden, `tenant_id` je Zeile, private Definer + öffentliche Invoker, nur Inhaber-Kunden über die bestehenden Kerne). `statistics_rows`/`statistics_origin` bleiben bis zu einer späteren Aufräum-Migration (alte App-Version beim Ausliefern). Advisors: nur `auth_otp_long_expiry`.
+- `getPreviewDataFor(tenantId)` in `invoice-drafts-data.ts` (Aussteller, Briefpapier eines bestimmten Kunden; Datenbank prüft die Mitgliedschaft); `getDraftPreviewData` nutzt es für den gewählten Kunden.
+- PDF: einzelner Kunde mit dessen Briefpapier und Logo; mehrere Kunden ohne Aussteller-Block und Logo, Grundwerte der Gestaltung, Zeile „Kunden: …“, Tabelle „Je Kunde“, „Je Wohnung“ mit Zwischenüberschrift „Kunde · Objekt“.
+- Tests: Integration 15/15 (neu: mehrere Kunden nur Inhaber-Kunden, Summe = Einzelabfragen, Herkunft mit Kunde, Mitarbeiter leer), Route-Test (neu: PDF mehrerer Kunden neutral, einzelner Kunde mit eigenem Briefpapier), PDF-Arbeitsprozess (neu: mehrere Kunden), Unit 906/906.
+- Messung (Dev, zwei Kunden mit je 2.520 Buchungen, 15 Wohnungen): Jahr über beide Kunden 352–508 ms, Herkunft 235–252 ms, ein Kunde 195 ms. Messdaten direkt in der Datenbank gelöscht.
+- Sichtprüfung mit zwei Inhaber-Kunden: Seite (Alle Kunden, zentrierte Kacheln, Je Kunde, Je Wohnung mit Kunden), PDF und CSV.
+
 ## QA Test Results
 
 **Tested:** 2026-11-08

@@ -2435,6 +2435,37 @@ export type Database = {
           stay_nights: number
         }[]
       }
+      statistics_tenant_origin: {
+        Args: { p_from: string; p_tenant_ids: string[]; p_to: string }
+        Returns: {
+          apartment_id: string
+          arrivals: number
+          country: string
+          guest_nights: number
+          previous: boolean
+          revenue_cents: number
+          tenant_id: string
+        }[]
+      }
+      statistics_tenant_rows: {
+        Args: { p_from: string; p_tenant_ids: string[]; p_to: string }
+        Returns: {
+          apartment_id: string
+          arrivals: number
+          available_nights: number
+          blocked_nights: number
+          bookings: number
+          fee_cents: number
+          fee_vat_cents: number
+          guest_nights: number
+          month: string
+          occupied_nights: number
+          revenue_cents: number
+          revenue_vat_cents: number
+          stay_nights: number
+          tenant_id: string
+        }[]
+      }
       tourist_tax_monthly: {
         Args: { p_from: string; p_tenant_ids: string[]; p_to: string }
         Returns: {

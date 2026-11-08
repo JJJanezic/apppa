@@ -313,6 +313,28 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-18 Statistische Auswertungen', () => {
     expect(error ?? (data as unknown[]).length === 0).toBeTruthy()
   })
 
+  it('über mehrere Kunden (refine): nur Inhaber-Kunden, Kunde je Zeile, Summe gleich den Einzelabfragen', async () => {
+    const { data, error } = await ownerA.rpc('statistics_tenant_rows', { p_tenant_ids: [tenantA, tenantB, tenantC], p_from: '2026-10-01', p_to: '2026-10-31' })
+    if (error) throw error
+    const list = (data ?? []) as unknown as (Row & { tenant_id: string })[]
+    // B (nur Mitarbeiterin) liefert nichts
+    expect(new Set(list.map((r) => r.tenant_id))).toEqual(new Set([tenantA, tenantC]))
+    const single = [...(await rows(ownerA, tenantA, '2026-10-01', '2026-10-31')), ...(await rows(ownerA, tenantC, '2026-10-01', '2026-10-31'))]
+    const sum = (xs: { occupied_nights: number; revenue_cents: number | string }[]) => xs.reduce((s, r) => [s[0] + r.occupied_nights, s[1] + Number(r.revenue_cents)], [0, 0])
+    expect(sum(list)).toEqual(sum(single))
+    expect(list.find((r) => r.apartment_id === ids.apC)?.tenant_id).toBe(tenantC)
+  })
+
+  it('Herkunft über mehrere Kunden mit Kunde je Zeile; Mitarbeiter erhält nichts', async () => {
+    const { data, error } = await ownerA.rpc('statistics_tenant_origin', { p_tenant_ids: [tenantA, tenantB, tenantC], p_from: '2026-10-01', p_to: '2026-12-31' })
+    if (error) throw error
+    const list = (data ?? []) as unknown as (OriginRow & { tenant_id: string })[]
+    expect(new Set(list.map((r) => r.tenant_id))).toEqual(new Set([tenantA, tenantC]))
+    expect(list.find((r) => r.country === 'NL')?.tenant_id).toBe(tenantA)
+    const staff = await staffA.rpc('statistics_tenant_rows', { p_tenant_ids: [tenantA], p_from: '2026-10-01', p_to: '2026-10-31' })
+    expect(staff.error ?? (staff.data as unknown[]).length === 0).toBeTruthy()
+  })
+
   it('die Rechenkerne sind von außen nicht aufrufbar', async () => {
     const { error } = await ownerA.rpc('statistics_apartment_months' as never, { p_tenant_ids: [tenantA], p_months: ['2026-10-01'] } as never)
     expect(error).not.toBeNull()
