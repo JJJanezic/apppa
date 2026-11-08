@@ -205,6 +205,29 @@ test.describe('Reisedokument', () => {
   })
 })
 
+test.describe('Beschriftung Dokument-ID (refine 2026-11-08)', () => {
+  test('AC: Feld heißt „Dokument-ID“, Meldung passt; Art und Dokument-ID stehen auf gleicher Höhe', async ({ page, users, tenants }) => {
+    const { tenantId } = await setup(page, users, tenants)
+    const id = await addGuest(tenantId, { last_name: 'Berger', first_name: 'Eva' })
+    await openGuest(page, id)
+    await page.getByRole('button', { name: 'Bearbeiten' }).click()
+    await openDocument(page)
+    await expect(panel(page).getByLabel('Dokument-ID')).toBeVisible()
+    await expect(panel(page).getByText('Nummer des Dokuments')).toHaveCount(0)
+
+    // Zweispaltig (ab 640 px) beginnen beide Eingabefelder auf derselben Höhe
+    const type = await panel(page).getByRole('combobox', { name: 'Art des Dokuments' }).boundingBox()
+    const number = await panel(page).getByLabel('Dokument-ID').boundingBox()
+    if ((page.viewportSize()?.width ?? 0) >= 640) expect(Math.abs(type!.y - number!.y)).toBeLessThanOrEqual(1)
+
+    if (test.info().project.name !== 'desktop') return
+    await choose(page, panel(page), 'Art des Dokuments', 'Reisepass')
+    await panel(page).getByRole('button', { name: 'Speichern', exact: true }).click()
+    await expect(panel(page).getByText('Bitte die Dokument-ID eingeben.')).toBeVisible()
+    await expect(panel(page).getByText('Bitte die Nummer des Dokuments eingeben.')).toHaveCount(0)
+  })
+})
+
 test.describe('Ausweisbilder', () => {
   test('AC: JPEG und HEIC hochladen, umgewandelt auf 2.000 px; groß ansehen und herunterladen', async ({ page, users, tenants }) => {
     desktopOnly()

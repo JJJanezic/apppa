@@ -1,6 +1,6 @@
 # PROJ-29: Gast-Erweiterung: Titel, Geschlecht, Reisedokument
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-10-26
 **Last Updated:** 2026-11-08
 
@@ -517,6 +517,22 @@ Gleiche Lösung wie in der Betreiber-Kundenliste: Die unsichtbare Klickfläche �
 - **Security:** bestanden, drei Hinweise ohne Handlungsbedarf
 - **Production Ready:** YES (nach manueller Prüfung in Safari und am Handy)
 - **Recommendation:** Deployen (nach manueller Prüfung in Safari und am Handy)
+
+### QA refine 2026-11-08: Beschriftung Dokument-ID
+_Getestet 2026-11-08 gegen Dev (gebauter Server, Chromium)_
+
+| Kriterium | Ergebnis |
+|---|---|
+| Feld heißt „Dokument-ID“, „Nummer des Dokuments“ kommt nicht mehr vor (Gästeseite; Buchungsformular über den Mitarbeiter-Test mit neuem Gast) | bestanden |
+| Meldung „Bitte die Dokument-ID eingeben.“ bei fehlender ID | bestanden |
+| „Art des Dokuments“ und „Dokument-ID“ auf gleicher Höhe (Desktop 1440, Tablet 768; am Handy einspaltig) | bestanden |
+
+- **Rechnungsnacherfassung:** nutzt dasselbe Formular (`guest-fields.tsx`), kein eigener Test
+- **E2E:** neuer Test „Beschriftung Dokument-ID“ (desktop, tablet, mobile); bestehende Tests auf den neuen Text umgestellt. Gelaufen: Reisedokument, Ausweisbilder JPEG/HEIC, Mitarbeiter-Buchung mit neuem Gast, Layout und Barrierefreiheit (axe ohne Befund, kein seitliches Scrollen), alle grün
+- **Unit:** `guests.test.ts`, `validation/guests.test.ts` grün (44); Lint ohne Befund
+- **Sicherheit:** nur Textänderung, keine Daten, Rechte oder Schnittstellen berührt
+- **Nicht geprüft:** Firefox und Safari (reine Textänderung, kein Risiko erkennbar)
+- **Bugs:** keine. **Empfehlung:** bereit für den Deploy
 
 ## Deployment
 _Stand 2026-10-26 (/deploy, Tag `v1.6.0`)_
