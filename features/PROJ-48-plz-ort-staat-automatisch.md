@@ -1,6 +1,6 @@
 # PROJ-48: Ort und Staat aus der PLZ
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-11-08
 **Last Updated:** 2026-11-08
 
@@ -128,12 +128,12 @@ Gibt man im Gastformular eine österreichische (4 Ziffern) oder deutsche (5 Ziff
 ## Technical Requirements (optional)
 - Performance: Ort und Staat erscheinen spürbar sofort nach der letzten Ziffer (Ziel unter 300 ms)
 - Daten: Postorte für AT und DE mit Herkunft und Lizenz dokumentiert. Die Pflege (Aktualisierung) ist im Runbook beschrieben.
-- Security: nur für angemeldete Nutzer. Keine Gastdaten verlassen die App, es wird nur die PLZ nachgeschlagen.
+- Security: Es verlassen keine Gastdaten den Browser. Das Nachschlagen geschieht im Browser selbst, die Ortslisten sind öffentliche offene Daten (siehe Tech Design).
 - Browser Support: Chrome, Firefox, Safari (Desktop und mobil)
 
 ## Open Questions
-- [ ] Datenquelle und Lizenz der Postorte für AT (z. B. PLZ-Verzeichnis der Post) und DE. Wie oft aktualisieren? Klärung in `/architecture`.
-- [ ] Unterscheidung von Postorten mit gleicher PLZ in DE (z. B. Ortsteile): Welche Einträge erscheinen in der Auswahlliste? Klärung mit der Datenquelle in `/architecture`.
+- [x] Datenquelle und Lizenz der Postorte für AT und DE, Aktualisierung: AT aus dem PLZ-Verzeichnis der RTR (CC BY 3.0 AT), DE aus GeoNames (CC BY 4.0), halbjährlich per Runbook (`/architecture` 2026-11-08)
+- [x] Ortsteile in DE: Ortsteil-Einträge („Dresden Innere Altstadt“) entfallen, wenn der Hauptort („Dresden“) zur selben PLZ gehört; Großkunden-Einträge (Firmennamen) entfallen ganz (`/architecture` 2026-11-08)
 
 ## Decision Log
 
@@ -153,12 +153,80 @@ Gibt man im Gastformular eine österreichische (4 Ziffern) oder deutsche (5 Ziff
 <!-- Added by /architecture -->
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Nachschlagen im Browser aus zwei statischen Ortslisten (AT, DE) statt Datenbankabfrage je PLZ | Sofortige Anzeige ohne Serverweg (Ziel < 300 ms sicher erreichbar), keine Gastdaten verlassen den Browser, keine Datenbank-Änderung und kein Backend-Schritt nötig. Die Listen sind öffentliche offene Daten und dürfen ohne Anmeldung abrufbar sein | 2026-11-08 |
+| Listen erst laden, wenn eine PLZ der passenden Länge eingegeben wird; danach vom Browser zwischengespeichert | AT ca. 18 KB, DE ca. 130 KB (komprimiert). Wer nur österreichische Gäste erfasst, lädt die deutsche Liste nie | 2026-11-08 |
+| AT: PLZ-Verzeichnis der RTR (Daten der Österreichischen Post), nur gültige PLZ mit Adressierung | Amtliche Postorte, monatlich gepflegt, offene Lizenz CC BY 3.0 AT. Die vorhandene Gemeindeliste (Statistik Austria) enthält Gemeinden, nicht Postorte | 2026-11-08 |
+| DE: GeoNames-Postleitzahlen (CC BY 4.0), bereinigt | Die amtlichen Daten der Deutschen Post sind kostenpflichtig. GeoNames ist frei und deckt alle Zustell-PLZ ab. Bereinigung: Großkunden-Einträge (Firmennamen) und Ortsteile neben dem Hauptort entfallen; übrig bleiben ca. 9.800 PLZ, davon ca. 2.000 mit mehreren Orten | 2026-11-08 |
+| Rohdaten im Repository, Ortslisten per Skript erzeugt | Gleiches Muster wie die Gemeindeliste (`supabase/data/statistik-austria`, `scripts/build-municipalities.mts`): nachvollziehbar, wiederholbar, Aktualisierung per Runbook | 2026-11-08 |
+| „Automatisch befüllt“ wird nur im Formular gemerkt, nicht gespeichert | Die Regel gilt nur für die laufende Bearbeitung (Spec: gespeicherte Werte gelten als „von Hand“). Keine Datenbankspalte nötig | 2026-11-08 |
+| Quellenangabe als sehr kleine Zeile (11 px, gedämpft) unter „Ort“, sobald ein Ort automatisch eingetragen oder eine Auswahl angezeigt wird | Beide Lizenzen verlangen eine Namensnennung; die Zeile zeigt zugleich, dass der Ort aus der PLZ stammt (auch für Screenreader) | 2026-11-08 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### Überblick
+Reines Frontend-Feature. Es gibt keine Datenbank-Änderung, keine neue Schnittstelle und keine Rechteprüfung. Das Gastformular schlägt die PLZ in zwei mitgelieferten Ortslisten nach, einer für Österreich und einer für Deutschland. Diese Listen werden aus offenen Daten erzeugt und mit der App ausgeliefert.
+
+### A) Komponenten
+```
+Gastformular (bestehend, src/components/guests/guest-fields.tsx)
++-- Anschrift
+|   +-- PLZ (unverändert)
+|   +-- Ort (Eingabefeld unverändert)
+|   |   +-- NEU: Ortsauswahl bei mehreren Orten (Liste von Knöpfen, Tastatur/Touch, min. 44 px)
+|   |   +-- NEU: Quellenzeile „Ort aus der PLZ · Daten: RTR, GeoNames“, sehr klein (11 px, gedämpft, wie Bildunterschriften im Design-System), nur nach automatischer Befüllung oder bei sichtbarer Auswahl
+|   +-- Land (Länderauswahl unverändert)
++-- Firma (aufklappbar)
+    +-- Rechnungsadresse
+        +-- PLZ / Ort / Staat: dieselben Bausteine wie oben, unabhängig von der Gastanschrift
+
+NEU: Baustein „Ort aus PLZ“ (wiederverwendbar, je Anschrift einmal eingesetzt)
++-- erkennt die vollständige PLZ (Präfix A/AT bzw. D/DE und Leerzeichen werden ignoriert)
++-- bestimmt das Land (gewähltes Land oder Stellenzahl bei leerem Land)
++-- lädt bei Bedarf die passende Ortsliste
++-- merkt sich je Feld (Ort, Land), ob es in dieser Bearbeitung automatisch befüllt wurde
++-- befüllt Ort und Land nach den Regeln der Spec oder zeigt die Ortsauswahl
++-- meldet Änderungen dem Screenreader (Live-Bereich)
+```
+Da das Gastformular auch im Buchungsformular und beim Nacherfassen von Rechnungen steckt, wirkt das Verhalten dort ohne weitere Arbeit. Rechnungsentwurf, Kundenstammdaten und Objektanschrift nutzen eigene Felder und bleiben unberührt.
+
+### B) Daten
+**Ortslisten** (je Land eine Datei, öffentlich abrufbar, ohne Gastdaten):
+- je PLZ die zugehörigen Postorte, alphabetisch
+- AT: ca. 2.200 PLZ, jede mit genau einem Postort (Stand RTR 04.11.2026)
+- DE: ca. 9.800 PLZ, davon ca. 2.000 mit mehreren Orten
+
+**Rohdaten und Herkunft** (im Repository, mit README zu Quelle, Lizenz, Stand und Pflicht-Quellenangabe):
+- `supabase/data/rtr/`: PLZ-Verzeichnis der RTR (data.rtr.at, CC BY 3.0 AT). Übernommen werden nur gültige PLZ (ohne „gültig bis“) mit Adressierung.
+- `supabase/data/geonames/`: GeoNames-Postleitzahlen DE (download.geonames.org, CC BY 4.0)
+
+**Erzeugung:** Ein Skript (Muster wie `scripts/build-municipalities.mts`) bereinigt die Rohdaten und schreibt die beiden Ortslisten.
+- DE: Einträge mit Firmenmerkmalen (z. B. „GmbH“, „AG“) entfallen. Damit fallen Großkunden-PLZ wie „80788 BMW AG“ ganz weg.
+- DE: Ein Ortsteil („Hamburg Altstadt“) entfällt, wenn der Hauptort („Hamburg“) zur selben PLZ gehört.
+- Doppelte Einträge werden zusammengefasst.
+
+**Im Formular gemerkt, nicht gespeichert:** ob Ort bzw. Land in dieser Bearbeitung automatisch befüllt wurde. Gespeichert werden wie bisher nur PLZ, Ort und Land.
+
+**Keine Änderung** an Tabellen, Server-Aktionen, Validierung oder Rechten.
+
+### C) Technische Entscheidungen (kurz begründet)
+- **Im Browser statt am Server:** Die Anzeige kommt sofort, kein Gastdatum verlässt den Browser, und das Feature braucht keinen Backend-Teil.
+- **Laden erst bei Bedarf:** Die deutsche Liste (ca. 130 KB) lädt nur, wenn eine fünfstellige PLZ eingegeben wird, danach liegt sie im Browser-Cache. Kann die Liste nicht geladen werden, passiert nichts. Es gibt keine Meldung, das Formular bleibt bedienbar.
+- **Gemeindeliste bleibt getrennt:** Sie dient der Ortstaxe (Gemeinde). Für die Anschrift zählt der Postort.
+- **Quellenangabe:** Die Lizenzen verlangen Namensnennung. Die Zeile unter „Ort“ erfüllt das und zeigt zugleich, woher der Ort stammt. Auf Wunsch des Nutzers sehr klein: kleinste Schrift des Design-Systems (11 px, gedämpfter Text).
+
+### D) Pflege
+Neuer Runbook-Abschnitt „PLZ-Ortslisten aktualisieren (PROJ-48)“ in `docs/runbooks/supabase.md`: halbjährlich neue RTR- und GeoNames-Dateien ablegen, README-Stand anpassen, Skript ausführen, mit dem nächsten Deploy ausliefern. Gespeicherte Gäste bleiben unverändert (Spec).
+
+### E) Tests
+- Unit-Tests (neben dem Baustein): PLZ-Erkennung mit Präfixen und Leerzeichen, Landbestimmung, Befüllungsregel (leer / automatisch / von Hand), mehrere Orte, unbekannte PLZ, Ladefehler
+- Unit-Test des Erzeugungsskripts mit kleinen Beispieldaten (Ortsteil- und Firmenfilter)
+- E2E: Gästeseite (6020, 80331, Präfix, Schweiz, mehrere Orte per Tastatur), je ein Durchlauf im Buchungsformular und beim Nacherfassen
+
+### F) Abhängigkeiten (Pakete)
+Keine neuen Pakete.
 
 ## QA Test Results
 _To be added by /qa_
