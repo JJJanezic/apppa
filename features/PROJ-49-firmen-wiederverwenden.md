@@ -1,6 +1,6 @@
 # PROJ-49: Firmen wiederverwenden
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-11-08
 **Last Updated:** 2026-11-08
 
@@ -278,7 +278,98 @@ Keine neuen Pakete. Genutzt werden die vorhandene shadcn-Komponente „Command�
 - **Regression:** `guests.integration.test.ts` (15) grün.
 
 ## QA Test Results
-_To be added by /qa_
+
+**Tested:** 2026-11-08
+**App URL:** http://localhost:3000 (Produktions-Build, Supabase „apppa-dev“)
+**Tester:** QA Engineer (AI)
+**E2E:** `tests/PROJ-49-firmen-wiederverwenden.spec.ts` (8 Tests)
+
+### Acceptance Criteria Status
+
+#### Vorschläge erscheinen (8/8)
+- [x] „mu“ zeigt „Muster GmbH“; „m“ (1 Zeichen) zeigt keine Liste
+- [x] Umlaute und Schreibung egal („MÜS“ findet „Muster GmbH“, „MULLER“ findet „Hotel Müller KG“, Integrationstest)
+- [x] Suche nur im Firmennamen, nicht in der UID (Integrationstest)
+- [x] Keine Treffer: keine Liste, kein Hinweis
+- [x] Mitarbeiter bekommt im Buchungsformular bei „Neuer Gast“ dieselben Vorschläge (E2E)
+- [x] „Neuer Gast“ beim Nacherfassen einer Rechnung bekommt Vorschläge (E2E)
+
+#### Herkunft (3/3)
+- [x] Firmen anderer Kunden erscheinen nicht (E2E und Integrationstest)
+- [x] Der bearbeitete Gast liefert keinen eigenen Vorschlag (E2E und Integrationstest)
+- [x] Anonymisierte Gäste liefern keine Vorschläge (Integrationstest)
+
+#### Fassungen (5/5)
+- [x] Identische Fassungen ergeben einen Vorschlag; Schreibung und Leerzeichen am Rand zählen nicht, angezeigt werden die Werte des zuletzt geänderten Gastes
+- [x] Andere Adresse oder zusätzliche UID ergibt eigene Vorschläge
+- [x] Zuletzt geänderte Fassung steht oben (E2E und Integrationstest)
+
+#### Anzeige (3/3)
+- [x] Zweite Zeile „UID · PLZ Ort · Adresszeile 1“, leere Teile ohne Trennzeichen (E2E und Unit-Test)
+- [x] Höchstens 8 Vorschläge (Integrationstest)
+
+#### Bedienung (5/5)
+- [x] Pfeiltaste + Enter übernimmt, die Liste schließt sich, Enter schickt das Formular nicht ab
+- [x] Mausklick übernimmt
+- [x] Esc schließt nur die Liste, das Panel bleibt offen, der Text bleibt stehen
+- [x] Tab schließt die Liste ohne Übernahme
+- [x] Neue Firma ohne Vorschlag frei eintippen und speichern (PROJ-7/PROJ-33-Regression)
+
+#### Übernehmen (8/8)
+- [x] Alle sieben Firmenfelder werden gesetzt
+- [x] Vorhandene UID wird ersetzt, Adresszeile 2 geleert, wenn der Vorschlag sie nicht hat
+- [x] PROJ-48: Erst automatisch „Innsbruck“, dann Vorschlag „Wien“. Eine spätere Änderung der Firmen-PLZ lässt „Wien“ stehen.
+- [x] Übernommene Werte bleiben änderbar und werden gespeichert
+- [x] Nachname und übrige Gastfelder bleiben unverändert
+- [x] Schließen ohne Speichern ändert nichts (Speichern erst mit „Speichern“, unveränderter Ablauf)
+- [x] Längenprüfung beim Speichern unverändert (gleiche Prüfregeln aus PROJ-33)
+
+#### Kopie statt Verknüpfung (3/3)
+- [x] Eine Änderung am Quell-Gast ändert den übernehmenden Gast nicht (E2E)
+- [x] Der Quell-Gast bleibt unverändert, es entsteht kein Eintrag in seinem Protokoll (nur Lesezugriff)
+- [x] Die Änderung am bearbeiteten Gast wird wie jede andere Änderung protokolliert (bestehender Speicherweg)
+
+### Edge Cases Status
+- [x] Firma ohne Firmennamen liefert keinen Vorschlag
+- [x] Ähnliche Schreibweisen erscheinen getrennt
+- [x] LIKE-Platzhalter („%“, „_“) gelten wörtlich (Integrationstest)
+- [x] Ladefehler: still leere Liste, Speichern unbeeinträchtigt (Code-Prüfung: Fehler ergeben eine leere Liste)
+- [x] Veraltete Antworten beim Weitertippen werden verworfen (Code-Prüfung, Laufnummer)
+- [x] Erneutes Tippen nach einer Übernahme zeigt wieder Vorschläge, ein neuer Vorschlag ersetzt wieder alles
+- [x] Handy (375 px), Tablet, Desktop: Einträge mindestens 44 px hoch, kein seitliches Scrollen, keine axe-Verstöße (WCAG 2.1 AA)
+- [ ] Nicht automatisiert prüfbar: Sichtbarkeit der Liste über der Bildschirmtastatur auf einem echten Handy. Bitte bei der Abnahme auf Staging kurz am Handy prüfen.
+
+### Security Audit Results
+- [x] Authentifizierung: Die Server-Aktion verlangt eine Sitzung (inkl. 2FA-Schritt) und eine Mitgliedschaft. Die Datenbankfunktion ist für `anon` gesperrt (in Dev geprüft: anon = nein, authenticated = ja).
+- [x] Autorisierung: Der Kunde kommt aus der Sitzung, nicht vom Browser. Die Funktion läuft ohne erhöhte Rechte (`security invoker`, fester leerer Suchpfad), die Leseregel der Gäste greift. Ein Inhaber von Kunde B, der direkt mit der Kennung von Kunde A abfragt, erhält eine leere Liste (Integrationstest).
+- [x] Keine zusätzlichen Daten: Nur die sieben Firmenfelder, keine Gastnamen oder Kennungen. Mitarbeiter sehen Firmendaten ohnehin in Liste und Detail.
+- [x] Eingaben: Suchtext auf 200 Zeichen begrenzt, Platzhalter maskiert, Abfrage parametrisiert; ungültige Gast-Kennung wird ignoriert.
+- [x] XSS: Firmennamen werden von React als Text ausgegeben, kein HTML.
+- [x] Rate Limiting: Keine eigene Begrenzung. Die Suche ist durch Tippverzögerung, Mindestlänge und Grenze 8 günstig, sie entspricht der bestehenden Gästesuche. Kein Handlungsbedarf.
+- [x] Betreiber: Die Leseregel erlaubt Betreibern wie bisher das Lesen von Gästen. Daraus entsteht kein neuer Zugriff.
+
+### Cross-Browser und Geräte
+- [x] Chrome: Desktop (alle 8), Tablet und Handy (Darstellung)
+- [x] Firefox: Tastaturwahl, Esc/Tab/Maus, PLZ-Zusammenspiel
+- [ ] Safari: nicht ausgeführt. Läuft nur gegen den Entwicklungsserver, Tab-Verhalten betrifft hier keine Knöpfe. Das gleiche Kombinationsfeld ist seit PROJ-35 im Einsatz.
+
+### Regression
+- [x] PROJ-48 (10), PROJ-35 (12), PROJ-34 (15, u. a. Esc beim Verschieben), PROJ-33 (8), PROJ-7 (15) auf Desktop grün
+- [x] PROJ-2 „Mehr“-Menü mit Esc (Handy) grün
+- [x] Unit-Tests: 927/927 grün
+- [x] Integration: `guest-company-suggestions` (8) und `guests` (15) grün
+
+### Bugs Found
+Keine.
+
+Hinweis zum Testlauf: Zwei E2E-Tests schlugen im ersten Lauf fehl, weil der Test das Pflichtfeld „Herkunftsland“ nicht ausfüllte. Das war ein Fehler im Test, nicht in der App, und ist im Test korrigiert.
+
+### Summary
+- **Acceptance Criteria:** 35/35 bestanden
+- **Bugs Found:** 0 (0 critical, 0 high, 0 medium, 0 low)
+- **Security:** bestanden
+- **Production Ready:** YES
+- **Recommendation:** Deploy. Bei der Abnahme auf Staging die Liste einmal am Handy mit Bildschirmtastatur ansehen.
 
 ## Deployment
 _To be added by /deploy_
