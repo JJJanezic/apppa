@@ -1,6 +1,6 @@
 # PROJ-26: Gästeblatt (Meldewesen)
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-11-08
 **Last Updated:** 2026-11-08
 
@@ -335,12 +335,195 @@ Schlägt ein Teil fehl, wird nichts gespeichert, die Ansicht bleibt mit beiden U
 <!-- Added by /architecture -->
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Original-PDF bei „Fertig“ ablegen, Ansicht beim Öffnen aus eingefrorener Fassung erzeugen | Original bleibt mit Prüfsumme unverändert; Abreise-Nachtrag ohne nächtlichen Lauf und auch beim Leeren richtig | 2026-11-08 |
+| Eingefrorene Fassung als zusammenhängende Kopie am Blatt | Wie bei ausgestellten Rechnungen (PROJ-42); spätere Änderungen an Gast, Buchung oder Texten wirken nicht | 2026-11-08 |
+| Unterschriften als Bilder im privaten Speicher, nicht in der Datenbank | Hält die Tabelle klein; gleiches Muster wie Ausweisbilder und Belege samt Bereinigung | 2026-11-08 |
+| Eigene Datenbankfunktion „ein Feld speichern“ für Inhaber und Mitarbeiter, nur Blatt-Felder | Mitarbeiter dürfen am Blatt ergänzen (Spec), ohne das allgemeine Gast-Bearbeitungsrecht zu öffnen | 2026-11-08 |
+| Fertigstellen nur über eine Server-Schnittstelle, Schreibschritt nur für den Server | Niemand kann ein Blatt mit fremdem PDF oder fremden Unterschriften festschreiben (wie PROJ-42) | 2026-11-08 |
+| Höchstens ein aktuelles Blatt je Buchung, in der Datenbank erzwungen; Bezug aufs bisherige Blatt beim Fertigstellen | Sichere Behandlung von zwei Geräten gleichzeitig | 2026-11-08 |
+| Abreise-Nachtrag (Datum, Person) schreibt die Datenbank selbst beim Speichern der Buchung | Gilt unabhängig davon, wo die Abreise gesetzt wird (Formular, Kalender, später Import) | 2026-11-08 |
+| Umbenennung nur in den Beschriftungen, keine Spaltenänderung | Daten passen bereits; kein Risiko für bestehende Funktionen | 2026-11-08 |
+| Paket signature_pad | Bewährte Stift- und Fingereingabe mit Glättung, klein, MIT; Eigenbau in iPad-Safari fehleranfällig | 2026-11-08 |
+| Datenschutz-Texte in eigener Einstellungs-Tabelle je Kunde, leer = Standardtext | Standardtext bleibt in der App änderbar; Muster wie Rechnungs-Einstellungen | 2026-11-08 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### Ausgangslage (bereits vorhanden)
+- **PDF-Erzeugung** mit eigenem Arbeitsprozess, lokalen Schriften und Briefpapier-Gestaltung (PROJ-41/42, auch für Ortstaxe- und Auswertungs-PDFs genutzt).
+- **Private Speicherbereiche je Kunde** mit zufälligen Dateinamen, Lesezugriff nur für Mitglieder, direktem Hochladen über eine einmalige Freigabe des Servers und **täglicher Bereinigung** unbenutzter Dateien (Ausweisbilder, Rechnungs-PDFs, Logos, Belege).
+- **Einstellungen je Kunde** für Rechnungen mit Texteditor, Platzhaltern, Vorschau und „Auf Standard zurücksetzen“ (PROJ-39).
+- **Änderungsprotokoll** mit Angabe der Quelle (bisher z. B. für Datenumstellungen genutzt).
+- **Gast- und Buchungsprüfregeln** (Geburtsdatum, Längen, Reisedokument, Mitreisende) und die PLZ-Automatik.
+
+### Ablauf
+```
+Buchungsdetail → „Gästeblatt“
+  |
+  v
+Vollbild-Seite lädt Buchung, Gast, Mitreisende, Stammdaten, Datenschutz-Texte
+  |
+  v
+Seite 1: Feld verlassen → Server speichert genau dieses Feld (Gast oder Buchung)
+         Pflichtangaben vollständig → Unterschrift 1 → „Weiter“
+  |
+  v
+Seite 2: Texte A/B, Kästchen, Unterschrift 2 → „Fertig“
+  |
+  v
+Server: 1. prüft Anmeldung, Mitgliedschaft, Buchungsart, Pflichtangaben
+        2. vergleicht den angezeigten Stand mit dem aktuellen (Buchung, Gast, Mitreisende, vorhandenes Blatt)
+        3. erzeugt das PDF aus der eingefrorenen Fassung
+        4. legt PDF und beide Unterschriftsbilder unter zufälligem Namen ab
+        5. Datenbank in einem einzigen Schritt: Blatt schreiben, altes als „ersetzt“ markieren,
+           ggf. Marketing-Einwilligung am Gast, Protokoll
+  |
+  +-- gelingt   → zurück zur Buchung, „Gästeblatt gespeichert“
+  +-- scheitert → Dateien entfernt (sonst tägliche Bereinigung), Ansicht bleibt mit Unterschriften offen
+```
+
+### Seiten und Bausteine der Oberfläche
+```
+Buchungsdetail (besteht)
++-- Abschnitt „Gästeblatt“ (neu)
+    +-- Status, Lfd.-Nr., Marketing ja/nein, Hinweise („nach der Unterschrift geändert“, „storniert“)
+    +-- Knöpfe „Gästeblatt“ / „Gästeblatt ansehen“ / „Neu unterschreiben lassen“ / „Gästeblatt hochladen“
+    +-- Frühere Gästeblätter (aufklappbar)
+    +-- Dialog „Gästeblatt hochladen“ (PDF, Lfd.-Nr., Unterschrieben am, Marketing-Häkchen)
+
+Vollbild-Seite „Gästeblatt“ (neu, eigener Seitenrahmen ohne App-Menü)
++-- Kopf: Kundenname, Fortschritt „1 Meldedaten · 2 Datenschutz“
++-- Seite 1 „Meldedaten“
+|   +-- Kopf: Lfd.-Nr. (bearbeitbar)
+|   +-- Hauptgast: Familienname, Vorname, Geschlecht, Geburtsdatum, Staatsangehörigkeit
+|   +-- Reisedokument (nur bei Staatsangehörigkeit ≠ Österreich)
+|   +-- Adresse und Herkunftsland (mit PLZ-Automatik)
+|   +-- Mitreisende (Liste, „Mitreisende hinzufügen“)
+|   +-- Aufenthalt: Ankunft, voraussichtliche/tatsächliche Abreise (nur lesen)
+|   +-- Unterschriftsfeld 1 mit „Unterschrift löschen“
++-- Seite 2 „Datenschutz“
+|   +-- Teil A (Text), Teil B (Text + Kästchen)
+|   +-- Unterschriftsfeld 2 mit „Unterschrift löschen“
++-- Fußleiste: „Abbrechen“ (Rückfrage), „Zurück“, „Weiter“ / „Fertig“
+
+Menüpunkt „Gästeblätter“ (neu)
++-- Monatsauswahl wie Buchungsübersicht, Suche, Umschalter „Gästeblatt fehlt“
++-- Tabelle (ohne Overlay-Link auf der Zeile, Safari-Regel)
++-- Leerzustand
+
+Einstellungen → Reiter „Gästeblatt“ (neu, nur Inhaber)
++-- Teil A und Teil B: Editor aus PROJ-39, Platzhalter einfügen, Vorschau, „Auf Standard zurücksetzen“
+
+Einstellungen → Stammdaten (besteht)
++-- neue Felder E-Mail, Telefon
+
+Gastformular, Gast-Detail, Gästeliste, Zusammenführen, Auswertung (bestehen)
++-- nur Bezeichnungen „Staatsangehörigkeit“ / „Herkunftsland“; Gästeherkunft mit neuer Regel
+```
+
+Das Unterschriftsfeld ist ein eigener Baustein. Es nimmt Stift, Finger und Maus an, sperrt dabei das Scrollen und Zoomen der Seite und liefert ein Bild mit transparentem Hintergrund. Eine Unterschrift unter einer Mindestlänge des Strichs gilt als leer.
+
+### Datenmodell (in Worten)
+
+**Neu: Gästeblatt** (eine Zeile je Blatt, auch ersetzte)
+- Kunde, Buchung, Hauptgast zum Zeitpunkt der Unterschrift
+- Art: „unterschrieben“ oder „hochgeladen“
+- Ersetzt am, ersetzt durch (leer = aktuelles Blatt; je Buchung höchstens ein aktuelles Blatt, in der Datenbank erzwungen)
+- Lfd.-Nr. zum Zeitpunkt der Unterschrift bzw. des Hochladens
+- Marketing-Einwilligung ja/nein
+- Erstellt am, erstellt von
+- *Nur „unterschrieben“:* **eingefrorene Fassung** (alle Angaben von Seite 1, Kundenname, beide Datenschutz-Texte im Wortlaut mit ersetzten Platzhaltern, Zustand des Kästchens), Zeitpunkt Unterschrift 1 und 2, Speicherort der beiden Unterschriftsbilder, Speicherort und Prüfsumme des **Original-PDFs**, Nachtrag der Abreise (Datum, eingetragen am, eingetragen von bzw. „automatisch“)
+- *Nur „hochgeladen“:* Speicherort der PDF, Unterschrieben am (optional)
+
+**Neu: Einstellungen Gästeblatt** je Kunde
+- Text Teil A, Text Teil B (leer = Standardtext der App; „Auf Standard zurücksetzen“ leert das Feld)
+
+**Erweitert: Gast**
+- Marketing-Einwilligung erteilt am, über welches Gästeblatt (Verweis). PROJ-19 baut darauf auf (Widerruf, Verlauf).
+
+**Erweitert: Kunde (Stammdaten)**
+- E-Mail, Telefon (optional)
+
+**Unverändert:** Die Spalten für Staatsangehörigkeit und Adress-Staat bleiben, nur die Beschriftung ändert sich. Es ist keine Datenmigration nötig.
+
+**Speicher:** neuer privater Bereich „Gästeblätter“ je Kunde für PDFs und Unterschriftsbilder (nur PDF und PNG, PDF bis 10 MB). Lesen nur für Mitglieder des Kunden. Ändern und Löschen sind für Nutzer gesperrt. Die tägliche Bereinigung entfernt nur Dateien, auf die kein Gästeblatt zeigt.
+
+### Nachtrag der tatsächlichen Abreise
+Das **Original-PDF** wird bei „Fertig“ abgelegt und danach nie verändert. Es ist der Nachweis mit Prüfsumme.
+
+„Gästeblatt ansehen“ erzeugt das PDF **beim Öffnen** aus der eingefrorenen Fassung und setzt dabei die tatsächliche Abreise ein:
+- **Gesetzt:** Ist die tatsächliche Abreise an der Buchung gesetzt, steht der Vermerk „nachgetragen am … von …“ dabei. Datum und Person schreibt die Datenbank automatisch an das Blatt, sobald jemand die tatsächliche Abreise an der Buchung speichert, ändert oder leert.
+- **Leer:** Ist die tatsächliche Abreise leer und der geplante Abreisetag erreicht, erscheint die geplante Abreise mit „(automatisch)“.
+
+Das hat drei Vorteile:
+- Es braucht keinen nächtlichen Lauf, der PDFs neu schreibt.
+- Das Blatt ist immer aktuell, auch wenn die Abreise wieder geleert wird.
+- Das Original bleibt unberührt.
+
+Unterschriften und alle übrigen Angaben kommen ausschließlich aus der eingefrorenen Fassung.
+
+### Regeln an einer Stelle
+- **Pflichtangaben-Regel:** Eine einzige Regel ermittelt aus Gast, Buchung und Mitreisenden die fehlenden Felder. Sie nutzt die bestehenden Prüfregeln des Gast- und Buchungsformulars. Die Vollbild-Seite und „Fertig“ auf dem Server verwenden dieselbe Regel.
+- **Änderungs-Regel:** Sie vergleicht die eingefrorene Fassung mit der aktuellen Buchung: Ankunft, voraussichtliche Abreise, Hauptgast, Mitreisende. Daraus ergibt sich der Hinweis „Buchung nach der Unterschrift geändert“, in der Buchung wie in der Liste.
+- **Gästeblatt vorgesehen?** Die Regel lautet: Art „Buchung“, nicht storniert, ohne „Wohnsitz angemeldet“. Knopf, Abschnitt und Filter „Gästeblatt fehlt“ nutzen dieselbe Regel.
+- **Platzhalter:** Die Ersetzungsregel aus PROJ-39 wird um die Gästeblatt-Platzhalter erweitert, ohne die Rechnungs-Platzhalter zu berühren.
+
+### Speichern einzelner Felder auf Seite 1
+- Eine eigene Datenbankfunktion speichert **ein Feld** an Gast oder Buchung bzw. die Mitreisenden. Sie ist für Inhaber **und Mitarbeiter** freigegeben, aber nur für die Felder des Blatts. Das übrige Bearbeitungsrecht am Gast bleibt beim Inhaber (PROJ-7).
+- Gegen Überschreiben schützt der Zeitstempel des Datensatzes, wie bei PROJ-7. Bei einem Konflikt lädt das Feld neu und zeigt eine Meldung.
+- Im Änderungsprotokoll stehen diese Änderungen mit der Quelle „Gästeblatt“.
+- Der Server zählt bei jedem gespeicherten Feld den „Stand“ hoch. Bei „Fertig“ schickt die Seite den zuletzt gesehenen Stand mit. Weicht er ab, weil jemand anderes etwas geändert hat, wird Unterschrift 1 verworfen (Edge Case „Buchung während des Unterschreibens geändert“).
+
+### Gleichzeitiges Fertigstellen
+„Fertig“ schickt mit, welches Blatt beim Öffnen aktuell war, gegebenenfalls „keines“. Ist inzwischen ein anderes Blatt aktuell, lehnt die Datenbank ab. Die Seite bietet dann „Verwerfen“ oder „Als neues Blatt speichern“ an. Im zweiten Fall wiederholt sie das Speichern mit dem neuen Bezug.
+
+### Löschschutz und Anonymisieren
+- **Gästeblätter:** Nutzer können Zeilen und Dateien weder ändern noch löschen. Einzige Ausnahmen sind der Abreise-Nachtrag und das Markieren als „ersetzt“ durch die Datenbank selbst.
+- **Gast löschen:** Die bestehende Funktion zählt Gästeblätter wie Rechnungen. Mit Gästeblatt wird nur anonymisiert. Das Anonymisieren entfernt die Marketing-Einwilligung am Gast und lässt die Gästeblätter unverändert.
+- **Buchung löschen:** Die bestehende Löschfunktion lehnt ab, wenn ein Gästeblatt existiert. Es bleibt nur das Stornieren.
+- **Gäste zusammenführen:** Die jüngste Marketing-Einwilligung bleibt. Gästeblätter bleiben an ihren Buchungen.
+- **Kunde löschen (Betreiber):** Wie bei Rechnungen gesperrt, solange ein Gästeblatt in der 7-Jahres-Frist liegt.
+
+### Rechte
+- **Lesen:** alle Mitglieder des Kunden, für Blätter, Dateien und Einstellungen. Bearbeiten dürfen die Einstellungen nur Inhaber.
+- **Fertigstellen und Hochladen:** nur über den Server. Den Schreibschritt in der Datenbank darf nur der Server ausführen, damit niemand ein Blatt mit fremdem PDF oder fremden Unterschriften festschreiben kann.
+- Die Vollbild-Seite liegt im angemeldeten Bereich. Der Kunde wird beim Öffnen festgehalten, ein Kundenwechsel in einem anderen Tab ändert ihn nicht. Die Mitgliedschaft wird bei jedem Speichern geprüft.
+
+### Schnittstellen
+- **Fertigstellen:** eigene Schnittstelle unter `/api/gaesteblatt/…`. Sie nimmt beide Unterschriftsbilder, das Kästchen, die Lfd.-Nr., den Stand und das bisherige Blatt entgegen.
+- **Ansehen:** eigene Schnittstelle, liefert das PDF mit eingesetzter Abreise. Ersetzte Blätter werden gleich behandelt.
+- **Hochladen:** Der Server erteilt eine einmalige Freigabe, die Datei geht direkt in den Speicher, danach registriert eine Server-Aktion das Blatt. Das ist dasselbe Muster wie bei Rechnungs-PDFs.
+- **Feld speichern, Einstellungen, Liste:** Server-Aktionen bzw. Lesefunktionen wie im übrigen Projekt.
+
+### Auswertung „Gästeherkunft“ (PROJ-18)
+Die Lesefunktion der Auswertung nimmt das Herkunftsland der Adresse des Hauptgasts und ersatzweise die Staatsangehörigkeit. Bildschirm, PDF und CSV ändern sich damit gemeinsam. Der Hinweistext wird angepasst.
+
+### Abhängigkeiten
+- **signature_pad** (MIT, ohne weitere Abhängigkeiten): glatte Striche für Stift, Finger und Maus auf einer Zeichenfläche, Ausgabe als Bild. Ein Eigenbau wäre möglich, die Glättung und die Stifteingabe in Safari auf dem iPad sind aber fehleranfällig.
+
+### Für /frontend und /backend
+- **/frontend:**
+  - Vollbild-Seite mit Unterschriftsfeld, Pflichtangaben-Regel und Änderungs-Regel
+  - Abschnitt in der Buchung, Hochladen-Dialog, Menüpunkt mit Liste
+  - Einstellungen-Reiter, Stammdatenfelder, alle Umbenennungen
+  - PDF-Vorlage „Gästeverzeichnisblatt“ nach `docs/design/gaesteblatt-leer.png`
+  - Solange das Backend fehlt, melden die schreibenden Aktionen „wird eingerichtet“.
+- **/backend:**
+  - Tabellen und Felder, Speicherbereich, Bereinigung
+  - Feld-Speicherfunktion mit Mitarbeiter-Recht, Schreibfunktion „Fertig“, Abreise-Nachtrag
+  - Löschsperren, Anonymisieren und Zusammenführen
+  - Auswertung, Schnittstellen
+
+### Für /qa
+- iPad Safari mit Stift: kein Scrollen beim Unterschreiben, Querformat und Hochformat
+- Zwei Geräte gleichzeitig; Änderung der Buchung, während das Blatt offen ist
+- Mitarbeiter: speichert Blatt-Felder, aber keine anderen Gastfelder (auch nicht direkt an der Oberfläche vorbei)
+- Zugriff auf Blätter und Dateien eines fremden Kunden
+- Abreise-Nachtrag: setzen, ändern, leeren, automatisch ab dem Abreisetag
+- Löschsperren für Gast, Buchung und Kunde; Anonymisieren mit Blatt
+- Original-PDF und Prüfsumme bleiben unverändert
 
 ## QA Test Results
 _To be added by /qa_
