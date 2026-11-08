@@ -106,13 +106,16 @@ test.describe('Gastanschrift', () => {
     await expect(address(page).getByRole('combobox', { name: 'Land' })).toHaveText('Deutschland')
     await expect(address(page).locator('[aria-live="polite"]')).toHaveText(/^\d+ Orte zu dieser PLZ gefunden/)
 
-    await choices.getByRole('button', { name: 'Kappeln' }).focus()
+    // Per Tabulator vom Feld „Ort“ in die Auswahl (BUG-1: Safari braucht tabIndex), Eingabetaste wählt
+    await address(page).getByLabel('Ort', { exact: true }).focus()
+    await page.keyboard.press('Tab')
+    await expect(choices.getByRole('button', { name: 'Arnis' })).toBeFocused()
     await page.keyboard.press('Enter')
-    await expect(address(page).getByLabel('Ort', { exact: true })).toHaveValue('Kappeln')
+    await expect(address(page).getByLabel('Ort', { exact: true })).toHaveValue('Arnis')
     await expect(choices).toHaveCount(0)
 
     await address(page).getByLabel('PLZ').fill('99999')
-    await expect(address(page).getByLabel('Ort', { exact: true })).toHaveValue('Kappeln')
+    await expect(address(page).getByLabel('Ort', { exact: true })).toHaveValue('Arnis')
   })
 })
 

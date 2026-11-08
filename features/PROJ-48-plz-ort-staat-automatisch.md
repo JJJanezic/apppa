@@ -251,7 +251,7 @@ Keine neuen Pakete.
   - Firefox: 5 Abläufe Gast- und Firmenanschrift grün
   - Tablet (768 px) und Handy (375 px): Darstellung grün (Knöpfe ≥ 44 px, kein seitliches Scrollen, axe ohne Verstöße, Quellenzeile 11 px)
 - **Regression:** PROJ-7 Gäste 15/15, PROJ-8 Buchungen mit neuem Gast 4/4, PROJ-33 Firmenanschrift Desktop 8/8 und Handy 3/3, PROJ-37 neuer Gast beim Nacherfassen 1/1 (Zahlen ohne Anmelde-Setup/-Teardown)
-- **Safari:** nicht ausgeführt. Safari-Tests laufen nur gegen `npm run dev`; der gebaute Server belegte Port 3000. Siehe BUG-1 (Codeprüfung).
+- **Safari (nach Behebung BUG-1, gegen `npm run dev`):** 7/7 Abläufe grün, inklusive Tabulator vom Feld „Ort“ in die Ortsauswahl
 
 ### Acceptance Criteria Status
 Geprüft per E2E (E) bzw. Unit-Test der Regel (U), die genau diese Entscheidung trifft; die Komponente ruft sie unverändert auf.
@@ -278,10 +278,10 @@ Geprüft per E2E (E) bzw. Unit-Test der Regel (U), die genau diese Entscheidung 
 - [x] Von Hand gewählter Staat bleibt, Ort wird nicht befüllt (E Schweiz, U)
 - [x] PLZ geleert → Ort bleibt (Codeprüfung: unvollständige PLZ bricht vor jeder Änderung ab; U `parsePostalCode('')`)
 
-#### Mehrere Orte (5/6)
+#### Mehrere Orte (6/6)
 - [x] Ort bleibt leer, Auswahl erscheint, Land befüllt (E 24376)
 - [x] Anklicken übernimmt den Ort, Liste verschwindet (E)
-- [ ] BUG-1: Tabulator in die Liste – in Chrome und Firefox per Tastatur (Fokus + Eingabe) grün, in Safari erreicht Tab die Knöpfe nicht
+- [x] Tabulator vom Feld „Ort“ in die Liste, Eingabetaste wählt (E in Chrome und Safari; BUG-1 behoben)
 - [x] Selbst getippter Ort blendet die Liste aus (Codeprüfung: Eingabe im Ort leert die Auswahl)
 - [x] Automatisch befüllter Ort wird geleert, Auswahl erscheint (U)
 - [x] Von Hand eingetragener Ort → keine Auswahl (U)
@@ -331,17 +331,18 @@ Geprüft per E2E (E) bzw. Unit-Test der Regel (U), die genau diese Entscheidung 
 - **Nachweis:** Codeprüfung und bekanntes WebKit-Verhalten (Memory, PROJ-2-Tastaturtest); kein Safari-Lauf (siehe oben)
 - **Workaround:** Ort tippen oder mit Maus/Touch wählen
 - **Priority:** Vor dem Deploy beheben (eine Zeile)
+- **Status:** Behoben 2026-11-08: `tabIndex={0}` an den Ortsknöpfen; E2E prüft jetzt echtes Tab statt Fokus setzen; Safari, Chrome grün
 
 #### Beobachtungen (kein Fehler)
 - Bis zu 38 Orte je PLZ in DE (z. B. 39291) ergeben eine lange Knopfliste; sie bricht sauber um. Kein Handlungsbedarf, ggf. bei Rückmeldungen
 - Wird ein automatisch gesetztes Land von Hand auf denselben Wert gewählt, gilt es weiter als automatisch. Folgen nur bei späterer PLZ-Änderung; vernachlässigbar
 
 ### Summary
-- **Acceptance Criteria:** 29/30 passed (1 nur in Safari fehlerhaft)
-- **Bugs Found:** 1 total (0 critical, 0 high, 1 medium, 0 low)
+- **Acceptance Criteria:** 30/30 passed (nach Behebung von BUG-1)
+- **Bugs Found:** 1 total (0 critical, 0 high, 1 medium, 0 low), behoben
 - **Security:** Pass
 - **Production Ready:** YES (keine kritischen oder hohen Fehler)
-- **Recommendation:** BUG-1 vor dem Deploy beheben (klein), dann deployen
+- **Recommendation:** Deploy
 
 ## Deployment
 _To be added by /deploy_

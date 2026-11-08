@@ -132,7 +132,15 @@ export function PostalPlaceFields({ postalName, cityName, countryName: countryKe
           <p className="text-[13px] text-ds-neutral-700">{t('choicesLabel')}</p>
           <div className="flex flex-wrap gap-2">
             {choices.map((place) => (
-              <Button key={place} type="button" variant="outline" className="min-h-11 font-normal" onClick={() => choose(place)}>
+              <Button
+                key={place}
+                type="button"
+                variant="outline"
+                // Safari: Knöpfe sind ohne ausdrücklichen tabIndex nicht per Tabulatortaste erreichbar (BUG-1 aus QA)
+                tabIndex={0}
+                className="min-h-11 font-normal"
+                onClick={() => choose(place)}
+              >
                 {place}
               </Button>
             ))}
