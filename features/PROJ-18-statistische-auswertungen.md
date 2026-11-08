@@ -1,6 +1,6 @@
 # PROJ-18: Statistische Auswertungen
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-11-08
 **Last Updated:** 2026-11-08
 
@@ -493,7 +493,136 @@ Keine neuen. Genutzt werden `@react-pdf/renderer` (über den PDF-Arbeitsprozess)
 **Messung** (Dev, 5.000 Buchungen, 25 Wohnungen, über die Datenschnittstelle): Dashboard 81–168 ms, ein Monat 167–263 ms, ganzes Jahr mit Vorjahr 313–408 ms, Gästeherkunft Jahr 316–363 ms. Kein zusätzlicher Index nötig. Hinweis: Das Löschen eines Kunden mit 5.000 Buchungen über die Datenschnittstelle überschreitet die Zeitgrenze; Messdaten wurden direkt in der Datenbank gelöscht.
 
 ## QA Test Results
-_To be added by /qa_
+
+**Tested:** 2026-11-08
+**App URL:** http://localhost:3000 (gebauter Server, Supabase „apppa-dev“)
+**Tester:** QA Engineer (AI)
+**Stand:** Commit 749bf73 (inkl. zentrierter Dashboard-Kacheln)
+
+Neue E2E-Datei `tests/PROJ-18-statistische-auswertungen.spec.ts` (16 Tests) mit festen Testdaten im Oktober 2025 und Vorjahr 2024. Dazu aus `/backend`: Integration `supabase/tests/statistics.integration.test.ts` (13), Route-Test (7), PDF mit echtem Arbeitsprozess (3), Unit- und Render-Tests (Regeldatei, Kacheln, Diagramm, Tabellen).
+
+### Acceptance Criteria Status
+
+#### Zugriff
+- [x] Menüpunkt „Auswertungen“ für Inhaber ohne „bald verfügbar“ (E2E)
+- [x] Mitarbeiter sieht den Menüpunkt nicht (E2E)
+- [ ] BUG-1: Mitarbeiter, direkter Aufruf `/auswertungen`: Ansicht „Seite nicht gefunden“, keine Daten, aber Status 200 statt 404. Downloads antworten korrekt mit 403 (E2E)
+- [x] Nur Daten des gewählten Kunden; Inhaberin bei A und Mitarbeiterin bei B erhält für B nichts (Integration)
+
+#### Zeitraum und Filter
+- [x] Standard laufendes Jahr Jänner–Dezember mit Hinweis „Zeitraum noch nicht abgeschlossen …“, Schnellwahl „Dieses Jahr“ markiert (E2E)
+- [x] Schnellwahl „Letztes Quartal“ am 08.11.2026 → Juli–September ohne Hinweis (Unit); „Letztes Jahr“ (E2E)
+- [x] Objekt gewählt → nur dessen Wohnungen; archivierte gekennzeichnet (E2E)
+- [x] Monat 13 bzw. Wohnung eines anderen Objekts in der Adresse → Standard bzw. „Alle Wohnungen“ (E2E, Unit)
+- [x] Neu laden zeigt dieselbe Auswertung (Filter in der Adresse, E2E über direkte Adressen)
+
+#### Auslastung
+- [x] Buchung 10 Nächte und Sperre 1 Nacht → „10 von 30 Nächten, 1 gesperrt“ (E2E, Integration)
+- [x] Option und Storno zählen nicht (Integration)
+- [x] Buchung über die Monatsgrenze nach Nächten aufgeteilt (Integration, E2E Top 2)
+- [x] Tatsächliche Abreise maßgeblich (Rechenkern über `departure`; Integration)
+- [x] Wohnung zählt ab Monat der ersten Buchung (Top 2 ab September), ohne Buchung ab Anlage (Integration, E2E)
+- [x] Archivierte Wohnung zählt bis zur Archivierung, spätere belegte Nächte als verfügbar („5 von 22 Nächten“, E2E + Integration)
+- [x] Gebucht und gesperrt → belegt; Doppelbuchung einmal, nie über 100 % (Integration)
+
+#### Umsatz
+- [x] Übernachtung + Endreinigung + Rabatt ohne Ortstaxe, je Nacht verteilt (Integration, E2E: € 1.960,00)
+- [x] Rundungsrest in der letzten Nacht, Summe centgenau (Integration)
+- [x] Enthaltene USt je Satz („inkl. € 178,17 USt“, E2E + Integration)
+- [x] Kleinunternehmer: USt 0, Anzeige „ohne USt“ (Integration, Unit)
+- [x] Stornogebühr im Anreisemonat, ohne Nächte, nicht im Ø-Preis (Integration, Unit)
+- [x] Verlängerung: es zählt der verrechnete Preis (`billed_nights_cents`, Code-Prüfung + Integration)
+
+#### Kacheln und Vorjahr
+- [x] Auslastung „23 %“, „19 von 83 Nächten, 1 gesperrt“, „Vorjahr 16 %“, „+7 Pp.“ (E2E)
+- [x] Umsatz mit Vorjahr „+292 %“, Ø-Preis „€ 103,16“, „Ø 7,0 Nächte“, „43“ Gästenächte mit „6 Ankünfte“ (E2E)
+- [x] Vorjahr ohne Daten „Vorjahr –“ ohne Veränderung (Render-Test)
+- [x] Filter wirkt auch auf das Vorjahr (Unit)
+
+#### Je Monat
+- [x] Diagramm mit Vorjahresbalken, Umschalter Auslastung/Umsatz (`aria-pressed`), Tabelle mit „Gesamt“ (E2E)
+- [x] Gesamt-Auslastung aus Summen, nicht gemittelt (Unit)
+- [x] Werte beim Zeigen/Antippen über dem Diagramm (Code-Prüfung, Sichtprüfung)
+
+#### Je Wohnung
+- [x] Nach Objekt gruppiert, nur Wohnungen mit Daten (Unit, E2E)
+- [x] Klick sortiert absteigend (`aria-sort`), sortiert mit Objektname in der Zeile; zweiter Klick aufsteigend (E2E, Unit)
+- [x] Einzelne Wohnung → kein Abschnitt (E2E)
+
+#### Gästeherkunft
+- [x] Zehn Länder einzeln, „Übrige Länder (n)“ aufklappbar (E2E, Render-Test)
+- [x] Anonymisierter Gast zählt beim Land (Land bleibt beim Anonymisieren erhalten; Code-Prüfung)
+- [x] Ankünfte nach Anreise, Gästenächte nach Nächten (Integration)
+
+#### Leerer Zustand
+- [x] Kunde ohne Wohnungen: Hinweis mit Link „Zu den Wohnungen“, Exporte deaktiviert (E2E)
+
+#### PDF
+- [x] Dateiname `Auswertung_2025-10_Alle_Stand-<Datum>.pdf`, gültiges PDF (E2E); Briefpapier, Kennzahlen, zwei Diagramme, alle Tabellen, alle Länder (PDF-Test + Sichtprüfung)
+- [x] Einzelne Wohnung im PDF genannt, ohne „Je Wohnung“ (PDF-Test)
+
+#### CSV
+- [x] Eine Zeile je Wohnung und Monat, ohne Summen und Vorjahr, Dateiname mit Stand (E2E, Route-Test)
+- [x] Excel-Format (BOM, Strichpunkt, Komma), Formelschutz und Strichpunkt im Namen (Route-Test, Unit)
+
+#### Dashboard
+- [x] Inhaber: „Auslastung [Monat]“, „Umsatz [Monat]“, „Offene Rechnungen“, „Heute“ mit „Anreisen / Abreisen“; ohne „Belegt heute“ (E2E, auch PROJ-14)
+- [x] „davon N ohne Rechnung“ in der Kachel „Heute“ (E2E PROJ-14)
+- [x] Mitarbeiter: bisherige vier Kacheln, keine Umsatzwerte (E2E)
+- [x] Gemischte Rollen: Auslastung/Umsatz nur Inhaber-Kunden (Integration `dashboard_statistics`)
+- [x] Mitarbeiter erhält keine Umsatzwerte (Funktion liefert nichts; Seite fragt sie nicht ab)
+- [x] Klick auf Auslastung öffnet `/auswertungen` für den laufenden Monat (E2E); bei mehreren Inhaber-Kunden nicht anklickbar (Code-Prüfung)
+- [x] Gleiche Zahlen wie die Seite (Integration)
+- [x] Nachtrag Nutzerwunsch: Inhalt der Kacheln über der Zeitleiste zentriert (E2E prüft `text-align: center`)
+
+#### Handy
+- [x] 375 px: kein seitliches Scrollen der Seite, Monatstabelle scrollt im eigenen Bereich; 768 px passt die Tabelle (E2E mobile/tablet)
+
+### Edge Cases Status
+- [x] Buchung ändert sich nach Export: Seite rechnet immer neu, Exporte mit Stand
+- [x] Nacherfasste Altbuchungen: Zählbeginn ab Monat der ersten Buchung (E2E Vorjahr 2024)
+- [x] Buchung nach Archivierung: ≤ 100 % (E2E, Integration)
+- [x] Negativer Umsatz: leerer Balken, rote Anzeige über `Amount` (Unit)
+- [x] Zeitraum ganz in der Zukunft erlaubt, mit Hinweis (Code-Prüfung)
+- [x] Viele Länder: Bildschirm 10 + „Übrige“, PDF alle (E2E, PDF-Test)
+- [x] Zeitraum über ein Jahr direkt an der Datenbank: keine Daten (Integration)
+
+### Security Audit Results
+- [x] Ohne Anmeldung: Downloads 401 (E2E), Datenbankfunktionen ohne Daten (Integration)
+- [x] Mitarbeiter: Seite ohne Daten, Downloads 403 (E2E), Funktionen leer (Integration)
+- [x] Fremder Kunde: Funktionen leer; Objekt/Wohnung fremder Kunden in der Adresse werden verworfen (Integration, Route-Test)
+- [x] Rechenkerne von außen nicht aufrufbar (Integration)
+- [x] Eingaben: Adresse streng geprüft (Zahlen, UUID), CSV-Formelschutz, React/PDF ohne HTML-Einfügung
+- [x] Last: PDF über die gemeinsame Lastgrenze (503 bei Auslastung, Route-Test); Abfragen < 0,5 s bei 5.000 Buchungen
+- [ ] BUG-1 (Low): Statuscode 200 für Mitarbeiter, keine Daten betroffen
+
+### Regression
+- [x] PROJ-14 Dashboard: 15/15 (E2E desktop)
+- [x] PROJ-16 Ortstaxen-Berichte: 11/11 (E2E desktop; Export-Knöpfe umgebaut)
+- [x] PROJ-2 Navigation: 5/5 (E2E)
+- [x] Unit: 891/891
+
+### Browser
+- [x] Chrome (desktop, mobile 375, tablet 768), Firefox (Stichprobe: Kacheln, Je Monat, Gästeherkunft, CSV, 4/4)
+- [ ] Safari nicht geprüft (WebKit läuft nur gegen `npm run dev`)
+
+### Bugs Found
+
+#### BUG-1: Statuscode 200 statt 404 für Mitarbeiter auf `/auswertungen`
+- **Severity:** Low
+- **Steps to Reproduce:**
+  1. Als Mitarbeiter anmelden und `/auswertungen` direkt aufrufen
+  2. Erwartet: „Seite nicht gefunden“ mit Status 404 (wie `/ortstaxe` nach PROJ-16 BUG-1)
+  3. Tatsächlich: Ansicht „Seite nicht gefunden“, keine Daten, aber Status 200
+- **Ursache:** Der App-Rahmen (`src/app/(app)/layout.tsx`) prüft vor dem Streaming `/einstellungen`, `/betreiber` und `/ortstaxe`, aber nicht `/auswertungen`; `requireArea` in der Seite greift erst während des Streamings.
+- **Priority:** Nice to have (E2E-Test erwartet 404 und schlägt bis zur Behebung fehl)
+
+### Summary
+- **Acceptance Criteria:** 55/56 passed
+- **Bugs Found:** 1 total (0 critical, 0 high, 0 medium, 1 low)
+- **Security:** Pass (BUG-1 ohne Datenzugriff)
+- **Production Ready:** YES
+- **Recommendation:** BUG-1 vor dem Deploy beheben (eine Zeile, wie bei PROJ-16), dann deployen
 
 ## Deployment
 _To be added by /deploy_
