@@ -33,6 +33,8 @@ const toInput = (d: TenantMasterData): TenantMasterDataInput => ({
   vatId: d.vatId ?? '',
   taxNumber: d.taxNumber ?? '',
   registerNumber: d.registerNumber ?? '',
+  email: d.email ?? '',
+  phone: d.phone ?? '',
   vatStatus: d.vatStatus.map((c) => ({ validFrom: c.validFrom, status: c.smallBusiness ? 'small' : 'regular' })),
   logoPath: d.logoPath ?? '',
   bankAccounts: d.bankAccounts.map(toAccountInput),
@@ -78,7 +80,7 @@ export function TenantMasterDataForm({ data, mode, readOnly = false }: TenantMas
   const text = (
     name: Exclude<keyof TenantMasterDataInput, 'country' | 'vatStatus' | 'logoPath' | 'bankAccounts'>,
     max: number,
-    opts: { hint?: string; autoComplete?: string } = {}
+    opts: { hint?: string; autoComplete?: string; type?: string; inputMode?: 'email' | 'tel' } = {}
   ) => (
     <FormField
       control={form.control}
@@ -87,7 +89,7 @@ export function TenantMasterDataForm({ data, mode, readOnly = false }: TenantMas
         <FormItem>
           <FormLabel>{t(`fields.${name}`)}</FormLabel>
           <FormControl>
-            <Input maxLength={max} autoComplete={opts.autoComplete ?? 'off'} className="min-h-11" {...field} />
+            <Input maxLength={max} type={opts.type} inputMode={opts.inputMode} autoComplete={opts.autoComplete ?? 'off'} className="min-h-11" {...field} />
           </FormControl>
           {opts.hint && <FormDescription>{opts.hint}</FormDescription>}
           <FormMessage />
@@ -160,6 +162,16 @@ export function TenantMasterDataForm({ data, mode, readOnly = false }: TenantMas
                 </FormItem>
               )}
             />
+          </div>
+
+          {/* Kontakt für Gäste (PROJ-26): Platzhalter {E-Mail} und {Telefon} der Datenschutz-Texte des Gästeblatts */}
+          <div className="flex flex-col gap-4">
+            <h3 className="text-lg">{t('sections.contact')}</h3>
+            <p className="-mt-2 text-sm text-muted-foreground">{t('fields.contactHint')}</p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {text('email', L.emailMax, { type: 'email', inputMode: 'email', autoComplete: 'email' })}
+              {text('phone', L.phoneMax, { type: 'tel', inputMode: 'tel', autoComplete: 'tel' })}
+            </div>
           </div>
 
           <div className="flex flex-col gap-4">

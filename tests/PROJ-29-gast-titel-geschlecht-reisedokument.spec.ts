@@ -129,7 +129,7 @@ test.describe('Titel und Geschlecht', () => {
     await panel(page).getByLabel('Titel vorangestellt').fill('x'.repeat(50))
     await panel(page).getByLabel('Nachname').fill('Huber')
     await panel(page).getByLabel('Vorname').fill('Anna')
-    await chooseCountry(page, 'Herkunftsland', 'Österreich')
+    await chooseCountry(page, 'Staatsangehörigkeit', 'Österreich')
     // Eingabe ist auf 50 Zeichen begrenzt
     await expect(panel(page).getByLabel('Titel vorangestellt')).toHaveAttribute('maxlength', '50')
     await panel(page).getByLabel('Titel vorangestellt').fill('Dr.')
@@ -354,7 +354,7 @@ test.describe('Rollen', () => {
     await panel(page).getByLabel('Nachname').fill('Neumann')
     await panel(page).getByLabel('Vorname').fill('Nora')
     await choose(page, panel(page), 'Geschlecht', 'divers')
-    await chooseCountry(page, 'Herkunftsland', 'Deutschland')
+    await chooseCountry(page, 'Staatsangehörigkeit', 'Deutschland')
     await openDocument(page)
     await choose(page, panel(page), 'Art des Dokuments', 'Führerschein')
     await panel(page).getByLabel('Dokument-ID').fill('F99')

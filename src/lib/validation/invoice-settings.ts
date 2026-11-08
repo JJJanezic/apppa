@@ -50,7 +50,7 @@ export type NumberingInput = z.input<ReturnType<typeof numberingSchema>>
 export type NumberingValues = z.output<ReturnType<typeof numberingSchema>>
 
 // Strukturprüfung des formatierten Texts; der Editor liefert immer diese Struktur
-const docField = (t: T) => z.custom<RichDoc>((v) => isRichDoc(v), t('textInvalid'))
+export const docField = (t: T) => z.custom<RichDoc>((v) => isRichDoc(v), t('textInvalid'))
 
 function placeholderMessages(t: T, doc: RichDoc, ctx: PlaceholderContext): string | null {
   const issues = docPlaceholderIssues(doc, ctx)
@@ -58,7 +58,7 @@ function placeholderMessages(t: T, doc: RichDoc, ctx: PlaceholderContext): strin
   return issues.map((i) => t(`placeholder.${i.problem}`, { token: i.token })).join(' ')
 }
 
-function checkDoc(
+export function checkDoc(
   t: T,
   doc: RichDoc,
   path: string,

@@ -87,6 +87,19 @@ export const tenantMasterDataSchema = (t: T) =>
       .transform((v) => v || null),
     taxNumber: optional(t, L.numberMax),
     registerNumber: optional(t, L.numberMax),
+    // Kontakt für Gäste (PROJ-26); E-Mail in Kleinbuchstaben wie beim Gast
+    email: z
+      .string()
+      .trim()
+      .max(L.emailMax, t('tooLong'))
+      .refine((v) => v === '' || z.email().safeParse(v).success, t('emailInvalid'))
+      .transform((v) => v.toLowerCase() || null),
+    phone: z
+      .string()
+      .trim()
+      .max(L.phoneMax, t('tooLong'))
+      .refine((v) => v === '' || /^\+?[\d\s()/.-]{4,}$/.test(v), t('phoneInvalid'))
+      .transform((v) => v || null),
     // Kleinunternehmer-Status (PROJ-36): je Eintrag Datum und Status Pflicht, jedes Datum nur einmal
     vatStatus: z
       .array(

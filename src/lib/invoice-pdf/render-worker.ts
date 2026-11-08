@@ -6,6 +6,8 @@ import { createElement } from 'react'
 
 import { FooterPdf, footerGap, InvoiceDocument, issuerMaxHeightPt, issuerWidthPt, Lines, PAGE_HEIGHT_PT, pageBase } from '@/lib/invoice-pdf/document'
 import type { PdfResult, PdfView } from '@/lib/invoice-pdf/types'
+import { GuestSheetDocument } from '@/lib/guest-sheet-pdf/document'
+import { GUEST_SHEET_PDF_KIND, type GuestSheetPdfResult, type GuestSheetPdfView } from '@/lib/guest-sheet-pdf/types'
 import { StatsDocument } from '@/lib/statistics-pdf/document'
 import { STATS_PDF_KIND, type StatsPdfResult, type StatsPdfView } from '@/lib/statistics-pdf/types'
 import { TaxReportDocument } from '@/lib/tourist-tax-pdf/document'
@@ -238,10 +240,35 @@ async function renderStats(input: StatsPdfView): Promise<StatsPdfResult> {
   return { pdf: new Uint8Array(pdf), pages }
 }
 
-const job = workerData as PdfView | TaxPdfView | StatsPdfView
+// Gästeblatt (PROJ-26): Grundschrift Arimo und die Schriften der Datenschutz-Texte
+async function renderGuestSheet(input: GuestSheetPdfView): Promise<GuestSheetPdfResult> {
+  const view = withoutInvisible(input)
+  Font.registerHyphenationCallback((word) => (word.length > LONG_WORD ? Array.from(word) : [word]))
+  const fonts = new Set<RichFont>(['arimo'])
+  for (const d of [view.privacy, view.marketing]) if (d.attrs?.fontFamily) fonts.add(d.attrs.fontFamily)
+  let pages = 1
+  const pdf = await renderToBuffer(
+    createElement(GuestSheetDocument, {
+      view,
+      familyOf: registerFontFiles([...fonts], 'sheet'),
+      onPages: (n: number) => {
+        pages = n
+      },
+    }) as never
+  )
+  return { pdf: new Uint8Array(pdf), pages }
+}
+
+const job = workerData as PdfView | TaxPdfView | StatsPdfView | GuestSheetPdfView
 const kind = 'kind' in job ? job.kind : null
-const run: Promise<PdfResult | TaxPdfResult | StatsPdfResult> =
-  kind === TAX_REPORT_PDF_KIND ? renderTaxReport(job as TaxPdfView) : kind === STATS_PDF_KIND ? renderStats(job as StatsPdfView) : render(job as PdfView)
+const run: Promise<PdfResult | TaxPdfResult | StatsPdfResult | GuestSheetPdfResult> =
+  kind === TAX_REPORT_PDF_KIND
+    ? renderTaxReport(job as TaxPdfView)
+    : kind === STATS_PDF_KIND
+      ? renderStats(job as StatsPdfView)
+      : kind === GUEST_SHEET_PDF_KIND
+        ? renderGuestSheet(job as GuestSheetPdfView)
+        : render(job as PdfView)
 run.then(
   (result) => parentPort?.postMessage({ ok: true, result }),
   (e: unknown) => parentPort?.postMessage({ ok: false, message: e instanceof Error ? e.message : String(e) })

@@ -67,6 +67,7 @@
     "react-dom": "^19.0.0",
     "react-hook-form": "^7.71.1",
     "server-only": "^0.0.1",
+    "signature_pad": "5.1.4",
     "sonner": "^2.0.7",
     "tailwind-merge": "^2.2.0",
     "tailwindcss-animate": "^1.0.7",

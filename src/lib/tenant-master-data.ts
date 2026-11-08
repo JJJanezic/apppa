@@ -19,6 +19,9 @@ export const MASTER_DATA_LIMITS = {
   postalCodeMax: 10,
   cityMax: 100,
   numberMax: 30,
+  // Kontakt für Gäste (PROJ-26, Platzhalter der Datenschutz-Texte des Gästeblatts)
+  emailMax: 254,
+  phoneMax: 40,
 } as const
 
 // Neu angezeigter Staat, solange keiner gespeichert ist
@@ -36,6 +39,9 @@ export type TenantMasterData = {
   vatId: string | null
   taxNumber: string | null
   registerNumber: string | null
+  // Kontakt für Gäste (PROJ-26)
+  email: string | null
+  phone: string | null
   // Kleinunternehmer-Status (PROJ-36), neueste zuerst
   vatStatus: VatStatusChange[]
   // Logo (PROJ-38): Speicherort <Kunde>/<zufällig>.png und kurzlebiger Abruf-Link (vom Server beim Laden erzeugt)
@@ -50,7 +56,7 @@ export type TenantMasterData = {
 // Spalten der Tabelle tenants (inkl. Logo, PROJ-38; der Schalter „Rechnungen nacherfassen“ liegt seit PROJ-39 in invoice_settings), dazu der Verlauf des
 // Kleinunternehmer-Status (PROJ-36) und die Bankkonten samt Wohnungen mit fester Zuordnung (PROJ-46)
 export const MASTER_DATA_COLUMNS =
-  'id, name, name_line2, address_line1, address_line2, postal_code, city, country, vat_id, tax_number, register_number, logo_path, updated_at, vat_status_changes(valid_from, small_business), bank_accounts(id, label, account_holder, iban, bic, bank_name, note, is_primary, archived_at, position, apartments(name, property:properties(name)))'
+  'id, name, name_line2, address_line1, address_line2, postal_code, city, country, vat_id, tax_number, register_number, email, phone, logo_path, updated_at, vat_status_changes(valid_from, small_business), bank_accounts(id, label, account_holder, iban, bic, bank_name, note, is_primary, archived_at, position, apartments(name, property:properties(name)))'
 
 export type TenantMasterDataRow = {
   id: string
@@ -64,6 +70,8 @@ export type TenantMasterDataRow = {
   vat_id: string | null
   tax_number: string | null
   register_number: string | null
+  email: string | null
+  phone: string | null
   logo_path: string | null
   updated_at: string
   vat_status_changes: VatStatusChangeRow[]
@@ -83,6 +91,8 @@ export const masterDataFromRow = (row: TenantMasterDataRow, logoUrl: string | nu
   vatId: row.vat_id,
   taxNumber: row.tax_number,
   registerNumber: row.register_number,
+  email: row.email,
+  phone: row.phone,
   vatStatus: vatStatusFromRows(row.vat_status_changes),
   logoPath: row.logo_path,
   logoUrl: row.logo_path ? logoUrl : null,

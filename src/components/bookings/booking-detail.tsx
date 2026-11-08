@@ -5,6 +5,7 @@ import { Amount } from '@/components/amount'
 import { BookingActions } from '@/components/bookings/booking-actions'
 import { BookingBadges } from '@/components/bookings/booking-badges'
 import { CopyButton } from '@/components/copy-button'
+import { BookingGuestSheetSection } from '@/components/guest-sheets/booking-guest-sheet'
 import { BookingInvoicesSection } from '@/components/invoices/booking-invoices'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { billableNights, type BookableApartment, type Booking, bookingState, isPlatformSource, nightsBetween, personCount, totalCents } from '@/lib/bookings'
@@ -247,6 +248,9 @@ export async function BookingDetail({ booking, apartments, owner, today, layout,
             {booking.cancelReason && <Fact label={t('detail.cancelReason')}>{booking.cancelReason}</Fact>}
             <Fact label={t('detail.note')}>{booking.note ? <span className="whitespace-pre-line break-words">{booking.note}</span> : missing}</Fact>
           </DetailSection>
+
+          {/* Gästeblatt (PROJ-26): für alle Mitglieder, bei Buchungen mit vorgesehenem oder vorhandenem Blatt */}
+          <BookingGuestSheetSection booking={booking} headingSize={headingSize} />
         </div>
 
         {!isBlock && (

@@ -90,7 +90,7 @@ async function openCompany(page: Page, name: string) {
 
 async function fillRequired(page: Page, lastName: string) {
   await panel(page).getByLabel('Nachname').fill(lastName)
-  await panel(page).getByRole('combobox', { name: 'Herkunftsland' }).click()
+  await panel(page).getByRole('combobox', { name: 'Staatsangehörigkeit' }).click()
   await page.getByPlaceholder('Land suchen').fill('Österreich')
   await page.getByRole('option', { name: 'Österreich', exact: true }).click()
 }

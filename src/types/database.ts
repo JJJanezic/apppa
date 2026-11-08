@@ -1952,10 +1952,12 @@ export type Database = {
           country: string | null
           created_at: string
           created_by: string | null
+          email: string | null
           id: string
           logo_path: string | null
           name: string
           name_line2: string | null
+          phone: string | null
           postal_code: string | null
           register_number: string | null
           status: Database["public"]["Enums"]["tenant_status"]
@@ -1971,10 +1973,12 @@ export type Database = {
           country?: string | null
           created_at?: string
           created_by?: string | null
+          email?: string | null
           id?: string
           logo_path?: string | null
           name: string
           name_line2?: string | null
+          phone?: string | null
           postal_code?: string | null
           register_number?: string | null
           status?: Database["public"]["Enums"]["tenant_status"]
@@ -1990,10 +1994,12 @@ export type Database = {
           country?: string | null
           created_at?: string
           created_by?: string | null
+          email?: string | null
           id?: string
           logo_path?: string | null
           name?: string
           name_line2?: string | null
+          phone?: string | null
           postal_code?: string | null
           register_number?: string | null
           status?: Database["public"]["Enums"]["tenant_status"]

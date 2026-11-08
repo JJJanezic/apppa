@@ -14,6 +14,7 @@ const TABS = [
   { href: '/einstellungen/briefpapier', key: 'letterhead' },
   { href: '/einstellungen/rechnungen', key: 'invoices' },
   { href: '/einstellungen/zahlungen', key: 'payments' },
+  { href: '/einstellungen/gaesteblatt', key: 'guestSheet' },
 ] as const
 
 // Reiter der Einstellungen als Links (eigene Adressen, Zurück-Taste funktioniert).

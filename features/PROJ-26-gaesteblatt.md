@@ -1,8 +1,8 @@
 # PROJ-26: Gästeblatt (Meldewesen)
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-11-08
-**Last Updated:** 2026-11-08
+**Last Updated:** 2026-11-09
 
 ## Dependencies
 - Requires: PROJ-4 (Kundenkonten & Rollen): Rollen Inhaber/Mitarbeiter, gewählter Kunde
@@ -524,6 +524,47 @@ Die Lesefunktion der Auswertung nimmt das Herkunftsland der Adresse des Hauptgas
 - Abreise-Nachtrag: setzen, ändern, leeren, automatisch ab dem Abreisetag
 - Löschsperren für Gast, Buchung und Kunde; Anonymisieren mit Blatt
 - Original-PDF und Prüfsumme bleiben unverändert
+
+## Implementation Notes (Frontend)
+
+**Gebaut (2026-11-09):**
+- **Umbenennung:** „Herkunftsland“ → „Staatsangehörigkeit“ (Gastformular, Detail, Liste, Filter, Zusammenführen, Anonymisieren, Pflichtmeldung, Buchungsdetail); Adress-Staat „Land“ → „Herkunftsland“. Hinweistext der Auswertung „Gästeherkunft“ angepasst; die Rechenregel ändert erst /backend. E2E-Tests (PROJ-7, -8, -29, -37, -48, -50) auf die neuen Feldnamen umgestellt.
+- **Stammdaten:** Abschnitt „Kontakt“ mit E-Mail und Telefon (Prüfung wie beim Gast, E-Mail in Kleinbuchstaben).
+- **Menüpunkt „Gästeblätter“** (`/gaesteblaetter`, alle Rollen, am Handy unter „Mehr“): Monatsleiste nach Ankunft, „Alle Monate“, Suche, Schalter „Gästeblatt fehlt“, Tabelle bzw. Karten ohne Zeilen-Link (Lfd.-Nr. öffnet das PDF, Nummer die Buchung), Hinweise „Buchung geändert“/„Buchung storniert“, Leerzustände.
+- **Buchungsdetail:** Abschnitt „Gästeblatt“ unter „Aufenthalt“ (auch im Kalender-Panel) mit Stand, Lfd.-Nr., Marketing, Hinweisen, Knöpfen „Gästeblatt“ / „Gästeblatt ansehen“ / „Neu unterschreiben lassen“ / „Gästeblatt hochladen“ (Rückfrage bei vorhandenem Blatt), frühere Blätter aufklappbar; Dialog „Gästeblatt hochladen“ (PDF ≤ 10 MB, Lfd.-Nr., Unterschrieben am, Marketing-Häkchen nur mit Gast). Meldung „Gästeblatt gespeichert“ nach der Rückkehr (`?gaesteblatt=gespeichert`).
+- **Vollbild-Seite** `/gaesteblatt/[buchung]` (eigener Rahmen `(vollbild)` ohne App-Menü, gleiche Sitzungsprüfung): Seite 1 wie das amtliche Formular mit markierten Pflichtfeldern, PLZ-Automatik, Reisedokument nur bei Nicht-Österreichern, Mitreisende hinzufügen/entfernen, Aufenthalt nur lesen; Speichern beim Verlassen eines Felds bzw. 1,2 s nach der letzten Eingabe, nacheinander in einer Warteschlange mit Stand von Gast und Buchung; Reisedokument erst mit Art und Nummer (Regel der Datenbank); Statusanzeige „Wird gespeichert / Gespeichert / Nicht gespeichert“. Unterschrift 1 erst bei vollständigen und gespeicherten Angaben, jede Änderung danach löscht sie. Seite 2 mit Teil A, Teil B, Kästchen (nie vorausgewählt), Unterschrift 2; „Zurück“, „Fertig“, „Abbrechen“ mit Rückfrage; Konflikt-Dialog „Verwerfen / Als neues Blatt speichern“.
+- **Unterschriftsfeld** mit signature_pad 5.1.4: Stift, Finger, Maus; `touch-action: none`; Mindestlänge 60 px; bleibt beim Drehen erhalten; PNG mit transparentem Hintergrund und Zeitpunkt.
+- **Einstellungen → Gästeblatt** (nur Inhaber): beide Texte mit dem Editor aus PROJ-39 (Platzhalter-Kontext `guestSheet`: {Kundenname}, {Anschrift}, {E-Mail}, {Telefon}), Vorschau mit den Stammdaten (leer → „–“), Hinweis auf leere Platzhalter, „Auf Standard zurücksetzen“ mit Rückfrage. Ein Text gleich dem Standard wird als „Standard“ (leer) gespeichert.
+- **PDF** (`src/lib/guest-sheet-pdf/`): Seite 1 A4 quer als Nachbau des Formulars (Kreuze als Linien), Seite 2 A4 hoch mit Texten, Kästchen und Unterschrift 2; Fußzeile mit Lfd.-Nr. und Seitenzahl; Abreise-Nachtrag mit Vermerk. Im bestehenden Arbeitsprozess (`kind: guestSheet`).
+- **Schnittstellen:** `POST /api/gaesteblatt/fertig` (alle Prüfungen neu, PDF, drei Dateien ablegen, Schreibschritt nur mit Service-Rolle, bei Fehler Dateien entfernen), `GET /api/gaesteblatt/[blatt]/pdf` (Original bzw. beim Öffnen mit Abreise erzeugt).
+
+**Abweichung vom Wortlaut der Spec:** Die tatsächliche Abreise ist an der Buchung nie leer (sie läuft mit der geplanten mit, PROJ-30). Darum gilt: Vermerk „nachgetragen am … von …“, sobald jemand nach der Unterschrift die Abreise an der Buchung speichert; sonst ab dem Abreisetag automatisch. Der Edge Case „Abreise wieder geleert“ entfällt.
+
+**Bis zur Migration:** Lesefunktionen erkennen fehlende Tabellen/Sichten und zeigen Standardtexte, leere Listen und den Hinweis „wird gerade eingerichtet“; Speichern meldet „Diese Funktion wird gerade eingerichtet.“. **Stammdaten (Einstellungen und Betreiber) schlagen bis zur Migration beim Laden fehl** (Spalten `email`, `phone` fehlen; in `src/types/database.ts` von Hand ergänzt, /backend erzeugt die Typen neu).
+
+**Regeln und Dateien**
+- `src/lib/guest-sheet.ts`: `guestSheetExpected`, `sheetGaps`/`sheetComplete`, `needsTravelDocument`, Typ `GuestSheetSnapshot`, `sheetDeparture`, Listenfilter, Standardtexte, `sheetPlaceholderValues`, `emptyPlaceholders`, `filledTexts` (Tests: `guest-sheet.test.ts`)
+- `src/lib/validation/guest-sheet.ts`: `sheetGuestSchema`, `sheetCompanionSchema`, `sheetNumberSchema`, `sheetUploadSchema`, `guestSheetTextsSchema` (Tests); `checkDoc`/`docField` aus `validation/invoice-settings.ts` jetzt exportiert
+- `src/lib/invoice-texts.ts`: Platzhalter mit `scope: 'guestSheet'`, Kontext `'guestSheet'`; Gästeblatt-Platzhalter in Rechnungstexten und umgekehrt „unbekannt“
+- `src/lib/guest-sheets-data.ts`: `getGuestSheetSettings`, `getBookingGuestSheets`, `getGuestSheetPage`, `hasAnyGuestSheet`, `getSigningData`
+- Aktionen: `src/app/(app)/gaesteblaetter/actions.ts` (`saveSheetGuest`, `saveSheetNumber`, `saveSheetCompanions`, `prepareGuestSheetUpload`, `registerGuestSheetUpload`), `src/app/(app)/einstellungen/gaesteblatt/actions.ts` (`saveGuestSheetTexts`)
+- Bausteine `src/components/guest-sheets/`: `booking-guest-sheet`, `guest-sheet-buttons`, `guest-sheet-upload-dialog`, `guest-sheet-saved-toast`, `guest-sheet-filters`, `guest-sheet-list`, `guest-sheet-texts-form`, `signing/` (`guest-sheet-signing`, `sheet-page-one`, `sheet-page-two`, `sheet-form`, `signature-field`)
+- PDF: `src/lib/guest-sheet-pdf/` (`types`, `view` mit Tests, `document`, `respond`, `render.integration.test.ts`)
+- Texte: `messages/de.json` → `guestSheets.*`, `nav.guestSheets`, `settings.guestSheet`, `tenantData.sections.contact`, `tenantData.fields.email/phone/contactHint`
+
+**Vertrag für /backend** (Namen dürfen sich ändern, dann hier und im Code nachziehen)
+- `tenants`: Spalten `email` (Kleinbuchstaben, ≤ 254), `phone` (≤ 40); `update_tenant_master_data` nimmt `email`, `phone`
+- Tabelle `guest_sheet_settings` (tenant_id PK, privacy_text jsonb null, marketing_text jsonb null, updated_at, updated_by); Lesen Mitglieder; `save_guest_sheet_texts(p_tenant_id, p_expected_updated_at, p_privacy jsonb, p_marketing jsonb)` nur Inhaber, Stand P0970, deaktivierter Kunde P0016
+- Tabelle `guest_sheets` (id, tenant_id, booking_id, guest_id, kind signed|uploaded, sheet_number, marketing_consent, snapshot jsonb, signed_at_1, signed_at_2, signature_1_path, signature_2_path, pdf_path, pdf_sha256, signed_on date, departure_noted_at, departure_noted_by, replaced_at, replaced_by, created_at, created_by); höchstens ein Blatt mit `replaced_at is null` je Buchung; kein direktes Schreiben, kein Löschen durch Nutzer
+- Lesesicht `guest_sheet_list` (security_invoker): Spalten des Blatts + booking_number, booking_cancelled, last_name, first_name, title_prefix, title_suffix (Hauptgast des Blatts), arrival, departure (der Buchung), property_name, apartment_name, created_by_name, departure_noted_by_name, `signed_at` (= signed_at_2), `changed` (Ankunft, geplante Abreise, Hauptgast oder Mitreisende weichen von der Fassung ab; nur bei „signed“), `search_text` (Lfd.-Nr., Name, Buchungsnummer)
+- Lesesicht `guest_sheet_missing` (security_invoker): Buchungen kind booking, nicht storniert, ohne „Wohnsitz angemeldet“, ohne aktuelles Blatt; booking_id, tenant_id, booking_number, Gastnamen, arrival, departure, property_name, apartment_name, guest_sheet_number, search_text
+- `save_guest_sheet_field(p_booking_id, p_target 'guest'|'booking'|'companions', p_values jsonb, p_expected_updated_at)` → neuer `updated_at` des Ziels; Inhaber **und Mitarbeiter**; nur Blatt-Felder (Gast: last_name, first_name, gender, birth_date, country, document_*, street, postal_code, city, address_country; Buchung: guest_sheet_number; companions wie `save_companions`); `app.actor = 'Gästeblatt'` im Protokoll; Stand P0975, nicht vorgesehen P0976, kein Gast P0977, anonymisiert P0978, zu viele Mitreisende P0979
+- `register_guest_sheet_upload(p_input jsonb)` (booking_id, pdf_path, sheet_number, signed_on, marketing_consent, previous_sheet_id) für Mitglieder; setzt Lfd.-Nr. an der Buchung, ersetzt das vorherige Blatt, Marketing-Einwilligung am Gast (Datum = signed_on, sonst heute); anderes aktuelles Blatt P0973, nicht vorgesehen P0976, Datei fehlt/fremd P0980
+- `finish_guest_sheet(p_input jsonb)` **nur Service-Rolle** (Felder siehe Schnittstelle „fertig“): prüft Stände (P0975), aktuelles Blatt (P0973), Vorgesehen/Gast (P0976–P0978), Pflichtangaben (P0974); schreibt Blatt, ersetzt das vorherige, Marketing-Einwilligung am Gast, Protokoll mit `actor_id`
+- `guests`: `marketing_consent_at`, `marketing_consent_sheet_id`; Anonymisieren leert beides; Zusammenführen behält die jüngste Einwilligung; Gast mit Gästeblatt nur anonymisieren; Buchung mit Gästeblatt nicht löschen; Kunde löschen gesperrt wie bei Rechnungen (7 Jahre)
+- Trigger an `bookings`: Änderung von `departure` nach der Unterschrift setzt am aktuellen „signed“-Blatt `departure_noted_at`/`_by`
+- Speicherbereich `guest-sheets` (privat, PDF und PNG, 10 MB, Ordner je Kunde; Mitglieder laden PDFs hoch und lesen nur verwendete Dateien, Löschen nur der Server); tägliche Bereinigung (`/api/cron/ausweisbilder`) um unbenutzte Dateien erweitern
+- Auswertung „Gästeherkunft“ (PROJ-18): `coalesce(address_country, country)` des Hauptgasts
 
 ## QA Test Results
 _To be added by /qa_

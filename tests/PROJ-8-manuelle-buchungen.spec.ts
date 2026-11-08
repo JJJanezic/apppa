@@ -325,7 +325,7 @@ test.describe('Mitarbeiter', () => {
     await panel(page).getByRole('radio', { name: 'Neuer Gast' }).click()
     await panel(page).getByLabel('Nachname').fill('Berger')
     await panel(page).getByLabel('Vorname').fill('Paul')
-    await panel(page).getByRole('combobox', { name: 'Herkunftsland' }).click()
+    await panel(page).getByRole('combobox', { name: 'Staatsangehörigkeit' }).click()
     await page.getByPlaceholder('Land suchen').fill('Österreich')
     await page.getByRole('option', { name: 'Österreich', exact: true }).click()
     await submit(page, 'Buchung speichern')

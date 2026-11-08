@@ -2,6 +2,7 @@ import 'server-only'
 
 import { Worker } from 'node:worker_threads'
 
+import type { GuestSheetPdfResult, GuestSheetPdfView } from '@/lib/guest-sheet-pdf/types'
 import type { PdfResult, PdfView } from '@/lib/invoice-pdf/types'
 import type { StatsPdfResult, StatsPdfView } from '@/lib/statistics-pdf/types'
 import type { TaxPdfResult, TaxPdfView } from '@/lib/tourist-tax-pdf/types'
@@ -67,7 +68,17 @@ export async function renderStatsPdf(view: StatsPdfView): Promise<StatsPdfResult
   }
 }
 
-function runWorker<R>(view: PdfView | TaxPdfView | StatsPdfView): Promise<R> {
+// Gästeblatt (PROJ-26): derselbe Arbeitsprozess, dieselbe Lastgrenze
+export async function renderGuestSheetPdf(view: GuestSheetPdfView): Promise<GuestSheetPdfResult> {
+  await acquire()
+  try {
+    return await runWorker<GuestSheetPdfResult>(view)
+  } finally {
+    release()
+  }
+}
+
+function runWorker<R>(view: PdfView | TaxPdfView | StatsPdfView | GuestSheetPdfView): Promise<R> {
   return new Promise((resolve, reject) => {
     const worker = new Worker(workerFile(), { workerData: view, resourceLimits: { maxOldGenerationSizeMb: 256 } })
     const timer = setTimeout(() => finish(() => reject(new Error('PDF-Erzeugung dauert zu lange'))), TIMEOUT_MS)

@@ -13,6 +13,7 @@ export type NavItemId =
   | 'calendar'
   | 'bookings'
   | 'guests'
+  | 'guestSheets'
   | 'invoices'
   | 'payments'
   | 'reports'
@@ -42,6 +43,8 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { id: 'calendar', href: '/belegung', roles: ALL, ready: true, mobile: 'primary' },
   { id: 'bookings', href: '/buchungen', roles: ALL, ready: true, mobile: 'primary' },
   { id: 'guests', href: '/gaeste', roles: ALL, ready: true, mobile: 'primary' },
+  // PROJ-26: Gästeblätter für Inhaber und Mitarbeiter, am Handy unter „Mehr“
+  { id: 'guestSheets', href: '/gaesteblaetter', roles: ALL, ready: true, mobile: 'more' },
   // PROJ-37: Rechnungen für Inhaber und Mitarbeiter, am Handy unter „Mehr“
   { id: 'invoices', href: '/rechnungen', roles: ALL, ready: true, mobile: 'more' },
   // PROJ-45: Zahlungen für Inhaber und Mitarbeiter (Mitarbeiter erfassen Zahlungen), am Handy unter „Mehr“

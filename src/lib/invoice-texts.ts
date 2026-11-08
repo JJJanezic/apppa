@@ -67,14 +67,21 @@ export const PLACEHOLDERS = [
   { name: 'Anzahlung', scope: 'deposit' },
   { name: 'Anzahlung fällig', scope: 'deposit' },
   { name: 'Restbetrag', scope: 'deposit' },
+  // Datenschutz-Texte des Gästeblatts (PROJ-26), nur dort erlaubt
+  { name: 'Kundenname', scope: 'guestSheet' },
+  { name: 'Anschrift', scope: 'guestSheet' },
+  { name: 'E-Mail', scope: 'guestSheet' },
+  { name: 'Telefon', scope: 'guestSheet' },
 ] as const
 export type PlaceholderName = (typeof PLACEHOLDERS)[number]['name']
 
-// Wo wird geschrieben? Feste Texte (Kleinunternehmer-Hinweis, Fußzeile) kennen keine Platzhalter.
-export type PlaceholderContext = { kind: TextBlockKind; deposit: boolean } | 'fixed'
+// Wo wird geschrieben? Feste Texte (Kleinunternehmer-Hinweis, Fußzeile) kennen keine Platzhalter; „guestSheet“ sind die
+// Datenschutz-Texte des Gästeblatts (PROJ-26) mit eigenen Platzhaltern.
+export type PlaceholderContext = { kind: TextBlockKind; deposit: boolean } | 'fixed' | 'guestSheet'
 
 export function allowedPlaceholders(ctx: PlaceholderContext): PlaceholderName[] {
   if (ctx === 'fixed') return []
+  if (ctx === 'guestSheet') return PLACEHOLDERS.filter((p) => p.scope === 'guestSheet').map((p) => p.name)
   return PLACEHOLDERS.filter(
     (p) => p.scope === 'all' || (ctx.kind === 'payment' && (p.scope === 'payment' || (p.scope === 'deposit' && ctx.deposit)))
   ).map((p) => p.name)
@@ -93,8 +100,10 @@ export function placeholderIssues(text: string, ctx: PlaceholderContext): Placeh
     const token = m[0]
     if (allowed.has(m[1]) || issues.some((i) => i.token === token)) continue
     const known = PLACEHOLDERS.find((p) => p.name === m[1])
+    // Gästeblatt-Platzhalter in Rechnungstexten und umgekehrt gelten als unbekannt
+    const foreign = !known || (ctx === 'guestSheet') !== (known.scope === 'guestSheet')
     const problem: PlaceholderIssue['problem'] =
-      !known || ctx === 'fixed' ? 'unknown' : known.scope === 'deposit' && ctx.kind === 'payment' ? 'depositOnly' : 'notHere'
+      foreign || ctx === 'fixed' || ctx === 'guestSheet' ? 'unknown' : known.scope === 'deposit' && ctx.kind === 'payment' ? 'depositOnly' : 'notHere'
     issues.push({ token, problem })
   }
   return issues

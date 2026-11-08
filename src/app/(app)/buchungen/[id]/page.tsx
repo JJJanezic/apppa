@@ -1,9 +1,11 @@
 import { CaretLeft } from '@phosphor-icons/react/ssr'
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { Suspense } from 'react'
 import { getTranslations } from 'next-intl/server'
 
 import { BookingDetail, bookingTitle } from '@/components/bookings/booking-detail'
+import { GuestSheetSavedToast } from '@/components/guest-sheets/guest-sheet-saved-toast'
 import { PageHeader } from '@/components/page-header'
 import { requireArea } from '@/lib/areas'
 import { bookingHref, bookingListHref, todayIso } from '@/lib/bookings'
@@ -39,6 +41,10 @@ export default async function BookingDetailPage({ params }: { params: Params }) 
         eyebrow={[booking.number, booking.apartment.label].filter(Boolean).join(' · ')}
         title={<span className="break-words">{await bookingTitle(booking)}</span>}
       />
+      {/* Rückkehr vom Gästeblatt (PROJ-26) */}
+      <Suspense>
+        <GuestSheetSavedToast />
+      </Suspense>
       <BookingDetail booking={booking} apartments={apartments} owner={owner} today={today} layout="page" conflictHref={bookingHref} />
     </>
   )

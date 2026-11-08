@@ -532,7 +532,7 @@ test.describe('Nacherfassen', () => {
     await p.getByLabel('Nachname', { exact: true }).fill('Neumann')
     await p.getByLabel('Vorname', { exact: true }).fill('Nora')
     await expect(p.getByLabel('Empfänger')).toHaveValue('Neumann Nora')
-    await p.getByRole('combobox', { name: 'Herkunftsland' }).click()
+    await p.getByRole('combobox', { name: 'Staatsangehörigkeit' }).click()
     await page.getByPlaceholder('Land suchen').fill('Österreich')
     await page.getByRole('option', { name: 'Österreich', exact: true }).click()
     await p.getByLabel('Rechnungsnummer').fill('GS-1')

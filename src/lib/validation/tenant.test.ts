@@ -18,6 +18,8 @@ const EMPTY = {
   vatId: '',
   taxNumber: '',
   registerNumber: '',
+  email: '',
+  phone: '',
   vatStatus: [] as { validFrom: string; status: string }[],
   logoPath: '',
   bankAccounts: [] as ReturnType<typeof account>[],
@@ -54,6 +56,8 @@ describe('tenantMasterDataSchema', () => {
       vatId: null,
       taxNumber: null,
       registerNumber: null,
+      email: null,
+      phone: null,
       vatStatus: [],
       logoPath: null,
       bankAccounts: [],
@@ -198,5 +202,19 @@ describe('tenantMasterDataSchema', () => {
       )
       expect(schema.safeParse({ ...EMPTY, bankAccounts: many }).error?.issues.some((i) => i.message === v.bankAccountsTooMany)).toBe(true)
     })
+  })
+})
+
+describe('Kontakt für Gäste (PROJ-26)', () => {
+  const schema = tenantMasterDataSchema((k: string) => k)
+  it('E-Mail in Kleinbuchstaben, leer = keine Angabe', () => {
+    const r = schema.safeParse({ ...EMPTY, email: ' Office@Pichler.at ', phone: '+43 512 123456' })
+    expect(r.data?.email).toBe('office@pichler.at')
+    expect(r.data?.phone).toBe('+43 512 123456')
+    expect(schema.safeParse({ ...EMPTY }).data?.email).toBeNull()
+  })
+  it('lehnt ungültige E-Mail und Telefonnummer ab', () => {
+    expect(schema.safeParse({ ...EMPTY, email: 'office@' }).error?.issues[0].message).toBe('emailInvalid')
+    expect(schema.safeParse({ ...EMPTY, phone: 'abc' }).error?.issues[0].message).toBe('phoneInvalid')
   })
 })

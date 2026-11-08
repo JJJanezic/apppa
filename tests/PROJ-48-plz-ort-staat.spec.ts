@@ -58,18 +58,18 @@ test.describe('Gastanschrift', () => {
     await setup(page, users)
     await openCreate(page)
     await panel(page).getByLabel('Nachname').fill('Huber')
-    await chooseCountry(page, panel(page), 'Herkunftsland', 'Österreich')
+    await chooseCountry(page, panel(page), 'Staatsangehörigkeit', 'Österreich')
 
     await address(page).getByLabel('PLZ').fill('6020')
     await expect(address(page).getByLabel('Ort', { exact: true })).toHaveValue('Innsbruck')
-    await expect(address(page).getByRole('combobox', { name: 'Land' })).toHaveText('Österreich')
+    await expect(address(page).getByRole('combobox', { name: 'Herkunftsland' })).toHaveText('Österreich')
     await expect(address(page).getByText(SOURCE)).toBeVisible()
     // Ansage für Screenreader
     await expect(address(page).locator('[aria-live="polite"]')).toHaveText('Ort aus der PLZ übernommen: Innsbruck, Österreich')
 
     await address(page).getByLabel('PLZ').fill('D-80331')
     await expect(address(page).getByLabel('Ort', { exact: true })).toHaveValue('München')
-    await expect(address(page).getByRole('combobox', { name: 'Land' })).toHaveText('Deutschland')
+    await expect(address(page).getByRole('combobox', { name: 'Herkunftsland' })).toHaveText('Deutschland')
     await expect(address(page).getByLabel('PLZ')).toHaveValue('D-80331')
 
     await panel(page).getByRole('button', { name: 'Gast anlegen' }).click()
@@ -83,16 +83,16 @@ test.describe('Gastanschrift', () => {
     await openCreate(page)
     await address(page).getByLabel('Ort', { exact: true }).fill('Hötting')
     await address(page).getByLabel('PLZ').fill('6020')
-    await expect(address(page).getByRole('combobox', { name: 'Land' })).toHaveText('Österreich')
+    await expect(address(page).getByRole('combobox', { name: 'Herkunftsland' })).toHaveText('Österreich')
     await expect(address(page).getByLabel('Ort', { exact: true })).toHaveValue('Hötting')
     await expect(address(page).getByText(SOURCE)).toHaveCount(0)
-    await expect(panel(page).getByRole('combobox', { name: 'Herkunftsland' })).toHaveText('Land wählen')
+    await expect(panel(page).getByRole('combobox', { name: 'Staatsangehörigkeit' })).toHaveText('Land wählen')
 
     await address(page).getByLabel('Ort', { exact: true }).fill('')
-    await chooseCountry(page, address(page), 'Land', 'Schweiz')
+    await chooseCountry(page, address(page), 'Herkunftsland', 'Schweiz')
     await address(page).getByLabel('PLZ').fill('8010')
     await expect(address(page).getByLabel('Ort', { exact: true })).toHaveValue('')
-    await expect(address(page).getByRole('combobox', { name: 'Land' })).toHaveText('Schweiz')
+    await expect(address(page).getByRole('combobox', { name: 'Herkunftsland' })).toHaveText('Schweiz')
   })
 
   test('AC: Mehrere Orte – Auswahl per Tastatur übernimmt den Ort; unbekannte PLZ ändert nichts', async ({ page, users }) => {
@@ -103,7 +103,7 @@ test.describe('Gastanschrift', () => {
     const choices = address(page).getByRole('group', { name: /Mehrere Orte/ })
     await expect(choices.getByRole('button', { name: 'Kappeln' })).toBeVisible()
     await expect(address(page).getByLabel('Ort', { exact: true })).toHaveValue('')
-    await expect(address(page).getByRole('combobox', { name: 'Land' })).toHaveText('Deutschland')
+    await expect(address(page).getByRole('combobox', { name: 'Herkunftsland' })).toHaveText('Deutschland')
     await expect(address(page).locator('[aria-live="polite"]')).toHaveText(/^\d+ Orte zu dieser PLZ gefunden/)
 
     // Per Tabulator vom Feld „Ort“ in die Auswahl (BUG-1: Safari braucht tabIndex), Eingabetaste wählt
@@ -131,7 +131,7 @@ test.describe('Firmenanschrift', () => {
     await expect(billing(page).getByLabel('Ort', { exact: true })).toHaveValue('Wien')
     await expect(billing(page).getByRole('combobox', { name: 'Staat' })).toHaveText('Österreich')
     await expect(address(page).getByLabel('Ort', { exact: true })).toHaveValue('')
-    await expect(address(page).getByRole('combobox', { name: 'Land' })).toHaveText('Land wählen')
+    await expect(address(page).getByRole('combobox', { name: 'Herkunftsland' })).toHaveText('Land wählen')
   })
 
   test('AC: Bestehender Gast – gespeicherter Ort bleibt bei geänderter PLZ', async ({ page, users }) => {
@@ -172,7 +172,7 @@ test.describe('Einsatzorte des Gastformulars', () => {
     await panel(page).getByRole('radio', { name: 'Neuer Gast' }).click()
     await address(page).getByLabel('PLZ').fill('5020')
     await expect(address(page).getByLabel('Ort', { exact: true })).toHaveValue('Salzburg')
-    await expect(address(page).getByRole('combobox', { name: 'Land' })).toHaveText('Österreich')
+    await expect(address(page).getByRole('combobox', { name: 'Herkunftsland' })).toHaveText('Österreich')
     await expect(address(page).getByText(SOURCE)).toBeVisible()
   })
 
@@ -185,7 +185,7 @@ test.describe('Einsatzorte des Gastformulars', () => {
     await panel(page).getByText('Neuer Gast', { exact: true }).click()
     await address(page).getByLabel('PLZ').fill('10115')
     await expect(address(page).getByLabel('Ort', { exact: true })).toHaveValue('Berlin')
-    await expect(address(page).getByRole('combobox', { name: 'Land' })).toHaveText('Deutschland')
+    await expect(address(page).getByRole('combobox', { name: 'Herkunftsland' })).toHaveText('Deutschland')
   })
 })
 
