@@ -1,3 +1,4 @@
+import AxeBuilder from '@axe-core/playwright'
 import { expect, type Page, test as base } from '@playwright/test'
 
 import { createTenant, createUser, deleteUser, type E2EUser, hasSupabaseEnv, service, signInAs } from './support/supabase'
@@ -19,7 +20,8 @@ const test = base.extend<{ users: (opts?: Parameters<typeof createUser>[0]) => P
 test.use({ storageState: { cookies: [], origins: [] } })
 
 type Users = (opts?: Parameters<typeof createUser>[0]) => Promise<E2EUser>
-const desktopOnly = () => test.skip(test.info().project.name !== 'desktop', 'Abläufe nur im Desktop-Projekt')
+// Abläufe auf breiten Bildschirmen: Desktop sowie die optionalen Projekte Firefox und Safari
+const desktopOnly = () => test.skip(['mobile', 'tablet'].includes(test.info().project.name), 'Abläufe nur auf breiten Bildschirmen')
 const ready = (page: Page) =>
   page.waitForFunction(() => Object.keys(document.querySelector('main') ?? {}).some((k) => k.startsWith('__reactFiber')))
 const panel = (page: Page) => page.getByRole('dialog')
@@ -62,6 +64,8 @@ test.describe('Gastanschrift', () => {
     await expect(address(page).getByLabel('Ort', { exact: true })).toHaveValue('Innsbruck')
     await expect(address(page).getByRole('combobox', { name: 'Land' })).toHaveText('Österreich')
     await expect(address(page).getByText(SOURCE)).toBeVisible()
+    // Ansage für Screenreader
+    await expect(address(page).locator('[aria-live="polite"]')).toHaveText('Ort aus der PLZ übernommen: Innsbruck, Österreich')
 
     await address(page).getByLabel('PLZ').fill('D-80331')
     await expect(address(page).getByLabel('Ort', { exact: true })).toHaveValue('München')
@@ -100,6 +104,7 @@ test.describe('Gastanschrift', () => {
     await expect(choices.getByRole('button', { name: 'Kappeln' })).toBeVisible()
     await expect(address(page).getByLabel('Ort', { exact: true })).toHaveValue('')
     await expect(address(page).getByRole('combobox', { name: 'Land' })).toHaveText('Deutschland')
+    await expect(address(page).locator('[aria-live="polite"]')).toHaveText(/^\d+ Orte zu dieser PLZ gefunden/)
 
     await choices.getByRole('button', { name: 'Kappeln' }).focus()
     await page.keyboard.press('Enter')
@@ -139,5 +144,61 @@ test.describe('Firmenanschrift', () => {
     await address(page).getByLabel('PLZ').fill('5020')
     await expect(address(page).getByLabel('Ort', { exact: true })).toHaveValue('Innsbruck-Hötting')
     await expect(address(page).getByText(SOURCE)).toHaveCount(0)
+  })
+})
+
+test.describe('Einsatzorte des Gastformulars', () => {
+  test('AC: Neuer Gast im Buchungsformular – PLZ füllt Ort und Land wie auf der Gästeseite', async ({ page, users }) => {
+    desktopOnly()
+    const { tenantId } = await setup(page, users)
+    const { data: property, error } = await service()
+      .from('properties')
+      .insert({ tenant_id: tenantId, name: 'Haus See', street: 'Seeweg 12', postal_code: '5340', city: 'St. Gilgen', municipality_code: '50330' })
+      .select('id')
+      .single()
+    if (error) throw error
+    const { error: apartmentError } = await service()
+      .from('apartments')
+      .insert({ tenant_id: tenantId, property_id: property.id, name: 'Top 1', max_guests: 4, price_cents: 10000 } as never)
+    if (apartmentError) throw apartmentError
+    await page.goto('/buchungen')
+    await ready(page)
+    await page.getByRole('button', { name: 'Neue Buchung' }).first().click()
+    await panel(page).getByRole('radio', { name: 'Neuer Gast' }).click()
+    await address(page).getByLabel('PLZ').fill('5020')
+    await expect(address(page).getByLabel('Ort', { exact: true })).toHaveValue('Salzburg')
+    await expect(address(page).getByRole('combobox', { name: 'Land' })).toHaveText('Österreich')
+    await expect(address(page).getByText(SOURCE)).toBeVisible()
+  })
+
+  test('AC: Neuer Gast beim Nacherfassen einer Rechnung – PLZ füllt Ort und Land', async ({ page, users }) => {
+    desktopOnly()
+    await setup(page, users)
+    await page.goto('/rechnungen')
+    await ready(page)
+    await page.getByRole('button', { name: 'Rechnung nacherfassen' }).first().click()
+    await panel(page).getByText('Neuer Gast', { exact: true }).click()
+    await address(page).getByLabel('PLZ').fill('10115')
+    await expect(address(page).getByLabel('Ort', { exact: true })).toHaveValue('Berlin')
+    await expect(address(page).getByRole('combobox', { name: 'Land' })).toHaveText('Deutschland')
+  })
+})
+
+test.describe('Darstellung', () => {
+  test('Auswahl mehrerer Orte: Knöpfe mindestens 44 px, kein seitliches Scrollen, keine axe-Verstöße; Quellenzeile 11 px', async ({ page, users }) => {
+    await setup(page, users)
+    await openCreate(page)
+    await address(page).getByLabel('PLZ').fill('56761')
+    const choices = address(page).getByRole('group', { name: /Mehrere Orte/ })
+    await expect(choices.getByRole('button')).toHaveCount(11)
+    for (const box of await choices.getByRole('button').evaluateAll((els) => els.map((e) => e.getBoundingClientRect().height)))
+      expect(box).toBeGreaterThanOrEqual(44)
+    await expect(address(page).getByText(SOURCE)).toHaveCSS('font-size', '11px')
+    // Dialog-Animation abwarten, sonst meldet axe Zwischenfarben
+    await page.waitForTimeout(400)
+    const results = await new AxeBuilder({ page }).include('[role="dialog"]').withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze()
+    expect(results.violations).toEqual([])
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)
+    expect(overflow).toBe(false)
   })
 })

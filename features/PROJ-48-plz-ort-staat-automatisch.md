@@ -1,6 +1,6 @@
 # PROJ-48: Ort und Staat aus der PLZ
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-11-08
 **Last Updated:** 2026-11-08
 
@@ -238,7 +238,110 @@ Keine neuen Pakete.
 - **E2E** `tests/PROJ-48-plz-ort-staat.spec.ts` (5 Abläufe, Desktop) grün; Regression PROJ-33 (Desktop, Mobil) grün. Buchungsformular und Rechnungsnacherfassung nutzen dieselbe Komponente und werden in `/qa` geprüft.
 
 ## QA Test Results
-_To be added by /qa_
+
+**Tested:** 2026-11-08
+**App URL:** http://localhost:3000 (Produktions-Build, Supabase „apppa-dev“; Testsperre `assertTestableProject` aktiv)
+**Tester:** QA Engineer (AI)
+**Stand:** Commit dc75ed0
+
+### Automatische Tests
+- **Unit (Vitest, Projekt unit):** 67 Dateien, 924 Tests grün, davon `src/lib/postal-places.test.ts` mit PLZ-Erkennung, Landwahl, Befüllungsregel, Bereinigung und Laden der echten Listen
+- **E2E `tests/PROJ-48-plz-ort-staat.spec.ts`:** 8 Tests
+  - Desktop (Chrome 1440 px): 8/8 grün
+  - Firefox: 5 Abläufe Gast- und Firmenanschrift grün
+  - Tablet (768 px) und Handy (375 px): Darstellung grün (Knöpfe ≥ 44 px, kein seitliches Scrollen, axe ohne Verstöße, Quellenzeile 11 px)
+- **Regression:** PROJ-7 Gäste 15/15, PROJ-8 Buchungen mit neuem Gast 4/4, PROJ-33 Firmenanschrift Desktop 8/8 und Handy 3/3, PROJ-37 neuer Gast beim Nacherfassen 1/1 (Zahlen ohne Anmelde-Setup/-Teardown)
+- **Safari:** nicht ausgeführt. Safari-Tests laufen nur gegen `npm run dev`; der gebaute Server belegte Port 3000. Siehe BUG-1 (Codeprüfung).
+
+### Acceptance Criteria Status
+Geprüft per E2E (E) bzw. Unit-Test der Regel (U), die genau diese Entscheidung trifft; die Komponente ruft sie unverändert auf.
+
+#### Grundfall Österreich und Deutschland (5/5)
+- [x] 6020 → Innsbruck, Österreich, sofort ohne Feld verlassen (E)
+- [x] 80331 → München, Deutschland (E über „D-80331“, U)
+- [x] „A-6020“ / „D-80331“ wie ohne Präfix, PLZ bleibt wie eingegeben (E, U)
+- [x] Firmenanschrift: Ort und Staat der Firma befüllt (E mit „A-1010“)
+- [x] Gast- und Firmenanschrift beeinflussen sich nicht (E)
+
+#### Staat bestimmt das Nachschlagen (4/4)
+- [x] Schweiz gewählt → nichts (E mit 8010, U mit 8001)
+- [x] Österreich gewählt + fünfstellige PLZ → nichts (U)
+- [x] Deutschland gewählt → Ort befüllt, Staat bleibt (U)
+- [x] „D-6020“ → nichts (U)
+
+#### Überschreiben (7/7)
+- [x] Von Hand getippter Ort bleibt (E)
+- [x] Gespeicherter Ort eines bestehenden Gastes bleibt (E)
+- [x] Automatisch befüllter Ort folgt der korrigierten PLZ (E 6020 → D-80331, U)
+- [x] Automatisch befüllt, dann von Hand geändert → bleibt (U: `canAutofill`)
+- [x] Automatisch gesetzter Staat wechselt mit der PLZ (E Österreich → Deutschland)
+- [x] Von Hand gewählter Staat bleibt, Ort wird nicht befüllt (E Schweiz, U)
+- [x] PLZ geleert → Ort bleibt (Codeprüfung: unvollständige PLZ bricht vor jeder Änderung ab; U `parsePostalCode('')`)
+
+#### Mehrere Orte (5/6)
+- [x] Ort bleibt leer, Auswahl erscheint, Land befüllt (E 24376)
+- [x] Anklicken übernimmt den Ort, Liste verschwindet (E)
+- [ ] BUG-1: Tabulator in die Liste – in Chrome und Firefox per Tastatur (Fokus + Eingabe) grün, in Safari erreicht Tab die Knöpfe nicht
+- [x] Selbst getippter Ort blendet die Liste aus (Codeprüfung: Eingabe im Ort leert die Auswahl)
+- [x] Automatisch befüllter Ort wird geleert, Auswahl erscheint (U)
+- [x] Von Hand eingetragener Ort → keine Auswahl (U)
+
+#### Unbekannte PLZ und Speichern (3/3)
+- [x] Unbekannte PLZ (99999) → keine Änderung, keine Meldung (E)
+- [x] Automatisch befüllte Werte werden gespeichert (E: Detail zeigt „D-80331 München“)
+- [x] Von Hand eingetragene Werte bei unbekannter PLZ ohne Warnung gespeichert (keine neue Prüfung; Validierung unverändert)
+
+#### Einsatzorte des Formulars (3/3)
+- [x] Buchungsformular, neuer Gast (E 5020 → Salzburg; als Inhaber, die Komponente kennt keine Rollen)
+- [x] Rechnung nacherfassen, neuer Gast (E 10115 → Berlin)
+- [x] Rechnungsentwurf, Kundenstammdaten, Objektanschrift unverändert (Codeprüfung: Baustein nur in `guest-fields.tsx`; Regression PROJ-33 grün)
+
+#### Bedienbarkeit (2/2)
+- [x] Ansage für Screenreader nach Befüllung und bei Auswahl (E: Live-Bereich „Ort aus der PLZ übernommen: Innsbruck, Österreich“ bzw. „… Orte zu dieser PLZ gefunden …“)
+- [x] Handy: Einträge ≥ 44 px, kein seitliches Scrollen (E mobil, tablet)
+
+### Edge Cases Status
+- [x] Schweizer Gast mit PLZ zuerst: wie in der Spec in Kauf genommen (österreichischer Ort, wenn die PLZ in AT vergeben ist)
+- [x] Veraltete Antwort nach Weitertippen wird verworfen (Codeprüfung: Laufnummer und Vergleich mit der aktuellen PLZ)
+- [x] Zwischenstände („602“) lösen nichts aus (U)
+- [x] „60 20“, „A 6020“ erkannt; „6020a“, „602011“ nicht (U)
+- [x] Formular verworfen / Fehler beim Speichern: Herkunft der Werte nur im Formular (Codeprüfung)
+- [x] Herkunftsland wird nie befüllt (E)
+- [x] Ladefehler der Liste: keine Meldung, Formular bedienbar (Codeprüfung: Fehler → keine Liste, Cache wird für einen neuen Versuch geleert; nicht im Browser simuliert)
+- [x] Zusätzlich: Öffnen eines bestehenden Gastes mit PLZ und leerem Ort befüllt nichts (nur Eingaben im PLZ-Feld lösen aus)
+- [x] Zusätzlich: Datenqualität: AT-Namen amtlich („St. Gilgen“, „Pfaffenschlag bei Waidhofen an der Thaya“); DE ohne Großkunden (80788 entfällt), Schreibweisen wie „Frankfurt (Oder)“ erhalten
+- [x] Zusätzlich: Ladegröße: Listen als eigene Bundle-Teile (komprimiert AT ca. 15 KB, DE ca. 87 KB), nicht im Gastformular-Bundle
+
+### Security Audit Results
+- [x] Keine neuen Schnittstellen, Tabellen, Server-Aktionen oder Rechte; Speichern läuft über die bestehende, geprüfte Gast-Validierung
+- [x] Keine Gastdaten verlassen den Browser; nachgeschlagen wird lokal in statischen Listen
+- [x] Die Listen sind öffentliche offene Daten ohne Personenbezug; Abruf ohne Anmeldung ist unkritisch
+- [x] XSS: Ortsnamen werden als Text gerendert (React maskiert); das Erzeugungsskript lehnt `<>;"\` in Namen ab
+- [x] Lizenzen: Quellenangabe „Daten: RTR, GeoNames“ sichtbar, sobald ein Ort aus der PLZ stammt; READMEs mit Quelle und Lizenz
+
+### Bugs Found
+
+#### BUG-1: Safari – Ortsauswahl per Tabulator nicht erreichbar
+- **Severity:** Medium
+- **Steps to Reproduce:**
+  1. In Safari (macOS, Standardeinstellung) Gast anlegen, PLZ „24376“ eingeben
+  2. Mit Tab vom Feld „Ort“ weiter
+  3. Expected: Fokus springt auf die Knöpfe „Arnis“, „Kappeln“ …
+  4. Actual: Safari überspringt Knöpfe ohne ausdrücklichen `tabIndex`. Die Länderauswahl hat deshalb `tabIndex={0}` (Kommentar in `country-picker.tsx`), die Ortsknöpfe in `postal-place-fields.tsx` nicht
+- **Nachweis:** Codeprüfung und bekanntes WebKit-Verhalten (Memory, PROJ-2-Tastaturtest); kein Safari-Lauf (siehe oben)
+- **Workaround:** Ort tippen oder mit Maus/Touch wählen
+- **Priority:** Vor dem Deploy beheben (eine Zeile)
+
+#### Beobachtungen (kein Fehler)
+- Bis zu 38 Orte je PLZ in DE (z. B. 39291) ergeben eine lange Knopfliste; sie bricht sauber um. Kein Handlungsbedarf, ggf. bei Rückmeldungen
+- Wird ein automatisch gesetztes Land von Hand auf denselben Wert gewählt, gilt es weiter als automatisch. Folgen nur bei späterer PLZ-Änderung; vernachlässigbar
+
+### Summary
+- **Acceptance Criteria:** 29/30 passed (1 nur in Safari fehlerhaft)
+- **Bugs Found:** 1 total (0 critical, 0 high, 1 medium, 0 low)
+- **Security:** Pass
+- **Production Ready:** YES (keine kritischen oder hohen Fehler)
+- **Recommendation:** BUG-1 vor dem Deploy beheben (klein), dann deployen
 
 ## Deployment
 _To be added by /deploy_
