@@ -3,6 +3,7 @@ import 'server-only'
 import { Worker } from 'node:worker_threads'
 
 import type { PdfResult, PdfView } from '@/lib/invoice-pdf/types'
+import type { StatsPdfResult, StatsPdfView } from '@/lib/statistics-pdf/types'
 import type { TaxPdfResult, TaxPdfView } from '@/lib/tourist-tax-pdf/types'
 
 const TIMEOUT_MS = 20_000
@@ -56,7 +57,17 @@ export async function renderTaxReportPdf(view: TaxPdfView): Promise<TaxPdfResult
   }
 }
 
-function runWorker<R>(view: PdfView | TaxPdfView): Promise<R> {
+// Auswertung (PROJ-18): derselbe Arbeitsprozess, dieselbe Lastgrenze
+export async function renderStatsPdf(view: StatsPdfView): Promise<StatsPdfResult> {
+  await acquire()
+  try {
+    return await runWorker<StatsPdfResult>(view)
+  } finally {
+    release()
+  }
+}
+
+function runWorker<R>(view: PdfView | TaxPdfView | StatsPdfView): Promise<R> {
   return new Promise((resolve, reject) => {
     const worker = new Worker(workerFile(), { workerData: view, resourceLimits: { maxOldGenerationSizeMb: 256 } })
     const timer = setTimeout(() => finish(() => reject(new Error('PDF-Erzeugung dauert zu lange'))), TIMEOUT_MS)

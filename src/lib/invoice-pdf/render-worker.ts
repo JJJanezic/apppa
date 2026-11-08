@@ -6,6 +6,8 @@ import { createElement } from 'react'
 
 import { FooterPdf, footerGap, InvoiceDocument, issuerMaxHeightPt, issuerWidthPt, Lines, PAGE_HEIGHT_PT, pageBase } from '@/lib/invoice-pdf/document'
 import type { PdfResult, PdfView } from '@/lib/invoice-pdf/types'
+import { StatsDocument } from '@/lib/statistics-pdf/document'
+import { STATS_PDF_KIND, type StatsPdfResult, type StatsPdfView } from '@/lib/statistics-pdf/types'
 import { TaxReportDocument } from '@/lib/tourist-tax-pdf/document'
 import { TAX_REPORT_PDF_KIND, type TaxPdfResult, type TaxPdfView } from '@/lib/tourist-tax-pdf/types'
 import { PAGE_LAYOUT as P } from '@/lib/letterhead'
@@ -219,8 +221,27 @@ async function renderTaxReport(input: TaxPdfView): Promise<TaxPdfResult> {
   return { pdf: new Uint8Array(pdf), pages }
 }
 
-const job = workerData as PdfView | TaxPdfView
-const run: Promise<PdfResult | TaxPdfResult> = 'kind' in job && job.kind === TAX_REPORT_PDF_KIND ? renderTaxReport(job) : render(job as PdfView)
+// Auswertung (PROJ-18): wie der Ortstaxen-Bericht nur die Grundschrift des Briefpapiers
+async function renderStats(input: StatsPdfView): Promise<StatsPdfResult> {
+  const view = withoutInvisible(input)
+  Font.registerHyphenationCallback((word) => (word.length > LONG_WORD ? Array.from(word) : [word]))
+  let pages = 1
+  const pdf = await renderToBuffer(
+    createElement(StatsDocument, {
+      view,
+      familyOf: registerFontFiles([view.letterhead.fontFamily], 'report'),
+      onPages: (n: number) => {
+        pages = n
+      },
+    }) as never
+  )
+  return { pdf: new Uint8Array(pdf), pages }
+}
+
+const job = workerData as PdfView | TaxPdfView | StatsPdfView
+const kind = 'kind' in job ? job.kind : null
+const run: Promise<PdfResult | TaxPdfResult | StatsPdfResult> =
+  kind === TAX_REPORT_PDF_KIND ? renderTaxReport(job as TaxPdfView) : kind === STATS_PDF_KIND ? renderStats(job as StatsPdfView) : render(job as PdfView)
 run.then(
   (result) => parentPort?.postMessage({ ok: true, result }),
   (e: unknown) => parentPort?.postMessage({ ok: false, message: e instanceof Error ? e.message : String(e) })

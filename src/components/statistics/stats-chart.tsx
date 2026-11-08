@@ -65,7 +65,8 @@ export function StatsChart({ view, year }: StatsChartProps) {
           : t('chart.hint')}
       </p>
 
-      <figure role="img" aria-label={t('chart.description', { mode: t(`chart.${mode}`) })} className="m-0">
+      {/* Abstand oben: die oberste Achsenbeschriftung ragt über die Diagrammfläche hinaus */}
+      <figure role="img" aria-label={t('chart.description', { mode: t(`chart.${mode}`) })} className="m-0 pt-3">
         <div aria-hidden="true" className="flex gap-2">
           {/* Achse links */}
           <div className="relative h-48 w-16 shrink-0 text-right text-[11px] tabular-nums text-ds-neutral-700 sm:h-56">

@@ -3184,6 +3184,15 @@
         "Gästenächte",
         "Ankünfte"
       ]
+    },
+    "pdf": {
+      "heading": "Auswertung",
+      "period": "Zeitraum: {period}",
+      "scope": "Wohnungen: {scope}",
+      "customer": "Vermieter: {customer}",
+      "vatId": "UID: {id}",
+      "stand": "Stand: {stand}",
+      "pageOf": "Seite {page} von {pages}"
     }
   }
 }

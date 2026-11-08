@@ -473,6 +473,25 @@ Keine neuen. Genutzt werden `@react-pdf/renderer` (über den PDF-Arbeitsprozess)
 - `dashboard_statistics(p_tenant_ids uuid[], p_month date)` – nur Kunden, bei denen die Person Inhaber ist, je Kunde: `tenant_id`, `available_nights`, `occupied_nights`, `revenue_cents` (inkl. Stornogebühren), `vat_cents`.
 - Download-Adressen `/api/auswertungen/pdf` und `/api/auswertungen/csv` mit denselben Parametern wie die Seite; CSV über `buildStatsCsv` mit `statistics.csv.columns`, PDF als Dokumentart „Auswertung“ (Kennzahlen, zwei Diagramme aus `chartModel`, Tabellen, alle Länder).
 
+### Umsetzung Backend (2026-11-08)
+**Migration** `20261108100012_statistics.sql` (nur Dev; Staging/Prod mit `/deploy`), keine neuen Tabellen:
+- `private.statistics_months(von, bis)`: Monate des Zeitraums und dieselben Monate des Vorjahres; mehr als ein Jahr Zeitraum → leer (Schutz vor teuren Abfragen).
+- Kern 1 `private.statistics_booking_parts(Kunden, Monate)`: je Buchung und Monat Nächte, Umsatz, USt, Stornogebühr mit USt, Gästenächte, Ankünfte, Buchungen, Aufenthaltsnächte, Herkunftsland (ohne Hauptgast „ZZ“). Umsatz = verrechneter Übernachtungspreis (`billed_nights_cents`) + Zusatzkosten ohne Ortstaxe; USt je Buchung je Satz gerundet wie `vatBreakdown`, Kleinunternehmer über `private.small_business_on` am Abreise- bzw. Stornotag; Verteilung ganzzahlig je Nacht, Rest in der letzten Nacht.
+- Kern 2 `private.statistics_apartment_months(Kunden, Monate)`: je Wohnung und Monat verfügbare, belegte (Doppelbuchung einmal) und gesperrte Nächte nach den Regeln der Spec, dazu die Summen aus Kern 1.
+- Lesefunktionen (private Definer + öffentliche Invoker wie PROJ-16): `statistics_rows`, `statistics_origin`, `dashboard_statistics`. Alle rechnen nur für Kunden, bei denen die Person Inhaber ist; die Kerne sind von außen nicht aufrufbar.
+- `db advisors`: nur der bekannte Auth-Hinweis „OTP long expiry“, nichts aus dieser Migration.
+
+**Exporte:**
+- `/api/auswertungen/csv` und `/api/auswertungen/pdf` über `src/lib/statistics-export.ts` (Anmeldung, offene 2FA → 403, nur Inhaber des gewählten Kunden, 404 ohne Daten, 503 ohne Migration bzw. PDF ausgelastet, `no-store`, Dateiname mit UTF-8).
+- PDF: neue Dokumentart `statistics` im Arbeitsprozess (`src/lib/statistics-pdf/` types, view, document; `renderStatsPdf`, gleiche Lastgrenze). Kennzahlen, zwei Balkendiagramme aus `chartModel`, Tabellen mit Vorjahr, alle Länder. Veränderung im PDF ohne Pfeil (nicht jede Briefpapier-Schrift hat Pfeile).
+- Aussteller-Hilfen aus `tourist-tax-pdf/view.ts` exportiert und mitbenutzt.
+
+**Frontend-Nachträge:** Diagramm mit Abstand oben (Achsenbeschriftung überlappte den Hinweis); Kacheln der Auswertung mit kleinerer Zahl (`KpiTile compact`), damit Beträge bei fünf Kacheln nicht anstoßen.
+
+**Tests:** Integration `supabase/tests/statistics.integration.test.ts` (13, grün gegen Dev): Doppelbuchung, Sperre, Option/Storno, Verteilung centgenau, USt je Satz, Gäste nach Anreisemonat, Stornogebühr, Zählbeginn ab Anlage bzw. erster Buchung, Archivierung, Vorjahr, Summe = Buchungsbetrag, Kleinunternehmer, Herkunft, Dashboard = Seite, Zeitraum > 1 Jahr, Rechte, Kerne gesperrt. Route-Test `src/app/api/auswertungen/auswertungen.test.ts` (7), PDF mit echtem Arbeitsprozess `src/lib/statistics-pdf/render.integration.test.ts` (3). Alle Unit-Tests grün (891 vor den Nachträgen). Sichtprüfung mit Testdaten (Seite Desktop/Handy, Dashboard, CSV und PDF-Download mit Status 200).
+
+**Messung** (Dev, 5.000 Buchungen, 25 Wohnungen, über die Datenschnittstelle): Dashboard 81–168 ms, ein Monat 167–263 ms, ganzes Jahr mit Vorjahr 313–408 ms, Gästeherkunft Jahr 316–363 ms. Kein zusätzlicher Index nötig. Hinweis: Das Löschen eines Kunden mit 5.000 Buchungen über die Datenschnittstelle überschreitet die Zeitgrenze; Messdaten wurden direkt in der Datenbank gelöscht.
+
 ## QA Test Results
 _To be added by /qa_
 

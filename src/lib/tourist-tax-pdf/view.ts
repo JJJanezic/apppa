@@ -40,12 +40,12 @@ export type TaxPdfInput = {
 
 const place = (postalCode: string | null | undefined, city: string | null | undefined) => [postalCode, city].filter(Boolean).join(' ')
 
-function addressParts(i: NonNullable<TaxPdfIssuer>, locale: string): string[] {
+export function addressParts(i: NonNullable<TaxPdfIssuer>, locale: string): string[] {
   return [i.nameLine2, i.addressLine1, i.addressLine2, place(i.postalCode, i.city), i.country ? countryName(i.country, locale) : null].filter((x): x is string => Boolean(x))
 }
 
 // Aussteller-Block wie auf der Rechnung: Name fett, darunter die Anschrift; unter einem mittigen Logo zweizeilig
-function issuerLines(i: TaxPdfIssuer, v: LetterheadValues, t: T, locale: string): PdfLine[] | null {
+export function issuerLines(i: TaxPdfIssuer, v: LetterheadValues, t: T, locale: string): PdfLine[] | null {
   if (!v.showIssuer || !i) return null
   const rest = [...addressParts(i, locale), ...(i.vatId ? [t('pdf.vatId', { id: i.vatId })] : [])]
   if (v.logoPosition === 'center') return [{ text: i.name, bold: true }, ...(rest.length ? [{ text: rest.join(' · ') }] : [])]

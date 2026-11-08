@@ -16,6 +16,8 @@ interface KpiTileProps {
   note?: React.ReactNode
   // Ganze Kachel klickbar (PROJ-18: Auslastung und Umsatz auf dem Dashboard)
   link?: KpiLink
+  // Kleinere Zahl, wenn fünf Kacheln nebeneinander stehen (PROJ-18: Beträge wie „€ 152.120,00“)
+  compact?: boolean
 }
 
 // Die Beschriftung trägt den Link, eine Fläche darüber macht die ganze Kachel klickbar
@@ -43,13 +45,13 @@ function TileLabel({ label, link }: { label: string; link?: KpiLink }) {
 }
 
 // Kennzahl-Kachel wie im Entwurf: Beschriftung, große Zahl, Unterzeile; als Fläche abgesetzt (PROJ-14, Wunsch Nutzer)
-export function KpiTile({ label, value, sub, note, link }: KpiTileProps) {
+export function KpiTile({ label, value, sub, note, link, compact = false }: KpiTileProps) {
   return (
     <div className="relative flex min-w-0 flex-col gap-1 rounded-lg bg-ds-surface p-4">
       <dt className="text-[13px] text-ds-neutral-700">
         <TileLabel label={label} link={link} />
       </dt>
-      <dd className="font-serif text-[28px] font-semibold leading-none tracking-[-0.02em] tabular-nums sm:text-[44px]">
+      <dd className={`font-serif text-[28px] font-semibold leading-none tracking-[-0.02em] tabular-nums ${compact ? 'sm:text-[36px] xl:text-[32px]' : 'sm:text-[44px]'}`}>
         {value}
       </dd>
       {sub && <dd className="text-[13px] text-ds-neutral-700">{sub}</dd>}

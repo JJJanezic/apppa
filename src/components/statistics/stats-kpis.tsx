@@ -31,29 +31,34 @@ export function StatsKpis({ totals }: { totals: Compared }) {
   return (
     <KpiGrid label={t('label')} columns={5}>
       <KpiTile
+        compact
         label={t('occupancy')}
         value={pct(occ) ?? DASH}
         sub={t('occupancySub', { occupied: formatNumber(c.occupiedNights), available: formatNumber(c.availableNights), blocked: c.blockedNights })}
         note={<PreviousLine previous={pct(prevOcc)} change={pointChange(occ, prevOcc)} />}
       />
       <KpiTile
+        compact
         label={t('revenue')}
         value={formatCents(c.revenueCents)}
         sub={vat(c.vatCents)}
         note={<PreviousLine previous={cents(prev(p.revenueCents))} change={relativeChange(c.revenueCents, prev(p.revenueCents))} />}
       />
       <KpiTile
+        compact
         label={t('rate')}
         value={cents(rate) ?? DASH}
         note={<PreviousLine previous={cents(prevRate)} change={relativeChange(rate, prevRate)} />}
       />
       <KpiTile
+        compact
         label={t('bookings')}
         value={formatNumber(c.bookings)}
         sub={stay === null ? undefined : t('bookingsSub', { nights: formatNumber(stay, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) })}
         note={<PreviousLine previous={prev(p.bookings) === null ? null : formatNumber(p.bookings)} change={relativeChange(c.bookings, prev(p.bookings))} />}
       />
       <KpiTile
+        compact
         label={t('guestNights')}
         value={formatNumber(c.guestNights)}
         sub={t('guestNightsSub', { count: c.arrivals })}

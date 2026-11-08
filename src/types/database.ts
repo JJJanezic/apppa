@@ -2132,6 +2132,16 @@ export type Database = {
           tenant_id: string
         }[]
       }
+      dashboard_statistics: {
+        Args: { p_month: string; p_tenant_ids: string[] }
+        Returns: {
+          available_nights: number
+          occupied_nights: number
+          revenue_cents: number
+          tenant_id: string
+          vat_cents: number
+        }[]
+      }
       dashboard_unbilled: {
         Args: { p_limit: number; p_tenant_ids: string[]; p_today: string }
         Returns: {
@@ -2395,6 +2405,35 @@ export type Database = {
           p_tenant_id: string
         }
         Returns: undefined
+      }
+      statistics_origin: {
+        Args: { p_from: string; p_tenant_id: string; p_to: string }
+        Returns: {
+          apartment_id: string
+          arrivals: number
+          country: string
+          guest_nights: number
+          previous: boolean
+          revenue_cents: number
+        }[]
+      }
+      statistics_rows: {
+        Args: { p_from: string; p_tenant_id: string; p_to: string }
+        Returns: {
+          apartment_id: string
+          arrivals: number
+          available_nights: number
+          blocked_nights: number
+          bookings: number
+          fee_cents: number
+          fee_vat_cents: number
+          guest_nights: number
+          month: string
+          occupied_nights: number
+          revenue_cents: number
+          revenue_vat_cents: number
+          stay_nights: number
+        }[]
       }
       tourist_tax_monthly: {
         Args: { p_from: string; p_tenant_ids: string[]; p_to: string }
