@@ -1,8 +1,8 @@
 # PROJ-50: Firmenliste
 
-## Status: In Review
+## Status: Approved
 **Created:** 2026-11-08
-**Last Updated:** 2026-11-08 (Backend)
+**Last Updated:** 2026-11-08 (QA, BUG-1 behoben)
 
 ## Dependencies
 - Requires: PROJ-4 (Kundenkonten & Rollen): Rollen Inhaber/Mitarbeiter, gewählter Kunde
@@ -497,7 +497,7 @@ Die Spec sah ein „Änderungsprotokoll der Firma“ zum Ansehen für Inhaber vo
 - [x] Reiter „Gäste“/„Firmen“, `/gaeste/firmen` (über den Reiter)
 - [x] Mitarbeiter: Liste und Detail ohne Anlegen/Bearbeiten/Zusammenführen/Löschen/Dubletten-Link
 - [x] Direktes Ändern, Löschen, Zusammenführen durch Mitarbeiter abgelehnt (Integrationstests)
-- [ ] BUG-1: Fremde Firma per Adresse → „Seite nicht gefunden“ (stimmt), aber auch die eigene Liste, jedes Firmendetail und die Dubletten-Seite liefern beim direkten Aufruf „Seite nicht gefunden“
+- [x] Fremde Firma per Adresse → „Seite nicht gefunden“; eigene Liste, Detail und Dubletten direkt aufrufbar (BUG-1 behoben)
 
 #### Firmenliste
 - [x] Spalten Name, UID, PLZ Ort, Staat, Gäste (auch „0“), alphabetisch, „Name fehlt“
@@ -508,10 +508,10 @@ Die Spec sah ein „Änderungsprotokoll der Firma“ zum Ansehen für Inhaber vo
 
 #### Firma anlegen und bearbeiten
 - [x] Pflichtname, E-Mail- und Webadress-Prüfung, PLZ-Automatik im Firmen-Panel
-- [ ] BUG-1: Nach „Firma anlegen“ erscheint „Seite nicht gefunden“ statt des Firmendetails (Firma ist gespeichert)
+- [x] Nach „Firma anlegen“ öffnet das Firmendetail (BUG-1 behoben)
 - [x] Änderung gilt für alle verknüpften Gäste; ausgestellte Rechnungen/Entwürfe unverändert (Kopie, Integrationstests PROJ-40)
 - [x] Veralteter Stand → Hinweis, nichts überschrieben
-- [ ] BUG-1: „Aktuelle Fassung laden“ und das Neuladen nach dem Speichern führen auf „Seite nicht gefunden“
+- [x] „Aktuelle Fassung laden“ und Neuladen nach dem Speichern (BUG-1 behoben)
 - [x] Änderungsprotokoll in der Datenbank (Integrationstests)
 
 #### Firmendetail
@@ -535,7 +535,7 @@ Die Spec sah ein „Änderungsprotokoll der Firma“ zum Ansehen für Inhaber vo
 #### Löschen
 - [x] Dialog nennt die Zahl der Gäste („3 Gäste sind …“)
 - [x] Verknüpfungen geleert, Protokoll ohne Altwerte (Integrationstests)
-- [ ] BUG-1: Nach dem Löschen bleibt „Seite nicht gefunden“ statt der Liste mit „Firma gelöscht.“
+- [x] Nach dem Löschen Liste mit „Firma gelöscht.“ (BUG-1 behoben)
 
 #### Zusammenführen und Dubletten
 - [x] Feldwahl, Rechnungsadresse als Ganzes, Gäste umgehängt, zweite Firma gelöscht
@@ -584,14 +584,15 @@ Die Spec sah ein „Änderungsprotokoll der Firma“ zum Ansehen für Inhaber vo
   3. Actual: „Seite nicht gefunden“ (ohne App-Rahmen)
   4. Folgen: nach „Firma anlegen“ (Weiterleitung), nach dem Speichern bzw. „Aktuelle Fassung laden“ (Neuladen), nach „Firma löschen“ (Wechsel zur Liste), bei Lesezeichen und geteilten Links. Über den Reiter (Navigation im Browser) funktionieren Liste und Detail.
 - **Priority:** Fix before deployment
-- **Test:** `PROJ-50 … Direkter Aufruf › BUG-1` (schlägt bis zur Behebung fehl); die Tests „Anlegen …“, „Änderung gilt …“ und „Löschen …“ scheitern ebenfalls daran
+- **Test:** `PROJ-50 … Direkter Aufruf › BUG-1`
+- **Status:** behoben (2026-11-08): `src/app/(app)/layout.tsx` nimmt `/gaeste/firmen…` von der Gast-Prüfung aus; Firmen-Dubletten nur für Inhaber, Firmendetail prüft die Firma des Kunden (`getCompany`, sonst 404). Nachtest: Pakete „Reiter und Liste“, „Direkter Aufruf“, „Firma anlegen, bearbeiten, Detail“, „Löschen und Zusammenführen“, „Gastformular“ (desktop) und PROJ-7 (15) grün. Im Test „Änderung gilt …“ wartet der Ablauf nun auf das Neuladen nach „Aktuelle Fassung laden“ (vorher Wettlauf im Test, kein App-Fehler)
 
 ### Summary
-- **Acceptance Criteria:** 57/62 geprüft bestanden; 5 Kriterien scheitern an BUG-1; 3 nicht per E2E geprüft (Seiten ab 50, Gutschrift/Firmenwechsel im Detail – im Code und über Integrationstests abgesichert)
-- **Bugs Found:** 1 (1 critical)
+- **Acceptance Criteria:** 62/62 geprüft bestanden (nach Behebung von BUG-1); 3 nicht per E2E geprüft (Seiten ab 50, Gutschrift/Firmenwechsel im Detail – im Code und über Integrationstests abgesichert)
+- **Bugs Found:** 1 (1 critical, behoben)
 - **Security:** Pass
-- **Production Ready:** NO
-- **Recommendation:** BUG-1 beheben (Layout-Prüfung `/gaeste/firmen` ausnehmen bzw. dort Firma prüfen), danach `/qa` erneut: Pakete „Direkter Aufruf“, „Firma anlegen, bearbeiten, Detail“, „Löschen und Zusammenführen“
+- **Production Ready:** YES
+- **Recommendation:** Deploy (außerhalb der Arbeitszeit, Migration vor App-Code; danach Zahl der Firmen und verknüpften Gäste prüfen). Safari/Firefox auf Staging kurz ansehen
 
 ## Deployment
 _To be added by /deploy_

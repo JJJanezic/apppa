@@ -10,6 +10,7 @@ import { VatStatusProvider } from '@/components/vat/vat-status-context'
 import { requireAppUser } from '@/lib/auth/session'
 import { isActivePath, isAreaAvailable } from '@/lib/navigation'
 import { getBooking } from '@/lib/bookings-data'
+import { getCompany } from '@/lib/companies-data'
 import { getGuest } from '@/lib/guests-data'
 import { getTenantDetail } from '@/lib/operator-data'
 import { getShellInfo, viewerOf } from '@/lib/shell'
@@ -32,9 +33,18 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // Die Abfrage ist pro Anfrage zwischengespeichert; die Seite nutzt dasselbe Ergebnis.
   const tenantPath = /^\/betreiber\/kunden\/([^/]+)/.exec(path)
   if (tenantPath) await getTenantDetail(tenantPath[1])
-  // Gäste (PROJ-7): Dubletten nur für Inhaber; Detailseite nur für bestehende Gäste des Kunden – sonst 404
+  // Gäste (PROJ-7): Dubletten nur für Inhaber; Detailseite nur für bestehende Gäste des Kunden – sonst 404.
+  // „/gaeste/firmen“ ist keine Gast-Kennung (BUG-1 aus QA PROJ-50)
   if (isActivePath('/gaeste/dubletten', path)) {
     if (viewer.role !== 'owner') notFound()
+  } else if (isActivePath('/gaeste/firmen', path)) {
+    // Firmen (PROJ-50): Dubletten nur für Inhaber; Detailseite nur für bestehende Firmen des Kunden – sonst 404
+    if (isActivePath('/gaeste/firmen/dubletten', path)) {
+      if (viewer.role !== 'owner') notFound()
+    } else {
+      const companyPath = /^\/gaeste\/firmen\/([^/]+)/.exec(path)
+      if (companyPath && isAreaAvailable('guests', viewer)) await getCompany(companyPath[1])
+    }
   } else {
     const guestPath = /^\/gaeste\/([^/]+)/.exec(path)
     if (guestPath && isAreaAvailable('guests', viewer)) await getGuest(guestPath[1])

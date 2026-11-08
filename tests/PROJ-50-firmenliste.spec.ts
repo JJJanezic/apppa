@@ -227,11 +227,16 @@ test.describe('Firma anlegen, bearbeiten, Detail', () => {
     expect((await service().from('companies').select('city').eq('id', c).single()).data?.city).toBe('Graz')
 
     await panel(page).getByRole('button', { name: 'Aktuelle Fassung laden' }).click()
+    // Neu geladen: das Formular startet mit der aktuellen Fassung, der Hinweis ist weg
+    await expect(panel(page).getByText('Diese Firma wurde inzwischen geändert.', { exact: false })).toHaveCount(0)
+    await expect(panel(page).getByLabel('Ansprechpartner')).toHaveValue('Jemand')
     await page.keyboard.press('Escape')
+    await expect(page.getByRole('dialog')).toHaveCount(0)
     await page.getByRole('button', { name: 'Bearbeiten' }).click()
     await billing(page).getByLabel('Ort', { exact: true }).fill('Linz')
     await panel(page).getByRole('button', { name: 'Speichern', exact: true }).click()
     await expect(page.getByText('Firma gespeichert.')).toBeVisible()
+    await expect.poll(async () => (await service().from('companies').select('city').eq('id', c).single()).data?.city).toBe('Linz')
     await go(page, `/gaeste/${g1}`)
     const section = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Firma', exact: true }) })
     await expect(section.getByText('Linz', { exact: true })).toBeVisible()
