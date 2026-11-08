@@ -1,6 +1,6 @@
 # PROJ-49: Firmen wiederverwenden
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-11-08
 **Last Updated:** 2026-11-08
 
@@ -166,12 +166,90 @@ Die Daten werden **kopiert**, nicht verknüpft. Nach der Übernahme gehören sie
 <!-- Added by /architecture -->
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Keine Änderung an der Gast-Tabelle; Vorschläge werden bei jeder Anfrage aus den bestehenden Firmenfeldern gebildet | Kopie-Prinzip ohne eigene Firmenliste; keine Daten doppelt halten; nichts zu migrieren oder beim Anonymisieren zusätzlich zu leeren | 2026-11-08 |
+| Neue Lesefunktion in der Datenbank, die sucht, Fassungen zusammenfasst, sortiert und auf 8 begrenzt | Zusammenfassen und „zuletzt geändert“ sind in der Datenbank einfach und schnell; der Browser bekommt nur 8 fertige Zeilen statt aller Gäste | 2026-11-08 |
+| Die Funktion läuft mit den Rechten der angemeldeten Person (bestehende Leseregel „Mitglieder lesen Gäste“) | Mandantentrennung durch die vorhandene Regel; Inhaber und Mitarbeiter dürfen Gäste ohnehin lesen; keine neuen Rechte | 2026-11-08 |
+| Vergleich über die bestehende Vereinheitlichung der Gastsuche (Kleinbuchstaben, ohne Akzente) | Gleiches Suchverhalten wie die Gästesuche (PROJ-7), keine zweite Regel | 2026-11-08 |
+| Zuerst über den vorhandenen Suchindex vorfiltern, dann genau im Firmennamen prüfen | Der Suchtext enthält den Firmennamen bereits; schnell auch bei vielen Gästen, kein neuer Index | 2026-11-08 |
+| Neue Server-Aktion „Firmenvorschläge“ neben der Gastsuche, ab 2 Zeichen, mit kurzer Tipp-Verzögerung | Gleiches Muster wie die Gastsuche (PROJ-7); gewählter Kunde kommt vom Server, nicht vom Browser | 2026-11-08 |
+| Der bearbeitete Gast wird über eine optionale Angabe an das Gastformular ausgeschlossen | Nur die Gästeseite kennt einen bestehenden Gast; Buchungs- und Rechnungsformular legen immer neue Gäste an | 2026-11-08 |
+| Vorschlagsliste unter dem Feld mit der vorhandenen Auswahllisten-Komponente (Command), als Eingabefeld mit Liste nach ARIA-Muster | shadcn-Komponente schon installiert; Tastatur und Bildschirmleser wie in der übrigen App; kein neues Paket | 2026-11-08 |
+| Beim Übernehmen wird der Merker „automatisch befüllt“ der Firmen-PLZ-Automatik (PROJ-48) zurückgesetzt | Sonst könnte ein früher automatisch eingetragener Ort als „überschreibbar“ gelten und die übernommene Fassung verändern | 2026-11-08 |
+| Fehler beim Laden der Vorschläge werden still ignoriert | Spec: Feld bleibt normales Textfeld, keine Fehlermeldung | 2026-11-08 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### Überblick
+Kleine Erweiterung ohne neue Seiten, Tabellen oder Pakete. Das Feld „Firmenname“ im gemeinsamen Gastformular bekommt eine Vorschlagsliste. Die Vorschläge holt der Browser beim Tippen über eine neue Server-Aktion. Diese ruft eine neue Lesefunktion in der Datenbank auf. Die Funktion sucht in den Firmenfeldern der Gäste des gewählten Kunden, fasst gleiche Fassungen zusammen und liefert höchstens 8 Zeilen. Wählt der Nutzer einen Vorschlag, setzt das Formular die sieben Firmenfelder. Gespeichert wird wie bisher erst mit „Speichern“.
+
+### Komponenten (was sich in der Oberfläche ändert)
+```
+Gastformular (gemeinsamer Baustein, unverändert an drei Stellen eingebunden)
++-- Bereich „Firma“ (aufklappbar, wie bisher)
+    +-- Firmenname  ← NEU: Eingabefeld mit Vorschlagsliste
+    |   +-- Vorschlagsliste (ab 2 Zeichen, höchstens 8 Einträge)
+    |       +-- Eintrag: Firmenname
+    |           darunter klein: UID · „PLZ Ort“ · Adresszeile 1 (leere Teile entfallen)
+    +-- UID-Nummer (unverändert)
+    +-- Rechnungsadresse: Adresszeile 1/2, PLZ | Ort, Staat (unverändert, PLZ-Automatik aus PROJ-48)
+
+Eingebunden in:
++-- Gästeseite: Gast anlegen / bearbeiten   → übergibt beim Bearbeiten den eigenen Gast zum Ausschließen
++-- Buchungsformular: „Neuer Gast“           → nichts auszuschließen
++-- Rechnung nacherfassen: „Neuer Gast“      → nichts auszuschließen
+```
+
+**Neuer Baustein „Firmenname mit Vorschlägen“:**
+- Ein normales Textfeld, das zusätzlich eine Liste öffnet. Ohne Auswahl verhält es sich exakt wie bisher, mit Längenprüfung und Fehlermeldung.
+- Bedienung nach dem üblichen Muster für Eingabefelder mit Liste: Pfeiltasten, Enter, Esc, Maus und Touch. Der Bildschirmleser bekommt die Anzahl der Treffer angesagt.
+- Kurze Verzögerung beim Tippen (wie bei der Gastsuche, ca. 0,2 s). Kommt eine Antwort an, während schon weitergetippt wurde, wird sie verworfen.
+- Die Liste schließt sich bei Esc, beim Verlassen des Feldes und nach einer Auswahl. Tab wählt nichts aus (vgl. Safari-Fehler BUG-1 in PROJ-48).
+- Auf dem Handy liegt die Liste direkt unter dem Feld. Das Formular scrollt so, dass sie über der Bildschirmtastatur sichtbar ist.
+
+**Übernehmen eines Vorschlags:**
+- Setzt Firmenname, UID, Adresszeile 1 und 2, PLZ, Ort und Staat. Leere Werte leeren das jeweilige Feld.
+- Die Felder gelten als geändert. Bereits angezeigte Prüffehler werden neu geprüft.
+- Der Merker der Firmen-PLZ-Automatik („Ort/Staat wurden automatisch befüllt“) wird zurückgesetzt. Die übernommenen Werte gelten damit als von Hand eingegeben. Erst eine neue Eingabe im PLZ-Feld startet die Automatik wieder.
+- Gastanschrift und alle übrigen Gastfelder werden nicht angefasst.
+
+### Datenmodell
+Keine Änderung. Die Firma bleibt eine Gruppe von sieben Feldern am Gast (PROJ-33): Firmenname, UID, Adresszeile 1, Adresszeile 2, PLZ, Ort, Staat. Jeder Gast hat bereits „zuletzt geändert am“.
+
+**Neue Lesefunktion „Firmenvorschläge“ (in der Datenbank):**
+- Eingaben: Kunde, Suchtext, optional ein auszuschließender Gast
+- Berücksichtigt nur Gäste dieses Kunden mit Firmennamen, die nicht anonymisiert sind, ohne den ausgeschlossenen Gast
+- Treffer: Der vereinheitlichte Firmenname enthält den vereinheitlichten Suchtext. Vereinheitlicht heißt: Kleinbuchstaben, ohne Akzente, wie bei der Gästesuche.
+- Fassung: Gäste werden zusammengefasst, wenn alle sieben Felder nach Kleinschreibung und ohne Leerzeichen am Rand übereinstimmen. Je Fassung wird der zuletzt geänderte Gast als Quelle der angezeigten Werte genommen.
+- Reihenfolge: nach „zuletzt geändert“ der Fassung, neueste zuerst; höchstens 8 Zeilen
+- Liefert je Zeile nur die sieben Firmenfelder, keine Gastnamen oder sonstigen Personendaten
+- Läuft mit den Rechten der angemeldeten Person. Die bestehende Leseregel für Gäste (Mitglieder des Kunden und Betreiber) begrenzt damit automatisch auf den eigenen Kunden.
+
+**Neue Server-Aktion „Firmenvorschläge“** (neben der bestehenden Gastsuche):
+- Prüft Anmeldung und Mitgliedschaft (Inhaber oder Mitarbeiter) im gewählten Kunden, wie die Gastsuche
+- Unter 2 Zeichen: leere Liste ohne Datenbankabfrage
+- Suchtext auf 200 Zeichen begrenzt; ungültige Gast-Kennung zum Ausschließen wird ignoriert
+- Fehler führen zu einer leeren Liste, im Browser ohne Meldung, auf dem Server protokolliert wie üblich
+
+### Sicherheit und Datenschutz
+- Mandantentrennung doppelt: Der Kunde kommt aus der Sitzung auf dem Server, und die Datenbank-Leseregel greift zusätzlich.
+- Es werden nur Firmendaten zurückgegeben, keine Rückschlüsse darauf, welcher Gast sie trägt.
+- Anonymisierte Gäste haben ohnehin keine Firmendaten. Die Funktion schließt sie trotzdem ausdrücklich aus.
+- Keine Schreibrechte, keine neuen Rollenregeln. Das Speichern läuft unverändert über die bestehenden Wege (Gast speichern nur Inhaber, Buchung mit neuem Gast alle Mitglieder).
+
+### Leistung
+- Die Abfrage nutzt den vorhandenen Suchindex der Gäste (Suchtext enthält den Firmennamen) als Vorfilter und prüft dann genau im Firmennamen.
+- Bei einigen tausend Gästen je Kunde bleibt die Antwort im Bereich weniger Millisekunden. Übertragen werden höchstens 8 kurze Zeilen.
+
+### Tests (Hinweise für Frontend/Backend/QA)
+- Datenbank: Zusammenfassen gleicher Fassungen (Groß-/Kleinschreibung, Leerzeichen), getrennte Fassungen, Reihenfolge, Grenze 8, Ausschluss des eigenen Gastes, anonymisierte Gäste, kein Zugriff auf andere Kunden, Mitarbeiter darf lesen
+- Unit: Übernahme setzt alle sieben Felder inkl. Leeren; PLZ-Merker wird zurückgesetzt
+- E2E: Tippen, Auswahl mit Tastatur und Maus, Esc, Tab ohne Übernahme; an allen drei Stellen; Mitarbeiter im Buchungsformular
+
+### Abhängigkeiten (Pakete)
+Keine neuen Pakete. Genutzt werden die vorhandene shadcn-Komponente „Command“, react-hook-form und die bestehende Vereinheitlichung der Gästesuche in der Datenbank.
 
 ## QA Test Results
 _To be added by /qa_
