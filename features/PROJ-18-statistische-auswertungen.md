@@ -2,7 +2,7 @@
 
 ## Status: Deployed
 **Created:** 2026-11-08
-**Last Updated:** 2026-11-08
+**Last Updated:** 2026-11-08 (refine: Kundenauswahl, zentrierte Kacheln)
 
 ## Dependencies
 - Requires: PROJ-1 (Supabase-Infrastruktur): Mandantentrennung (RLS)
@@ -140,6 +140,40 @@ Hat die Person im Dashboard-Kundenfilter mindestens einen Kunden, bei dem sie **
 - Umfasst der Filter keinen Kunden, bei dem die Person Inhaber ist, bleiben die **bisherigen vier Kacheln** (Anreisen heute, Abreisen heute, Belegt heute, Offene Rechnungen) unverändert.
 - Umsatz und Auslastung werden für Mitarbeiter nicht berechnet und nicht ausgeliefert.
 
+## Erweiterung: Kundenauswahl und zentrierte Kacheln (refine 2026-11-08)
+Nach der Auslieferung gewünscht: Die Auswertung soll wie das Dashboard über alle Kunden laufen, bei denen die Person Inhaber ist, oder einzeln je Kunde. Die Kacheln der Auswertungsseite werden wie die Dashboard-Kacheln zentriert. Diese Regeln gehen den älteren Regeln oben vor („gewählter Kunde“).
+
+### Kundenauswahl
+- Ganz oben über den übrigen Filtern: **„Alle Kunden“** / „Kunde A“ / „Kunde B“ … (alphabetisch). Angeboten werden **nur Kunden, bei denen die Person Inhaber ist** (aktive Kunden). Kunden, bei denen sie nur Mitarbeiter ist, fehlen.
+- **Standard beim Öffnen: „Alle Kunden“.** Die Wahl steht in der Adresse (`?kunde=<id>` bzw. ohne Angabe/„alle“) wie die übrigen Filter: Neu laden, Lesezeichen, „Zurück“ und Exporte nutzen sie.
+- Die Auswahl ist **eigenständig**: Sie ändert weder den gewählten Kunden der übrigen Seiten noch den Kundenfilter des Dashboards.
+- Hat die Person nur **einen** Inhaber-Kunden, wird die Auswahl nicht angezeigt; die Seite zeigt diesen Kunden.
+- Ein Kunde in der Adresse, bei dem die Person nicht (mehr) Inhaber ist, gilt als „Alle Kunden“.
+- Wechselt die Kundenauswahl, werden Objekt und Wohnung zurückgesetzt.
+
+### Seite bei „Alle Kunden“
+- **Kacheln, „Je Monat“ und „Gästeherkunft“** zählen alle Inhaber-Kunden zusammen, mit Vorjahr, nach denselben Rechenregeln. Verfügbare Nächte, Umsatz usw. sind die Summe der Kunden.
+- **Neuer Abschnitt „Je Kunde“** (über „Je Wohnung“, nur bei mehr als einem Kunden in der Auswahl): eine Zeile je Kunde mit Auslastung, belegten und gesperrten Nächten, Umsatz brutto (USt klein darunter) und Ø-Preis je Nacht, jeweils mit Vorjahr; alphabetisch, Summenzeile „Gesamt“. Kunden ohne Daten im Zeitraum erscheinen mit „–“ bzw. 0.
+- **Objekt- und Wohnungsfilter:** Bei „Alle Kunden“ steht der Kunde in Klammern hinter dem Objekt, z. B. „Haus Alpen (Alpenhof GmbH)“; die Wohnungsauswahl ohne Objektwahl ebenso („Haus Alpen · Top 1 (Alpenhof GmbH)“). Ein Objekt gehört immer genau einem Kunden; ist ein Objekt gewählt, gilt die Auswertung nur für dieses.
+- **„Je Wohnung“** ist bei mehreren Kunden nach **Kunde → Objekt → Wohnung** gruppiert; beim Sortieren steht der Kunde in der Zeile mit dabei.
+- Der leere Zustand gilt, wenn keiner der Kunden Daten im Zeitraum hat.
+- Die Kopfzeile über dem Seitentitel zeigt „Alle Kunden“ bzw. den Namen des gewählten Kunden.
+
+### Exporte bei „Alle Kunden“
+- **PDF:** neutraler Kopf **ohne Briefpapier** (kein Logo, kein Aussteller-Block, Grundschrift der App). Statt „Vermieter: …“ stehen alle einbezogenen Kunden („Kunden: Alpenhof GmbH, Seeblick KG“). Inhalt wie bisher plus Tabelle „Je Kunde“; „Je Wohnung“ nach Kunde gruppiert. Dateiname `Auswertung_<Zeitraum>_Alle-Kunden_Stand-<Datum>.pdf`.
+- **Einzelner Kunde:** PDF wie bisher mit dem Briefpapier dieses Kunden (auch wenn er nicht der gewählte Kunde der übrigen Seiten ist).
+- **CSV:** neue **erste Spalte „Kunde“**, immer (auch bei einem Kunden), damit die Datei gleich aufgebaut ist. Sortierung Monat, Kunde, Objekt, Wohnung.
+
+### Zugriff (neu)
+- Der Menüpunkt „Auswertungen“ erscheint, **sobald die Person bei mindestens einem aktiven Kunden Inhaber ist**, unabhängig vom gewählten Kunden der übrigen Seiten. Personen ohne Inhaber-Kunde sehen ihn nicht; ein direkter Aufruf ergibt „Seite nicht gefunden“ (404), Exporte 403.
+- Die Datenbank prüft die Inhaber-Rolle je Kunde weiterhin selbst; Kunden ohne Inhaber-Rolle liefern nichts, auch wenn sie in der Adresse stehen.
+
+### Dashboard
+- Die Kacheln „Auslastung [Monat]“ und „Umsatz [Monat]“ öffnen **immer** die Auswertung des laufenden Monats mit **demselben Kundenfilter wie das Dashboard** („Alle Kunden“ bzw. der gefilterte Kunde, sofern die Person dort Inhaber ist). Ein Kundenwechsel ist dafür nicht mehr nötig; die Regel „bei mehreren Inhaber-Kunden nicht anklickbar“ entfällt.
+
+### Kacheln zentriert
+- Die fünf Kacheln der Auswertungsseite zeigen ihren Inhalt **waagrecht und senkrecht zentriert**, wie die Kacheln im Dashboard.
+
 ## User Stories
 - Als **Inhaber** möchte ich die Auslastung meiner Wohnungen je Monat sehen, damit ich schwache Zeiten erkenne und Preise oder Mindestaufenthalte anpasse.
 - Als **Inhaber** möchte ich den Umsatz brutto mit der enthaltenen USt sehen, damit ich mein Geschäft einschätzen und die Umsatzsteuer abschätzen kann.
@@ -149,6 +183,7 @@ Hat die Person im Dashboard-Kundenfilter mindestens einen Kunden, bei dem sie **
 - Als **Inhaber** möchte ich die Auswertung als PDF und CSV exportieren, damit ich sie an Bank oder Steuerberatung weitergeben oder in Excel weiterrechnen kann.
 - Als **Inhaber** möchte ich Auslastung und Umsatz des laufenden Monats auf dem Dashboard sehen, damit ich den Stand ohne Seitenwechsel kenne.
 - Als **Mitarbeiter** soll ich keine Umsätze und Auswertungen sehen, weil diese dem Inhaber vorbehalten sind.
+- Als **Inhaber mehrerer Kunden** möchte ich die Auswertung über alle meine Kunden zusammen oder je Kunde sehen und die Kunden in einer Tabelle vergleichen, damit ich meine Betriebe im Überblick habe (refine 2026-11-08).
 
 ## Out of Scope
 - **Auswertung nach Kanälen** (booking.com, Airbnb, direkt, Buchungsquellen) → als Prüfpunkt bei PROJ-11 (Buchungsimport aus Channex); Entscheidung beim Spec-Interview zu PROJ-11
@@ -159,7 +194,9 @@ Hat die Person im Dashboard-Kundenfilter mindestens einen Kunden, bei dem sie **
 - Bettenauslastung (nach Personenkapazität)
 - Vergleich mit dem Vormonat oder frei wählbaren Zeiträumen
 - Mehrfachauswahl von Wohnungen
-- Auswertung über mehrere Kunden auf der Seite „Auswertungen“ (nur Dashboard-Kacheln gehen über Kunden)
+- ~~Auswertung über mehrere Kunden auf der Seite „Auswertungen“~~ → mit refine 2026-11-08 aufgenommen
+- Auswertung über Kunden, bei denen die Person nur Mitarbeiter ist
+- Gemeinsame Kundenauswahl mit dem Dashboard (bewusst eigenständig)
 - Gästeherkunft in der CSV
 - Prognosen, gespeicherte Berichte, automatischer Versand
 - Auswertungen für Mitarbeiter oder den Betreiber
@@ -247,6 +284,22 @@ Hat die Person im Dashboard-Kundenfilter mindestens einen Kunden, bei dem sie **
 - [ ] Angenommen der Filter umfasst zwei Inhaber-Kunden, wenn das Dashboard erscheint, dann sind Auslastung und Umsatz nicht anklickbar
 - [ ] Angenommen Auslastung November auf dem Dashboard und auf „Auswertungen“ für November mit „Alle Wohnungen“, wenn beide verglichen werden, dann stimmen die Werte überein
 
+### Erweiterung Kundenauswahl (refine 2026-11-08)
+- [ ] Angenommen eine Person ist Inhaberin bei A und B und Mitarbeiterin bei C, wenn sie „Auswertungen“ öffnet, dann ist „Alle Kunden“ gewählt, die Auswahl bietet A und B an, aber nicht C, und alle Werte zählen A und B zusammen
+- [ ] Angenommen „Alle Kunden“ mit A und B, wenn die Seite erscheint, dann gibt es den Abschnitt „Je Kunde“ mit je einer Zeile für A und B samt Vorjahr und „Gesamt“
+- [ ] Angenommen die Person wählt Kunde B, wenn die Seite neu erscheint, dann zählen nur Daten von B, „Je Kunde“ entfällt, und der gewählte Kunde der übrigen Seiten sowie der Dashboard-Filter bleiben unverändert
+- [ ] Angenommen „Alle Kunden“, wenn die Person die Objektauswahl öffnet, dann steht hinter jedem Objekt der Kunde in Klammern
+- [ ] Angenommen „Alle Kunden“, wenn „Je Wohnung“ erscheint, dann ist die Tabelle nach Kunde, Objekt und Wohnung gegliedert
+- [ ] Angenommen eine Adresse mit Kunde C (nur Mitarbeiterin), wenn die Seite lädt, dann gilt „Alle Kunden“ und es erscheinen keine Daten von C
+- [ ] Angenommen nur ein Inhaber-Kunde, wenn die Seite erscheint, dann gibt es keine Kundenauswahl und keinen Abschnitt „Je Kunde“
+- [ ] Angenommen die Person ist beim gewählten Kunden der übrigen Seiten nur Mitarbeiterin, aber bei einem anderen Kunden Inhaberin, wenn sie das Menü öffnet, dann ist „Auswertungen“ sichtbar und die Seite zeigt nur ihre Inhaber-Kunden
+- [ ] Angenommen eine Person ohne Inhaber-Kunde, wenn sie `/auswertungen` aufruft, dann erhält sie „Seite nicht gefunden“ (404) und die Exporte antworten mit 403
+- [ ] Angenommen „Alle Kunden“, wenn das PDF erzeugt wird, dann hat es keinen Briefpapier-Kopf, nennt alle einbezogenen Kunden, enthält „Je Kunde“ und heißt `Auswertung_<Zeitraum>_Alle-Kunden_Stand-<Datum>.pdf`
+- [ ] Angenommen ein einzelner Kunde B, der nicht der gewählte Kunde der übrigen Seiten ist, wenn das PDF erzeugt wird, dann trägt es das Briefpapier von B
+- [ ] Angenommen eine CSV, wenn sie erzeugt wird, dann ist die erste Spalte „Kunde“ (auch bei einem einzelnen Kunden)
+- [ ] Angenommen das Dashboard mit Filter „Alle Kunden“ und zwei Inhaber-Kunden, wenn die Person auf „Auslastung [Monat]“ klickt, dann öffnet sich die Auswertung des laufenden Monats mit „Alle Kunden“; mit Dashboard-Filter auf Kunde B mit Kunde B
+- [ ] Angenommen die Auswertungsseite, wenn die Kacheln erscheinen, dann ist ihr Inhalt zentriert wie im Dashboard
+
 ### Handy
 - [ ] Angenommen ein Inhaber am Handy (375 px), wenn er „Auswertungen“ öffnet, dann stehen die Kacheln zweispaltig, die Abschnitte untereinander, Tabellen scrollen seitlich mit stehender erster Spalte und die Seite scrollt nicht seitlich
 
@@ -260,6 +313,10 @@ Hat die Person im Dashboard-Kundenfilter mindestens einen Kunden, bei dem sie **
 - **Zeitraum ganz in der Zukunft:** erlaubt; zeigt den Buchungsstand mit Hinweis.
 - **Kundenwechsel in anderem Tab:** Die Seite gilt für den gewählten Kunden zum Zeitpunkt des Ladens; Exporte prüfen Inhaberrolle und Kunden serverseitig erneut.
 - **Viele Länder in der Herkunft:** Bildschirm zeigt 10 plus „Übrige Länder“, das PDF alle.
+
+- **Kunde wird deaktiviert oder die Inhaber-Rolle entzogen:** Er verschwindet aus der Auswahl; eine Adresse mit ihm gilt als „Alle Kunden“.
+- **Gleich benannte Objekte bei verschiedenen Kunden:** durch den Kundennamen in Klammern unterscheidbar.
+- **Kunde ohne Wohnungen in „Alle Kunden“:** erscheint in „Je Kunde“ mit „–“ bzw. 0; der leere Zustand gilt nur, wenn alle Kunden ohne Daten sind.
 
 ## Technical Requirements
 - Performance: Seite und Dashboard-Kacheln mit 5.000 Buchungen je Kunde unter 2 s; PDF unter 10 s
@@ -297,6 +354,13 @@ Hat die Person im Dashboard-Kundenfilter mindestens einen Kunden, bei dem sie **
 | Verfügbar ab Monat der ersten Buchung, sonst ab Anlage; bis Archivierung | Vernünftige Werte ohne neues Feld, auch bei nacherfassten Altbuchungen | 2026-11-08 |
 | Ø-Preis ohne Stornogebühren; Doppelbuchungs-Nächte einmal belegt | Stornogebühren haben keine Nächte; Auslastung bleibt ≤ 100 % | 2026-11-08 |
 | Veränderung zum Vorjahr ohne Farbwertung | Steigende Werte sind nicht immer gut (z. B. Gästenächte bei weniger Umsatz); neutrale Darstellung | 2026-11-08 |
+
+| Kundenauswahl auf der Auswertungsseite (alle Inhaber-Kunden oder einzeln), eigenständig, in der Adresse, Standard „Alle Kunden“ (refine) | Nutzerwunsch nach Abnahme; wie das Dashboard, aber ohne die Dashboard-Wahl zu verstellen | 2026-11-08 |
+| Abschnitt „Je Kunde“ bei mehreren Kunden; Objekt-/Wohnungsfilter mit Kundenname; „Je Wohnung“ nach Kunde gruppiert (refine) | Nutzerentscheidung: Vergleich der Betriebe auf einen Blick | 2026-11-08 |
+| PDF bei „Alle Kunden“ ohne Briefpapier, CSV immer mit Spalte „Kunde“ (refine) | Briefpapier eines Kunden würde fremde Zahlen als seine ausweisen; CSV immer gleich aufgebaut | 2026-11-08 |
+| Menüpunkt „Auswertungen“ sichtbar, sobald die Person bei mindestens einem Kunden Inhaber ist (refine) | Passt zur Logik „über alle meine Kunden“; Abweichung von den übrigen Inhaber-Bereichen bewusst | 2026-11-08 |
+| Dashboard-Kacheln öffnen die Auswertung immer mit dem Dashboard-Kundenfilter (refine) | Kein Kundenwechsel mehr nötig, da die Auswertung selbst über Kunden geht | 2026-11-08 |
+| Kacheln der Auswertungsseite zentriert (refine) | Nutzerwunsch, einheitlich mit dem Dashboard | 2026-11-08 |
 
 ### Technical Decisions
 | Decision | Rationale | Date |
