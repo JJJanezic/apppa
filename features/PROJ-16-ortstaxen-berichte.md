@@ -255,6 +255,9 @@ Beide Knöpfe stehen oben rechts neben dem Filter: **„PDF“** und **„CSV“
 | CSV auf dem Server erzeugt, Strichpunkt, Komma, UTF-8 mit BOM; Felder mit `= + - @` am Anfang mit vorangestelltem Hochkomma | Excel (deutsch) öffnet sie direkt; Schutz vor Formel-Einschleusung | 2026-11-08 |
 | Exporte als eigene Download-Adressen; Knopf lädt im Hintergrund und speichert die Datei, bei Fehler Meldung auf der Seite | Fehlermeldung statt leerer Fehlerseite; Bericht bleibt sichtbar | 2026-11-08 |
 | Keine neuen Pakete | React-PDF und alles Weitere ist vorhanden | 2026-11-08 |
+| Zwischenschritte des Rechenkerns `materialized` | Ohne diese Angabe vervielfachte PostgreSQL die Abfrage nach dem Tarifende (2,2 s → 63 ms bei 5.000 Positionen); beschleunigt auch das Dashboard | 2026-11-08 |
+| Bericht seitenweise laden (1.000 Zeilen je Abruf, ab Seite 2 vier gleichzeitig), eindeutige Reihenfolge mit Buchungs-ID | Die Datenschnittstelle liefert höchstens 1.000 Zeilen je Abruf; ohne Seiten wäre ein Jahresbericht großer Kunden unvollständig | 2026-11-08 |
+| PDF-Vorlage nutzt Kopf und Grundschrift der Rechnung, ohne Vermessung von Aussteller und Fußzeile | Gleiches Erscheinungsbild; der Bericht hat keine frei gestaltete Fußzeile | 2026-11-08 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
@@ -421,6 +424,56 @@ Keine neuen. Genutzt werden das vorhandene `@react-pdf/renderer` (über den PDF-
   - CSV aus `buildTaxReportCsv` mit `touristTaxReport.csv.columns`
 
 **Sichtprüfung:** mit temporären Musterdaten (danach entfernt) bei 1440 px und 375 px. Die Seite scrollt nicht seitlich, die Browser-Konsole ist ohne Fehler, axe meldet keine Verstöße. Build, Lint und alle 829 Unit-Tests sind grün.
+
+### Umsetzung Backend (2026-11-08)
+**Datenbank (nur Dev):**
+- `20261108071036_tourist_tax_report.sql`:
+  - Rechenkern `private.tourist_tax_parts`: die Verteilung aus PROJ-14 je Position und Monat, dazu Nächte, Personennächte und Art (Tarif je Person und Nacht, Prozent, Alt-Position). Nicht von außen aufrufbar.
+  - `private.tourist_tax_monthly` (Dashboard) summiert jetzt den Kern. Die 18 Dashboard-Tests sind unverändert grün.
+  - `private.tourist_tax_report` mit Hülle `public.tourist_tax_report(p_tenant_id, p_from, p_to)`: je Buchung und Gemeinde die Spalten aus dem Vertrag oben. Nur Inhaber (Prüfung im Kern).
+- `20261108072054_tourist_tax_parts_materialized.sql`: Zwischenschritte des Kerns `materialized`. Messung siehe unten.
+- `20261108073000_tourist_tax_report_order.sql`: eindeutige Reihenfolge mit Buchungs-ID als letztem Schlüssel, damit seitenweises Laden keine Zeilen doppelt liefert oder verliert.
+- Keine neue Tabelle und keine neue Spalte. Advisors ohne neue Meldung (nur die bekannte Warnung zur OTP-Ablaufzeit).
+
+**Server:**
+- `src/lib/tourist-tax-report-data.ts`: lädt seitenweise (1.000 Zeilen je Abruf, ab Seite 2 vier gleichzeitig, höchstens 50.000 Zeilen).
+- `src/lib/tourist-tax-report-export.ts` und `GET /api/ortstaxe/csv`, `GET /api/ortstaxe/pdf`:
+  - Fehlercodes: 401 ohne Anmeldung, 403 bei offener Zwei-Faktor-Anmeldung, für Mitarbeiter und ohne Kunden, 404 ohne Ortstaxe im Zeitraum, 503 ohne Funktion oder bei ausgelastetem PDF-Arbeitsprozess, 500 bei Fehlern
+  - `Content-Disposition` mit ASCII-Ersatz und UTF-8-Namen, `cache-control: no-store`
+- PDF:
+  - `src/lib/tourist-tax-pdf/` mit `types.ts`, `view.ts` (Aufbereitung) und `document.tsx` (Vorlage)
+  - Der Arbeitsprozess unterscheidet die Dokumentart am Feld `kind`. `renderTaxReportPdf` teilt sich die Lastgrenze mit den Rechnungen.
+  - Kopf (Logo, Aussteller) wie die Rechnung, nur auf Seite 1. Tabellenkopf auf jeder Folgeseite; bei „Alle Gemeinden“ jede Gemeinde auf neuer Seite.
+  - Fußzeile mit „Stand“ und „Seite X von Y“ auf jeder Seite, auch bei nur einer Seite.
+- Texte unter `touristTaxReport.pdf` in `messages/de.json`. Die Zeitraumbezeichnung (`periodLabel`) steht jetzt in `tourist-tax-report.ts` und wird von Seite und PDF gemeinsam genutzt.
+
+**Tests:**
+- Integration gegen Dev, `supabase/tests/tourist-tax-report.integration.test.ts` (11 Tests):
+  - Personennächte, befreite Personennächte (Kind, nie unter 0)
+  - Monatsgrenze mit „anteilig“, Tarifwechsel in einer Zeile
+  - Alt-Position mit und ohne Vielfaches, Prozent-Tarif
+  - archivierte Wohnung; Option und Storno zählen nicht; anonymisierter Gast
+  - Gleichheit mit `tourist_tax_monthly` je Monat und Gemeinde, Quartal = Summe der Monate
+  - Rechte: Mitarbeiter, Inhaberin, die beim anderen Kunden nur Mitarbeiterin ist, ohne Anmeldung; Rechenkern von außen gesperrt
+- Dashboard-Tests: 18 grün.
+- PDF mit dem gebauten Arbeitsprozess, `src/lib/tourist-tax-pdf/render.integration.test.ts` (4 Tests):
+  - eine Gemeinde, alle Gemeinden mit eigener Seite je Gemeinde
+  - 90 Buchungen: Tabellenkopf und Fußzeile auf jeder Seite, Kopf nur auf Seite 1
+  - ohne Aussteller-Block, mit Hinweis auf offenen Zeitraum
+  - Sichtprüfung der Seiten als Bild
+- Downloads, `src/app/api/ortstaxe/ortstaxe.test.ts` (7 Tests): Anmeldung und Rollen, Filter, Dateinamen mit Umlaut, BOM, Formelschutz, Fehlercodes.
+- Gesamt: 840 Unit-Tests grün, Lint sauber, Build erfolgreich.
+
+**Messung (Dev):** 5.000 Buchungen mit Ortstaxe bei einem Kunden, Inhaber, über die Datenschnittstelle samt Netzwerk:
+- Jahr (alle 5.000 Zeilen, keine doppelt): 1,2–2,0 s; der erste Lauf mit kaltem Start
+- Monat: 0,15 s
+- Dashboard (24 Monate): 0,18 s statt vorher 2,1 s
+
+Die Messdaten wurden wieder gelöscht.
+
+**Gefunden und behoben:**
+1. Die Datenschnittstelle liefert höchstens 1.000 Zeilen je Abruf. Ein Jahresbericht großer Kunden wäre ohne seitenweises Laden unvollständig gewesen.
+2. Der Rechenkern war ohne `materialized` langsam (2,2 s). Das betraf schon die Dashboard-Funktion seit der Nachbesserung BUG-9 aus PROJ-14.
 
 ## QA Test Results
 _To be added by /qa_

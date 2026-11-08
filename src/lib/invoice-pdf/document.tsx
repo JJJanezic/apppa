@@ -20,6 +20,8 @@ const s = StyleSheet.create({
 })
 
 type FamilyOf = (font: RichFont) => string
+// Kopf und Grundschrift nutzt auch der Ortstaxen-Bericht (PROJ-16)
+export type HeadView = Pick<PdfView, 'letterhead' | 'logo' | 'issuer'>
 
 function inlineStyle(node: Extract<RichInline, { type: 'text' }>) {
   const marks = node.marks ?? []
@@ -104,18 +106,18 @@ export const Lines = ({ lines, size, align, width, maxWidth }: { lines: PdfLine[
 )
 
 // Breite des Aussteller-Blocks: Ohne Grenze bricht React-PDF lange Zeilen nicht um, sondern schneidet sie ab (QA BUG-2)
-export function issuerWidthPt(view: PdfView): number {
+export function issuerWidthPt(view: HeadView): number {
   if (view.letterhead.logoPosition === 'center' || !view.logo) return mm(P.textWidthMm)
   return mm(P.textWidthMm - view.logo.widthMm) - HEAD_GAP_PT
 }
 
 // Platz für den Aussteller-Block im Kopf; unter einem mittigen Logo nur, was das Logo übrig lässt
-export function issuerMaxHeightPt(view: PdfView): number {
+export function issuerMaxHeightPt(view: HeadView): number {
   const logo = view.letterhead.logoPosition === 'center' && view.logo ? mm(view.logo.heightMm) + CENTER_GAP_PT : 0
   return mm(P.headHeightMm) - logo
 }
 
-function Head({ view, issuerSize }: { view: PdfView; issuerSize: number }) {
+export function Head({ view, issuerSize }: { view: HeadView; issuerSize: number }) {
   const v = view.letterhead
   const logo = view.logo && <PdfImage src={{ data: Buffer.from(view.logo.data), format: 'png' }} style={{ width: mm(view.logo.widthMm), height: mm(view.logo.heightMm) }} />
   const box = { position: 'absolute' as const, top: mm(P.headTopMm), left: mm(P.marginXMm), right: mm(P.marginXMm), height: mm(P.headHeightMm), overflow: 'hidden' as const }
@@ -157,7 +159,7 @@ export function FooterPdf({ doc, gap, familyOf, baseSize }: { doc: RichDoc; gap:
   )
 }
 
-export function pageBase(view: PdfView, familyOf: FamilyOf) {
+export function pageBase(view: Pick<PdfView, 'letterhead'>, familyOf: FamilyOf) {
   const v = view.letterhead
   return { fontFamily: familyOf(v.fontFamily), fontSize: v.fontSize, lineHeight: LINE_HEIGHT[v.lineSpacing], color: '#000000' }
 }

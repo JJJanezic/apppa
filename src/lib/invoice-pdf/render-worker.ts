@@ -6,6 +6,8 @@ import { createElement } from 'react'
 
 import { FooterPdf, footerGap, InvoiceDocument, issuerMaxHeightPt, issuerWidthPt, Lines, PAGE_HEIGHT_PT, pageBase } from '@/lib/invoice-pdf/document'
 import type { PdfResult, PdfView } from '@/lib/invoice-pdf/types'
+import { TaxReportDocument } from '@/lib/tourist-tax-pdf/document'
+import { TAX_REPORT_PDF_KIND, type TaxPdfResult, type TaxPdfView } from '@/lib/tourist-tax-pdf/types'
 import { PAGE_LAYOUT as P } from '@/lib/letterhead'
 import type { RichDoc, RichFont } from '@/lib/rich-text'
 
@@ -34,8 +36,12 @@ function usedFonts(view: PdfView): RichFont[] {
 
 // Schriften unter eigenem Namen je Durchgang: So teilen sich die Durchgänge keinen Schriftzustand
 function registerFonts(view: PdfView, pass: string): (font: RichFont) => string {
+  return registerFontFiles(usedFonts(view), pass)
+}
+
+function registerFontFiles(fonts: RichFont[], pass: string): (font: RichFont) => string {
   const dir = join(process.cwd(), 'src', 'lib', 'invoice-pdf', 'fonts')
-  for (const font of usedFonts(view)) {
+  for (const font of fonts) {
     const file = FONT_FILES[font]
     Font.register({
       family: `${pass}-${font}`,
@@ -196,7 +202,26 @@ async function render(input: PdfView): Promise<PdfResult> {
   }
 }
 
-render(workerData as PdfView).then(
+// Ortstaxen-Bericht (PROJ-16): nur die Grundschrift des Briefpapiers, keine Fußzeile und kein Aussteller zu vermessen
+async function renderTaxReport(input: TaxPdfView): Promise<TaxPdfResult> {
+  const view = withoutInvisible(input)
+  Font.registerHyphenationCallback((word) => (word.length > LONG_WORD ? Array.from(word) : [word]))
+  let pages = 1
+  const pdf = await renderToBuffer(
+    createElement(TaxReportDocument, {
+      view,
+      familyOf: registerFontFiles([view.letterhead.fontFamily], 'report'),
+      onPages: (n: number) => {
+        pages = n
+      },
+    }) as never
+  )
+  return { pdf: new Uint8Array(pdf), pages }
+}
+
+const job = workerData as PdfView | TaxPdfView
+const run: Promise<PdfResult | TaxPdfResult> = 'kind' in job && job.kind === TAX_REPORT_PDF_KIND ? renderTaxReport(job) : render(job as PdfView)
+run.then(
   (result) => parentPort?.postMessage({ ok: true, result }),
   (e: unknown) => parentPort?.postMessage({ ok: false, message: e instanceof Error ? e.message : String(e) })
 )

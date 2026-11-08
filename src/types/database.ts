@@ -2406,6 +2406,31 @@ export type Database = {
           tenant_id: string
         }[]
       }
+      tourist_tax_report: {
+        Args: { p_from: string; p_tenant_id: string; p_to: string }
+        Returns: {
+          amount_cents: number
+          apartment_name: string
+          arrival: string
+          booking_id: string
+          booking_number: string
+          departure: string
+          exempt_person_nights: number
+          guest_anonymized: boolean
+          guest_first_name: string
+          guest_last_name: string
+          known_taxable_person_nights: number
+          legacy: boolean
+          municipality_id: string
+          municipality_name: string
+          partial: boolean
+          percent: boolean
+          persons: number
+          property_name: string
+          taxable_person_nights: number
+          unknown_positions: number
+        }[]
+      }
       unused_guest_documents: { Args: { p_limit?: number }; Returns: string[] }
       unused_invoice_pdfs: { Args: { p_limit?: number }; Returns: string[] }
       unused_payment_receipts: { Args: { p_limit?: number }; Returns: string[] }

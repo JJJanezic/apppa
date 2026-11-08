@@ -3034,6 +3034,14 @@
         "Betrag",
         "Hinweis"
       ]
+    },
+    "pdf": {
+      "period": "Zeitraum: {period}",
+      "municipality": "Gemeinde: {name}",
+      "customer": "Vermieter: {customer}",
+      "vatId": "UID: {id}",
+      "stand": "Stand: {stand}",
+      "pageOf": "Seite {page} von {pages}"
     }
   }
 }

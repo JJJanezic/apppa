@@ -11,7 +11,7 @@ import { TaxReportBookings, TaxReportSummary } from '@/components/tourist-tax/re
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { requireArea } from '@/lib/areas'
 import { todayIso } from '@/lib/bookings'
-import { buildTaxReport, parseTaxReportFilters, periodKind, periodOpen, type TaxReportFilters, taxReportFileName } from '@/lib/tourist-tax-report'
+import { buildTaxReport, parseTaxReportFilters, periodLabel, periodOpen, type TaxReportFilters, taxReportFileName } from '@/lib/tourist-tax-report'
 import { getTouristTaxReport, hasTouristTaxRates } from '@/lib/tourist-tax-report-data'
 import { getTenantContext } from '@/lib/tenant'
 
@@ -45,7 +45,7 @@ export default async function TouristTaxReportPage({ searchParams }: { searchPar
   // Gemeinde ohne Ortstaxe im Zeitraum: Filter fällt auf „Alle Gemeinden“ zurück
   const filters: TaxReportFilters = { ...requested, municipality: view.municipality }
   const empty = view.groups.length === 0
-  const period = periodLabel(t, filters)
+  const period = periodLabel((key, values) => t(key as never, values as never), filters)
   const municipalityName = view.municipalities.find((m) => m.id === filters.municipality)?.name ?? null
 
   return (
@@ -101,14 +101,4 @@ export default async function TouristTaxReportPage({ searchParams }: { searchPar
       </div>
     </>
   )
-}
-
-type T = Awaited<ReturnType<typeof getTranslations<'touristTaxReport'>>>
-
-// „Oktober 2026“, „Juli – September 2026“, „2025“
-function periodLabel(t: T, f: TaxReportFilters): string {
-  const kind = periodKind(f)
-  if (kind === 'month') return t('period.month', { month: String(f.from), year: String(f.year) })
-  if (kind === 'year') return t('period.year', { year: String(f.year) })
-  return t('period.range', { from: String(f.from), to: String(f.to), year: String(f.year) })
 }

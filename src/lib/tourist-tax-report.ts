@@ -101,6 +101,14 @@ export const periodOpen = (f: TaxReportFilters, today: string) => f.year * 12 + 
 export type PeriodKind = 'month' | 'year' | 'range'
 export const periodKind = (f: TaxReportFilters): PeriodKind => (f.from === f.to ? 'month' : f.from === 1 && f.to === 12 ? 'year' : 'range')
 
+// Zeitraum in Worten mit den Texten aus „touristTaxReport.period“: „Oktober 2026“, „Juli – September 2026“, „2025“
+export function periodLabel(t: (key: string, values: Record<string, string>) => string, f: TaxReportFilters): string {
+  const kind = periodKind(f)
+  if (kind === 'month') return t('period.month', { month: String(f.from), year: String(f.year) })
+  if (kind === 'year') return t('period.year', { year: String(f.year) })
+  return t('period.range', { from: String(f.from), to: String(f.to), year: String(f.year) })
+}
+
 // Teil des Dateinamens: 2026-10, 2025, 2026-07-bis-09
 export function periodFileKey(f: TaxReportFilters): string {
   const kind = periodKind(f)

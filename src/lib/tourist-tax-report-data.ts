@@ -13,6 +13,11 @@ import { type TaxReportFilters, type TaxReportRow, taxReportRange } from '@/lib/
 
 const untyped = async () => (await createClient()) as unknown as SupabaseClient
 
+// Höchstzahl je Abruf der Datenschnittstelle (Supabase „max rows“) und Obergrenze für einen Bericht
+const PAGE = 1000
+const MAX_ROWS = 50_000
+const PARALLEL = 4
+
 type ReportDb = {
   booking_id: string
   booking_number: string | null
@@ -67,13 +72,26 @@ export async function getTouristTaxReport(filters: TaxReportFilters): Promise<Ta
   if (!active || active.role !== 'owner') return { ready: true, failed: false, tenantId: null, rows: [] }
   const { from, to } = taxReportRange(filters)
   const supabase = await untyped()
-  const { data, error } = await supabase.rpc('tourist_tax_report', { p_tenant_id: active.id, p_from: from, p_to: to })
-  if (error) {
-    if (isMissingRelation(error)) return { ready: false, failed: false, tenantId: active.id, rows: [] }
-    console.error('[ortstaxe] Bericht nicht lesbar', error.message)
-    return { ready: true, failed: true, tenantId: active.id, rows: [] }
+  // Die Datenschnittstelle liefert höchstens PAGE Zeilen je Abruf: seitenweise laden, ab der zweiten Seite PARALLEL Seiten
+  // gleichzeitig (Reihenfolge legt die Funktion eindeutig fest)
+  const page = (offset: number) => supabase.rpc('tourist_tax_report', { p_tenant_id: active.id, p_from: from, p_to: to }).range(offset, offset + PAGE - 1)
+  const rows: ReportDb[] = []
+  for (let offset = 0; offset < MAX_ROWS; ) {
+    const count = offset === 0 ? 1 : PARALLEL
+    const results = await Promise.all(Array.from({ length: count }, (_, i) => page(offset + i * PAGE)))
+    for (const { error } of results) {
+      if (error) {
+        if (isMissingRelation(error)) return { ready: false, failed: false, tenantId: active.id, rows: [] }
+        console.error('[ortstaxe] Bericht nicht lesbar', error.message)
+        return { ready: true, failed: true, tenantId: active.id, rows: [] }
+      }
+    }
+    const pages = results.map((r) => (r.data ?? []) as ReportDb[])
+    for (const p of pages) rows.push(...p)
+    if (pages.some((p) => p.length < PAGE)) break
+    offset += count * PAGE
   }
-  return { ready: true, failed: false, tenantId: active.id, rows: ((data ?? []) as ReportDb[]).map(mapReportRow) }
+  return { ready: true, failed: false, tenantId: active.id, rows: rows.map(mapReportRow) }
 }
 
 // Hat der Kunde überhaupt Ortstaxe-Tarife? (Hinweis im leeren Zustand)

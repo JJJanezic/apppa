@@ -3,6 +3,7 @@ import 'server-only'
 import { Worker } from 'node:worker_threads'
 
 import type { PdfResult, PdfView } from '@/lib/invoice-pdf/types'
+import type { TaxPdfResult, TaxPdfView } from '@/lib/tourist-tax-pdf/types'
 
 const TIMEOUT_MS = 20_000
 
@@ -39,13 +40,23 @@ function release() {
 export async function renderInvoicePdf(view: PdfView): Promise<PdfResult> {
   await acquire()
   try {
-    return await runWorker(view)
+    return await runWorker<PdfResult>(view)
   } finally {
     release()
   }
 }
 
-function runWorker(view: PdfView): Promise<PdfResult> {
+// Ortstaxen-Bericht (PROJ-16): derselbe Arbeitsprozess, dieselbe Lastgrenze
+export async function renderTaxReportPdf(view: TaxPdfView): Promise<TaxPdfResult> {
+  await acquire()
+  try {
+    return await runWorker<TaxPdfResult>(view)
+  } finally {
+    release()
+  }
+}
+
+function runWorker<R>(view: PdfView | TaxPdfView): Promise<R> {
   return new Promise((resolve, reject) => {
     const worker = new Worker(workerFile(), { workerData: view, resourceLimits: { maxOldGenerationSizeMb: 256 } })
     const timer = setTimeout(() => finish(() => reject(new Error('PDF-Erzeugung dauert zu lange'))), TIMEOUT_MS)
@@ -57,7 +68,7 @@ function runWorker(view: PdfView): Promise<PdfResult> {
       void worker.terminate()
       settle()
     }
-    worker.once('message', (m: { ok: true; result: PdfResult } | { ok: false; message: string }) =>
+    worker.once('message', (m: { ok: true; result: R } | { ok: false; message: string }) =>
       finish(() => (m.ok ? resolve(m.result) : reject(new Error(m.message))))
     )
     worker.once('error', (e) => finish(() => reject(e)))
