@@ -5,13 +5,21 @@ import { getTranslations } from 'next-intl/server'
 
 import { EmptyState } from '@/components/empty-state'
 import { PageHeader } from '@/components/page-header'
-import { TaxReportExportButtons } from '@/components/tourist-tax/export-buttons'
+import { ReportExportButtons } from '@/components/report-export-buttons'
 import { TaxReportFilterBar } from '@/components/tourist-tax/report-filters'
 import { TaxReportBookings, TaxReportSummary } from '@/components/tourist-tax/report-tables'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { requireArea } from '@/lib/areas'
 import { todayIso } from '@/lib/bookings'
-import { buildTaxReport, parseTaxReportFilters, periodLabel, periodOpen, type TaxReportFilters, taxReportFileName } from '@/lib/tourist-tax-report'
+import {
+  buildTaxReport,
+  parseTaxReportFilters,
+  periodLabel,
+  periodOpen,
+  taxReportExportHref,
+  type TaxReportFilters,
+  taxReportFileName,
+} from '@/lib/tourist-tax-report'
 import { getTouristTaxReport, hasTouristTaxRates } from '@/lib/tourist-tax-report-data'
 import { getTenantContext } from '@/lib/tenant'
 
@@ -55,8 +63,9 @@ export default async function TouristTaxReportPage({ searchParams }: { searchPar
         title={t('title')}
         lead={t('lead')}
         action={
-          <TaxReportExportButtons
-            filters={filters}
+          <ReportExportButtons
+            hrefs={{ pdf: taxReportExportHref('pdf', filters), csv: taxReportExportHref('csv', filters) }}
+            namespace="touristTaxReport.export"
             disabled={empty || !report.ready || report.failed}
             fileNames={{ pdf: taxReportFileName('pdf', filters, municipalityName, today), csv: taxReportFileName('csv', filters, municipalityName, today) }}
           />

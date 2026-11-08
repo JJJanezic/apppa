@@ -14,6 +14,9 @@ export type TaxReportFilters = {
   municipality: string | null
 }
 
+// Nur der Zeitraum (auch für die Auswertungen, PROJ-18)
+export type ReportPeriod = Pick<TaxReportFilters, 'year' | 'from' | 'to'>
+
 export const TAX_REPORT_PATH = '/ortstaxe'
 export const TAX_REPORT_EXPORT_PATH = '/api/ortstaxe'
 export const MIN_YEAR = 2000
@@ -51,7 +54,7 @@ export function activeQuickPick(f: TaxReportFilters, today: string): QuickPick |
   return QUICK_PICKS.find((p) => samePeriod(quickPick(p, today), f)) ?? null
 }
 
-const samePeriod = (a: TaxReportFilters, b: TaxReportFilters) => a.year === b.year && a.from === b.from && a.to === b.to
+export const samePeriod = (a: ReportPeriod, b: ReportPeriod) => a.year === b.year && a.from === b.from && a.to === b.to
 
 // Wählbare Jahre: fünf Jahre zurück bis nächstes Jahr, dazu das eingestellte
 export function selectableYears(today: string, selected: number): number[] {
@@ -89,20 +92,20 @@ export const taxReportHref = (f: TaxReportFilters) => `${TAX_REPORT_PATH}?${quer
 export const taxReportExportHref = (kind: 'pdf' | 'csv', f: TaxReportFilters) => `${TAX_REPORT_EXPORT_PATH}/${kind}?${query(f)}`
 
 // Abfragebereich für die Datenbank: erster Tag von „von“ bis letzter Tag von „bis“
-export function taxReportRange(f: TaxReportFilters): { from: string; to: string } {
+export function taxReportRange<F extends ReportPeriod>(f: F): { from: string; to: string } {
   const lastDay = new Date(Date.UTC(f.year, f.to, 0)).getUTCDate()
   return { from: `${f.year}-${pad(f.from)}-01`, to: `${f.year}-${pad(f.to)}-${pad(lastDay)}` }
 }
 
 // Zeitraum reicht in den laufenden Monat oder in die Zukunft
-export const periodOpen = (f: TaxReportFilters, today: string) => f.year * 12 + f.to >= yearOf(today) * 12 + monthOf(today)
+export const periodOpen = <F extends ReportPeriod>(f: F, today: string) => f.year * 12 + f.to >= yearOf(today) * 12 + monthOf(today)
 
 // Art der Zeitraumbezeichnung: „Oktober 2026“, „2025“ (ganzes Jahr), „Juli – September 2026“
 export type PeriodKind = 'month' | 'year' | 'range'
-export const periodKind = (f: TaxReportFilters): PeriodKind => (f.from === f.to ? 'month' : f.from === 1 && f.to === 12 ? 'year' : 'range')
+export const periodKind = <F extends ReportPeriod>(f: F): PeriodKind => (f.from === f.to ? 'month' : f.from === 1 && f.to === 12 ? 'year' : 'range')
 
 // Zeitraum in Worten mit den Texten aus „touristTaxReport.period“: „Oktober 2026“, „Juli – September 2026“, „2025“
-export function periodLabel(t: (key: string, values: Record<string, string>) => string, f: TaxReportFilters): string {
+export function periodLabel<F extends ReportPeriod>(t: (key: string, values: Record<string, string>) => string, f: F): string {
   const kind = periodKind(f)
   if (kind === 'month') return t('period.month', { month: String(f.from), year: String(f.year) })
   if (kind === 'year') return t('period.year', { year: String(f.year) })
@@ -110,7 +113,7 @@ export function periodLabel(t: (key: string, values: Record<string, string>) => 
 }
 
 // Teil des Dateinamens: 2026-10, 2025, 2026-07-bis-09
-export function periodFileKey(f: TaxReportFilters): string {
+export function periodFileKey<F extends ReportPeriod>(f: F): string {
   const kind = periodKind(f)
   if (kind === 'month') return `${f.year}-${pad(f.from)}`
   if (kind === 'year') return String(f.year)

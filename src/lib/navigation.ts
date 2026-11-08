@@ -43,7 +43,8 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { id: 'invoices', href: '/rechnungen', roles: ALL, ready: true, mobile: 'more' },
   // PROJ-45: Zahlungen für Inhaber und Mitarbeiter (Mitarbeiter erfassen Zahlungen), am Handy unter „Mehr“
   { id: 'payments', href: '/zahlungen', roles: ALL, ready: true, mobile: 'more' },
-  { id: 'reports', href: '/auswertungen', roles: OWNER, ready: false, mobile: 'more' },
+  // PROJ-18: Auswertungen nur für Inhaber, am Handy unter „Mehr“
+  { id: 'reports', href: '/auswertungen', roles: OWNER, ready: true, mobile: 'more' },
   { id: 'tax', href: '/ortstaxe', roles: OWNER, ready: true, mobile: 'more' },
   { id: 'channels', href: '/kanaele', roles: OWNER, ready: false, mobile: 'more' },
   { id: 'settings', href: '/einstellungen', roles: OWNER, ready: true, mobile: 'more' },

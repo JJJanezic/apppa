@@ -165,8 +165,12 @@ test.describe('PROJ-14 Dashboard', () => {
     await signInAs(page, users.olga)
     await page.goto('/')
     await expect(page.getByText(/^Heute reisen 6 Gäste an und 3 ab\./)).toBeVisible()
-    await expect(page.getByLabel('Tageslage')).toContainText('Anreisen heute')
+    // PROJ-18: Inhaber sehen die Kacheln des Entwurfs (Auslastung, Umsatz, Offene Rechnungen, Heute „An / Ab“)
+    await expect(page.getByLabel('Tageslage')).toContainText('Anreisen / Abreisen')
     await expect(page.getByLabel('Tageslage')).toContainText('davon 2 ohne Rechnung')
+    await expect(page.getByLabel('Tageslage')).toContainText(/Auslastung \p{L}+/u)
+    await expect(page.getByLabel('Tageslage')).toContainText(/Umsatz \p{L}+/u)
+    await expect(page.getByLabel('Tageslage')).not.toContainText('Belegt heute')
     const today = section(page, 'Heute')
     await expect(today.getByText(`Haus Top 1 · Top 1 · Alpenhof ${run}`).first()).toBeVisible()
     await expect(today.getByText(`Haus Top 1 · Top 1 · Seeblick ${run}`)).toBeVisible()
@@ -177,8 +181,8 @@ test.describe('PROJ-14 Dashboard', () => {
     desktopOnly()
     await signInAs(page, users.olga)
     await page.goto('/')
+    // Die Kachel „Belegt heute“ gibt es für Inhaber seit PROJ-18 nicht mehr; die Zahl steht in der Unterzeile
     await expect(page.getByText('Heute reisen 6 Gäste an und 3 ab. 2 von 4 Wohnungen sind belegt.')).toBeVisible()
-    await expect(page.getByLabel('Tageslage')).toContainText('2 / 4')
   })
 
   test('Abreisen ohne Rechnung bzw. Schlussrechnung sind hervorgehoben, mit Rechnung „Endreinigung“', async ({ page }) => {
@@ -300,6 +304,9 @@ test.describe('PROJ-14 Dashboard', () => {
     await expect(section(page, 'Offene Rechnungen')).toBeVisible()
     await expect(section(page, 'Heute').getByRole('listitem').filter({ hasText: 'Anna Gruber' })).toContainText('Rechnung fehlt')
     await expect(page.getByLabel('Tageslage')).not.toContainText('ohne Rechnung')
+    // PROJ-18: Mitarbeiter behalten die Tageslage-Kacheln, ohne Auslastung und Umsatz
+    await expect(page.getByLabel('Tageslage')).toContainText('Belegt heute')
+    await expect(page.getByLabel('Tageslage')).not.toContainText('Umsatz')
   })
 
   test('Kundenwechsel: fremder Kunde → Hinweis, fremde Ziele werden nicht angesprungen', async ({ page }) => {

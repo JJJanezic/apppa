@@ -27,14 +27,14 @@ describe('Navigationsliste', () => {
     ])
   })
 
-  it('zeigt derzeit Dashboard, Belegung (PROJ-9), Buchungen (PROJ-8) und Gäste (PROJ-7) und für Inhaber Ortstaxe (PROJ-16) und Einstellungen (PROJ-4)', () => {
-    expect(visibleNavItems('owner').map((i) => i.id)).toEqual(['dashboard', 'calendar', 'bookings', 'guests', 'invoices', 'payments', 'tax', 'settings'])
+  it('zeigt derzeit Dashboard, Belegung (PROJ-9), Buchungen (PROJ-8) und Gäste (PROJ-7) und für Inhaber Auswertungen (PROJ-18), Ortstaxe (PROJ-16) und Einstellungen (PROJ-4)', () => {
+    expect(visibleNavItems('owner').map((i) => i.id)).toEqual(['dashboard', 'calendar', 'bookings', 'guests', 'invoices', 'payments', 'reports', 'tax', 'settings'])
     expect(visibleNavItems('staff').map((i) => i.id)).toEqual(['dashboard', 'calendar', 'bookings', 'guests', 'invoices', 'payments'])
   })
 
   it('zeigt den Betreiber-Bereich nur dem Admin, unabhängig von der Rolle (PROJ-5)', () => {
     expect(visibleNavItems({ role: 'staff', isAdmin: true }).map((i) => i.id)).toEqual(['dashboard', 'calendar', 'bookings', 'guests', 'invoices', 'payments', 'operator'])
-    expect(visibleNavItems({ role: 'owner', isAdmin: true }).map((i) => i.id)).toEqual(['dashboard', 'calendar', 'bookings', 'guests', 'invoices', 'payments', 'tax', 'settings', 'operator'])
+    expect(visibleNavItems({ role: 'owner', isAdmin: true }).map((i) => i.id)).toEqual(['dashboard', 'calendar', 'bookings', 'guests', 'invoices', 'payments', 'reports', 'tax', 'settings', 'operator'])
     expect(visibleNavItems({ role: 'owner', isAdmin: false }).map((i) => i.id)).not.toContain('operator')
     expect(isAreaAvailable('operator', 'owner')).toBe(false)
     expect(isAreaAvailable('operator', { role: 'staff', isAdmin: true })).toBe(true)
@@ -90,7 +90,9 @@ describe('Erreichbarkeit und aktiver Punkt', () => {
   it('nicht fertige Bereiche sind nicht erreichbar', () => {
     expect(isAreaAvailable('dashboard', 'owner')).toBe(true)
     expect(isAreaAvailable('calendar', 'staff')).toBe(true)
-    expect(isAreaAvailable('reports', 'owner')).toBe(false)
+    expect(isAreaAvailable('channels', 'owner')).toBe(false)
+    expect(isAreaAvailable('reports', 'owner')).toBe(true)
+    expect(isAreaAvailable('reports', 'staff')).toBe(false)
     expect(isAreaAvailable('payments', 'staff')).toBe(true)
   })
 
@@ -118,7 +120,9 @@ describe('Rücksprung-Ziele nach der Anmeldung', () => {
     expect(isPathAvailable('/einstellungen/team', 'owner')).toBe(true)
     expect(isPathAvailable('/betreiber', 'owner')).toBe(false)
     expect(isPathAvailable('/belegung', 'staff')).toBe(true)
-    expect(isPathAvailable('/auswertungen', 'owner')).toBe(false)
+    expect(isPathAvailable('/kanaele', 'owner')).toBe(false)
+    expect(isPathAvailable('/auswertungen', 'owner')).toBe(true)
+    expect(isPathAvailable('/auswertungen', 'staff')).toBe(false)
     expect(isPathAvailable('/zahlungen', 'staff')).toBe(true)
     expect(isPathAvailable('/konto', 'staff')).toBe(true)
   })

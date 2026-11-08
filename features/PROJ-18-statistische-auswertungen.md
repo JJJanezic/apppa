@@ -1,6 +1,6 @@
 # PROJ-18: Statistische Auswertungen
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-11-08
 **Last Updated:** 2026-11-08
 
@@ -443,6 +443,35 @@ Eine Regeldatei für Seite, PDF, CSV und Dashboard:
 
 ### Abhängigkeiten (Pakete)
 Keine neuen. Genutzt werden `@react-pdf/renderer` (über den PDF-Arbeitsprozess) und vorhandene shadcn/ui-Bausteine (Card, Table, Select, Button, Alert, Tabs bzw. Toggle für den Umschalter, Tooltip, Collapsible).
+
+### Umsetzung Frontend (2026-11-08)
+**Gebaut:**
+- `src/lib/statistics.ts` (reine Regeln, Unit-Tests in `statistics.test.ts`):
+  - Filter aus der Adresse (`?jahr=&von=&bis=&objekt=&wohnung=`), Standard laufendes Jahr, Schnellwahl „Dieses Jahr“, „Letztes Jahr“, „Letzter Monat“, „Letztes Quartal“; Objekt/Wohnung gegen die Wohnungen des Kunden geprüft (`resolveStatsFilters`)
+  - Summen je Monat, je Wohnung und gesamt mit Vorjahr (`buildStats`), Auslastung und Ø-Preis aus Summen, Veränderung in Pp. bzw. %, „Vorjahr –“ ohne Daten
+  - Sortierung „Je Wohnung“ (absteigend → aufsteigend → zurück zur Gruppierung; „–“ immer am Ende)
+  - Gästeherkunft (`buildOrigin`): Top 10 + „Übrige Länder“, Anteil an den Gästenächten
+  - Diagramm-Maßstab (`chartModel`, `niceScale`) für Bildschirm und PDF
+  - CSV (`buildStatsCsv`) und Dateinamen `Auswertung_<Zeitraum>_<Alle|Objekt|Objekt-Wohnung>_Stand-<Datum>.pdf|csv`
+- Zeitraum-Funktionen der Ortstaxe (`tourist-tax-report.ts`) nehmen jetzt jeden Zeitraum (`ReportPeriod`) und werden mitbenutzt.
+- `src/lib/statistics-data.ts`: Wohnungen des Kunden, Abruf der Datenbankfunktionen `statistics_rows`, `statistics_origin` (seitenweise) und `dashboard_statistics`; fehlt eine Funktion, gilt „ready: false“.
+- Seite `src/app/(app)/auswertungen/page.tsx`: Kopf mit Export-Knöpfen, Filter, Hinweis „Zeitraum noch nicht abgeschlossen“, Kacheln, Karte „Je Monat“ (Diagramm + Tabelle), „Je Wohnung“, „Gästeherkunft“, leerer Zustand, „wird eingerichtet“ und Fehler.
+- `src/components/statistics/`: `stats-filters`, `stats-kpis`, `stats-chart` (eigenes Balkendiagramm, Umschalter Auslastung/Umsatz, Legende, Werte beim Zeigen/Antippen über dem Diagramm; Diagramm als Bild mit Beschreibung), `stats-month-table`, `stats-apartment-table` (sortierbar, `aria-sort`), `stats-origin-table` („Übrige Länder“ aufklappbar), `stats-cells`, `compare` (Vorjahr mit Pfeil, ohne Farbe). Render-Test `stats-components.test.tsx`.
+- Diagrammfarben: gewähltes Jahr `accent` (#0088b0), Vorjahr `neutral-500` (#9b9797), mit Farbprüfung (Farbsehschwäche ΔE 9,2, normal 15,1); das Grau ist bewusst blass, die Tabelle darunter und die Legende ersetzen Farbe allein.
+- Export-Knöpfe allgemein gemacht: `src/components/report-export-buttons.tsx` (vorher `tourist-tax/export-buttons.tsx`), auch von der Ortstaxe genutzt.
+- `KpiTile`: optionale Vorjahreszeile und Link über die ganze Kachel (bei anderem Kunden als Formular an `/kunde-wechseln`); `KpiGrid` mit 5 Spalten.
+- Dashboard (`dashboard-kpis.tsx`): Inhaber-Kacheln Auslastung/Umsatz [Monat], Offene Rechnungen, Heute „An / Ab“ (+ „davon N ohne Rechnung“); Mitarbeiter unverändert. Bis zur Migration zeigen Auslastung und Umsatz „–“.
+- Menüpunkt „Auswertungen“ freigeschaltet (`navigation.ts`, Unit-Test, E2E PROJ-2 jetzt mit `/kanaele`); E2E PROJ-14 an die neuen Inhaber-Kacheln angepasst. Texte unter `statistics` und `dashboard.kpi*` in `messages/de.json` (Du-Form wie in der App).
+
+**Geprüft:** Unit- und Render-Tests grün; E2E PROJ-2 „Sichtbarkeit der Navigation“ (5) und PROJ-14 Kacheln (3) grün gegen den gebauten Server; Bildschirmfotos Desktop/Handy der Seite (ohne Daten) und des Dashboards angesehen.
+
+**Abweichung:** Im leeren Zustand und überall sonst Du-Form („Wohnungen legst du …“) wie in der übrigen App statt der Sie-Form der Spec.
+
+**Vertrag für /backend:**
+- `statistics_rows(p_tenant_id uuid, p_from date, p_to date)` – nur Inhaber, sonst leer. Eine Zeile je Wohnung und Monat für die Monate von `p_from` bis `p_to` **und dieselben Monate des Vorjahres**; nur Zeilen mit einem Wert ≠ 0. Spalten: `apartment_id`, `month` (erster Tag des Monats), `available_nights`, `occupied_nights`, `blocked_nights`, `revenue_cents`, `revenue_vat_cents` (Buchungen ohne Ortstaxe und ohne Stornogebühr, je Nacht verteilt), `fee_cents`, `fee_vat_cents` (Stornogebühren im Anreisemonat), `guest_nights`, `arrivals` (Personen mit Anreise im Monat), `bookings` (Buchungen mit Anreise im Monat), `stay_nights` (deren Nächte gesamt). Feste Reihenfolge (für das seitenweise Laden).
+- `statistics_origin(p_tenant_id uuid, p_from date, p_to date)` – nur Inhaber. Eine Zeile je Wohnung, Land und Zeitraum: `apartment_id`, `country`, `previous` (Vorjahr ja/nein), `arrivals`, `guest_nights`, `revenue_cents` (inkl. Stornogebühren). Feste Reihenfolge.
+- `dashboard_statistics(p_tenant_ids uuid[], p_month date)` – nur Kunden, bei denen die Person Inhaber ist, je Kunde: `tenant_id`, `available_nights`, `occupied_nights`, `revenue_cents` (inkl. Stornogebühren), `vat_cents`.
+- Download-Adressen `/api/auswertungen/pdf` und `/api/auswertungen/csv` mit denselben Parametern wie die Seite; CSV über `buildStatsCsv` mit `statistics.csv.columns`, PDF als Dokumentart „Auswertung“ (Kennzahlen, zwei Diagramme aus `chartModel`, Tabellen, alle Länder).
 
 ## QA Test Results
 _To be added by /qa_

@@ -5,12 +5,14 @@ import { useTranslations } from 'next-intl'
 import { useState } from 'react'
 
 import { Button } from '@/components/ui/button'
-import { type TaxReportFilters, taxReportExportHref } from '@/lib/tourist-tax-report'
 
 type Kind = 'pdf' | 'csv'
 
-interface TaxReportExportButtonsProps {
-  filters: TaxReportFilters
+interface ReportExportButtonsProps {
+  // Download-Adressen mit den Filtern der Seite
+  hrefs: Record<Kind, string>
+  // Texte des Berichts (Beschriftung, Fehlermeldung)
+  namespace: 'touristTaxReport.export' | 'statistics.export'
   // Dateinamen, falls der Server keinen mitschickt
   fileNames: Record<Kind, string>
   disabled: boolean
@@ -30,10 +32,10 @@ function fileNameFrom(header: string | null): string | null {
   return /filename="([^"]+)"/i.exec(header)?.[1] ?? null
 }
 
-// Export-Knöpfe der Ortstaxen-Berichte (PROJ-16): laden PDF bzw. CSV im Hintergrund und speichern die Datei. Scheitert
-// das, erscheint eine Meldung; der Bericht bleibt sichtbar.
-export function TaxReportExportButtons({ filters, fileNames, disabled }: TaxReportExportButtonsProps) {
-  const t = useTranslations('touristTaxReport.export')
+// Export-Knöpfe der Berichte (Ortstaxe PROJ-16, Auswertungen PROJ-18): laden PDF bzw. CSV im Hintergrund und speichern
+// die Datei. Scheitert das, erscheint eine Meldung; der Bericht bleibt sichtbar.
+export function ReportExportButtons({ hrefs, namespace, fileNames, disabled }: ReportExportButtonsProps) {
+  const t = useTranslations(namespace)
   const [busy, setBusy] = useState<Kind | null>(null)
   const [failed, setFailed] = useState(false)
 
@@ -41,7 +43,7 @@ export function TaxReportExportButtons({ filters, fileNames, disabled }: TaxRepo
     setBusy(kind)
     setFailed(false)
     try {
-      const res = await fetch(taxReportExportHref(kind, filters), { cache: 'no-store' })
+      const res = await fetch(hrefs[kind], { cache: 'no-store' })
       if (!res.ok) throw new Error(String(res.status))
       const blob = await res.blob()
       const url = URL.createObjectURL(blob)

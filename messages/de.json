@@ -58,6 +58,12 @@
     "kpiOccupiedSub": "Wohnungen",
     "kpiOpen": "Offene Rechnungen",
     "kpiOpenSub": "{count, plural, one {# Rechnung} other {# Rechnungen}}{overdue, plural, =0 {} other {, davon # überfällig}}",
+    "kpiOccupancyMonth": "Auslastung {month, select, 1 {Jänner} 2 {Februar} 3 {März} 4 {April} 5 {Mai} 6 {Juni} 7 {Juli} 8 {August} 9 {September} 10 {Oktober} 11 {November} 12 {Dezember} other {}}",
+    "kpiOccupancyMonthSub": "{occupied} von {available} Nächten",
+    "kpiRevenueMonth": "Umsatz {month, select, 1 {Jänner} 2 {Februar} 3 {März} 4 {April} 5 {Mai} 6 {Juni} 7 {Juli} 8 {August} 9 {September} 10 {Oktober} 11 {November} 12 {Dezember} other {}}",
+    "kpiToday": "Heute",
+    "kpiTodaySub": "Anreisen / Abreisen",
+    "kpiTodayUnbilled": "davon {count} ohne Rechnung",
     "kpiUnavailable": "–",
     "sectionError": "Konnte nicht geladen werden.",
     "sectionUnavailable": "Dieser Abschnitt ist noch nicht verfügbar.",
@@ -3043,6 +3049,141 @@
       "vatId": "UID: {id}",
       "stand": "Stand: {stand}",
       "pageOf": "Seite {page} von {pages}"
+    }
+  },
+  "statistics": {
+    "title": "Auswertungen",
+    "lead": "Auslastung, Umsatz und Herkunft deiner Gäste – mit Vergleich zum Vorjahr.",
+    "notReady": "Die Auswertungen werden gerade eingerichtet. Die Zahlen erscheinen, sobald sie fertig sind.",
+    "failed": "Die Auswertung konnte nicht geladen werden. Bitte lade die Seite neu.",
+    "periodOpen": "Zeitraum noch nicht abgeschlossen – enthält auch künftige Buchungen.",
+    "monthName": "{month, select, 1 {Jänner} 2 {Februar} 3 {März} 4 {April} 5 {Mai} 6 {Juni} 7 {Juli} 8 {August} 9 {September} 10 {Oktober} 11 {November} 12 {Dezember} other {}}",
+    "monthShort": "{month, select, 1 {Jän} 2 {Feb} 3 {Mär} 4 {Apr} 5 {Mai} 6 {Jun} 7 {Jul} 8 {Aug} 9 {Sep} 10 {Okt} 11 {Nov} 12 {Dez} other {}}",
+    "filters": {
+      "label": "Zeitraum und Wohnungen",
+      "quick": "Schnellwahl",
+      "thisYear": "Dieses Jahr",
+      "lastYear": "Letztes Jahr",
+      "lastMonth": "Letzter Monat",
+      "lastQuarter": "Letztes Quartal",
+      "year": "Jahr",
+      "from": "Von Monat",
+      "to": "Bis Monat",
+      "property": "Objekt",
+      "allProperties": "Alle Objekte",
+      "apartment": "Wohnung",
+      "allApartments": "Alle Wohnungen",
+      "archived": "{name} (archiviert)"
+    },
+    "compare": {
+      "previous": "Vorjahr {value}",
+      "previousUnknown": "Vorjahr –",
+      "pp": "{value} Pp.",
+      "ppLong": "{value} Prozentpunkte",
+      "percent": "{value} %",
+      "up": "gestiegen",
+      "down": "gesunken",
+      "same": "unverändert"
+    },
+    "vat": {
+      "included": "inkl. {amount} USt",
+      "none": "ohne USt"
+    },
+    "kpi": {
+      "label": "Kennzahlen",
+      "occupancy": "Auslastung",
+      "occupancySub": "{occupied} von {available} Nächten{blocked, plural, =0 {} other {, # gesperrt}}",
+      "revenue": "Umsatz",
+      "rate": "Durchschnittspreis je Nacht",
+      "bookings": "Buchungen",
+      "bookingsSub": "Ø {nights} Nächte",
+      "guestNights": "Gästenächte",
+      "guestNightsSub": "{count, plural, one {# Ankunft} other {# Ankünfte}}"
+    },
+    "chart": {
+      "title": "Je Monat",
+      "mode": "Diagramm zeigt",
+      "occupancy": "Auslastung",
+      "revenue": "Umsatz",
+      "current": "{year}",
+      "previous": "Vorjahr ({year})",
+      "hint": "Balken antippen oder mit der Maus zeigen für die genauen Werte.",
+      "readout": "{month} {year}: {value} · Vorjahr {previous}",
+      "description": "Balkendiagramm {mode} je Monat mit Vorjahr. Die Werte stehen in der Tabelle darunter."
+    },
+    "months": {
+      "tableLabel": "Werte je Monat",
+      "previousHint": "Kleine Zahlen darunter: Vorjahr und Veränderung.",
+      "total": "Gesamt",
+      "col": {
+        "month": "Monat",
+        "occupancy": "Auslastung",
+        "occupied": "Belegte Nächte",
+        "blocked": "Gesperrte Nächte",
+        "revenue": "Umsatz",
+        "rate": "Ø-Preis je Nacht"
+      }
+    },
+    "apartments": {
+      "title": "Je Wohnung",
+      "tableLabel": "Werte je Wohnung",
+      "sortHint": "Spaltenköpfe sortieren die Tabelle.",
+      "sortedAsc": "aufsteigend sortiert",
+      "sortedDesc": "absteigend sortiert",
+      "archived": "archiviert",
+      "col": {
+        "apartment": "Wohnung",
+        "occupancy": "Auslastung",
+        "occupied": "Belegte Nächte",
+        "blocked": "Gesperrte Nächte",
+        "revenue": "Umsatz",
+        "rate": "Ø-Preis je Nacht"
+      }
+    },
+    "origin": {
+      "title": "Gästeherkunft",
+      "lead": "Herkunftsland des Hauptgasts; Mitreisende zählen mit.",
+      "tableLabel": "Gästeherkunft je Land",
+      "others": "Übrige Länder ({count})",
+      "total": "Gesamt",
+      "empty": "Im Zeitraum keine Anreisen.",
+      "col": {
+        "country": "Land",
+        "arrivals": "Ankünfte",
+        "guestNights": "Gästenächte",
+        "revenue": "Umsatz",
+        "share": "Anteil"
+      }
+    },
+    "empty": {
+      "title": "Für den gewählten Zeitraum liegen keine Daten vor.",
+      "noApartments": "Wohnungen legst du unter Einstellungen → Wohnungen an.",
+      "toApartments": "Zu den Wohnungen"
+    },
+    "export": {
+      "label": "Exportieren",
+      "pdf": "PDF",
+      "csv": "CSV",
+      "pdfLabel": "Auswertung als PDF herunterladen",
+      "csvLabel": "Auswertung als CSV-Datei für Excel herunterladen",
+      "busy": "Wird erstellt …",
+      "failed": "Export konnte nicht erstellt werden. Bitte erneut versuchen.",
+      "disabled": "Kein Export ohne Daten im Zeitraum"
+    },
+    "csv": {
+      "columns": [
+        "Monat",
+        "Objekt",
+        "Wohnung",
+        "Verfügbare Nächte",
+        "Belegte Nächte",
+        "Gesperrte Nächte",
+        "Auslastung (%)",
+        "Umsatz brutto",
+        "USt",
+        "Gästenächte",
+        "Ankünfte"
+      ]
     }
   }
 }
