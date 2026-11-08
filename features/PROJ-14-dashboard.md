@@ -52,7 +52,7 @@ Das Dashboard fasst die Daten **aller aktiven Kunden** zusammen, bei denen die a
 | Offene Rechnungen | Summe Offen | „N Rechnungen, davon M überfällig“ | alle |
 
 - „Belegt heute“: nicht archivierte Wohnungen, in denen heute eine Buchung oder Option übernachtet (Anreise ≤ heute < tatsächliche Abreise). Sperren zählen nicht als belegt.
-- Auslastung und Umsatz kommen nicht aufs Dashboard, sondern in die Auswertungen (PROJ-18).
+- Auslastung und Umsatz kommen nicht aufs Dashboard, sondern in die Auswertungen (PROJ-18). **Abgelöst durch PROJ-18 (2026-11-08):** Inhaber erhalten die Kacheln Auslastung und Umsatz (laufender Monat), Offene Rechnungen und Heute (An-/Abreisen); Mitarbeiter behalten die vier Kacheln oben.
 
 ### Abschnitt „Heute“ (alle)
 - Zwei Listen: **„Anreisen“** (Anreise heute) und **„Abreisen“** (tatsächliche Abreise heute, PROJ-30).

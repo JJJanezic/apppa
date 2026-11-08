@@ -1,0 +1,315 @@
+# PROJ-18: Statistische Auswertungen
+
+## Status: Planned
+**Created:** 2026-11-08
+**Last Updated:** 2026-11-08
+
+## Dependencies
+- Requires: PROJ-1 (Supabase-Infrastruktur): Mandantentrennung (RLS)
+- Requires: PROJ-4 (Kundenkonten & Rollen): Inhaber/Mitarbeiter, gewählter Kunde
+- Requires: PROJ-6 (Wohnungsverwaltung): Objekte, Wohnungen, Anlage- und Archivierungsdatum
+- Requires: PROJ-7 (Gäste-Datenbank): Herkunftsland des Hauptgasts, Anonymisieren
+- Requires: PROJ-8, PROJ-30 (Buchungen): Arten Buchung/Option/Sperre, Storno mit Stornogebühr, tatsächliche Abreise, Erwachsene/Kinder, Preispositionen
+- Requires: PROJ-14 (Dashboard): Kacheln, Kundenfilter, Rechte je Kunde (die Inhaber-Kacheln werden hier geändert)
+- Requires: PROJ-15 (Ortstaxe je Wohnung): Ortstaxe-Kennzeichen der Positionen (nicht Umsatz)
+- Requires: PROJ-35, PROJ-36 (USt je Position, Kleinunternehmer): enthaltene USt
+- Requires: PROJ-41 (Briefpapier): Logo und Aussteller-Block für das PDF
+- Requires: PROJ-45 (Zahlungserfassung): nur als Abgrenzung (Zahlungen sind nicht Grundlage)
+
+## Überblick
+Der bisher gesperrte Menüpunkt **„Auswertungen“** (`/auswertungen`, nur Inhaber) wird freigeschaltet. Er zeigt für den gewählten Kunden und einen wählbaren Zeitraum **Auslastung**, **Umsatz** und **Gästeherkunft**, jeweils mit dem Vorjahr verglichen und filterbar nach Objekt und Wohnung. Die Auswertung lässt sich als **PDF** (mit Briefpapier und Diagrammen) und als **CSV** (Rohdaten je Wohnung und Monat) exportieren.
+
+Zusätzlich erhält der **Inhaber** auf dem Dashboard die vier Kacheln aus dem Design-Entwurf: Auslastung und Umsatz des laufenden Monats, Offene Rechnungen und Heute (An-/Abreisen).
+
+## Rechenregeln
+
+### Belegte Nächte
+- Es zählen Nächte aus **Buchungen** (Art „Buchung“) von der Anreise bis zur **tatsächlichen Abreise**. Optionen gelten als frei. Stornierte Buchungen zählen nicht.
+- Eine Nacht gehört zu dem Monat, in dem sie beginnt (Nacht vom 31.10. auf 01.11. → Oktober).
+- Überschneiden sich zwei Buchungen in derselben Wohnung (Doppelbuchung), zählt die Nacht für die Auslastung **einmal**. Der Umsatz zählt für beide Buchungen.
+
+### Gesperrte Nächte
+- Nächte aus **Sperren** (nicht storniert) werden von den verfügbaren Nächten abgezogen und eigens ausgewiesen.
+- Ist eine Nacht zugleich gebucht und gesperrt, gilt sie als belegt, nicht als gesperrt.
+
+### Verfügbare Nächte
+- Je Wohnung zählen die Nächte ab dem **ersten Tag des Monats, in dem ihre erste Buchung anreist** (Art „Buchung“, nicht storniert). Hat die Wohnung keine Buchung, zählt sie ab ihrer **Anlage**.
+- Archivierte Wohnungen zählen bis zum Tag der Archivierung. Liegt danach noch eine belegte oder gesperrte Nacht, zählt diese Nacht als verfügbar, damit die Auslastung nie über 100 % steigt.
+- **Verfügbare Nächte** = Nächte, an denen die Wohnung zählt, minus gesperrte Nächte.
+- **Auslastung** = belegte Nächte ÷ verfügbare Nächte, auf ganze Prozent gerundet. Sind keine Nächte verfügbar, steht „–“.
+
+### Umsatz
+- **Grundlage** ist der Preis jeder Buchung (Art „Buchung“): Übernachtung und alle Zusatzpositionen einschließlich negativer Positionen (Rabatt, Gutschrift), **ohne** Positionen mit Ortstaxe-Kennzeichen (PROJ-15). Es gilt der Preis, der in der Buchung steht (auch nach Verlängerung mit der gewählten Preisregel, PROJ-30).
+- Der Betrag wird **gleichmäßig auf die Nächte** bis zur tatsächlichen Abreise verteilt und dem Monat der jeweiligen Nacht zugerechnet. Rundungsreste in Cent gehen in die letzte Nacht, so dass die Summe genau stimmt.
+- **Stornierte Buchungen mit Stornogebühr:** Die Gebühr zählt zum Umsatz im **Monat der Anreise**, mit ihrem eigenen USt-Satz. Sie erzeugt keine belegten Nächte. Sie zählt bei der Wohnung und beim Herkunftsland der Buchung.
+- **Brutto** ist die Hauptzahl. Darunter steht klein **„inkl. € … USt“**, die enthaltene USt aus den Positionen (PROJ-35), nach derselben Verteilung. Ist die enthaltene USt 0 (z. B. Kleinunternehmer), steht „ohne USt“.
+- Rechnungen und Zahlungen sind **nicht** Grundlage. Provisionen von booking.com/Airbnb werden nicht abgezogen.
+
+### Weitere Kennzahlen
+- **Durchschnittspreis je Nacht** = Umsatz brutto ohne Stornogebühren ÷ belegte Nächte. Keine belegten Nächte: „–“.
+- **Buchungen** = Anzahl der Buchungen (Art „Buchung“, nicht storniert) mit **Anreise** im Zeitraum.
+- **Durchschnittliche Aufenthaltsdauer** = Nächte dieser Buchungen (Anreise bis tatsächliche Abreise, auch über das Zeitraumende hinaus) ÷ Anzahl, eine Nachkommastelle.
+- **Gästenächte** = Personen (Erwachsene + Kinder) × belegte Nächte im Zeitraum.
+- **Ankünfte** = Personen (Erwachsene + Kinder) der Buchungen mit Anreise im Zeitraum.
+
+### Vorjahresvergleich
+- Verglichen wird mit **denselben Monaten des Vorjahres** und demselben Objekt-/Wohnungsfilter, nach denselben Regeln.
+- Darstellung: Vorjahreswert klein unter dem Wert, dazu die Veränderung: bei der Auslastung in **Prozentpunkten** („+4 Pp.“), sonst in **Prozent** („+12 %“), mit Pfeil nach oben bzw. unten, ohne Farbwertung.
+- Ist der Vorjahreswert 0 oder nicht bestimmbar (keine verfügbaren Nächte), steht beim Vorjahr „–“ und keine Veränderung.
+
+## Seite „Auswertungen“
+
+### Zugriff
+- Nur **Inhaber** des gewählten Kunden. Die Auswertung gilt immer für den **aktuell gewählten Kunden**.
+- Mitarbeiter sehen den Menüpunkt nicht. Direkter Aufruf der Seite oder der Exporte zeigt „Kein Zugriff“ bzw. liefert keine Daten, auch serverseitig geprüft.
+- Der Menüpunkt ist nicht mehr als „bald verfügbar“ gekennzeichnet.
+
+### Zeitraum und Filter (oben)
+- **Jahr**, **Von Monat**, **Bis Monat** (innerhalb des Jahres, „Bis“ nicht vor „Von“) wie in den Ortstaxen-Berichten (PROJ-16).
+- **Standard beim Öffnen:** laufendes Jahr, Jänner bis Dezember, künftige Monate eingeschlossen.
+- **Schnellwahl:** „Dieses Jahr“, „Letztes Jahr“, „Letzter Monat“, „Letztes Quartal“ (jeweils ganz abgelaufen, außer „Dieses Jahr“).
+- **Objekt:** „Alle Objekte“ (Standard) oder ein Objekt. **Wohnung:** „Alle Wohnungen“ (Standard) oder eine Wohnung des gewählten Objekts (ohne Objektwahl: alle Wohnungen). Archivierte Wohnungen sind wählbar und als „archiviert“ gekennzeichnet.
+- Reicht der Zeitraum in den laufenden Monat oder in die Zukunft, erscheint der Hinweis **„Zeitraum noch nicht abgeschlossen – enthält auch künftige Buchungen.“**
+- Zeitraum und Filter stehen in der Adresse (Neu laden, Lesezeichen, „Zurück“). Ungültige Werte führen auf den Standard zurück. Gehört die Wohnung nicht zum Objekt, gilt „Alle Wohnungen“.
+
+### Kennzahlen-Kacheln
+| Kachel | Wert | Zusatzzeile | Vorjahr |
+|---|---|---|---|
+| Auslastung | „62 %“ | „1.180 von 1.900 Nächten, 45 gesperrt“ | ✓ (Pp.) |
+| Umsatz | „€ 84.320,00“ | „inkl. € 7.910,00 USt“ | ✓ |
+| Durchschnittspreis je Nacht | „€ 71,46“ | – | ✓ |
+| Buchungen | „143“ | „Ø 8,3 Nächte“ | ✓ (Anzahl) |
+| Gästenächte | „3.410“ | „1.020 Ankünfte“ | ✓ |
+
+### Je Monat
+- **Balkendiagramm** je Monat des Zeitraums, umschaltbar zwischen „Auslastung“ und „Umsatz“ (Standard „Auslastung“); das Vorjahr als blasser Balken neben dem Monat. Beim Zeigen bzw. Antippen eines Balkens erscheinen Monat, Wert und Vorjahr.
+- **Tabelle** darunter: Monat, Auslastung, belegte Nächte, gesperrte Nächte, Umsatz brutto (USt klein darunter), Durchschnittspreis je Nacht, jeweils mit Vorjahr. Unten eine Summenzeile „Gesamt“ (Auslastung und Durchschnittspreis aus den Summen berechnet, nicht gemittelt).
+
+### Je Wohnung
+- Tabelle: Wohnung (nach Objekt gruppiert), Auslastung, belegte Nächte, gesperrte Nächte, Umsatz brutto (USt klein darunter), Durchschnittspreis je Nacht, jeweils mit Vorjahr.
+- Standard-Sortierung nach Objekt und Wohnung. Ein Klick auf eine Spaltenüberschrift sortiert nach dieser Spalte (auf-/absteigend); dann entfällt die Gruppierung nach Objekt.
+- Es erscheinen Wohnungen, die im Zeitraum verfügbare Nächte oder Umsatz haben. Archivierte sind gekennzeichnet.
+- Ist eine einzelne Wohnung gefiltert, **entfällt** der Abschnitt.
+
+### Gästeherkunft
+- Tabelle je **Herkunftsland des Hauptgasts** (deutscher Ländername): Ankünfte, Gästenächte, Umsatz brutto, Anteil an den Gästenächten in %, jeweils mit Vorjahr.
+- Sortiert nach Gästenächten absteigend. Die ersten **10 Länder** stehen einzeln, die übrigen werden als **„Übrige Länder“** zusammengefasst und lassen sich aufklappen.
+- Ankünfte zählen nach Anreise im Zeitraum, Gästenächte und Umsatz nach Nächten im Zeitraum (wie die amtliche Tourismusstatistik).
+- Mitreisende zählen mit dem Land des Hauptgasts. Anonymisierte Gäste behalten ihr Land und zählen mit.
+
+### Leerer Zustand
+- Keine verfügbaren Nächte und kein Umsatz im Zeitraum: **„Für den gewählten Zeitraum liegen keine Daten vor.“** Die Exporte sind deaktiviert.
+- Kunde ohne Wohnungen: zusätzlich „Wohnungen legen Sie unter Einstellungen → Wohnungen an.“ mit Link.
+- Leere Einzelabschnitte (z. B. keine Ankünfte): Abschnitt mit kurzem Leertext, z. B. „Im Zeitraum keine Anreisen.“
+
+### Darstellung am Handy
+- Kacheln zweispaltig, Abschnitte untereinander. Tabellen dürfen seitlich scrollen, die erste Spalte (Monat, Wohnung, Land) bleibt stehen. Die Seite selbst scrollt nicht seitlich.
+
+## Exporte
+
+### PDF
+- Briefpapier (Logo, Aussteller-Block wie PROJ-16), Titel **„Auswertung“**, Zeitraum in Worten (z. B. „Jänner – Dezember 2026“), Filter (Objekt/Wohnung oder „Alle Wohnungen“), Stand mit Datum und Uhrzeit in der Fußzeile.
+- Inhalt: Kennzahlen mit Vorjahr, **zwei Balkendiagramme** (Auslastung und Umsatz je Monat, jeweils mit Vorjahr), Tabelle „Je Monat“, Tabelle „Je Wohnung“ (entfällt bei einzelner Wohnung), Tabelle „Gästeherkunft“ mit **allen Ländern ausgeschrieben**.
+- Hinweis „Zeitraum noch nicht abgeschlossen“ wird übernommen.
+- Dateiname: `Auswertung_<Zeitraum>_<Objekt/Wohnung oder Alle>_Stand-2026-11-08.pdf`.
+
+### CSV
+- Eine Zeile **je Wohnung und Monat** des Zeitraums. Spalten: Monat (`2026-10`), Objekt, Wohnung, verfügbare Nächte, belegte Nächte, gesperrte Nächte, Auslastung (%), Umsatz brutto, enthaltene USt, Gästenächte, Ankünfte.
+- Nur Zeilen mit verfügbaren Nächten oder Umsatz. Keine Summenzeilen, kein Vorjahr, keine Gästeherkunft.
+- Format wie PROJ-16: Strichpunkt, Komma als Dezimalzeichen, Beträge ohne „€“ mit zwei Nachkommastellen, UTF-8 mit BOM, Schutz vor Formeln (Texte, die mit `=`, `+`, `-`, `@` beginnen), korrekte Behandlung von Strichpunkt und Anführungszeichen.
+- Dateiname: `Auswertung_<Zeitraum>_<Objekt/Wohnung oder Alle>_Stand-2026-11-08.csv`.
+
+## Dashboard (Änderung an PROJ-14)
+
+### Inhaber
+Hat die Person im Dashboard-Kundenfilter mindestens einen Kunden, bei dem sie **Inhaber** ist, sieht sie diese vier Kacheln (wie im Design-Entwurf):
+
+| Kachel | Wert | Zusatzzeile |
+|---|---|---|
+| Auslastung [laufender Monat] | „62 %“ | „118 von 190 Nächten“ |
+| Umsatz [laufender Monat] | Brutto | „inkl. € … USt“ |
+| Offene Rechnungen | Summe offen | „N Rechnungen, davon M überfällig“ (wie bisher) |
+| Heute | „2 / 3“ | „Anreisen / Abreisen“; bei Bedarf zusätzlich „davon N ohne Rechnung“ |
+
+- Auslastung und Umsatz nach den Rechenregeln oben, für den ganzen laufenden Monat (auch künftige Nächte), über **alle Wohnungen der Kunden im Filter, bei denen die Person Inhaber ist**. Offene Rechnungen und Heute gelten wie bisher für alle Kunden im Filter.
+- „Heute“ zählt An- und Abreisen wie die bisherigen Kacheln „Anreisen heute“ und „Abreisen heute“.
+- Ein Klick auf Auslastung oder Umsatz öffnet „Auswertungen“ für den laufenden Monat, wenn der Filter **genau einen** Inhaber-Kunden umfasst (bei einem anderen als dem gewählten Kunden mit Kundenwechsel wie bei den Zeilen). Umfasst er mehrere, sind die Kacheln nicht anklickbar.
+- Die Kacheln „Anreisen heute“ (mit „N Gäste“), „Abreisen heute“ und „Belegt heute“ entfallen für den Inhaber. Die Belegung steht weiterhin in der Unterzeile, die Personen im Abschnitt „Heute“.
+
+### Mitarbeiter
+- Umfasst der Filter keinen Kunden, bei dem die Person Inhaber ist, bleiben die **bisherigen vier Kacheln** (Anreisen heute, Abreisen heute, Belegt heute, Offene Rechnungen) unverändert.
+- Umsatz und Auslastung werden für Mitarbeiter nicht berechnet und nicht ausgeliefert.
+
+## User Stories
+- Als **Inhaber** möchte ich die Auslastung meiner Wohnungen je Monat sehen, damit ich schwache Zeiten erkenne und Preise oder Mindestaufenthalte anpasse.
+- Als **Inhaber** möchte ich den Umsatz brutto mit der enthaltenen USt sehen, damit ich mein Geschäft einschätzen und die Umsatzsteuer abschätzen kann.
+- Als **Inhaber** möchte ich jeden Wert mit dem Vorjahr vergleichen, damit ich trotz Saisonschwankungen sehe, ob es besser oder schlechter läuft.
+- Als **Inhaber** möchte ich die Zahlen je Wohnung sehen und nach Objekt oder Wohnung filtern, damit ich erkenne, welche Wohnung schwächelt.
+- Als **Inhaber** möchte ich sehen, aus welchen Ländern meine Gäste kommen, damit ich meine Werbung gezielt ausrichten kann.
+- Als **Inhaber** möchte ich die Auswertung als PDF und CSV exportieren, damit ich sie an Bank oder Steuerberatung weitergeben oder in Excel weiterrechnen kann.
+- Als **Inhaber** möchte ich Auslastung und Umsatz des laufenden Monats auf dem Dashboard sehen, damit ich den Stand ohne Seitenwechsel kenne.
+- Als **Mitarbeiter** soll ich keine Umsätze und Auswertungen sehen, weil diese dem Inhaber vorbehalten sind.
+
+## Out of Scope
+- **Auswertung nach Kanälen** (booking.com, Airbnb, direkt, Buchungsquellen) → als Prüfpunkt bei PROJ-11 (Buchungsimport aus Channex); Entscheidung beim Spec-Interview zu PROJ-11
+- Stornoquote
+- Feld „vermietet ab“ je Wohnung (genauere verfügbare Nächte) → bei Bedarf über `/refine PROJ-18`
+- Nettoumsatz als Hauptzahl; Umsatz nach Abzug von Provisionen und Zahlungsgebühren (PROJ-45)
+- Umsatz nach Rechnungsdatum oder Zahlungseingang (stehen in „Rechnungen“ und „Zahlungen“)
+- Bettenauslastung (nach Personenkapazität)
+- Vergleich mit dem Vormonat oder frei wählbaren Zeiträumen
+- Mehrfachauswahl von Wohnungen
+- Auswertung über mehrere Kunden auf der Seite „Auswertungen“ (nur Dashboard-Kacheln gehen über Kunden)
+- Gästeherkunft in der CSV
+- Prognosen, gespeicherte Berichte, automatischer Versand
+- Auswertungen für Mitarbeiter oder den Betreiber
+
+## Acceptance Criteria
+
+**Format:** Angenommen [Vorbedingung] / Wenn [Aktion] / Dann [Ergebnis]
+
+### Zugriff
+- [ ] Angenommen ein Inhaber, wenn er das Menü öffnet, dann ist „Auswertungen“ ohne Kennzeichen „bald verfügbar“ anwählbar
+- [ ] Angenommen ein Mitarbeiter, wenn er das Menü öffnet, dann sieht er „Auswertungen“ nicht
+- [ ] Angenommen ein Mitarbeiter, wenn er `/auswertungen` oder die Export-Adressen direkt aufruft, dann erhält er „Kein Zugriff“ bzw. keine Daten
+- [ ] Angenommen ein Inhaber bei Kunde A und Kunde B mit gewähltem Kunden A, wenn er „Auswertungen“ öffnet, dann enthalten alle Werte nur Daten von Kunde A
+
+### Zeitraum und Filter
+- [ ] Angenommen heute ist der 08.11.2026, wenn der Inhaber „Auswertungen“ öffnet, dann ist Jänner–Dezember 2026 gewählt und der Hinweis „Zeitraum noch nicht abgeschlossen – enthält auch künftige Buchungen.“ erscheint
+- [ ] Angenommen heute ist der 08.11.2026, wenn der Inhaber „Letztes Quartal“ wählt, dann ist Juli–September 2026 gewählt und kein Hinweis erscheint
+- [ ] Angenommen der Inhaber wählt ein Objekt, wenn er die Wohnungsauswahl öffnet, dann werden nur Wohnungen dieses Objekts angeboten, archivierte gekennzeichnet
+- [ ] Angenommen eine Adresse mit Monat 13 oder einer Wohnung eines anderen Objekts, wenn die Seite lädt, dann gelten Standardzeitraum bzw. „Alle Wohnungen“
+- [ ] Angenommen ein gewählter Zeitraum und Filter, wenn der Inhaber die Seite neu lädt, dann erscheint dieselbe Auswertung
+
+### Auslastung
+- [ ] Angenommen eine Wohnung mit Buchungen seit 2025 und im Oktober 2026 eine Buchung über 10 Nächte und eine Sperre über 1 Nacht, wenn Oktober 2026 ausgewertet wird, dann zeigt die Auslastung 10 von 30 Nächten (33 %) und „1 gesperrt“
+- [ ] Angenommen eine Option im Oktober, wenn Oktober ausgewertet wird, dann zählen ihre Nächte als frei und ihr Preis nicht zum Umsatz
+- [ ] Angenommen eine stornierte Buchung, wenn ausgewertet wird, dann zählen ihre Nächte nicht als belegt
+- [ ] Angenommen eine Buchung vom 28.10. bis 03.11., wenn Oktober ausgewertet wird, dann zählen 4 Nächte (28.–31.10.) zum Oktober und 2 zum November
+- [ ] Angenommen eine Buchung mit geplanter Abreise 10.10. und tatsächlicher Abreise 08.10., wenn ausgewertet wird, dann zählen die Nächte bis 08.10.
+- [ ] Angenommen eine im Oktober 2026 angelegte Wohnung, deren erste Buchung im März 2025 anreist, wenn 2025 ausgewertet wird, dann zählt sie ab 01.03.2025 als verfügbar
+- [ ] Angenommen eine Wohnung ohne Buchungen, am 15.10.2026 angelegt, wenn Oktober ausgewertet wird, dann zählt sie mit 17 verfügbaren Nächten
+- [ ] Angenommen eine am 20.10. archivierte Wohnung, wenn Oktober ausgewertet wird, dann zählt sie mit 19 verfügbaren Nächten; ab November nicht mehr
+- [ ] Angenommen eine Nacht ist zugleich gebucht und gesperrt, wenn ausgewertet wird, dann zählt sie als belegt und nicht als gesperrt
+- [ ] Angenommen zwei sich überschneidende Buchungen in derselben Wohnung, wenn ausgewertet wird, dann zählt jede Nacht einmal als belegt und die Auslastung übersteigt nie 100 %
+
+### Umsatz
+- [ ] Angenommen eine Buchung über 4 Nächte mit Übernachtung € 400,00, Endreinigung € 60,00, Rabatt -€ 20,00 und Ortstaxe € 20,00, wenn ausgewertet wird, dann beträgt ihr Umsatz € 440,00, je Nacht € 110,00
+- [ ] Angenommen eine Buchung über 3 Nächte mit € 100,00 Umsatz, davon 2 Nächte im Oktober, wenn Oktober ausgewertet wird, dann zählen € 66,66 bzw. € 66,67 so, dass Oktober und November zusammen genau € 100,00 ergeben
+- [ ] Angenommen Übernachtung € 330,00 mit 10 % USt, wenn der Umsatz erscheint, dann steht darunter „inkl. € 30,00 USt“
+- [ ] Angenommen ein Kleinunternehmer-Kunde, wenn der Umsatz erscheint, dann steht darunter „ohne USt“
+- [ ] Angenommen eine stornierte Buchung mit Anreise im Dezember und Stornogebühr € 80,00, wenn Dezember ausgewertet wird, dann zählen € 80,00 zum Umsatz, aber keine Nächte und nicht zum Durchschnittspreis
+- [ ] Angenommen eine Buchung wurde verlängert und der Preis nach der gewählten Regel neu berechnet, wenn ausgewertet wird, dann zählt der aktuelle Preis verteilt auf die tatsächlichen Nächte
+
+### Kacheln und Vorjahr
+- [ ] Angenommen Oktober 2026 mit 1.180 belegten von 1.900 verfügbaren Nächten und 45 gesperrten, wenn die Kachel erscheint, dann zeigt sie „62 %“ und „1.180 von 1.900 Nächten, 45 gesperrt“
+- [ ] Angenommen 3 Buchungen mit Anreise im Zeitraum mit 2, 5 und 7 Nächten, wenn die Kachel „Buchungen“ erscheint, dann zeigt sie „3“ und „Ø 4,7 Nächte“
+- [ ] Angenommen 2 Buchungen mit 2 und 3 Personen über je 4 Nächte im Zeitraum, wenn „Gästenächte“ erscheint, dann zeigt sie 20 und „5 Ankünfte“
+- [ ] Angenommen Auslastung 62 % und im Vorjahr 58 %, wenn die Kachel erscheint, dann steht darunter „Vorjahr 58 %“ und „↑ +4 Pp.“
+- [ ] Angenommen Umsatz € 11.200,00 und im Vorjahr € 10.000,00, wenn die Kachel erscheint, dann steht „↑ +12 %“
+- [ ] Angenommen im Vorjahr gab es keine verfügbaren Nächte, wenn die Kacheln erscheinen, dann steht beim Vorjahr „–“ und keine Veränderung
+- [ ] Angenommen ein Wohnungsfilter, wenn die Vorjahreswerte erscheinen, dann gelten sie für dieselbe Wohnung
+
+### Je Monat
+- [ ] Angenommen Jänner–Dezember, wenn der Abschnitt „Je Monat“ erscheint, dann zeigt das Diagramm 12 Monate mit Vorjahresbalken und die Tabelle 12 Zeilen mit Summenzeile „Gesamt“
+- [ ] Angenommen der Inhaber schaltet auf „Umsatz“, wenn das Diagramm neu erscheint, dann zeigt es den Umsatz brutto je Monat mit Vorjahr
+- [ ] Angenommen die Summenzeile, wenn sie berechnet wird, dann ist die Auslastung belegte ÷ verfügbare Nächte aller Monate (nicht der Mittelwert der Monatsprozente)
+
+### Je Wohnung
+- [ ] Angenommen „Alle Wohnungen“, wenn der Abschnitt erscheint, dann steht je Wohnung mit verfügbaren Nächten oder Umsatz eine Zeile, nach Objekt gruppiert
+- [ ] Angenommen ein Klick auf „Umsatz“, wenn die Tabelle neu erscheint, dann ist sie nach Umsatz sortiert ohne Objektgruppen; ein zweiter Klick kehrt die Reihenfolge um
+- [ ] Angenommen eine einzelne Wohnung ist gefiltert, wenn die Seite erscheint, dann gibt es keinen Abschnitt „Je Wohnung“
+
+### Gästeherkunft
+- [ ] Angenommen Gäste aus 13 Ländern, wenn der Abschnitt erscheint, dann stehen 10 Länder einzeln, nach Gästenächten sortiert, und darunter „Übrige Länder“ mit der Summe der restlichen 3, aufklappbar
+- [ ] Angenommen ein anonymisierter Hauptgast aus Deutschland, wenn ausgewertet wird, dann zählt seine Buchung bei Deutschland
+- [ ] Angenommen eine Buchung mit Anreise am 28.09. und Abreise am 03.10., wenn Oktober ausgewertet wird, dann zählen ihre Gästenächte im Oktober, aber keine Ankünfte
+
+### Leerer Zustand
+- [ ] Angenommen ein Kunde ohne Wohnungen, wenn der Inhaber „Auswertungen“ öffnet, dann erscheint „Für den gewählten Zeitraum liegen keine Daten vor.“ mit dem Hinweis auf Einstellungen → Wohnungen, und die Exporte sind deaktiviert
+
+### PDF
+- [ ] Angenommen Jänner–Dezember 2026 und „Alle Wohnungen“, wenn der Inhaber „PDF“ wählt, dann erhält er `Auswertung_2026_Alle_Stand-[Datum].pdf` mit Briefpapier, Kennzahlen, zwei Diagrammen, „Je Monat“, „Je Wohnung“ und „Gästeherkunft“ mit allen Ländern
+- [ ] Angenommen eine einzelne Wohnung ist gefiltert, wenn das PDF erzeugt wird, dann nennt es die Wohnung und enthält keine Tabelle „Je Wohnung“
+
+### CSV
+- [ ] Angenommen Oktober–Dezember und 3 Wohnungen mit verfügbaren Nächten, wenn der Inhaber „CSV“ wählt, dann enthält die Datei eine Überschriftszeile und 9 Zeilen, ohne Summen und ohne Vorjahr
+- [ ] Angenommen die CSV wird in Excel (deutsch) geöffnet, wenn sie angezeigt wird, dann stehen die Werte in getrennten Spalten, Umlaute sind korrekt und Beträge wie `1030,00` sind Zahlen
+- [ ] Angenommen ein Wohnungsname, der mit `=` beginnt oder einen Strichpunkt enthält, wenn die CSV erzeugt wird, dann wird er nicht als Formel ausgeführt und die Spalten bleiben korrekt
+
+### Dashboard
+- [ ] Angenommen ein Inhaber am 08.11.2026, wenn er das Dashboard öffnet, dann sieht er die Kacheln „Auslastung November“, „Umsatz November“, „Offene Rechnungen“ und „Heute“
+- [ ] Angenommen heute 2 Anreisen und 3 Abreisen, davon 1 ohne Rechnung, wenn der Inhaber das Dashboard öffnet, dann zeigt „Heute“ „2 / 3“, „Anreisen / Abreisen“ und „davon 1 ohne Rechnung“
+- [ ] Angenommen ein Mitarbeiter, wenn er das Dashboard öffnet, dann sieht er unverändert „Anreisen heute“, „Abreisen heute“, „Belegt heute“ und „Offene Rechnungen“
+- [ ] Angenommen eine Person ist Inhaberin bei A und Mitarbeiterin bei B, Filter „Alle Kunden“, wenn sie das Dashboard öffnet, dann zählen Auslastung und Umsatz nur Kunde A, Offene Rechnungen und Heute beide Kunden
+- [ ] Angenommen ein Mitarbeiter ruft die Daten des Dashboards ab, wenn sie ausgeliefert werden, dann enthalten sie keine Umsatz- oder Auslastungswerte
+- [ ] Angenommen der Filter umfasst genau einen Inhaber-Kunden, wenn der Inhaber auf „Umsatz November“ klickt, dann öffnet sich „Auswertungen“ für November 2026 dieses Kunden (bei Bedarf mit Kundenwechsel)
+- [ ] Angenommen der Filter umfasst zwei Inhaber-Kunden, wenn das Dashboard erscheint, dann sind Auslastung und Umsatz nicht anklickbar
+- [ ] Angenommen Auslastung November auf dem Dashboard und auf „Auswertungen“ für November mit „Alle Wohnungen“, wenn beide verglichen werden, dann stimmen die Werte überein
+
+### Handy
+- [ ] Angenommen ein Inhaber am Handy (375 px), wenn er „Auswertungen“ öffnet, dann stehen die Kacheln zweispaltig, die Abschnitte untereinander, Tabellen scrollen seitlich mit stehender erster Spalte und die Seite scrollt nicht seitlich
+
+## Edge Cases
+- **Buchung ändert sich nach dem Export:** Die Auswertung rechnet immer aus den aktuellen Daten. PDF und CSV zeigen ihren Stand (Fußzeile bzw. Dateiname).
+- **Nacherfasste Altbuchungen:** Eine Wohnung zählt ab dem Monat ihrer ersten Buchung als verfügbar, auch wenn sie später angelegt wurde. Monate davor erscheinen ohne verfügbare Nächte („–“).
+- **Buchung nach Archivierung:** Belegte oder gesperrte Nächte nach dem Archivierungsdatum zählen als verfügbar, die Auslastung bleibt ≤ 100 %.
+- **Endbetrag unter 0** (z. B. hohe Gutschrift): wird so verteilt und mindert den Umsatz; Anzeige mit „-€“ in Rot (PROJ-32).
+- **Buchung mit 0 Nächten** kann es nicht geben (Abreise nach Anreise). Stornogebühren ohne Nächte zählen nur zum Umsatz.
+- **Verschobene Wohnung** (anderes Objekt): zählt beim aktuellen Objekt, auch für das Vorjahr.
+- **Zeitraum ganz in der Zukunft:** erlaubt; zeigt den Buchungsstand mit Hinweis.
+- **Kundenwechsel in anderem Tab:** Die Seite gilt für den gewählten Kunden zum Zeitpunkt des Ladens; Exporte prüfen Inhaberrolle und Kunden serverseitig erneut.
+- **Viele Länder in der Herkunft:** Bildschirm zeigt 10 plus „Übrige Länder“, das PDF alle.
+
+## Technical Requirements
+- Performance: Seite und Dashboard-Kacheln mit 5.000 Buchungen je Kunde unter 2 s; PDF unter 10 s
+- Security: Nur Inhaber des gewählten Kunden; Prüfung serverseitig (RLS bzw. Rollenprüfung), auch für Exporte und Dashboard-Werte
+- Zahlen- und Datumsformate nach PROJ-31
+- Browser: Chrome, Firefox, Safari, mobil
+
+## Open Questions
+- [ ] Kanal-Auswertung: beim Spec-Interview zu PROJ-11 entscheiden
+- [ ] Feld „vermietet ab“ je Wohnung, falls die Regel „ab erster Buchung“ in der Praxis zu ungenau ist
+- [ ] Soll der Umsatz später wahlweise nach Abzug der Plattform-Provisionen (PROJ-45) gezeigt werden?
+
+## Decision Log
+
+### Product Decisions
+| Decision | Rationale | Date |
+|----------|-----------|------|
+| Umsatz = Buchungsbetrag ohne Ortstaxe, anteilig je Nacht im Monat der Nacht | Passt zur Auslastung (gleiche Nächte, gleiche Monate) und ist auch für noch nicht abgerechnete und künftige Buchungen vollständig; Rechnungen/Zahlungen haben eigene Übersichten | 2026-11-08 |
+| Stornogebühr im Monat der Anreise | Nutzerentscheidung mit Option 1; Gebühr hat keine Nächte | 2026-11-08 |
+| Brutto als Hauptzahl, enthaltene USt klein darunter | Nutzerentscheidung: Brutto erkennt man aus Buchungen wieder, USt bleibt sichtbar | 2026-11-08 |
+| Sperren ziehen von verfügbaren Nächten ab, Optionen gelten als frei | Quote misst die tatsächlich vermietbaren Nächte; Optionen sind unverbindlich | 2026-11-08 |
+| Zeitraum wie PROJ-16, Standard laufendes Jahr inkl. künftiger Monate | Bekannte Bedienung; zeigt Buchungsstand für den Rest des Jahres | 2026-11-08 |
+| Vorjahresvergleich immer sichtbar | Ferienvermietung ist saisonal; Vormonat wenig aussagekräftig | 2026-11-08 |
+| Filter Objekt → Wohnung, keine Mehrfachauswahl | Passt zur Struktur und bleibt am Handy einfach; „Je Wohnung“ deckt den Vergleich ab | 2026-11-08 |
+| Fünf Kacheln (Auslastung, Umsatz, Ø-Preis, Buchungen mit Ø-Dauer, Gästenächte) | Übliche Steuergrößen; Gästenächte = „Nächtigungen“ der Tourismusstatistik | 2026-11-08 |
+| Diagramm umschaltbar Auslastung/Umsatz über der Monatstabelle | Saison auf einen Blick, spart Platz am Handy | 2026-11-08 |
+| Abschnitt „Je Wohnung“ mit Vorjahr, sortierbar | Zeigt, welche Wohnung schwächelt | 2026-11-08 |
+| Kanäle nicht in PROJ-18, Prüfpunkt bei PROJ-11 | Nutzer hat sich noch nicht festgelegt; erst mit Channex-Import sind Plattform-Buchungen vollständig | 2026-11-08 |
+| Gästeherkunft nach Land des Hauptgasts mit Ankünften, Gästenächten, Umsatz, Anteil; Top 10 + „Übrige Länder“ | Begriffe der amtlichen Statistik; Mitreisende haben kein eigenes Land | 2026-11-08 |
+| Export PDF (mit Diagrammen) und CSV | Nutzerentscheidung; PDF für Bank/Steuerberatung, CSV zum Weiterrechnen | 2026-11-08 |
+| CSV mit einer Zeile je Wohnung und Monat, ohne Summen/Vorjahr/Herkunft | Saubere Rohdaten für Pivot in Excel | 2026-11-08 |
+| Dashboard-Kacheln für Inhaber wie Design-Entwurf (Auslastung, Umsatz, Offene Rechnungen, Heute An/Ab) | Nutzerwunsch; löst die PROJ-14-Entscheidung „keine Auslastung/Umsatz auf dem Dashboard“ ab. Bleibt in PROJ-18, weil dieselben Rechenregeln gelten und beide zusammen ausgeliefert werden sollen | 2026-11-08 |
+| Mitarbeiter behalten die bisherigen vier Kacheln | Keine Umsätze für Mitarbeiter; für sie ändert sich nichts | 2026-11-08 |
+| Bei gemischten Rollen zählen Auslastung/Umsatz nur Inhaber-Kunden | Rechte je Kunde wie im übrigen Dashboard | 2026-11-08 |
+| Verfügbar ab Monat der ersten Buchung, sonst ab Anlage; bis Archivierung | Vernünftige Werte ohne neues Feld, auch bei nacherfassten Altbuchungen | 2026-11-08 |
+| Ø-Preis ohne Stornogebühren; Doppelbuchungs-Nächte einmal belegt | Stornogebühren haben keine Nächte; Auslastung bleibt ≤ 100 % | 2026-11-08 |
+| Veränderung zum Vorjahr ohne Farbwertung | Steigende Werte sind nicht immer gut (z. B. Gästenächte bei weniger Umsatz); neutrale Darstellung | 2026-11-08 |
+
+### Technical Decisions
+| Decision | Rationale | Date |
+|----------|-----------|------|
+
+---
+<!-- Sections below are added by subsequent skills -->
+
+## Tech Design (Solution Architect)
+_To be added by /architecture_
+
+## QA Test Results
+_To be added by /qa_
+
+## Deployment
+_To be added by /deploy_
