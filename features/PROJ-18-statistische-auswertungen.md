@@ -365,6 +365,10 @@ Nach der Auslieferung gewünscht: Die Auswertung soll wie das Dashboard über al
 ### Technical Decisions
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Erweiterung ohne neue Tabellen; neue Lesefunktionen für mehrere Kunden mit Kunde je Zeile (refine) | Rechenkerne können das schon; nur die Schnittstelle wird breiter | 2026-11-08 |
+| Alte Lesefunktionen bleiben bis zu einer späteren Migration (refine) | Datenbank wird vor dem Code ausgeliefert; die laufende alte App-Version braucht sie bis zum Code-Wechsel | 2026-11-08 |
+| Neue Angabe „Inhaber bei mindestens einem Kunden“ in der App-Hülle; nur „Auswertungen“ richtet sich danach (refine) | Menü und 404-Schutz passend zur Nutzerentscheidung, ohne die übrigen Inhaber-Bereiche zu ändern | 2026-11-08 |
+| Briefpapier für den Export eines einzelnen Kunden aus dessen Daten, nicht aus dem gewählten Kunden (refine) | Die Auswahl der Auswertung ist unabhängig vom gewählten Kunden | 2026-11-08 |
 | Keine neuen Tabellen, Berechnung bei jedem Aufruf | Zahlen sind immer aktuell, keine Synchronisierung nötig; gleiches Muster wie PROJ-16 | 2026-11-08 |
 | Rechenkern in der Datenbank, Zeilen je Wohnung und Monat | Verteilung je Nacht über tausende Buchungen gehört nah an die Daten; übertragen werden nur wenige hundert verdichtete Zeilen | 2026-11-08 |
 | Vorjahr im selben Aufruf | Ein Datenbankaufruf statt zwei; gleiche Regeln garantiert | 2026-11-08 |
@@ -507,6 +511,52 @@ Eine Regeldatei für Seite, PDF, CSV und Dashboard:
 
 ### Abhängigkeiten (Pakete)
 Keine neuen. Genutzt werden `@react-pdf/renderer` (über den PDF-Arbeitsprozess) und vorhandene shadcn/ui-Bausteine (Card, Table, Select, Button, Alert, Tabs bzw. Toggle für den Umschalter, Tooltip, Collapsible).
+
+### Erweiterung Kundenauswahl (refine 2026-11-08) – Tech Design
+Wieder **keine neuen Tabellen**. Die Rechenkerne rechnen schon heute je Kunde und über mehrere Kunden (das Dashboard nutzt das). Neu ist nur, dass Seite und Exporte mehrere Kunden auf einmal abfragen und den Kunden je Zeile mitbekommen.
+
+**A) Seitenaufbau (Änderungen)**
+```
+Seite „Auswertungen“
++-- Seitenkopf: Kopfzeile „Alle Kunden“ bzw. Kundenname; Export-Knöpfe
++-- NEU Kundenauswahl: Alle Kunden | Kunde A | Kunde B (nur Inhaber-Kunden, ab 2 Kunden)
++-- Filterleiste wie bisher; Objekte/Wohnungen bei „Alle Kunden“ mit „(Kunde)“
++-- Kacheln (jetzt zentriert)
++-- Je Monat (unverändert)
++-- NEU Je Kunde (nur bei mehreren Kunden): Tabelle mit Gesamt, Vorjahr
++-- Je Wohnung: bei mehreren Kunden gruppiert Kunde → Objekt
++-- Gästeherkunft (unverändert, über alle gewählten Kunden)
+```
+- Die Kundenauswahl ist ein eigener Baustein wie der Kundenfilter des Dashboards, schreibt aber nur in die Adresse (`?kunde=`), nicht ins Dashboard-Cookie und nicht in den gewählten Kunden.
+- Dashboard-Kacheln: Link auf `/auswertungen` mit dem Dashboard-Kundenfilter (`?kunde=` nur, wenn der gefilterte Kunde ein Inhaber-Kunde ist); das Formular für den Kundenwechsel entfällt dort.
+
+**B) Daten**
+- **Neue Lesefunktionen** für mehrere Kunden auf einmal, je Zeile mit Kunde: Zeilen je Kunde, Wohnung und Monat sowie Herkunft je Kunde, Wohnung, Land und Zeitraum. Sie nutzen die bestehenden Rechenkerne und prüfen die Inhaber-Rolle je Kunde selbst (Kunden ohne Inhaber-Rolle liefern nichts).
+- Die **bisherigen Funktionen bleiben** unverändert bestehen: Beim Ausliefern kommt die Datenbank vor dem Code; die noch laufende alte App-Version ruft sie bis zum Code-Wechsel auf. Entfernt werden sie in einer späteren Migration.
+- **Wohnungen** werden für alle Inhaber-Kunden geladen, mit Kunden-ID und -Name.
+- **Briefpapier je Kunde:** Für den Export eines einzelnen Kunden werden Briefpapier, Aussteller und Logo dieses Kunden geladen (die vorhandene Datenbankfunktion nimmt bereits eine Kunden-ID; heute nutzt die App nur den gewählten Kunden). Bei „Alle Kunden“ entfällt das.
+
+**C) Regeln im Programm (Erweiterung der Regeldatei, Unit-Tests)**
+- Filter: neuer Teil „Kunde“ in der Adresse; ungültig oder kein Inhaber-Kunde → „Alle Kunden“; Kundenwechsel setzt Objekt und Wohnung zurück.
+- Summen „Je Kunde“ mit Vorjahr und „Gesamt“; „Je Wohnung“ mit Kundenebene; Objekt- und Wohnungsnamen mit Kunde in Klammern bei mehreren Kunden.
+- CSV mit erster Spalte „Kunde“, Sortierung Monat, Kunde, Objekt, Wohnung; Dateiname „Alle-Kunden“ bzw. Kundenname.
+- PDF-Ansicht: ohne Briefpapier (Kopf leer, Grundschrift der App) bei mehreren Kunden; Zeile „Kunden: …“; Tabelle „Je Kunde“.
+
+**D) Rechte**
+- Neue Angabe in der App-Hülle: „Person ist bei mindestens einem aktiven Kunden Inhaber“. Der Menüpunkt „Auswertungen“ und der 404-Schutz im App-Rahmen richten sich danach statt nach der Rolle beim gewählten Kunden. Alle anderen Inhaber-Bereiche bleiben beim gewählten Kunden.
+- Seite und Exporte bestimmen die erlaubten Kunden serverseitig aus den Mitgliedschaften (nur Inhaber); Kunden-IDs aus der Adresse werden nur innerhalb dieser Menge angenommen. Die Datenbank prüft zusätzlich.
+
+**E) Leistung**
+- Mehrere Kunden = Summe der Einzelabfragen; bei wenigen Kunden mit je bis zu einigen tausend Buchungen weiterhin deutlich unter 2 s. /backend misst mit zwei Kunden.
+
+**F) Tests**
+- Unit: Kundenfilter, Je Kunde, Gruppierung, CSV-Spalte, PDF-Ansicht ohne Briefpapier, Menü-Sichtbarkeit bei Inhaber nur eines anderen Kunden.
+- Integration: neue Funktionen mit Inhaberin bei A und B und Mitarbeiterin bei C (C liefert nichts), Summe A+B = A und B einzeln.
+- E2E: Auswahl, Je Kunde, Filter mit Kundennamen, Menüpunkt bei gewähltem Mitarbeiter-Kunden, PDF/CSV, Dashboard-Link mit Filter, zentrierte Kacheln.
+
+**G) Was wohin gehört**
+- /frontend: Kundenauswahl, Je Kunde, Gruppierung, Namen mit Kunde, zentrierte Kacheln, Dashboard-Link, Menü-Sichtbarkeit, Regeldatei mit Tests; Datenabruf auf die neuen Funktionen vorbereitet (ohne Migration „wird eingerichtet“).
+- /backend: Migration mit den neuen Lesefunktionen, Briefpapier je Kunde für den Export, PDF ohne Briefpapier, Integrationstests, Messung.
 
 ### Umsetzung Frontend (2026-11-08)
 **Gebaut:**
