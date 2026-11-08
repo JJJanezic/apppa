@@ -764,6 +764,50 @@ Neue E2E-Datei `tests/PROJ-18-statistische-auswertungen.spec.ts` (16 Tests) mit 
 ### Nachprüfung (2026-11-08)
 - **BUG-1:** Der App-Rahmen (`src/app/(app)/layout.tsx`) prüft `/auswertungen` vor dem Streaming wie `/ortstaxe`. E2E PROJ-18 desktop 14/14 (Handy-Test dort übersprungen), PROJ-2 „Sichtbarkeit der Navigation“ 5/5, PROJ-16 Mitarbeiter-Test grün.
 
+### QA Erweiterung Kundenauswahl (refine 2026-11-08)
+**Getestet:** 2026-11-08, gebauter Server gegen „apppa-dev“, Stand `8e6f62d`. Neue E2E-Gruppe „PROJ-18 Erweiterung: Auswertung über mehrere Kunden“ (7 Tests): Mia ist Inhaberin bei „Alpenhof“ und „Bergblick“ und Mitarbeiterin bei „Aaa Mitarbeit“ (gewählter Kunde).
+
+#### Akzeptanzkriterien Erweiterung (14)
+- [x] Inhaberin bei A und B, Mitarbeiterin bei C: „Alle Kunden“, Auswahl nur A und B, Werte A+B („15 von 62 Nächten“) (E2E)
+- [x] „Je Kunde“ mit A, B und „Gesamt“, mit Vorjahr (E2E, Render-Test)
+- [x] Kunde B gewählt: nur B („5 von 31 Nächten“), kein „Je Kunde“, gewählter Kunde der übrigen Seiten und Dashboard-Cookie unverändert (E2E)
+- [x] Objekte mit Kunde in Klammern (E2E)
+- [x] „Je Wohnung“ nach Kunde, Objekt, Wohnung gegliedert (E2E, Render-Test)
+- [x] Kunde C (nur Mitarbeiterin) in der Adresse → „Alle Kunden“, keine Daten von C, auch in den Exporten (E2E, Integration)
+- [x] Ein Inhaber-Kunde: keine Kundenauswahl, kein „Je Kunde“ (E2E)
+- [x] Menüpunkt sichtbar beim gewählten Mitarbeiter-Kunden, wenn anderswo Inhaber (E2E, Unit)
+- [x] Ohne Inhaber-Kunde: 404 und Exporte 403 (E2E Mitarbeiter-Test, Route-Test)
+- [x] PDF bei „Alle Kunden“: ohne Briefpapier, „Kunden: …“, „Je Kunde“, Dateiname `…_Alle-Kunden_…` (E2E Dateiname, PDF-Test Inhalt, Route-Test)
+- [x] PDF eines einzelnen Kunden mit dessen Briefpapier (Route-Test: Laden mit dessen Kunden-ID)
+- [x] CSV mit erster Spalte „Kunde“ (E2E, Unit)
+- [x] Dashboard-Kacheln verlinken mit dem Dashboard-Filter („Alle Kunden“ ohne `kunde`, Kunde B mit `kunde=`) (E2E)
+- [x] Kacheln der Auswertung zentriert (E2E `text-align: center`)
+
+#### Sonderfälle
+- [x] Gleich benannte Objekte bei verschiedenen Kunden durch Kundennamen unterscheidbar (Unit `withTenant`)
+- [x] Kunde ohne Daten erscheint in „Je Kunde“ mit 0 (Unit)
+- [x] Deaktivierter Kunde oder entzogene Inhaber-Rolle: nicht in der Auswahl (Liste aus aktiven Mitgliedschaften; Code-Prüfung)
+
+#### Sicherheit
+- [x] Kunden-IDs aus der Adresse nur innerhalb der Inhaber-Kunden; die Datenbankfunktionen liefern für Mitarbeiter-Kunden nichts (Integration 15/15)
+- [x] Mitarbeiter direkt an der Datenschnittstelle: leer (Integration)
+- [x] Briefpapier je Kunde: Datenbankfunktion prüft die Mitgliedschaft
+
+#### Regression
+- [x] PROJ-18 bisherige Tests desktop 14/14 (CSV-Erwartung an die neue Spalte „Kunde“ angepasst), Handy 2/2
+- [x] PROJ-14 Dashboard 15/15, PROJ-16 Ortstaxe 11/11, PROJ-2 Navigation und Barrierefreiheit grün
+- [x] Unit 906/906, Integration Auswertungen 15/15
+- [x] PROJ-42 Ausstellen mit PDF (nutzt das umgebaute Laden des Briefpapiers): 13 bestanden, 13 wegen der Zeitgrenze des Laufs nicht ausgeführt, keine Fehler
+- [x] Firefox: Erweiterung 7/7 nach Testpflege (siehe unten)
+- [ ] Safari nicht geprüft (WebKit nur gegen `npm run dev`)
+- Testpflege Firefox: Zwei Tests riefen direkt nach einem Klick zur Auswertung die nächste Adresse auf; Firefox brach den laufenden Seitenwechsel ab (`NS_BINDING_ABORTED`). Die Tests warten jetzt auf die Überschrift; kein App-Fehler.
+- Testpflege: Der Tastatur-Test in PROJ-2 drückte nur zehnmal Tab; seit dem Menüpunkt „Auswertungen“ (PROJ-18, erster Teil) liegt das Benutzermenü einen Schritt weiter. Auf zwölf Schritte erhöht; kein App-Fehler.
+
+#### Ergebnis
+- **Akzeptanzkriterien Erweiterung:** 14/14
+- **Bugs:** keine
+- **Production Ready:** JA
+
 ## Deployment
 - **Datum:** 2026-11-08
 - **Commit:** `8b96929` (main → staging → production)

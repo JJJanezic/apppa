@@ -286,9 +286,10 @@ test.describe('PROJ-18 Statistische Auswertungen', () => {
     expect(download.suggestedFilename()).toBe(`Auswertung_2025-10_Alle_Stand-${TODAY}.csv`)
     const text = readFileSync(await download.path(), 'utf8').replace(/^﻿/, '')
     const lines = text.trimEnd().split('\r\n')
-    expect(lines[0]).toBe('Monat;Objekt;Wohnung;Verfügbare Nächte;Belegte Nächte;Gesperrte Nächte;Auslastung (%);Umsatz brutto;USt;Gästenächte;Ankünfte')
+    // seit refine 2026-11-08 mit erster Spalte „Kunde“
+    expect(lines[0]).toBe('Kunde;Monat;Objekt;Wohnung;Verfügbare Nächte;Belegte Nächte;Gesperrte Nächte;Auslastung (%);Umsatz brutto;USt;Gästenächte;Ankünfte')
     expect(lines).toHaveLength(4)
-    expect(lines).toContain(`2025-10;Haus Alpen ${run};Top 1;30;10;1;33,3;1060,00;96,36;30;3`)
+    expect(lines).toContain(`Alpenhof ${run};2025-10;Haus Alpen ${run};Top 1;30;10;1;33,3;1060,00;96,36;30;3`)
   })
 
   test('PDF-Download: Dateiname und PDF-Inhalt', async ({ page }) => {
@@ -358,5 +359,141 @@ test.describe('PROJ-18 Statistische Auswertungen', () => {
     await page.locator('nextjs-portal').evaluateAll((els) => els.forEach((e) => e.remove()))
     const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze()
     expect(results.violations.map((v) => `${v.id}: ${v.help}`)).toEqual([])
+  })
+})
+
+// Erweiterung Kundenauswahl (refine 2026-11-08). Mia ist Inhaberin bei „Alpenhof“ und „Bergblick“ und Mitarbeiterin bei
+// „Aaa Mitarbeit“ (alphabetisch erster Kunde, daher der gewählte Kunde der übrigen Seiten). Oktober 2025:
+// Alpenhof Top 1 10 Nächte € 1.000, Bergblick Top 1 5 Nächte € 500 → zusammen 15 von 62 Nächten.
+test.describe('PROJ-18 Erweiterung: Auswertung über mehrere Kunden', () => {
+  const multi: Record<string, string> = {}
+  let mia: E2EUser
+
+  test.beforeAll(async () => {
+    test.skip(!hasSupabaseEnv, 'ohne Supabase-Zugang')
+    test.setTimeout(120_000)
+    mia = await createUser({ displayName: 'Mia Mehrfach' })
+    multi.staff = await createTenant(`Aaa Mitarbeit ${run}`, [{ user: mia, role: 'staff' }])
+    multi.alpen = await createTenant(`Alpenhof ${run}`, [{ user: mia, role: 'owner' }])
+    multi.berg = await createTenant(`Bergblick ${run}`, [{ user: mia, role: 'owner' }])
+    const pA = await addProperty(multi.alpen, 'Haus Alpenhof')
+    const pB = await addProperty(multi.berg, 'Haus Berg')
+    const pC = await addProperty(multi.staff, 'Haus Fremd')
+    const aA = await addApartment(multi.alpen, pA, 'Top 1')
+    const aB = await addApartment(multi.berg, pB, 'Top 1')
+    const aC = await addApartment(multi.staff, pC, 'Top 1')
+    await addBooking(multi.alpen, aA, '2025-10-05', '2025-10-15', { nightsCents: 100000, country: 'DE' })
+    await addBooking(multi.berg, aB, '2025-10-05', '2025-10-10', { nightsCents: 50000, country: 'NL' })
+    await addBooking(multi.staff, aC, '2025-10-05', '2025-10-25', { nightsCents: 900000 })
+  })
+
+  test.afterAll(async () => {
+    if (mia) await deleteUser(mia)
+    for (const t of Object.values(multi)) await service().from('tenants').delete().eq('id', t)
+  })
+
+  test('Menüpunkt trotz Mitarbeiter-Kunde als gewähltem Kunden; Standard „Alle Kunden“ nur mit Inhaber-Kunden', async ({ page }) => {
+    desktopOnly()
+    await signInAs(page, mia)
+    await page.goto('/')
+    await page.getByRole('link', { name: 'Auswertungen', exact: true }).first().click()
+    await expect(page).toHaveURL(/\/auswertungen/)
+    // erst fertig laden lassen, sonst bricht Firefox den laufenden Seitenwechsel beim nächsten Aufruf ab
+    await expect(page.getByRole('heading', { name: 'Auswertungen', level: 1 })).toBeVisible()
+    await page.goto(OCT)
+    await expect(page.getByRole('combobox', { name: 'Kunde' })).toContainText('Alle Kunden')
+    await expect(kpi(page, 'Auslastung')).toContainText('15 von 62 Nächten')
+    await page.getByRole('combobox', { name: 'Kunde' }).click()
+    await expect(page.getByRole('option', { name: `Alpenhof ${run}` })).toBeVisible()
+    await expect(page.getByRole('option', { name: `Bergblick ${run}` })).toBeVisible()
+    await expect(page.getByRole('option', { name: `Aaa Mitarbeit ${run}` })).toHaveCount(0)
+    await page.keyboard.press('Escape')
+  })
+
+  test('„Je Kunde“ mit beiden Kunden und Gesamt; Je Wohnung nach Kunde gegliedert; Objekte mit Kunde in Klammern', async ({ page }) => {
+    desktopOnly()
+    await signInAs(page, mia)
+    await page.goto(OCT)
+    await ready(page)
+    const tenantsTable = page.getByRole('region', { name: 'Werte je Kunde' })
+    await expect(tenantsTable.getByRole('rowheader', { name: `Alpenhof ${run}` })).toBeVisible()
+    await expect(tenantsTable.getByRole('rowheader', { name: `Bergblick ${run}` })).toBeVisible()
+    await expect(tenantsTable.getByRole('rowheader', { name: 'Gesamt' })).toBeVisible()
+    const apartments = page.getByRole('region', { name: 'Werte je Wohnung' })
+    await expect(apartments).toContainText(`Alpenhof ${run}`)
+    await expect(apartments).toContainText(`Bergblick ${run}`)
+    await page.getByRole('combobox', { name: 'Objekt' }).click()
+    await expect(page.getByRole('option', { name: `Haus Alpenhof ${run} (Alpenhof ${run})` })).toBeVisible()
+    await page.keyboard.press('Escape')
+  })
+
+  test('einzelner Kunde: nur dessen Zahlen, kein „Je Kunde“; gewählter Kunde und Dashboard-Filter bleiben', async ({ page }) => {
+    desktopOnly()
+    await signInAs(page, mia)
+    await page.goto(OCT)
+    await ready(page)
+    await page.getByRole('combobox', { name: 'Kunde' }).click()
+    await page.getByRole('option', { name: `Bergblick ${run}` }).click()
+    await expect(page).toHaveURL(new RegExp(`kunde=${multi.berg}`))
+    await expect(kpi(page, 'Auslastung')).toContainText('5 von 31 Nächten')
+    await expect(page.getByRole('region', { name: 'Werte je Kunde' })).toHaveCount(0)
+    // gewählter Kunde der übrigen Seiten unverändert (Seitenleiste), kein Dashboard-Cookie gesetzt
+    await expect(page.getByText(`Aaa Mitarbeit ${run}`).first()).toBeVisible()
+    expect((await page.context().cookies()).some((c) => c.name === 'apppa-dashboard-kunde')).toBe(false)
+  })
+
+  test('Kunde, bei dem die Person nur Mitarbeiterin ist, in der Adresse → „Alle Kunden“ ohne dessen Daten', async ({ page }) => {
+    desktopOnly()
+    await signInAs(page, mia)
+    await page.goto(`${OCT}&kunde=${multi.staff}`)
+    await expect(page.getByRole('combobox', { name: 'Kunde' })).toContainText('Alle Kunden')
+    await expect(kpi(page, 'Auslastung')).toContainText('15 von 62 Nächten')
+    for (const kind of ['csv', 'pdf']) {
+      const r = await page.request.get(`/api/auswertungen/${kind}?jahr=2025&von=10&bis=10&kunde=${multi.staff}`)
+      expect(r.status()).toBe(200)
+      if (kind === 'csv') expect(await r.text()).not.toContain('Aaa Mitarbeit')
+    }
+  })
+
+  test('Exporte bei „Alle Kunden“: Dateinamen „Alle-Kunden“, CSV mit Spalte Kunde', async ({ page }) => {
+    desktopOnly()
+    await signInAs(page, mia)
+    await page.goto(OCT)
+    await ready(page)
+    const [csv] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Auswertung als CSV-Datei für Excel herunterladen' }).click()])
+    expect(csv.suggestedFilename()).toBe(`Auswertung_2025-10_Alle-Kunden_Stand-${TODAY}.csv`)
+    const lines = readFileSync(await csv.path(), 'utf8').replace(/^﻿/, '').trimEnd().split('\r\n')
+    expect(lines[0].startsWith('Kunde;Monat;Objekt;Wohnung')).toBe(true)
+    expect(lines.slice(1).map((l) => l.split(';')[0])).toEqual([`Alpenhof ${run}`, `Bergblick ${run}`])
+    const [pdf] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Auswertung als PDF herunterladen' }).click()])
+    expect(pdf.suggestedFilename()).toBe(`Auswertung_2025-10_Alle-Kunden_Stand-${TODAY}.pdf`)
+    expect(readFileSync(await pdf.path()).subarray(0, 5).toString('latin1')).toBe('%PDF-')
+  })
+
+  test('Dashboard: Auslastung öffnet die Auswertung mit dem Dashboard-Kundenfilter', async ({ page }) => {
+    desktopOnly()
+    await signInAs(page, mia)
+    await page.goto('/?kunde=alle')
+    await ready(page)
+    await page.getByLabel('Tageslage').getByRole('link', { name: `Auslastung ${MONTHS[MONTH - 1]}` }).click()
+    await expect(page).toHaveURL(new RegExp(`/auswertungen\\?jahr=${YEAR}&von=${MONTH}&bis=${MONTH}$`))
+    await expect(page.getByRole('heading', { name: 'Auswertungen', level: 1 })).toBeVisible()
+    await page.goto(`/?kunde=${multi.berg}`)
+    await ready(page)
+    await page.getByLabel('Tageslage').getByRole('link', { name: `Umsatz ${MONTHS[MONTH - 1]}` }).click()
+    await expect(page).toHaveURL(new RegExp(`kunde=${multi.berg}`))
+    await expect(page.getByRole('combobox', { name: 'Kunde' })).toContainText(`Bergblick ${run}`)
+  })
+
+  test('Kacheln der Auswertung zentriert; ein Inhaber-Kunde ohne Kundenauswahl', async ({ page }) => {
+    desktopOnly()
+    await signInAs(page, mia)
+    await page.goto(OCT)
+    expect(await kpis(page).locator('> div').first().evaluate((el) => getComputedStyle(el).textAlign)).toBe('center')
+    await signInAs(page, users.olga)
+    await page.goto(OCT)
+    await expect(kpis(page)).toBeVisible()
+    await expect(page.getByRole('combobox', { name: 'Kunde' })).toHaveCount(0)
+    await expect(page.getByRole('region', { name: 'Werte je Kunde' })).toHaveCount(0)
   })
 })

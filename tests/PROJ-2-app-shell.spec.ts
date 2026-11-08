@@ -170,8 +170,8 @@ test.describe('Barrierefreiheit', () => {
     await page.goto('/')
     const expected = isDesktop(page) ? ['Dashboard', 'Benutzermenü'] : ['Dashboard', 'Mehr']
     const reached: string[] = []
-    // Seit PROJ-45 („Zahlungen“) und PROJ-16 („Ortstaxe“) je ein Menüpunkt mehr vor dem Benutzermenü
-    for (let i = 0; i < 10; i++) {
+    // Seit PROJ-45 („Zahlungen“), PROJ-16 („Ortstaxe“) und PROJ-18 („Auswertungen“) je ein Menüpunkt mehr vor dem Benutzermenü
+    for (let i = 0; i < 12; i++) {
       await page.keyboard.press('Tab')
       const info = await page.evaluate(() => {
         const el = document.activeElement as HTMLElement | null
