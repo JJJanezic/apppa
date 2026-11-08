@@ -1,6 +1,6 @@
 # PROJ-16: Ortstaxen-Berichte
 
-## Status: In Review
+## Status: Approved
 **Created:** 2026-11-08
 **Last Updated:** 2026-11-08
 
@@ -498,7 +498,7 @@ Die Messdaten wurden wieder gelöscht.
 #### Zugriff
 - [x] Inhaber: Menüpunkt „Ortstaxe“ führt zu `/ortstaxe` (E2E)
 - [x] Mitarbeiter: kein Menüpunkt (E2E, Unit Navigation)
-- [x] Mitarbeiter, direkter Aufruf: keine Daten. Die Seite zeigt „Seite nicht gefunden“ statt „Kein Zugriff“ (bewusste Abweichung, siehe Frontend). Downloads antworten mit 403 (E2E). **Statuscode der Seite 200 statt 404 → BUG-1**
+- [x] Mitarbeiter, direkter Aufruf: keine Daten. Die Seite zeigt „Seite nicht gefunden“ mit Status 404 (war BUG-1, behoben) statt „Kein Zugriff“ (bewusste Abweichung, siehe Frontend). Downloads antworten mit 403 (E2E)
 - [x] Inhaberin bei A und Mitarbeiterin bei B: keine Daten von B (Integration)
 - [x] Nur Buchungen des gewählten Kunden (Integration, E2E)
 
@@ -516,7 +516,7 @@ Die Messdaten wurden wieder gelöscht.
 - [x] Gleiche Beträge wie das Dashboard je Monat und Gemeinde; Quartal = Summe der Monate (Integration)
 - [x] Kind unter der Altersgrenze und Häkchen „befreit“ zählen als befreite Personennächte (Integration)
 - [x] Hinweis „inkl. 1 Position ohne Personennächte“ (E2E)
-- [ ] **BUG-2:** Befreite Personennächte in der Übersicht zu niedrig, wenn Alt-Positionen bekannte abgabepflichtige Personennächte haben
+- [x] Nicht bestimmbare befreite Personennächte werden je Gemeinde und gesamt ausgewiesen (war BUG-2, behoben)
 
 #### Buchungsliste
 - [x] Gruppiert je Gemeinde, nach Anreise (E2E, Unit), bei gleicher Anreise nach Nummer (Unit)
@@ -574,7 +574,7 @@ Die Messdaten wurden wieder gelöscht.
 
 ### Bugs Found
 
-#### BUG-1: Statuscode 200 statt 404 für Mitarbeiter auf `/ortstaxe`
+#### BUG-1: Statuscode 200 statt 404 für Mitarbeiter auf `/ortstaxe` — ✅ behoben (Nachprüfung 2026-11-08)
 - **Severity:** Low
 - **Steps to Reproduce:**
   1. Als Mitarbeiter anmelden und `/ortstaxe` direkt aufrufen
@@ -583,7 +583,7 @@ Die Messdaten wurden wieder gelöscht.
 - **Ursache:** Der App-Rahmen (`src/app/(app)/layout.tsx`) prüft vor dem Streaming nur `/einstellungen` und `/betreiber`.
 - **Priority:** Nice to have
 
-#### BUG-2: Befreite Personennächte in der Übersicht zu niedrig bei Alt-Positionen
+#### BUG-2: Befreite Personennächte in der Übersicht zu niedrig bei Alt-Positionen — ✅ behoben (Nachprüfung 2026-11-08)
 - **Severity:** Medium
 - **Steps to Reproduce:**
   1. Buchung mit 2 Erwachsenen und 2 Kindern, 2 Nächte, Alt-Position (ohne Tarif-Verweis) € 10,00 bei Tarif € 2,50
@@ -596,12 +596,20 @@ Die Messdaten wurden wieder gelöscht.
 - **Vorschlag:** In der Übersicht auch Positionen ohne bestimmbare befreite Personennächte zählen und ausweisen (z. B. „befreit: inkl. N Buchungen ohne Angabe“), oder die befreite Summe als unvollständig kennzeichnen.
 - **Priority:** Fix before deployment
 
-### Summary
-- **Acceptance Criteria:** 50/51 bestanden; 1 nicht bestanden (BUG-2). Zu BUG-1 ist das Kriterium erfüllt (keine Daten), nur der Statuscode weicht ab.
-- **Bugs Found:** 2 (0 critical, 0 high, 1 medium, 1 low)
-- **Security:** bestanden
-- **Production Ready:** YES (keine Critical oder High). BUG-2 sollte vor dem Deploy behoben werden, weil er die gemeldeten Zahlen betrifft.
-- **Recommendation:** BUG-2 (und nebenbei BUG-1) beheben, dann Nachprüfung und Deploy
+### Fixes und Nachprüfung (2026-11-08)
+- **BUG-1:** Der App-Rahmen (`src/app/(app)/layout.tsx`) prüft `/ortstaxe` vor dem Streaming wie `/einstellungen` und `/betreiber`. Mitarbeiter erhalten eine echte 404 (E2E prüft den Statuscode).
+- **BUG-2:**
+  - Die Gemeindesumme zählt Buchungen ohne bestimmbare befreite Personennächte (`exemptUnknown`). Die Übersicht und das PDF weisen sie aus: „Befreite Personennächte ohne Angabe bei N Buchung(en)“, auch in „Gesamt“.
+  - In der Buchungsliste trägt eine Zeile mit „–“ bei den befreiten Personennächten jetzt immer einen Hinweis („Alt-Position“ bzw. „Prozent-Tarif“).
+  - Unit-Tests ergänzt; E2E prüft beide Hinweise.
+- **Nachprüfung:**
+  - Unit: 842 grün. Lint sauber, Build erfolgreich.
+  - E2E PROJ-16: Desktop, Handy und Tablet 17 grün.
+  - Regression PROJ-2, PROJ-4, PROJ-5: Desktop 61 grün.
 
-## Deployment
-_To be added by /deploy_
+### Summary
+- **Acceptance Criteria:** 51/51 bestanden
+- **Bugs Found:** 2 (0 critical, 0 high, 1 medium, 1 low), beide behoben
+- **Security:** bestanden
+- **Production Ready:** YES
+- **Recommendation:** Deploy
