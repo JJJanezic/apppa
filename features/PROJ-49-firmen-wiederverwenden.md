@@ -262,6 +262,21 @@ Keine neuen Pakete. Genutzt werden die vorhandene shadcn-Komponente „Command�
 - **Messages:** `guests.panel.companySuggestions`, `companySuggestionsFound`, `companySuggestionApplied`.
 - **Prüfung:** `tsc`, ESLint, Unit-Tests (65) und `npm run build` grün. E2E folgt nach `/backend`, weil die Vorschläge die Datenbankfunktion brauchen.
 
+### Umsetzung Backend (2026-11-08)
+- **Migration** `supabase/migrations/20261108142504_guest_company_suggestions.sql`: neue Lesefunktion `public.guest_company_suggestions(p_tenant_id, p_query, p_exclude_id)`. Sie läuft mit den Rechten der angemeldeten Person, Ausführen dürfen nur angemeldete Personen. Keine Änderung an Tabellen, Regeln oder Indizes.
+  - Suchtext wie in der Gästesuche vereinheitlicht (`private.guest_norm`), auf 200 Zeichen begrenzt, LIKE-Platzhalter werden wörtlich genommen. Unter 2 Zeichen gibt es keine Treffer.
+  - Vorfilter über den vorhandenen Suchindex (`search_text`), danach Prüfung genau im vereinheitlichten Firmennamen
+  - Berücksichtigt nur nicht anonymisierte Gäste des Kunden mit Firmennamen. Der übergebene Gast ist ausgeschlossen.
+  - Fassungen: Gruppiert wird nach allen sieben Feldern, kleingeschrieben und ohne Leerzeichen am Rand. Je Fassung zählen die Werte des zuletzt geänderten Gastes. Ausgabe nach „zuletzt geändert“, höchstens 8 Zeilen, nur Firmenfelder.
+- **Dev:** eingespielt, `db:types` erzeugt. Der Typ war im Frontend bereits identisch eingetragen. Die Advisor-Prüfung meldet nur die bekannte Auth-Warnung zur OTP-Laufzeit, nichts zur neuen Funktion.
+- **Server-Aktion** und Frontend wie unter „Umsetzung Frontend“, ohne weitere Änderung.
+- **Integrationstest** `supabase/tests/guest-company-suggestions.integration.test.ts` (8 Tests, grün):
+  - Umlaute und Schreibung, Mindestlänge, nur Firmenname (nicht Gastname oder UID), Platzhalter wörtlich
+  - Fassungen zusammenfassen und trennen, Reihenfolge, Grenze 8
+  - Ausschluss des eigenen und anonymisierter Gäste
+  - Mitarbeiter liest, fremder Kunde sieht nichts
+- **Regression:** `guests.integration.test.ts` (15) grün.
+
 ## QA Test Results
 _To be added by /qa_
 
