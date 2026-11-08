@@ -1,6 +1,6 @@
 # PROJ-18: Statistische Auswertungen
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-11-08
 **Last Updated:** 2026-11-08
 
@@ -301,12 +301,148 @@ Hat die Person im Dashboard-Kundenfilter mindestens einen Kunden, bei dem sie **
 ### Technical Decisions
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Keine neuen Tabellen, Berechnung bei jedem Aufruf | Zahlen sind immer aktuell, keine Synchronisierung nötig; gleiches Muster wie PROJ-16 | 2026-11-08 |
+| Rechenkern in der Datenbank, Zeilen je Wohnung und Monat | Verteilung je Nacht über tausende Buchungen gehört nah an die Daten; übertragen werden nur wenige hundert verdichtete Zeilen | 2026-11-08 |
+| Vorjahr im selben Aufruf | Ein Datenbankaufruf statt zwei; gleiche Regeln garantiert | 2026-11-08 |
+| Kacheln, Summen, Vorjahr und Sortierung in einer Regeldatei im Programm | Seite, PDF, CSV und Dashboard rechnen identisch; einfach mit Unit-Tests prüfbar | 2026-11-08 |
+| USt je Buchung wie im Buchungsdetail berechnen, dann auf Nächte verteilen | Summe über alle Monate stimmt centgenau mit dem Buchungsdetail überein | 2026-11-08 |
+| Eigenes Balkendiagramm statt Diagramm-Paket (z. B. recharts) | Kein neues Paket; dieselbe Darstellung lässt sich mit @react-pdf/renderer ins PDF zeichnen, was mit recharts nicht geht | 2026-11-08 |
+| PDF als weitere Dokumentart im vorhandenen PDF-Arbeitsprozess | Briefpapier, Schriften und Lastgrenze sind dort schon gelöst (PROJ-16) | 2026-11-08 |
+| Dashboard-Werte über eigene Funktion nur für Inhaber-Kunden | Mitarbeiter erhalten keine Umsatzdaten, auch nicht über die Antwort an den Browser | 2026-11-08 |
+| Mitarbeiter auf /auswertungen: „Seite nicht gefunden“ statt „Kein Zugriff“ | Einheitlich mit allen Inhaber-Bereichen (wie PROJ-16-Abweichung) | 2026-11-08 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### Überblick
+PROJ-18 braucht **keine neuen Tabellen**. Alle Zahlen werden bei jedem Aufruf aus Buchungen, Preispositionen, Wohnungen und Gästen berechnet, wie bei den Ortstaxen-Berichten (PROJ-16). Gebaut werden:
+1. ein **Rechenkern in der Datenbank**, der je Wohnung und Monat die Grundzahlen liefert (Nächte, Umsatz, USt, Gäste), dazu eine Auswertung je Herkunftsland,
+2. eine **Regeldatei im Programm**, die daraus Kacheln, Monats-, Wohnungs- und Ländertabellen samt Vorjahr bildet (für Seite, PDF, CSV und Dashboard gleich),
+3. die Seite **„Auswertungen“** mit Filtern, Kacheln, Diagramm und Tabellen,
+4. zwei Download-Adressen für **PDF und CSV**,
+5. die neuen **Inhaber-Kacheln auf dem Dashboard**.
+
+### A) Seitenaufbau
+
+```
+Seite „Auswertungen“ (/auswertungen, nur Inhaber)
++-- Seitenkopf „Auswertungen“ mit Kundenname
+|   +-- rechts: Knöpfe „PDF“ und „CSV“ (deaktiviert ohne Daten)
++-- Filterleiste
+|   +-- Schnellwahl: Dieses Jahr | Letztes Jahr | Letzter Monat | Letztes Quartal
+|   +-- Jahr, Von Monat, Bis Monat
+|   +-- Objekt: Alle Objekte | einzelnes Objekt
+|   +-- Wohnung: Alle Wohnungen | einzelne Wohnung (archivierte gekennzeichnet)
++-- Hinweis „Zeitraum noch nicht abgeschlossen – enthält auch künftige Buchungen.“
++-- Kacheln (5): Auslastung | Umsatz | Ø-Preis je Nacht | Buchungen | Gästenächte
+|   +-- je Kachel: Wert, Zusatzzeile, Vorjahr mit Veränderung (Pfeil, ohne Farbe)
++-- Karte „Je Monat“
+|   +-- Umschalter Auslastung | Umsatz
+|   +-- Balkendiagramm (Monat, Vorjahr blass daneben, Wert beim Zeigen/Antippen)
+|   +-- Tabelle mit Summenzeile „Gesamt“
++-- Karte „Je Wohnung“ (entfällt bei einzelner Wohnung)
+|   +-- Tabelle, nach Objekt gruppiert, Spaltenköpfe sortierbar
++-- Karte „Gästeherkunft“
+|   +-- Tabelle: 10 Länder + „Übrige Länder“ (aufklappbar)
++-- Leerer Zustand „Für den gewählten Zeitraum liegen keine Daten vor.“ (+ Hinweis Wohnungen)
++-- Meldung „Export konnte nicht erstellt werden …“ (nur nach fehlgeschlagenem Export)
+```
+
+- Die Seite wird auf dem Server erzeugt. Im Browser laufen nur Filterleiste, Diagramm-Umschalter, Sortierung der Wohnungstabelle, „Übrige Länder“ aufklappen und Export-Knöpfe.
+- Filter stehen in der Adresse (`?jahr=&von=&bis=&objekt=&wohnung=`), die Seite lädt dann neu, wie bei der Ortstaxe.
+- Gestaltung nach dem App-Entwurf: Kacheln wie im Dashboard (Symbol, Bezeichnung, große Zahl, Zusatzzeile), Karten und Tabellen wie in der Ortstaxe-Seite, Beträge rechtsbündig in Ziffern gleicher Breite.
+- Tabellen scrollen am Handy in eigenem Bereich mit Tastaturfokus; erste Spalte bleibt stehen. Keine Overlay-Links auf Zeilen (Safari).
+- Menüpunkt „Auswertungen“ wird freigeschaltet (bisher „bald verfügbar“), nur für Inhaber.
+
+**Dashboard (Änderung):**
+```
+Kacheln
++-- Inhaber-Kunde im Filter vorhanden:
+|   Auslastung [Monat] | Umsatz [Monat] | Offene Rechnungen | Heute „2 / 3“
++-- sonst (nur Mitarbeiter): bisherige vier Kacheln, unverändert
+```
+- Auslastung und Umsatz sind ein Link zu „Auswertungen“ (laufender Monat), wenn genau ein Inhaber-Kunde im Filter ist; bei einem anderen als dem gewählten Kunden über den bestehenden Kundenwechsel (`/kunde-wechseln` mit Ziel).
+- „Offene Rechnungen“ und „Heute“ nutzen die vorhandenen Dashboard-Daten.
+
+### B) Daten
+
+**Neu gespeichert:** nichts.
+
+**Gelesen:**
+- Buchungen: Art, Storno und Stornodatum, Anreise, tatsächliche Abreise, Erwachsene, Kinder, Hauptgast, Wohnung
+- Beträge: verrechneter Übernachtungspreis (nach Preisregel bei Verlängerung, PROJ-30) mit USt-Satz, Zusatzpositionen mit USt-Satz und Ortstaxe-Kennzeichen, Stornogebühr mit USt-Satz
+- Kleinunternehmer-Status des Kunden zum maßgeblichen Tag (bestehende Regel aus PROJ-36)
+- Wohnungen: Objekt, Name, Anlage- und Archivierungsdatum
+- Gast: Herkunftsland
+- Briefpapier, Logo und Stammdaten (nur PDF)
+
+**Rechenkern (Datenbank), eine Zeile je Wohnung und Monat:**
+- verfügbare, belegte und gesperrte Nächte (nach den Regeln der Spec: ab Monat der ersten Buchung bzw. Anlage, bis Archivierung, Doppelbuchungs-Nächte einmal, gebucht vor gesperrt)
+- Umsatz brutto und enthaltene USt aus Buchungen (gleichmäßig je Nacht, Rest in die letzte Nacht)
+- Stornogebühren brutto und USt (im Anreisemonat)
+- Gästenächte, Ankünfte, Zahl der Buchungen mit Anreise und deren Aufenthaltsnächte gesamt
+
+Die USt wird **je Buchung** berechnet wie im Buchungsdetail (Brutto je Satz → enthaltene USt, auf den Cent gerundet; bei Kleinunternehmer 0) und dann wie der Umsatz auf die Nächte verteilt. So stimmt die Summe einer Buchung über alle Monate genau mit dem Buchungsdetail überein.
+
+**Auswertung je Herkunftsland:** dieselbe Grundlage, gruppiert nach Land statt Wohnung: Ankünfte, Gästenächte, Umsatz brutto.
+
+**Abfragen:**
+- Eine Funktion liefert für den gewählten Kunden, Zeitraum und Filter die Zeilen je Wohnung und Monat für den **Zeitraum und das Vorjahr** in einem Aufruf (höchstens einige Dutzend Wohnungen × 24 Monate, also wenige hundert Zeilen).
+- Eine zweite Funktion liefert die Länderzeilen für Zeitraum und Vorjahr.
+- Eine dritte Funktion liefert für das Dashboard Auslastung und Umsatz des laufenden Monats über mehrere Kunden (nur die, bei denen die Person Inhaber ist).
+- Alle prüfen die Inhaber-Rolle je Kunde selbst (wie `tourist_tax_monthly`). Mitarbeiter und fremde Kunden erhalten eine leere Antwort.
+
+### C) Regeln im Programm (ohne Datenbank, mit Unit-Tests)
+Eine Regeldatei für Seite, PDF, CSV und Dashboard:
+- Filter aus der Adresse lesen und prüfen; Standard laufendes Jahr; Schnellwahl inkl. Jahreswechsel; „Zeitraum noch nicht abgeschlossen“. Die Zeitraum-Regeln der Ortstaxe werden wiederverwendet, wo sie passen.
+- Aus den Zeilen je Wohnung und Monat: Kacheln, Tabelle „Je Monat“ mit „Gesamt“ (Auslastung und Ø-Preis aus Summen), Tabelle „Je Wohnung“, jeweils mit Vorjahr.
+- Veränderung: Prozentpunkte bei der Auslastung, sonst Prozent; „–“, wenn Vorjahr 0 oder nicht bestimmbar.
+- Länder: Sortierung nach Gästenächten, Top 10 + „Übrige Länder“ (Bildschirm), alle (PDF); Ländernamen aus der vorhandenen Länderliste der Gäste.
+- „inkl. € … USt“ bzw. „ohne USt“.
+- Zeitraum in Worten und Dateinamen (`Auswertung_2026_Alle_Stand-2026-11-08.pdf`).
+- CSV-Aufbau: Format wie PROJ-16 (die vorhandenen CSV-Bausteine werden gemeinsam genutzt).
+
+### D) Diagramm
+- **Eigenes, einfaches Balkendiagramm** ohne neues Paket: Balken je Monat, Vorjahresbalken blass daneben, Achse mit wenigen Hilfslinien. Farben aus den Design-Tokens, in Hell und Dunkel lesbar.
+- Am Bildschirm zeigt Zeigen bzw. Antippen eines Balkens Monat, Wert und Vorjahr (Tooltip aus shadcn/ui); für Bildschirmleser gibt es die Tabelle darunter, das Diagramm selbst ist als Bild mit Beschreibung ausgezeichnet.
+- Im PDF wird dieselbe Berechnung der Balkenhöhen mit den Zeichenbausteinen von `@react-pdf/renderer` gezeichnet. So sehen Bildschirm und PDF gleich aus.
+
+### E) Exporte
+- **Zwei Download-Adressen** (`/api/auswertungen/pdf`, `/api/auswertungen/csv`) mit denselben Filtern wie die Seite. Jede prüft Anmeldung, gewählten Kunden und Inhaber-Rolle selbst und lädt die Daten über dieselben Funktionen.
+- **Knöpfe** wie bei der Ortstaxe (Laden im Hintergrund, Dateiname aus der Antwort, Fehlermeldung).
+- **PDF:** neue Dokumentart „Auswertung“ im vorhandenen PDF-Arbeitsprozess (wie der Ortstaxe-Bericht): Briefpapier-Schriften, Logo, Aussteller-Block, A4 hoch, Tabellenkopf auf Folgeseiten wiederholt, Fußzeile mit „Stand“ und „Seite X von Y“. Gemeinsame Lastgrenze mit Rechnungen und Ortstaxe. Nicht gespeichert.
+- **CSV:** direkt erzeugt, nicht gespeichert, eine Zeile je Wohnung und Monat.
+
+### F) Rechte und Sicherheit
+- Seite: Inhaber-Bereich wie Ortstaxe; Mitarbeiter erhalten wie dort „Seite nicht gefunden“ (die App behandelt alle Inhaber-Bereiche so; Daten gibt es keine).
+- Datenbank: Inhaber-Prüfung je Kunde in jeder Funktion. Umsatzdaten liegen ohnehin nur für Inhaber lesbar vor (Beträge sind seit PROJ-8 Inhaber-Daten).
+- Dashboard: Für Kunden, bei denen die Person nur Mitarbeiter ist, wird nichts berechnet oder ausgeliefert.
+- Exporte: eigene Prüfung, nur der gewählte Kunde, keine Kunden-ID von außen; Objekt und Wohnung müssen zum Kunden gehören.
+
+### G) Leistung
+- Ziel aus der Spec: Seite und Dashboard-Kacheln bei 5.000 Buchungen unter 2 Sekunden, PDF unter 10 Sekunden.
+- Die Berechnung je Nacht läuft in der Datenbank; übertragen werden nur die verdichteten Zeilen. Zwischenschritte werden wie in PROJ-16 einmal berechnet (materialized), damit die Datenbank sie nicht vervielfacht.
+- Vorhandene Indizes auf Buchungen (Kunde/Anreise, Wohnung/Zeitraum) reichen voraussichtlich; /backend misst mit Testdaten und ergänzt bei Bedarf einen Index.
+
+### H) Tests
+- **Unit:** Regeldatei (Filter, Schnellwahl, Standard, Kacheln, Summen aus Summen, Veränderung Pp./%, „–“, Top 10 + Übrige, Sortierung, Dateinamen, CSV), Balkenhöhen.
+- **Integration (Datenbank):**
+  - Nächte: Monatsgrenze, tatsächliche Abreise, Option frei, Storno, Sperre, gebucht+gesperrt, Doppelbuchung, verfügbar ab erster Buchung/Anlage, Archivierung, Auslastung ≤ 100 %
+  - Umsatz: Verteilung centgenau, Ortstaxe ausgenommen, negative Positionen, Verlängerung mit Preisregel, Stornogebühr im Anreisemonat, USt je Satz, Kleinunternehmer
+  - Gleichheit: Summe einer Buchung über alle Monate = Buchungsbetrag ohne Ortstaxe; Dashboard-Monat = Seite für denselben Monat
+  - Länder: anonymisierter Gast, Ankünfte nach Anreise
+  - Rechte: Inhaberin bei A und Mitarbeiterin bei B, fremder Kunde, ohne Anmeldung
+- **PDF:** Erzeugung mit allen Abschnitten, einzelne Wohnung, ohne Logo, viele Länder (mehrseitig)
+- **E2E:** Menüpunkt nur Inhaber; Standardzeitraum, Schnellwahl, Objekt/Wohnung-Filter, Neu laden; Diagramm-Umschalter; Sortierung; „Übrige Länder“; leerer Zustand; PDF- und CSV-Download; Dashboard-Kacheln Inhaber/Mitarbeiter und Link; Handy 375 px; axe
+
+### I) Was wohin gehört
+- **/frontend:** Seite, Filterleiste, Kacheln, Diagramm, Tabellen, leerer Zustand, Export-Knöpfe, Regeldatei mit Unit-Tests, Texte, Menüpunkt freischalten, Dashboard-Kacheln für Inhaber (bis zum Backend zeigen die neuen Werte „–“ bzw. „wird eingerichtet“).
+- **/backend:** Rechenkern und die drei Funktionen, Datenabruf für Seite und Dashboard, Download-Adressen, PDF-Dokumentart „Auswertung“, Integrationstests und Messung.
+
+### Abhängigkeiten (Pakete)
+Keine neuen. Genutzt werden `@react-pdf/renderer` (über den PDF-Arbeitsprozess) und vorhandene shadcn/ui-Bausteine (Card, Table, Select, Button, Alert, Tabs bzw. Toggle für den Umschalter, Tooltip, Collapsible).
 
 ## QA Test Results
 _To be added by /qa_
