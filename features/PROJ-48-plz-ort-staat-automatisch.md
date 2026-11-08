@@ -1,6 +1,6 @@
 # PROJ-48: Ort und Staat aus der PLZ
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-11-08
 **Last Updated:** 2026-11-08
 
@@ -345,4 +345,9 @@ Geprüft per E2E (E) bzw. Unit-Test der Regel (U), die genau diese Entscheidung 
 - **Recommendation:** Deploy
 
 ## Deployment
-_To be added by /deploy_
+- **Datum:** 2026-11-08
+- **Commit:** 98f992e (Tag `v1.40.0-PROJ-48`)
+- **Staging:** https://staging.apppa.at (2026-11-08, vom Nutzer geprüft)
+- **Production:** https://app.apppa.at (2026-11-08, Vercel Ready und Kurztest vom Nutzer bestätigt)
+- **Migrationen:** keine; keine Supabase-Konfigurationsänderung, keine neuen Umgebungsvariablen
+- **Vorabprüfungen:** Lint, 924 Unit-Tests, Build, Secret-Scan grün; Integrationstests ausgelassen (keine Datenbank- oder Serveränderung)
