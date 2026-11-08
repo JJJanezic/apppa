@@ -9,7 +9,16 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { apartmentLabel } from '@/lib/apartments'
-import { activeStatsQuickPick, STATS_QUICK_PICKS, type StatsFilters, type StatsProperty, statsHref, statsQuickPick } from '@/lib/statistics'
+import {
+  activeStatsQuickPick,
+  STATS_QUICK_PICKS,
+  type StatsFilters,
+  type StatsProperty,
+  statsHref,
+  statsQuickPick,
+  type StatsTenant,
+  withTenant,
+} from '@/lib/statistics'
 import { selectableYears } from '@/lib/tourist-tax-report'
 
 const ALL = '__alle'
@@ -18,14 +27,20 @@ const LABEL = 'text-[13px] text-ds-neutral-800'
 
 interface StatsFilterBarProps {
   filters: StatsFilters
+  // Objekte der Kunden in der Auswahl
   properties: StatsProperty[]
+  // Inhaber-Kunden der Person (Auswahl ab zwei Kunden)
+  tenants: StatsTenant[]
+  // mehrere Kunden in der Auswertung: Kundennamen hinter Objekten und Wohnungen
+  multiTenant: boolean
   // Heutiges Datum (Wien) vom Server, damit Browser und Server denselben Monat meinen
   today: string
 }
 
-// Filter der Auswertungen (PROJ-18): Schnellwahl, Jahr, Von/Bis-Monat, Objekt und Wohnung. Alles steht in der Adresse
-// (Neu laden, Lesezeichen, „Zurück“); jede Änderung ist ein eigener Verlaufseintrag.
-export function StatsFilterBar({ filters, properties, today }: StatsFilterBarProps) {
+// Filter der Auswertungen (PROJ-18): Kunde (refine 2026-11-08), Schnellwahl, Jahr, Von/Bis-Monat, Objekt und Wohnung. Alles
+// steht in der Adresse (Neu laden, Lesezeichen, „Zurück“); jede Änderung ist ein eigener Verlaufseintrag. Die Kundenauswahl
+// ändert weder den gewählten Kunden der übrigen Seiten noch den Kundenfilter des Dashboards.
+export function StatsFilterBar({ filters, properties, tenants, multiTenant, today }: StatsFilterBarProps) {
   const t = useTranslations('statistics')
   const router = useRouter()
   const [pending, startTransition] = useTransition()
@@ -37,6 +52,29 @@ export function StatsFilterBar({ filters, properties, today }: StatsFilterBarPro
 
   return (
     <section aria-label={t('filters.label')} aria-busy={pending} className="flex flex-col gap-4">
+      {tenants.length > 1 && (
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="auswertung-kunde" className={LABEL}>
+            {t('filters.tenant')}
+          </Label>
+          {/* Kundenwechsel setzt Objekt und Wohnung zurück */}
+          <Select value={filters.tenant ?? ALL} onValueChange={(v) => go({ tenant: v === ALL ? null : v, property: null, apartment: null })}>
+            <SelectTrigger id="auswertung-kunde" className="min-h-11 w-full sm:w-72">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL} className="min-h-11">
+                {t('filters.allTenants')}
+              </SelectItem>
+              {tenants.map((x) => (
+                <SelectItem key={x.id} value={x.id} className="min-h-11">
+                  {x.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
       <div className="flex flex-col gap-1.5">
         <span id="auswertung-schnellwahl" className={LABEL}>
           {t('filters.quick')}
@@ -120,7 +158,7 @@ export function StatsFilterBar({ filters, properties, today }: StatsFilterBarPro
               </SelectItem>
               {properties.map((p) => (
                 <SelectItem key={p.id} value={p.id} className="min-h-11">
-                  {p.name}
+                  {withTenant(p.name, p.tenantName, multiTenant)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -140,7 +178,7 @@ export function StatsFilterBar({ filters, properties, today }: StatsFilterBarPro
               </SelectItem>
               {shown.flatMap((p) =>
                 p.apartments.map((a) => {
-                  const name = filters.property ? a.name : apartmentLabel(p.name, a.name)
+                  const name = filters.property ? a.name : withTenant(apartmentLabel(p.name, a.name), p.tenantName, multiTenant)
                   return (
                     <SelectItem key={a.id} value={a.id} className="min-h-11">
                       {a.archived ? t('filters.archived', { name }) : name}

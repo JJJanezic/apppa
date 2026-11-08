@@ -606,6 +606,21 @@ Seite „Auswertungen“
 
 **Messung** (Dev, 5.000 Buchungen, 25 Wohnungen, über die Datenschnittstelle): Dashboard 81–168 ms, ein Monat 167–263 ms, ganzes Jahr mit Vorjahr 313–408 ms, Gästeherkunft Jahr 316–363 ms. Kein zusätzlicher Index nötig. Hinweis: Das Löschen eines Kunden mit 5.000 Buchungen über die Datenschnittstelle überschreitet die Zeitgrenze; Messdaten wurden direkt in der Datenbank gelöscht.
 
+### Umsetzung Frontend Erweiterung Kundenauswahl (refine 2026-11-08)
+**Gebaut:**
+- `navigation.ts`/`shell.ts`: `Viewer.ownsAny` (Inhaber bei mindestens einem aktiven Kunden), Menüpunkt `reports` mit `anyOwner` – sichtbar und erreichbar (auch 404-Schutz im App-Rahmen), sobald die Person irgendwo Inhaber ist; übrige Inhaber-Bereiche unverändert.
+- `statistics.ts`: Filter `tenant` (`?kunde=`), `StatsApartment` mit `tenantId`/`tenantName`, `resolveStatsFilters(…, tenants)` (fremder Kunde → alle, Objekt/Wohnung nur innerhalb des Kunden), `tenantsInScope`, `isMultiTenant`, `withTenant`, `buildStats(…, tenants)` mit `tenants` („Je Kunde“, auch Kunden ohne Daten) und `multiTenant`; Gruppierung Kunde → Objekt; CSV mit erster Spalte „Kunde“; Dateiname „Alle-Kunden“ bzw. Kundenname; `currentMonthHref(today, tenant)`.
+- `statistics-data.ts`: `getOwnedTenants`, Wohnungen aller Inhaber-Kunden mit Kundenname, Abruf der neuen Funktionen `statistics_tenant_rows` / `statistics_tenant_origin` mit `p_tenant_ids` (gewählter Kunde bzw. alle Inhaber-Kunden).
+- Seite: Kundenauswahl (ab zwei Inhaber-Kunden), Kopfzeile „Alle Kunden“/Kundenname, Abschnitt „Je Kunde“ (`stats-tenant-table.tsx`), „Je Wohnung“ mit Kunden-Zwischenüberschrift bzw. „Objekt (Kunde)“ beim Sortieren, Objekte/Wohnungen in den Filtern mit Kunde in Klammern; Kacheln zentriert.
+- Dashboard: Auslastung/Umsatz verlinken immer auf die Auswertung des laufenden Monats mit dem Dashboard-Kundenfilter (nur Inhaber-Kunde), ohne Kundenwechsel.
+- Exporte: Rechte über die Inhaber-Kunden (403 ohne Inhaber-Kunde), Filter wie die Seite, CSV fertig. **Offen für /backend:** Briefpapier/Aussteller je Kunde (noch das des gewählten Kunden) und PDF ohne Briefpapier mit „Kunden: …“ und Tabelle „Je Kunde“ bei mehreren Kunden.
+- Tests: Unit/Render 903/903 grün (neu: Kundenfilter, Je Kunde, Gruppierung, Dateinamen, CSV, Menü); Bildschirmfoto mit Inhaberin bei zwei Kunden und Mitarbeiterin beim gewählten Kunden.
+
+**Vertrag für /backend:**
+- `statistics_tenant_rows(p_tenant_ids uuid[], p_from date, p_to date)` – wie `statistics_rows`, über mehrere Kunden, zusätzlich `tenant_id`; nur Inhaber-Kunden, feste Reihenfolge.
+- `statistics_tenant_origin(p_tenant_ids uuid[], p_from date, p_to date)` – wie `statistics_origin`, zusätzlich `tenant_id`.
+- Alte Funktionen bleiben bis zu einer späteren Migration.
+
 ## QA Test Results
 
 **Tested:** 2026-11-08

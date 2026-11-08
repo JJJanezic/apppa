@@ -3073,7 +3073,9 @@
       "allProperties": "Alle Objekte",
       "apartment": "Wohnung",
       "allApartments": "Alle Wohnungen",
-      "archived": "{name} (archiviert)"
+      "archived": "{name} (archiviert)",
+      "tenant": "Kunde",
+      "allTenants": "Alle Kunden"
     },
     "compare": {
       "previous": "Vorjahr {value}",
@@ -3172,6 +3174,7 @@
     },
     "csv": {
       "columns": [
+        "Kunde",
         "Monat",
         "Objekt",
         "Wohnung",
@@ -3192,7 +3195,22 @@
       "customer": "Vermieter: {customer}",
       "vatId": "UID: {id}",
       "stand": "Stand: {stand}",
-      "pageOf": "Seite {page} von {pages}"
+      "pageOf": "Seite {page} von {pages}",
+      "customers": "Kunden: {customers}"
+    },
+    "allTenants": "Alle Kunden",
+    "tenants": {
+      "title": "Je Kunde",
+      "tableLabel": "Werte je Kunde",
+      "total": "Gesamt",
+      "col": {
+        "tenant": "Kunde",
+        "occupancy": "Auslastung",
+        "occupied": "Belegte Nächte",
+        "blocked": "Gesperrte Nächte",
+        "revenue": "Umsatz",
+        "rate": "Ø-Preis je Nacht"
+      }
     }
   }
 }

@@ -34,11 +34,9 @@ export async function DashboardKpis({ scope, today }: { scope: DashboardScope; t
     const known = stats.ready && !stats.failed
     const month = String(currentMonth(today))
     const occ = occupancy(stats)
-    // Klick öffnet die Auswertung des laufenden Monats – nur, wenn genau ein Inhaber-Kunde im Filter ist
-    const single = scope.owned.length === 1 ? scope.owned[0] : null
-    const link: KpiLink | undefined = single
-      ? { href: currentMonthHref(today), switchTenantId: single.id === scope.activeTenantId ? null : single.id }
-      : undefined
+    // Klick öffnet die Auswertung des laufenden Monats mit dem Kundenfilter des Dashboards (refine 2026-11-08); die
+    // Auswertung geht selbst über alle Inhaber-Kunden, ein Kundenwechsel ist nicht nötig
+    const link: KpiLink = { href: currentMonthHref(today, scope.filter && scope.owned.some((o) => o.id === scope.filter) ? scope.filter : null) }
     const vat = await getTranslations('statistics.vat')
     return (
       <KpiGrid label={t('kpiLabel')}>

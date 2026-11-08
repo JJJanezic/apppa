@@ -19,6 +19,8 @@ import {
 // ---- Zeitraum und Filter --------------------------------------------------------------------
 
 export type StatsFilters = ReportPeriod & {
+  // Kunde (nur Inhaber-Kunden der Person); null = „Alle Kunden“ (refine 2026-11-08)
+  tenant: string | null
   // null = „Alle Objekte“ bzw. „Alle Wohnungen“
   property: string | null
   apartment: string | null
@@ -53,52 +55,80 @@ const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v)
 const intIn = (v: string | undefined, min: number, max: number) => (v && /^\d{1,4}$/.test(v) && Number(v) >= min && Number(v) <= max ? Number(v) : null)
 const uuid = (v: string | undefined) => (v && UUID.test(v) ? v.toLowerCase() : null)
 
-// Adresse lesen: ?jahr=2026&von=1&bis=12&objekt=<id>&wohnung=<id>. Ungültiger Zeitraum → Standard (laufendes Jahr);
-// ob Objekt und Wohnung zum Kunden passen, prüft resolveStatsFilters.
+// Adresse lesen: ?kunde=<id>&jahr=2026&von=1&bis=12&objekt=<id>&wohnung=<id>. Ungültiger Zeitraum → Standard (laufendes
+// Jahr); ob Kunde, Objekt und Wohnung zur Person passen, prüft resolveStatsFilters.
 export function parseStatsFilters(params: Params, today: string): StatsFilters {
   const year = intIn(one(params.jahr), MIN_YEAR, yearOf(today) + 5)
   const from = intIn(one(params.von), 1, 12)
   const to = intIn(one(params.bis), 1, 12)
-  const scope = { property: uuid(one(params.objekt)), apartment: uuid(one(params.wohnung)) }
+  const scope = { tenant: uuid(one(params.kunde)), property: uuid(one(params.objekt)), apartment: uuid(one(params.wohnung)) }
   const hasPeriod = one(params.jahr) !== undefined || one(params.von) !== undefined || one(params.bis) !== undefined
   if (!hasPeriod || year === null || from === null || to === null || to < from) return { ...thisYear(today), ...scope }
   return { year, from, to, ...scope }
 }
 
-export type StatsApartment = { id: string; name: string; propertyId: string; propertyName: string; archived: boolean }
-export type StatsProperty = { id: string; name: string; apartments: StatsApartment[] }
+export type StatsTenant = { id: string; name: string }
+export type StatsApartment = {
+  id: string
+  name: string
+  propertyId: string
+  propertyName: string
+  archived: boolean
+  tenantId: string
+  tenantName: string
+}
+export type StatsProperty = { id: string; name: string; tenantId: string; tenantName: string; apartments: StatsApartment[] }
 
 const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name, 'de', { numeric: true })
 
-// Objekte mit ihren Wohnungen, alphabetisch (für Auswahl und Gruppierung)
+// Objekte mit ihren Wohnungen, nach Kunde und Objekt alphabetisch (für Auswahl und Gruppierung)
 export function groupProperties(apartments: readonly StatsApartment[]): StatsProperty[] {
   const map = new Map<string, StatsProperty>()
   for (const a of apartments) {
-    const p = map.get(a.propertyId) ?? { id: a.propertyId, name: a.propertyName, apartments: [] }
+    const p = map.get(a.propertyId) ?? { id: a.propertyId, name: a.propertyName, tenantId: a.tenantId, tenantName: a.tenantName, apartments: [] }
     p.apartments.push(a)
     map.set(a.propertyId, p)
   }
-  const list = [...map.values()].sort(byName)
+  const list = [...map.values()].sort((a, b) => a.tenantName.localeCompare(b.tenantName, 'de') || byName(a, b))
   for (const p of list) p.apartments.sort(byName)
   return list
 }
 
-// Objekt und Wohnung gegen die Wohnungen des Kunden prüfen: unbekanntes Objekt → „Alle Objekte“; eine Wohnung, die es
-// nicht gibt oder die nicht zum gewählten Objekt gehört → „Alle Wohnungen“
-export function resolveStatsFilters(f: StatsFilters, apartments: readonly StatsApartment[]): StatsFilters {
-  const property = f.property && apartments.some((a) => a.propertyId === f.property) ? f.property : null
-  const apt = apartments.find((a) => a.id === f.apartment)
+// Kunden in der Auswertung: der gewählte oder alle Inhaber-Kunden
+export const tenantsInScope = (f: Pick<StatsFilters, 'tenant'>, tenants: readonly StatsTenant[]) =>
+  f.tenant ? tenants.filter((t) => t.id === f.tenant) : [...tenants]
+
+// Mehrere Kunden gleichzeitig: Kundennamen anzeigen, Abschnitt „Je Kunde“, PDF ohne Briefpapier
+export const isMultiTenant = (f: Pick<StatsFilters, 'tenant'>, tenants: readonly StatsTenant[]) => tenantsInScope(f, tenants).length > 1
+
+// Kunde, Objekt und Wohnung gegen die Inhaber-Kunden und deren Wohnungen prüfen: fremder Kunde → „Alle Kunden“ (bei nur
+// einem Inhaber-Kunden immer „Alle“); unbekanntes Objekt oder Objekt eines anderen Kunden → „Alle Objekte“; eine
+// Wohnung, die es nicht gibt oder die nicht zum gewählten Objekt bzw. Kunden gehört → „Alle Wohnungen“
+export function resolveStatsFilters(f: StatsFilters, apartments: readonly StatsApartment[], tenants: readonly StatsTenant[]): StatsFilters {
+  const tenant = tenants.length > 1 && f.tenant && tenants.some((t) => t.id === f.tenant) ? f.tenant : null
+  const inTenant = apartments.filter((a) => tenants.some((t) => t.id === a.tenantId) && (tenant === null || a.tenantId === tenant))
+  const property = f.property && inTenant.some((a) => a.propertyId === f.property) ? f.property : null
+  const apt = inTenant.find((a) => a.id === f.apartment)
   const apartment = apt && (property === null || apt.propertyId === property) ? apt.id : null
-  return { ...f, property, apartment }
+  return { ...f, tenant, property, apartment }
 }
 
 // Wohnungen im Filter
 export function filteredApartmentIds(f: StatsFilters, apartments: readonly StatsApartment[]): Set<string> {
-  return new Set(apartments.filter((a) => (f.apartment ? a.id === f.apartment : f.property ? a.propertyId === f.property : true)).map((a) => a.id))
+  return new Set(
+    apartments
+      .filter((a) => (f.tenant ? a.tenantId === f.tenant : true))
+      .filter((a) => (f.apartment ? a.id === f.apartment : f.property ? a.propertyId === f.property : true))
+      .map((a) => a.id)
+  )
 }
+
+// Anzeige eines Objekts bzw. einer Wohnung; bei mehreren Kunden mit dem Kunden in Klammern
+export const withTenant = (label: string, tenantName: string, multi: boolean) => (multi ? `${label} (${tenantName})` : label)
 
 const query = (f: StatsFilters) => {
   const q = new URLSearchParams({ jahr: String(f.year), von: String(f.from), bis: String(f.to) })
+  if (f.tenant) q.set('kunde', f.tenant)
   if (f.property) q.set('objekt', f.property)
   if (f.apartment) q.set('wohnung', f.apartment)
   return q.toString()
@@ -113,16 +143,19 @@ export const statsRange = (f: ReportPeriod) => taxReportRange(f)
 // Monatsschlüssel „2026-10“
 export const monthKey = (year: number, month: number) => `${year}-${pad(month)}`
 
-// Teil des Dateinamens für den Filter: „Alle“, Objektname oder „Objekt-Wohnung“
-export function scopeFileKey(f: StatsFilters, apartments: readonly StatsApartment[]): string {
+// Teil des Dateinamens für den Filter: Objekt-Wohnung, Objekt, Kunde, „Alle-Kunden“ (mehrere Kunden) bzw. „Alle“
+export function scopeFileKey(f: StatsFilters, apartments: readonly StatsApartment[], tenants: readonly StatsTenant[]): string {
   const apt = f.apartment ? apartments.find((a) => a.id === f.apartment) : null
   if (apt) return `${fileNamePart(apt.propertyName)}-${fileNamePart(apt.name)}`
   const prop = f.property ? apartments.find((a) => a.propertyId === f.property) : null
-  return prop ? fileNamePart(prop.propertyName) : 'Alle'
+  if (prop) return fileNamePart(prop.propertyName)
+  const tenant = f.tenant ? tenants.find((t) => t.id === f.tenant) : null
+  if (tenant) return fileNamePart(tenant.name)
+  return tenants.length > 1 ? 'Alle-Kunden' : 'Alle'
 }
 
-export const statsFileName = (kind: 'pdf' | 'csv', f: StatsFilters, apartments: readonly StatsApartment[], today: string) =>
-  `Auswertung_${periodFileKey(f)}_${scopeFileKey(f, apartments)}_Stand-${today}.${kind}`
+export const statsFileName = (kind: 'pdf' | 'csv', f: StatsFilters, apartments: readonly StatsApartment[], tenants: readonly StatsTenant[], today: string) =>
+  `Auswertung_${periodFileKey(f)}_${scopeFileKey(f, apartments, tenants)}_Stand-${today}.${kind}`
 
 // ---- Grundzahlen ----------------------------------------------------------------------------
 
@@ -226,16 +259,21 @@ const compared = (current: StatsTotals, previous: StatsTotals): Compared => ({ c
 
 export type StatsMonth = Compared & { month: number }
 export type StatsApartmentLine = Compared & { apartment: StatsApartment }
+export type StatsTenantLine = Compared & { tenant: StatsTenant }
 
 export type StatsView = {
   totals: Compared
   months: StatsMonth[]
-  // Wohnungen mit verfügbaren Nächten oder Umsatz im Zeitraum, nach Objekt und Wohnung; leer bei einzelner Wohnung
+  // Je Kunde (refine 2026-11-08): nur bei mehreren Kunden ohne Objekt-/Wohnungsfilter; alle Kunden, auch ohne Daten
+  tenants: StatsTenantLine[]
+  // Wohnungen mit verfügbaren Nächten oder Umsatz im Zeitraum, nach Kunde, Objekt und Wohnung; leer bei einzelner Wohnung
   apartments: StatsApartmentLine[]
+  // mehrere Kunden in der Auswertung (Kundennamen anzeigen)
+  multiTenant: boolean
   empty: boolean
 }
 
-export function buildStats(rows: readonly StatsMonthRow[], apartments: readonly StatsApartment[], f: StatsFilters): StatsView {
+export function buildStats(rows: readonly StatsMonthRow[], apartments: readonly StatsApartment[], f: StatsFilters, tenants: readonly StatsTenant[]): StatsView {
   const inScope = filteredApartmentIds(f, apartments)
   const current = new Map<string, StatsMonthRow[]>()
   const previous = new Map<string, StatsMonthRow[]>()
@@ -248,14 +286,20 @@ export function buildStats(rows: readonly StatsMonthRow[], apartments: readonly 
   const push = (map: Map<string, StatsMonthRow[]>, key: string, r: StatsMonthRow) => map.set(key, [...(map.get(key) ?? []), r])
   const byApartmentCurrent = new Map<string, StatsMonthRow[]>()
   const byApartmentPrevious = new Map<string, StatsMonthRow[]>()
+  const tenantOf = new Map(apartments.map((a) => [a.id, a.tenantId]))
+  const byTenantCurrent = new Map<string, StatsMonthRow[]>()
+  const byTenantPrevious = new Map<string, StatsMonthRow[]>()
   for (const r of rows) {
     if (!inScope.has(r.apartmentId)) continue
+    const tenant = tenantOf.get(r.apartmentId) ?? ''
     if (currentKeys.has(r.month)) {
       push(current, r.month, r)
       push(byApartmentCurrent, r.apartmentId, r)
+      push(byTenantCurrent, tenant, r)
     } else if (previousKeys.has(r.month)) {
       push(previous, r.month, r)
       push(byApartmentPrevious, r.apartmentId, r)
+      push(byTenantPrevious, tenant, r)
     }
   }
 
@@ -272,7 +316,15 @@ export function buildStats(rows: readonly StatsMonthRow[], apartments: readonly 
         .map((apartment) => ({ apartment, ...compared(sumRows(byApartmentCurrent.get(apartment.id) ?? []), sumRows(byApartmentPrevious.get(apartment.id) ?? [])) }))
         .filter((l) => hasData(l.current))
 
-  return { totals, months, apartments: lines, empty: !hasData(totals.current) }
+  const multiTenant = isMultiTenant(f, tenants)
+  const tenantLines: StatsTenantLine[] =
+    multiTenant && !f.property && !f.apartment
+      ? tenantsInScope(f, tenants)
+          .sort(byName)
+          .map((tenant) => ({ tenant, ...compared(sumRows(byTenantCurrent.get(tenant.id) ?? []), sumRows(byTenantPrevious.get(tenant.id) ?? [])) }))
+      : []
+
+  return { totals, months, tenants: tenantLines, apartments: lines, multiTenant, empty: !hasData(totals.current) }
 }
 
 // Sortierung der Tabelle „Je Wohnung“; null = nach Objekt und Wohnung (gruppiert)
@@ -428,7 +480,8 @@ const csvPercent = (t: Pick<StatsTotals, 'availableNights' | 'occupiedNights'>) 
 }
 
 // Eine Zeile je Wohnung und Monat des gewählten Zeitraums (nur mit verfügbaren Nächten oder Umsatz), ohne Summen und
-// ohne Vorjahr; nach Monat, Objekt und Wohnung. Format wie die Ortstaxe (Strichpunkt, Komma, BOM, CRLF).
+// ohne Vorjahr; erste Spalte Kunde (refine 2026-11-08); nach Monat, Kunde, Objekt und Wohnung. Format wie die Ortstaxe
+// (Strichpunkt, Komma, BOM, CRLF).
 export function buildStatsCsv(rows: readonly StatsMonthRow[], apartments: readonly StatsApartment[], f: StatsFilters, labels: StatsCsvLabels): string {
   const inScope = filteredApartmentIds(f, apartments)
   const order = new Map(groupProperties(apartments).flatMap((p) => p.apartments).map((a, i) => [a.id, i]))
@@ -444,6 +497,7 @@ export function buildStatsCsv(rows: readonly StatsMonthRow[], apartments: readon
     if (!a) continue
     lines.push(
       [
+        csvText(a.tenantName),
         r.month,
         csvText(a.propertyName),
         csvText(a.name),
@@ -466,5 +520,6 @@ export function buildStatsCsv(rows: readonly StatsMonthRow[], apartments: readon
 // Laufender Monat (1–12) aus dem heutigen Datum
 export const currentMonth = (today: string) => Number(today.slice(5, 7))
 
-// Auswertung für den laufenden Monat (Ziel der Dashboard-Kacheln)
-export const currentMonthHref = (today: string) => statsHref({ year: yearOf(today), from: currentMonth(today), to: currentMonth(today), property: null, apartment: null })
+// Auswertung für den laufenden Monat (Ziel der Dashboard-Kacheln), mit dem Kunden des Dashboard-Filters (null = alle)
+export const currentMonthHref = (today: string, tenant: string | null = null) =>
+  statsHref({ year: yearOf(today), from: currentMonth(today), to: currentMonth(today), tenant, property: null, apartment: null })

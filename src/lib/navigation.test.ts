@@ -51,6 +51,15 @@ describe('Navigationsliste', () => {
     expect(visibleNavItems('staff', items).map((i) => i.id)).toEqual(['dashboard'])
   })
 
+  it('Auswertungen auch beim gewählten Mitarbeiter-Kunden, wenn die Person anderswo Inhaber ist (PROJ-18 refine)', () => {
+    expect(isAreaAvailable('reports', { role: 'staff', isAdmin: false, ownsAny: true })).toBe(true)
+    expect(isAreaAvailable('reports', { role: 'staff', isAdmin: false, ownsAny: false })).toBe(false)
+    // die übrigen Inhaber-Bereiche richten sich weiter nach dem gewählten Kunden
+    expect(isAreaAvailable('tax', { role: 'staff', isAdmin: false, ownsAny: true })).toBe(false)
+    expect(isAreaAvailable('settings', { role: 'staff', isAdmin: false, ownsAny: true })).toBe(false)
+    expect(isPathAvailable('/auswertungen', { role: 'staff', isAdmin: false, ownsAny: true })).toBe(true)
+  })
+
   it('Zahlungen auch für Mitarbeiter (PROJ-45), Auswertungen nur für Inhaber', () => {
     const allReady = NAV_ITEMS.map((i) => ({ ...i, ready: true }))
     const staff = visibleNavItems('staff', allReady).map((i) => i.id)

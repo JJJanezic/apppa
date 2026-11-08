@@ -20,10 +20,11 @@ import {
   type StatsApartment,
   type StatsFilters,
   statsFileName,
+  type StatsTenant,
+  tenantsInScope,
 } from '@/lib/statistics'
 import { getStatsData, type StatsData } from '@/lib/statistics-data'
 import { buildStatsPdfView } from '@/lib/statistics-pdf/view'
-import { getTenantContext } from '@/lib/tenant'
 import { periodLabel, periodOpen } from '@/lib/tourist-tax-report'
 
 // Exporte der Auswertungen (PROJ-18): PDF und CSV für den gewählten Kunden, nur Inhaber. Gleiche Filter und Daten wie
@@ -32,23 +33,25 @@ import { periodLabel, periodOpen } from '@/lib/tourist-tax-report'
 const NO_STORE = { 'cache-control': 'no-store' }
 const status = (code: number) => new Response(null, { status: code, headers: NO_STORE })
 
-type Loaded = { tenantId: string; tenantName: string; filters: StatsFilters; data: StatsData; today: string }
+// tenant: der einzige Kunde in der Auswertung (Briefpapier); null bei mehreren Kunden
+type Loaded = { tenant: StatsTenant | null; filters: StatsFilters; data: StatsData; today: string }
 
-// Anmeldung, Inhaber-Rolle beim gewählten Kunden und Daten; sonst die passende Fehlerantwort
+// Anmeldung, Inhaber-Rolle bei mindestens einem Kunden und Daten; sonst die passende Fehlerantwort. Kunde, Objekt und
+// Wohnung aus der Adresse gelten nur innerhalb der Inhaber-Kunden (refine 2026-11-08).
 async function load(request: Request, origin: boolean): Promise<Loaded | Response> {
   const user = await getSessionUser()
   if (!user) return status(401)
   if (await pendingMfaStep(user)) return status(403)
-  const { active } = await getTenantContext()
-  if (!active || active.role !== 'owner') return status(403)
   const today = todayIso()
   const requested = parseStatsFilters(Object.fromEntries(new URL(request.url).searchParams), today)
   const data = await getStatsData(requested, { origin })
+  if (data.tenants.length === 0) return status(403)
   if (!data.ready) return status(503)
   if (data.failed) return status(500)
-  const filters = resolveStatsFilters(requested, data.apartments)
-  if (buildStats(data.rows, data.apartments, filters).empty) return status(404)
-  return { tenantId: active.id, tenantName: active.name, filters, data, today }
+  const filters = resolveStatsFilters(requested, data.apartments, data.tenants)
+  if (buildStats(data.rows, data.apartments, filters, data.tenants).empty) return status(404)
+  const scope = tenantsInScope(filters, data.tenants)
+  return { tenant: scope.length === 1 ? scope[0] : null, filters, data, today }
 }
 
 // „attachment“ mit ASCII-Ersatznamen und dem vollen Namen in UTF-8 (Umlaute in Objektnamen)
@@ -70,11 +73,12 @@ export async function statsCsvResponse(request: Request): Promise<Response> {
   if (loaded instanceof Response) return loaded
   const t = await getTranslations('statistics')
   const csv = buildStatsCsv(loaded.data.rows, loaded.data.apartments, loaded.filters, { columns: t.raw('csv.columns') as string[] })
+  const fileName = statsFileName('csv', loaded.filters, loaded.data.apartments, loaded.data.tenants, loaded.today)
   return new Response(csv, {
     headers: {
       ...NO_STORE,
       'content-type': 'text/csv; charset=utf-8',
-      'content-disposition': disposition(statsFileName('csv', loaded.filters, loaded.data.apartments, loaded.today)),
+      'content-disposition': disposition(fileName),
     },
   })
 }
@@ -89,19 +93,20 @@ export async function statsPdfResponse(request: Request): Promise<Response> {
       getTranslations('touristTaxReport'),
       getLocale(),
       getDraftPreviewData(),
-      loadPdfLogo(loaded.tenantId),
+      // Briefpapier nur bei einem einzelnen Kunden; Aussteller und Logo kommen mit /backend je Kunde (Tech Design B)
+      loaded.tenant ? loadPdfLogo(loaded.tenant.id) : Promise.resolve({ logo: null, failed: false }),
     ])
     const tt = (key: string, values?: Record<string, string | number>) => t(key as never, values as never)
     const name = (code: string) => countryName(code, locale)
     const { view } = buildStatsPdfView({
-      view: buildStats(data.rows, data.apartments, filters),
+      view: buildStats(data.rows, data.apartments, filters, data.tenants),
       // im PDF alle Länder ausgeschrieben
       origin: buildOrigin(data.origin, filteredApartmentIds(filters, data.apartments), name, Number.POSITIVE_INFINITY),
       year: filters.year,
       period: periodLabel((key, values) => tTax(key as never, values as never), filters),
       scope: scopeLabel(filters, data.apartments, t('filters.allApartments')),
       periodOpen: periodOpen(filters, loaded.today),
-      tenantName: loaded.tenantName,
+      tenantName: loaded.tenant?.name ?? '',
       issuer: preview.issuer,
       letterhead: preview.letterhead,
       logo,
@@ -116,7 +121,7 @@ export async function statsPdfResponse(request: Request): Promise<Response> {
       headers: {
         ...NO_STORE,
         'content-type': 'application/pdf',
-        'content-disposition': disposition(statsFileName('pdf', filters, data.apartments, loaded.today)),
+        'content-disposition': disposition(statsFileName('pdf', filters, data.apartments, data.tenants, loaded.today)),
       },
     })
   } catch (e) {

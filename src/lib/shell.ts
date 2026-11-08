@@ -12,7 +12,8 @@ export type { TenantSummary }
 export type ShellInfo = {
   // role: Rolle beim gewählten Kunden; ohne Kunde „staff“ (sieht keine Inhaber-Bereiche)
   // isAdmin: Betreiber-Admin mit 2FA-bestätigter Sitzung (PROJ-5) – nur für die Oberfläche, Rechte prüft die Datenbank
-  person: { name: string | null; firstName: string | null; role: Role; isAdmin: boolean }
+  // ownsAny: Inhaber bei mindestens einem aktiven Kunden (PROJ-18: Menüpunkt „Auswertungen“)
+  person: { name: string | null; firstName: string | null; role: Role; isAdmin: boolean; ownsAny: boolean }
   // id/name: gewählter Kunde; list: alle Kunden der Person (null nur, wenn noch nicht geladen)
   tenant: { id: string | null; name: string | null; hasOthers: boolean; list: TenantSummary[] | null }
   sync: { connections: number; problems: number }
@@ -27,6 +28,7 @@ export async function getShellInfo(): Promise<ShellInfo> {
       firstName: firstNameOf(name),
       role: active?.role ?? 'staff',
       isAdmin: Boolean(user?.isOperatorAdmin && user.aal === 'aal2'),
+      ownsAny: list.some((t) => t.role === 'owner'),
     },
     tenant: { id: active?.id ?? null, name: active?.name ?? null, hasOthers: list.length > 1, list },
     sync: { connections: 0, problems: 0 },
@@ -34,4 +36,4 @@ export async function getShellInfo(): Promise<ShellInfo> {
 }
 
 // Für Navigation und Bereichsprüfung
-export const viewerOf = (shell: ShellInfo): Viewer => ({ role: shell.person.role, isAdmin: shell.person.isAdmin })
+export const viewerOf = (shell: ShellInfo): Viewer => ({ role: shell.person.role, isAdmin: shell.person.isAdmin, ownsAny: shell.person.ownsAny })

@@ -10,13 +10,15 @@ import { StatsChart } from './stats-chart'
 import { StatsKpis } from './stats-kpis'
 import { StatsMonthTable } from './stats-month-table'
 import { StatsOriginTable } from './stats-origin-table'
+import { StatsTenantTable } from './stats-tenant-table'
 
 const P1 = '11111111-1111-4111-8111-111111111111'
 const A1 = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1'
 const A2 = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2'
+const TENANTS = [{ id: 'cccccccc-cccc-4ccc-8ccc-ccccccccccc1', name: 'Alpenhof GmbH' }]
 const APARTMENTS: StatsApartment[] = [
-  { id: A1, name: 'Top 1', propertyId: P1, propertyName: 'Haus Alpenblick', archived: false },
-  { id: A2, name: 'Top 2', propertyId: P1, propertyName: 'Haus Alpenblick', archived: true },
+  { id: A1, name: 'Top 1', propertyId: P1, propertyName: 'Haus Alpenblick', archived: false, tenantId: 'cccccccc-cccc-4ccc-8ccc-ccccccccccc1', tenantName: 'Alpenhof GmbH' },
+  { id: A2, name: 'Top 2', propertyId: P1, propertyName: 'Haus Alpenblick', archived: true, tenantId: 'cccccccc-cccc-4ccc-8ccc-ccccccccccc1', tenantName: 'Alpenhof GmbH' },
 ]
 
 const row = (apartmentId: string, month: string, over: Partial<StatsMonthRow> = {}): StatsMonthRow => ({
@@ -41,7 +43,7 @@ const ROWS = [
   row(A2, '2026-10', { occupiedNights: 11, revenueCents: 110000, revenueVatCents: 10000, guestNights: 22, arrivals: 2, bookings: 1, stayNights: 11 }),
   row(A1, '2025-10', { occupiedNights: 15, revenueCents: 150000, revenueVatCents: 13636 }),
 ]
-const VIEW = buildStats(ROWS, APARTMENTS, { year: 2026, from: 10, to: 10, property: null, apartment: null })
+const VIEW = buildStats(ROWS, APARTMENTS, { year: 2026, from: 10, to: 10, tenant: null, property: null, apartment: null }, TENANTS)
 
 const wrap = (ui: React.ReactNode) => render(<NextIntlClientProvider locale="de-AT" messages={messages}>{ui}</NextIntlClientProvider>)
 
@@ -60,7 +62,7 @@ describe('Kacheln', () => {
   })
 
   it('ohne Vorjahresdaten „Vorjahr –“', () => {
-    const v = buildStats([ROWS[0]], APARTMENTS, { year: 2026, from: 10, to: 10, property: null, apartment: null })
+    const v = buildStats([ROWS[0]], APARTMENTS, { year: 2026, from: 10, to: 10, tenant: null, property: null, apartment: null }, TENANTS)
     wrap(<StatsKpis totals={v.totals} />)
     expect(screen.getAllByText('Vorjahr –')).toHaveLength(5)
   })
@@ -106,5 +108,32 @@ describe('Tabellen', () => {
     expect(screen.queryByText('Polen')).not.toBeVisible()
     fireEvent.click(toggle)
     expect(screen.getByText('Polen')).toBeVisible()
+  })
+})
+
+describe('Mehrere Kunden (refine 2026-11-08)', () => {
+  const T2 = 'cccccccc-cccc-4ccc-8ccc-ccccccccccc2'
+  const TWO = [...TENANTS, { id: T2, name: 'Bergblick KG' }]
+  const APTS: StatsApartment[] = [...APARTMENTS, { id: 'b1', name: 'Top 1', propertyId: 'p2', propertyName: 'Haus Berg', archived: false, tenantId: T2, tenantName: 'Bergblick KG' }]
+  const view = buildStats([...ROWS, row('b1', '2026-10', { occupiedNights: 5, revenueCents: 50000 })], APTS, { year: 2026, from: 10, to: 10, tenant: null, property: null, apartment: null }, TWO)
+
+  it('Je Kunde: eine Zeile je Kunde und Gesamt', () => {
+    wrap(<StatsTenantTable view={view} />)
+    const table = screen.getByRole('region', { name: 'Werte je Kunde' })
+    expect(within(table).getByRole('rowheader', { name: 'Alpenhof GmbH' })).toBeInTheDocument()
+    expect(within(table).getByRole('rowheader', { name: 'Bergblick KG' })).toBeInTheDocument()
+    expect(within(table).getByRole('rowheader', { name: 'Gesamt' })).toBeInTheDocument()
+  })
+
+  it('Je Wohnung: Kunde als Zwischenüberschrift, sortiert mit Kunde beim Objekt', () => {
+    wrap(<StatsApartmentTable lines={view.apartments} multiTenant />)
+    expect(screen.getByText('Bergblick KG')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /^Umsatz/ }))
+    expect(screen.getByText('Haus Berg (Bergblick KG)')).toBeInTheDocument()
+  })
+
+  it('Kacheln zentriert', () => {
+    wrap(<StatsKpis totals={view.totals} />)
+    expect(screen.getByLabelText('Kennzahlen').firstElementChild).toHaveClass('text-center')
   })
 })

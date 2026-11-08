@@ -20,10 +20,11 @@ const t = (key: string, values?: Record<string, string | number>) => translator(
 
 const P1 = '11111111-1111-4111-8111-111111111111'
 const P2 = '22222222-2222-4222-8222-222222222222'
+const TENANTS = [{ id: 'cccccccc-cccc-4ccc-8ccc-ccccccccccc1', name: 'Alpenhof GmbH' }]
 const apartments: StatsApartment[] = [
-  { id: 'a1', name: 'Top 1', propertyId: P1, propertyName: 'Haus Alpenblick', archived: false },
-  { id: 'a2', name: 'Top 2', propertyId: P1, propertyName: 'Haus Alpenblick', archived: true },
-  { id: 'a3', name: 'Studio', propertyId: P2, propertyName: 'Zentrum', archived: false },
+  { id: 'a1', name: 'Top 1', propertyId: P1, propertyName: 'Haus Alpenblick', archived: false, tenantId: 'cccccccc-cccc-4ccc-8ccc-ccccccccccc1', tenantName: 'Alpenhof GmbH' },
+  { id: 'a2', name: 'Top 2', propertyId: P1, propertyName: 'Haus Alpenblick', archived: true, tenantId: 'cccccccc-cccc-4ccc-8ccc-ccccccccccc1', tenantName: 'Alpenhof GmbH' },
+  { id: 'a3', name: 'Studio', propertyId: P2, propertyName: 'Zentrum', archived: false, tenantId: 'cccccccc-cccc-4ccc-8ccc-ccccccccccc1', tenantName: 'Alpenhof GmbH' },
 ]
 
 const row = (apartmentId: string, month: string, over: Partial<StatsMonthRow> = {}): StatsMonthRow => ({
@@ -59,7 +60,7 @@ const origin: StatsOriginRow[] = COUNTRIES.flatMap((country, i) => [
 function view(f: StatsFilters, over: Partial<StatsPdfView> = {}): StatsPdfView {
   const name = (c: string) => countryName(c, 'de')
   const { view: v } = buildStatsPdfView({
-    view: buildStats(rows, apartments, f),
+    view: buildStats(rows, apartments, f, TENANTS),
     origin: buildOrigin(origin, new Set(apartments.map((a) => a.id)), name, Number.POSITIVE_INFINITY),
     year: f.year,
     period: f.from === 1 && f.to === 12 ? String(f.year) : 'Oktober 2026',
@@ -105,7 +106,7 @@ const keep = (name: string, pdf: Uint8Array) => {
   if (process.env.PDF_OUT) writeFileSync(`${process.env.PDF_OUT}/${name}.pdf`, pdf)
 }
 
-const YEAR: StatsFilters = { year: 2026, from: 1, to: 12, property: null, apartment: null }
+const YEAR: StatsFilters = { year: 2026, from: 1, to: 12, tenant: null, property: null, apartment: null }
 
 describe('PDF Auswertung', () => {
   it('ganzes Jahr: Kopf, Kennzahlen, Diagramme, alle Tabellen mit allen Ländern, Stand und Seitenzahlen', async () => {

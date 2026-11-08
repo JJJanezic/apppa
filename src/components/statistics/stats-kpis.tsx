@@ -15,7 +15,7 @@ export function useVatText() {
   return (vatCents: number) => (vatCents === 0 ? t('none') : t('included', { amount: formatCents(vatCents) }))
 }
 
-// Fünf Kacheln der Auswertung (PROJ-18), je mit Vorjahr und Veränderung
+// Fünf Kacheln der Auswertung (PROJ-18), je mit Vorjahr und Veränderung; Inhalt zentriert wie im Dashboard (refine)
 export function StatsKpis({ totals }: { totals: Compared }) {
   const t = useTranslations('statistics.kpi')
   const vat = useVatText()
@@ -32,6 +32,7 @@ export function StatsKpis({ totals }: { totals: Compared }) {
     <KpiGrid label={t('label')} columns={5}>
       <KpiTile
         compact
+        centered
         label={t('occupancy')}
         value={pct(occ) ?? DASH}
         sub={t('occupancySub', { occupied: formatNumber(c.occupiedNights), available: formatNumber(c.availableNights), blocked: c.blockedNights })}
@@ -39,6 +40,7 @@ export function StatsKpis({ totals }: { totals: Compared }) {
       />
       <KpiTile
         compact
+        centered
         label={t('revenue')}
         value={formatCents(c.revenueCents)}
         sub={vat(c.vatCents)}
@@ -46,12 +48,14 @@ export function StatsKpis({ totals }: { totals: Compared }) {
       />
       <KpiTile
         compact
+        centered
         label={t('rate')}
         value={cents(rate) ?? DASH}
         note={<PreviousLine previous={cents(prevRate)} change={relativeChange(rate, prevRate)} />}
       />
       <KpiTile
         compact
+        centered
         label={t('bookings')}
         value={formatNumber(c.bookings)}
         sub={stay === null ? undefined : t('bookingsSub', { nights: formatNumber(stay, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) })}
@@ -59,6 +63,7 @@ export function StatsKpis({ totals }: { totals: Compared }) {
       />
       <KpiTile
         compact
+        centered
         label={t('guestNights')}
         value={formatNumber(c.guestNights)}
         sub={t('guestNightsSub', { count: c.arrivals })}

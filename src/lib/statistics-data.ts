@@ -3,14 +3,13 @@ import 'server-only'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 import { isMissingRelation } from '@/lib/payments-data'
-import { currentMonth, monthKey, type StatsApartment, type StatsMonthRow, type StatsOriginRow, statsRange } from '@/lib/statistics'
+import { currentMonth, monthKey, type StatsApartment, type StatsMonthRow, type StatsFilters, type StatsOriginRow, statsRange, type StatsTenant } from '@/lib/statistics'
 import { createClient } from '@/lib/supabase/server'
 import { getTenantContext } from '@/lib/tenant'
-import type { ReportPeriod } from '@/lib/tourist-tax-report'
 
-// Lesefunktionen der Auswertungen (PROJ-18). Seite und Exporte: nur Inhaber des gewählten Kunden. Dashboard: nur Kunden,
-// bei denen die Person Inhaber ist. Die Datenbankfunktionen prüfen die Rolle zusätzlich selbst. Fehlen sie (Umgebung ohne
-// Migration), melden die Abrufe „ready: false“.
+// Lesefunktionen der Auswertungen (PROJ-18). Seite, Exporte und Dashboard: nur Kunden, bei denen die Person Inhaber ist
+// (refine 2026-11-08: alle Inhaber-Kunden oder ein einzelner). Die Datenbankfunktionen prüfen die Rolle zusätzlich selbst.
+// Fehlen sie (Umgebung ohne Migration), melden die Abrufe „ready: false“.
 
 const untyped = async () => (await createClient()) as unknown as SupabaseClient
 
@@ -38,17 +37,25 @@ async function loadPaged<T>(page: Rpc, label: string): Promise<Paged<T>> {
   return { ready: true, failed: false, rows }
 }
 
-// ---- Wohnungen des Kunden (Filter, Gruppierung) ---------------------------------------------
+// ---- Inhaber-Kunden und ihre Wohnungen (Auswahl, Gruppierung) ----------------------------------
 
-type ApartmentDb = { id: string; name: string; archived_at: string | null; property: { id: string; name: string } }
+// Aktive Kunden, bei denen die Person Inhaber ist, alphabetisch
+export async function getOwnedTenants(): Promise<StatsTenant[]> {
+  const { list } = await getTenantContext()
+  return list.filter((t) => t.role === 'owner').map((t) => ({ id: t.id, name: t.name }))
+}
 
-export async function getStatsApartments(tenantId: string): Promise<StatsApartment[]> {
+type ApartmentDb = { id: string; name: string; tenant_id: string; archived_at: string | null; property: { id: string; name: string } }
+
+export async function getStatsApartments(tenants: readonly StatsTenant[]): Promise<StatsApartment[]> {
+  if (tenants.length === 0) return []
+  const names = new Map(tenants.map((t) => [t.id, t.name]))
   const supabase = await untyped()
   const { data, error } = await supabase
     .from('apartments')
-    .select('id, name, archived_at, property:properties!inner(id, name)')
-    .eq('tenant_id', tenantId)
-    .limit(1000)
+    .select('id, name, tenant_id, archived_at, property:properties!inner(id, name)')
+    .in('tenant_id', [...names.keys()])
+    .limit(2000)
   if (error) {
     console.error('[auswertungen] Wohnungen nicht lesbar', error.message)
     return []
@@ -59,6 +66,8 @@ export async function getStatsApartments(tenantId: string): Promise<StatsApartme
     propertyId: a.property.id,
     propertyName: a.property.name,
     archived: a.archived_at !== null,
+    tenantId: a.tenant_id,
+    tenantName: names.get(a.tenant_id) ?? '',
   }))
 }
 
@@ -111,31 +120,34 @@ export const mapOriginRow = (r: OriginDb): StatsOriginRow => ({
 export type StatsData = {
   ready: boolean
   failed: boolean
-  tenantId: string | null
+  // Inhaber-Kunden der Person (Auswahl)
+  tenants: StatsTenant[]
   apartments: StatsApartment[]
   rows: StatsMonthRow[]
   origin: StatsOriginRow[]
 }
 
-// Alles für Seite, PDF und CSV des gewählten Kunden: Wohnungen, Zeilen je Wohnung und Monat (Zeitraum und Vorjahr) und
-// Herkunft. Den Objekt-/Wohnungsfilter wendet die Regeldatei an (gleiche Daten für Auswahl und Anzeige).
-export async function getStatsData(period: ReportPeriod, { origin = true }: { origin?: boolean } = {}): Promise<StatsData> {
-  const { active } = await getTenantContext()
-  if (!active || active.role !== 'owner') return { ready: true, failed: false, tenantId: null, apartments: [], rows: [], origin: [] }
-  const { from, to } = statsRange(period)
+// Alles für Seite, PDF und CSV: Inhaber-Kunden, deren Wohnungen, Zeilen je Wohnung und Monat (Zeitraum und Vorjahr) und
+// Herkunft. Abgefragt werden der gewählte Kunde (wenn er ein Inhaber-Kunde ist) bzw. alle Inhaber-Kunden; Objekt- und
+// Wohnungsfilter wendet die Regeldatei an (gleiche Daten für Auswahl und Anzeige).
+export async function getStatsData(filters: StatsFilters, { origin = true }: { origin?: boolean } = {}): Promise<StatsData> {
+  const tenants = await getOwnedTenants()
+  if (tenants.length === 0) return { ready: true, failed: false, tenants, apartments: [], rows: [], origin: [] }
+  const ids = filters.tenant && tenants.some((t) => t.id === filters.tenant) ? [filters.tenant] : tenants.map((t) => t.id)
+  const { from, to } = statsRange(filters)
   const supabase = await untyped()
-  const args = { p_tenant_id: active.id, p_from: from, p_to: to }
+  const args = { p_tenant_ids: ids, p_from: from, p_to: to }
   const [apartments, months, countries] = await Promise.all([
-    getStatsApartments(active.id),
-    loadPaged<MonthDb>((offset) => supabase.rpc('statistics_rows', args).range(offset, offset + PAGE - 1), 'Zeilen je Wohnung und Monat'),
+    getStatsApartments(tenants),
+    loadPaged<MonthDb>((offset) => supabase.rpc('statistics_tenant_rows', args).range(offset, offset + PAGE - 1), 'Zeilen je Wohnung und Monat'),
     origin
-      ? loadPaged<OriginDb>((offset) => supabase.rpc('statistics_origin', args).range(offset, offset + PAGE - 1), 'Gästeherkunft')
+      ? loadPaged<OriginDb>((offset) => supabase.rpc('statistics_tenant_origin', args).range(offset, offset + PAGE - 1), 'Gästeherkunft')
       : Promise.resolve<Paged<OriginDb>>({ ready: true, failed: false, rows: [] }),
   ])
   return {
     ready: months.ready && countries.ready,
     failed: months.failed || countries.failed,
-    tenantId: active.id,
+    tenants,
     apartments,
     rows: months.rows.map(mapMonthRow),
     origin: countries.rows.map(mapOriginRow),

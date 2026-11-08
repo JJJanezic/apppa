@@ -4,8 +4,9 @@
 
 export type Role = 'owner' | 'staff'
 
-// Wer schaut? Rolle beim gewählten Kunden und ob die Person Betreiber-Admin (mit 2FA) ist
-export type Viewer = { role: Role; isAdmin: boolean }
+// Wer schaut? Rolle beim gewählten Kunden, ob die Person Betreiber-Admin (mit 2FA) ist und ob sie bei mindestens einem
+// aktiven Kunden Inhaber ist (PROJ-18: Auswertungen über alle Inhaber-Kunden)
+export type Viewer = { role: Role; isAdmin: boolean; ownsAny?: boolean }
 
 export type NavItemId =
   | 'dashboard'
@@ -26,6 +27,8 @@ export type NavItem = {
   roles: readonly Role[]
   // nur für den Betreiber-Admin, unabhängig von der Rolle (PROJ-5)
   adminOnly?: boolean
+  // sichtbar, sobald die Person bei irgendeinem Kunden Inhaber ist, nicht nur beim gewählten (PROJ-18)
+  anyOwner?: boolean
   ready: boolean
   // Platz am Handy: in der unteren Leiste oder unter „Mehr“
   mobile: 'primary' | 'more'
@@ -43,8 +46,9 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { id: 'invoices', href: '/rechnungen', roles: ALL, ready: true, mobile: 'more' },
   // PROJ-45: Zahlungen für Inhaber und Mitarbeiter (Mitarbeiter erfassen Zahlungen), am Handy unter „Mehr“
   { id: 'payments', href: '/zahlungen', roles: ALL, ready: true, mobile: 'more' },
-  // PROJ-18: Auswertungen nur für Inhaber, am Handy unter „Mehr“
-  { id: 'reports', href: '/auswertungen', roles: OWNER, ready: true, mobile: 'more' },
+  // PROJ-18: Auswertungen für Inhaber, auch wenn der gewählte Kunde einer ist, bei dem die Person nur Mitarbeiter ist
+  // (die Seite zeigt nur Inhaber-Kunden); am Handy unter „Mehr“
+  { id: 'reports', href: '/auswertungen', roles: OWNER, anyOwner: true, ready: true, mobile: 'more' },
   { id: 'tax', href: '/ortstaxe', roles: OWNER, ready: true, mobile: 'more' },
   { id: 'channels', href: '/kanaele', roles: OWNER, ready: false, mobile: 'more' },
   { id: 'settings', href: '/einstellungen', roles: OWNER, ready: true, mobile: 'more' },
@@ -56,8 +60,8 @@ const MAX_MOBILE_PRIMARY = 4
 const viewerOf = (who: Role | Viewer): Viewer => (typeof who === 'string' ? { role: who, isAdmin: false } : who)
 
 export function visibleNavItems(who: Role | Viewer, items: readonly NavItem[] = NAV_ITEMS): NavItem[] {
-  const { role, isAdmin } = viewerOf(who)
-  return items.filter((item) => item.ready && (item.adminOnly ? isAdmin : item.roles.includes(role)))
+  const { role, isAdmin, ownsAny } = viewerOf(who)
+  return items.filter((item) => item.ready && (item.adminOnly ? isAdmin : item.roles.includes(role) || Boolean(item.anyOwner && ownsAny)))
 }
 
 // Untere Leiste am Handy: bis zu 4 Hauptbereiche; alles Weitere landet unter „Mehr“.

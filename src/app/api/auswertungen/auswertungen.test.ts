@@ -44,8 +44,8 @@ const P1 = '11111111-1111-4111-8111-111111111111'
 const A1 = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1'
 const A2 = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2'
 const APARTMENTS: StatsApartment[] = [
-  { id: A1, name: '=Top 1', propertyId: P1, propertyName: 'Haus Wörth', archived: false },
-  { id: A2, name: 'Top 2', propertyId: P1, propertyName: 'Haus Wörth', archived: false },
+  { id: A1, name: '=Top 1', propertyId: P1, propertyName: 'Haus Wörth', archived: false, tenantId: 'cccccccc-cccc-4ccc-8ccc-ccccccccccc1', tenantName: 'Alpenhof GmbH' },
+  { id: A2, name: 'Top 2', propertyId: P1, propertyName: 'Haus Wörth', archived: false, tenantId: 'cccccccc-cccc-4ccc-8ccc-ccccccccccc1', tenantName: 'Alpenhof GmbH' },
 ]
 const row = (apartmentId: string, month: string, over: Partial<StatsMonthRow> = {}): StatsMonthRow => ({
   apartmentId,
@@ -65,7 +65,8 @@ const row = (apartmentId: string, month: string, over: Partial<StatsMonthRow> = 
 })
 const ROWS = [row(A1, '2026-10'), row(A2, '2026-10'), row(A1, '2026-09'), row(A1, '2025-10', { occupiedNights: 5 })]
 const ORIGIN: StatsOriginRow[] = [{ apartmentId: A1, country: 'DE', previous: false, arrivals: 4, guestNights: 20, revenueCents: 103000 }]
-const data = (over: Record<string, unknown> = {}) => ({ ready: true, failed: false, tenantId: 't1', apartments: APARTMENTS, rows: ROWS, origin: ORIGIN, ...over })
+const TENANTS = [{ id: 'cccccccc-cccc-4ccc-8ccc-ccccccccccc1', name: 'Alpenhof GmbH' }]
+const data = (over: Record<string, unknown> = {}) => ({ ready: true, failed: false, tenants: TENANTS, apartments: APARTMENTS, rows: ROWS, origin: ORIGIN, ...over })
 
 const request = (path: string) => new Request(`http://localhost/api/auswertungen/${path}`)
 
@@ -88,20 +89,18 @@ describe('Auswertungen: Downloads', () => {
     expect(getStatsData).not.toHaveBeenCalled()
   })
 
-  it('Mitarbeiter und Personen ohne Kunde erhalten 403 und keine Daten', async () => {
-    tenant.active = { id: 't1', name: 'Muster GmbH', role: 'staff' }
+  it('Personen ohne Inhaber-Kunde (nur Mitarbeiter oder ohne Kunde) erhalten 403 und keine Datei', async () => {
+    // getStatsData liefert ohne Inhaber-Kunde keine Kunden und fragt die Datenbank nicht ab (refine 2026-11-08)
+    getStatsData.mockResolvedValue(data({ tenants: [], apartments: [], rows: [], origin: [] }))
     expect((await csv(request('csv'))).status).toBe(403)
     expect((await pdf(request('pdf'))).status).toBe(403)
-    tenant.active = null
-    expect((await csv(request('csv'))).status).toBe(403)
-    expect(getStatsData).not.toHaveBeenCalled()
     expect(renderStatsPdf).not.toHaveBeenCalled()
   })
 
   it('CSV: Filter aus der Adresse, Dateiname, BOM, eine Zeile je Wohnung und Monat, Formelschutz, nicht zwischenspeichern', async () => {
     const res = await csv(request('csv?jahr=2026&von=10&bis=10'))
     expect(res.status).toBe(200)
-    expect(getStatsData).toHaveBeenCalledWith({ year: 2026, from: 10, to: 10, property: null, apartment: null }, { origin: false })
+    expect(getStatsData).toHaveBeenCalledWith({ year: 2026, from: 10, to: 10, tenant: null, property: null, apartment: null }, { origin: false })
     expect(res.headers.get('content-type')).toBe('text/csv; charset=utf-8')
     expect(res.headers.get('cache-control')).toBe('no-store')
     expect(res.headers.get('content-disposition')).toMatch(/^attachment; filename="Auswertung_2026-10_Alle_Stand-\d{4}-\d{2}-\d{2}\.csv"; filename\*=UTF-8''/)
@@ -109,9 +108,9 @@ describe('Auswertungen: Downloads', () => {
     expect([...bytes.slice(0, 3)]).toEqual([0xef, 0xbb, 0xbf])
     const lines = new TextDecoder().decode(bytes).replace(/^﻿/, '').trimEnd().split('\r\n')
     expect(lines).toEqual([
-      'Monat;Objekt;Wohnung;Verfügbare Nächte;Belegte Nächte;Gesperrte Nächte;Auslastung (%);Umsatz brutto;USt;Gästenächte;Ankünfte',
-      "2026-10;Haus Wörth;'=Top 1;31;10;1;32,3;1030,00;93,64;20;4",
-      '2026-10;Haus Wörth;Top 2;31;10;1;32,3;1030,00;93,64;20;4',
+      'Kunde;Monat;Objekt;Wohnung;Verfügbare Nächte;Belegte Nächte;Gesperrte Nächte;Auslastung (%);Umsatz brutto;USt;Gästenächte;Ankünfte',
+      "Alpenhof GmbH;2026-10;Haus Wörth;'=Top 1;31;10;1;32,3;1030,00;93,64;20;4",
+      'Alpenhof GmbH;2026-10;Haus Wörth;Top 2;31;10;1;32,3;1030,00;93,64;20;4',
     ])
   })
 
@@ -138,7 +137,7 @@ describe('Auswertungen: Downloads', () => {
   it('PDF: Dateiname, Inhalt für den Arbeitsprozess, nicht zwischenspeichern', async () => {
     const res = await pdf(request(`pdf?jahr=2026&von=10&bis=10&objekt=${P1}`))
     expect(res.status).toBe(200)
-    expect(getStatsData).toHaveBeenCalledWith({ year: 2026, from: 10, to: 10, property: P1, apartment: null }, { origin: true })
+    expect(getStatsData).toHaveBeenCalledWith({ year: 2026, from: 10, to: 10, tenant: null, property: P1, apartment: null }, { origin: true })
     expect(res.headers.get('content-type')).toBe('application/pdf')
     expect(res.headers.get('cache-control')).toBe('no-store')
     expect(res.headers.get('content-disposition')).toMatch(/filename="Auswertung_2026-10_Haus-Worth_Stand-\d{4}-\d{2}-\d{2}\.pdf"/)

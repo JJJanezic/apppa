@@ -21,7 +21,7 @@ export const METRIC_KEYS = ['occupancy', 'occupied', 'blocked', 'revenue', 'rate
 export type MetricKey = (typeof METRIC_KEYS)[number]
 
 // Spaltenköpfe der Kennzahlen (rechtsbündig)
-export function MetricHeads({ namespace }: { namespace: 'statistics.months.col' | 'statistics.apartments.col' }) {
+export function MetricHeads({ namespace }: { namespace: 'statistics.months.col' | 'statistics.apartments.col' | 'statistics.tenants.col' }) {
   const t = useTranslations(namespace)
   return (
     <>
