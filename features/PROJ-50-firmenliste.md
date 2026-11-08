@@ -1,8 +1,8 @@
 # PROJ-50: Firmenliste
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-11-08
-**Last Updated:** 2026-11-08
+**Last Updated:** 2026-11-08 (Tech Design)
 
 ## Dependencies
 - Requires: PROJ-4 (Kundenkonten & Rollen): Rollen Inhaber/Mitarbeiter, gewählter Kunde
@@ -40,7 +40,7 @@ Firmen werden zu eigenen Einträgen je Kunde. Ein Gast ist mit höchstens einer 
 | „Firma anlegen“ im Reiter „Firmen“ | ✓ | – |
 | Firma bearbeiten, löschen, zusammenführen | ✓ | – |
 | Mögliche doppelte Firmen ansehen und bearbeiten | ✓ | – |
-| Änderungsprotokoll einer Firma ansehen | ✓ | – |
+| Änderungsprotokoll einer Firma | wird in der Datenbank geführt, keine Anzeige in der App (wie bei Gästen) | – |
 | Im Gastformular „Bestehende Firma“ wählen oder „Neue Firma“ anlegen | ✓ (alle drei Stellen) | ✓ (nur beim neuen Gast im Buchungsformular, wie PROJ-7) |
 
 ## Regeln
@@ -78,7 +78,7 @@ Firmen werden zu eigenen Einträgen je Kunde. Ein Gast ist mit höchstens einer 
 - **Buchungen:** alle Buchungen, deren Hauptgast heute mit der Firma verknüpft ist, neueste zuerst, Spalten wie in der Buchungsübersicht (Nummer, Zeitraum, Wohnung, Gast, Betrag, Status), Link zum Buchungsdetail.
 - **Rechnungen:** alle Rechnungen zu diesen Buchungen mit Empfänger „Firma“, samt Gutschriften zu diesen Rechnungen; neueste zuerst; Spalten wie in der Rechnungsübersicht (Nummer, Datum, Empfänger, Betrag, Status, Zahlungsstatus), Link zum Rechnungsdetail.
 - Leere Abschnitte zeigen einen kurzen Hinweis („Keine Buchungen“ usw.).
-- Inhaber: „Bearbeiten“, „Mit anderer Firma zusammenführen“, „Firma löschen“, Änderungsprotokoll.
+- Inhaber: „Bearbeiten“, „Mit anderer Firma zusammenführen“, „Firma löschen“. Das Änderungsprotokoll wird in der Datenbank geführt, eine Anzeige gibt es nicht (wie bei Gästen).
 
 ### Gästeliste und Gast-Detail
 - Der Firmenname beim Gast führt als Link zum Firmendetail.
@@ -172,7 +172,7 @@ Firmen werden zu eigenen Einträgen je Kunde. Ein Gast ist mit höchstens einer 
 - [ ] Angenommen eine Rechnung an „Muster GmbH“ ist ausgestellt, wenn der Inhaber die Adresse der Firma ändert, dann zeigt die Rechnung und ihr PDF weiterhin die alte Adresse
 - [ ] Angenommen ein Rechnungsentwurf mit Empfänger „Firma“ besteht, wenn der Inhaber die Firma ändert, dann bleibt der Empfänger im Entwurf unverändert
 - [ ] Angenommen zwei Inhaber bearbeiten dieselbe Firma, wenn der zweite nach dem ersten speichert, dann erscheint ein Hinweis auf die zwischenzeitliche Änderung und nichts wird überschrieben
-- [ ] Angenommen ein Inhaber ändert eine Firma, wenn er das Änderungsprotokoll der Firma ansieht, dann ist die Änderung mit Person, Zeitpunkt, alten und neuen Werten festgehalten
+- [ ] Angenommen ein Inhaber ändert eine Firma, wenn das Änderungsprotokoll in der Datenbank geprüft wird, dann ist die Änderung mit Person, Zeitpunkt, alten und neuen Werten festgehalten
 
 ### Firmendetail
 - [ ] Angenommen eine Firma mit E-Mail, Webadresse und Ansprechpartner, wenn das Detail geöffnet wird, dann zeigt es alle Angaben, die E-Mail als Mail-Link und die Webadresse als Link
@@ -182,7 +182,7 @@ Firmen werden zu eigenen Einträgen je Kunde. Ein Gast ist mit höchstens einer 
 - [ ] Angenommen eine Rechnung an die Firma wurde storniert, wenn das Detail geöffnet wird, dann stehen Rechnung und Gutschrift im Abschnitt „Rechnungen“
 - [ ] Angenommen ein Gast wechselt von Firma A zu Firma B, wenn das Detail von Firma A geöffnet wird, dann erscheinen seine Buchungen und Rechnungen dort nicht mehr, sondern bei Firma B
 - [ ] Angenommen eine Firma ohne Gäste, wenn das Detail geöffnet wird, dann zeigen die Abschnitte „Gäste“, „Buchungen“ und „Rechnungen“ je einen Hinweis statt leerer Tabellen
-- [ ] Angenommen ein Mitarbeiter öffnet das Detail, wenn es erscheint, dann sieht er Gäste, Buchungen und Rechnungen, aber kein Änderungsprotokoll
+- [ ] Angenommen ein Mitarbeiter öffnet das Detail, wenn es erscheint, dann sieht er Gäste, Buchungen und Rechnungen, aber keine Knöpfe zum Bearbeiten, Zusammenführen oder Löschen
 
 ### Gastformular: Auswahl
 - [ ] Angenommen ein Inhaber legt einen neuen Gast an, wenn er den Bereich „Firma“ öffnet, dann ist „Keine Firma“ gewählt
@@ -266,6 +266,8 @@ Firmen werden zu eigenen Einträgen je Kunde. Ein Gast ist mit höchstens einer 
 - Browser: Chrome, Firefox, Safari (Desktop und mobil); neue Tabellen ohne Überlagerungs-Link auf der Zeile (Safari-Zeilenklick).
 
 ## Open Questions
+- [ ] Anzeige des Änderungsprotokolls in der App (für Gäste, Firmen und weitere Bereiche) als eigenes Feature?
+- [ ] Aufräum-Migration: alte Firmenspalten am Gast entfernen, sobald die Überführung in Produktion bestätigt ist
 - [ ] Sollen Summen (Umsatz, offene Beträge) je Firma später ins Firmendetail oder in „Auswertungen“ (PROJ-18)?
 - [ ] Soll die Kanalauswertung (PROJ-11) auch nach Firmen auswerten?
 
@@ -296,12 +298,142 @@ Firmen werden zu eigenen Einträgen je Kunde. Ein Gast ist mit höchstens einer 
 <!-- Added by /architecture -->
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Eigene Tabelle „Firmen“ je Kunde, Gast mit einer Verknüpfung (leer = keine Firma); Löschen der Firma leert die Verknüpfung automatisch | Eine Quelle für alle Gäste; Löschen mit verknüpften Gästen ohne Zusatzschritte | 2026-11-08 |
+| Alte Firmenspalten am Gast bleiben ungenutzt als Sicherung stehen, Entfernen in späterer Aufräum-Migration | Rückweg bei Problemen mit der Überführung; gleiches Vorgehen wie bei den alten Statistik-Funktionen | 2026-11-08 |
+| Überführung in einer Migration mit Zählprüfung (Abbruch bei Abweichung), ohne Protokolleinträge je Gast | Verlustfrei und prüfbar; Protokoll nicht mit Systemeinträgen fluten | 2026-11-08 |
+| Merker „Name fehlt“ statt Erkennung am Platzhaltertext | Hinweis verschwindet sicher bei der ersten Namensänderung; ein Inhaber darf eine Firma bewusst so nennen | 2026-11-08 |
+| Neue Datenbank-Funktion „Gast speichern“ für die Gästeseite statt direktem Tabellen-Schreiben | Neue Firma + Gast gelingen oder scheitern gemeinsam | 2026-11-08 |
+| Mitarbeiter legen Firmen nur innerhalb von „Buchung speichern“ an; direktes Schreiben in die Firmentabelle nur für Inhaber | Gleiches Muster wie bei Gästen (PROJ-7); Rolle in der Datenbank durchgesetzt | 2026-11-08 |
+| Gästesuche über Gastsuchtext oder Suchtext der verknüpften Firma (statt Firmenname im Gastsuchtext) | Umbenennung der Firma wirkt sofort, ohne alle Gäste umzuschreiben | 2026-11-08 |
+| Firmendetail-Listen über die heutige Verknüpfung des Hauptgasts; Rechnungen über Empfänger-Art „Firma“ plus Gutschriften | Entspricht den Produktentscheidungen; keine neue Spalte an Rechnungen nötig | 2026-11-08 |
+| Firmensuche, Dubletten, Zusammenführen und Panel nach Bauart der Gäste-Komponenten | Gleiche Bedienung, weniger neuer Code, bewährte Safari-/Handy-Lösungen | 2026-11-08 |
+| Webadresse so gespeichert wie eingegeben, Link ergänzt „https://“ | Nutzer tippt „www.firma.at“; keine Umformung der Daten | 2026-11-08 |
+| Änderungsprotokoll der Firma nur in der Datenbank, keine Anzeige in der App | Wie bei Gästen; Anzeige wäre ein eigenes, bereichsübergreifendes Feature (vom Nutzer bestätigt) | 2026-11-08 |
+| Keine neuen Pakete | Alle Bausteine vorhanden | 2026-11-08 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### Ausgangslage im Code
+- Die Firma steht heute als 7 Spalten direkt am Gast (`company_*`, PROJ-33). Diese Spalten lesen und schreiben neun Datenbank-Funktionen: Gast-Vorbereitung inkl. Suchtext, Gästeliste, Zusammenführen, Anonymisieren, Buchung speichern (neuer Gast), Rechnung nacherfassen (neuer Gast), Buchungssuche für Rechnungen, Rechnungsentwurf und die Vorschläge aus PROJ-49. In der App sind es rund 15 Dateien (Gastformular, Gästeliste, Gast-Detail, GuestPicker, Zusammenführen, Dubletten, Rechnungsentwurf, Nacherfassen, PDF-Muster).
+- Gäste legt der Inhaber heute direkt in der Tabelle an. Mitarbeiter legen Gäste nur innerhalb von „Buchung speichern“ an (eine geschützte Datenbank-Funktion).
+- Das Änderungsprotokoll wird für jede Tabelle automatisch in der Datenbank geführt. Eine Anzeige in der App gibt es bisher für keinen Bereich, auch nicht für Gäste.
+- Wiederverwendbar sind die Reiter-Leiste der Einstellungen, GuestPicker (Suche mit Trefferliste), DetailPanel, PostalPlaceFields (PLZ-Automatik), Zusammenführen-Dialog und Dubletten-Liste der Gäste, Pagination sowie RadioGroup.
+
+### A) Seiten und Komponenten
+
+```
+Gäste (Navigationspunkt, unverändert)
++-- Reiter-Leiste „Gäste“ | „Firmen“ (neu, gleiche Bauart wie die Einstellungen-Reiter)
+|
++-- /gaeste                      Gästeliste (unverändert, Firmenname wird Link zum Firmendetail)
++-- /gaeste/[id]                 Gast-Detail (Abschnitt „Firma“ zeigt die verknüpfte Firma mit Link)
++-- /gaeste/dubletten            Gäste-Dubletten (unverändert)
+|
++-- /gaeste/firmen               Firmenliste (neu)
+|   +-- Suche (Name, UID), Anzahl Treffer, Link „X mögliche doppelte Firmen“ (Inhaber)
+|   +-- Knopf „Firma anlegen“ (Inhaber) -> Firmen-Panel
+|   +-- Desktop: Tabelle Name (+ „Name fehlt“) · UID · PLZ Ort · Staat · Gäste
+|   +-- Handy: Karten
+|   +-- Seitenweise (50), leerer Zustand
+|
++-- /gaeste/firmen/[id]          Firmendetail (neu)
+|   +-- Kopf: Name, UID, Rechnungsadresse, E-Mail (Mail-Link), Webadresse (Link), Ansprechpartner
+|   +-- Aktionen (Inhaber): Bearbeiten · Mit anderer Firma zusammenführen · Firma löschen
+|   +-- Abschnitt „Gäste“ (Links zur Gastseite)
+|   +-- Abschnitt „Buchungen“ (Spalten wie Buchungsübersicht, neueste zuerst, „Weitere anzeigen“ ab 50)
+|   +-- Abschnitt „Rechnungen“ (nur Empfänger „Firma“ inkl. Gutschriften, Spalten wie Rechnungsübersicht)
+|
++-- /gaeste/firmen/dubletten     Mögliche doppelte Firmen (neu, Inhaber)
+    +-- je Paar: beide Karten · „Zusammenführen“ · „Keine doppelte Firma“
+
+Firmen-Panel (neu, DetailPanel wie beim Gast): Anlegen/Bearbeiten
++-- Firmenfelder (neu, gemeinsam genutzt): Name*, UID, Adresszeile 1/2, PLZ/Ort/Staat (PostalPlaceFields), E-Mail, Webadresse, Ansprechpartner
+
+Dialog „Firmen zusammenführen“ (neu, Bauart wie Gäste zusammenführen)
++-- zweite Firma per Firmensuche -> Feldwahl je Angabe (Rechnungsadresse als Block) -> Bestätigung
+
+Dialog „Firma löschen“ (AlertDialog, nennt Anzahl verknüpfter Gäste)
+
+Gastformular, Bereich „Firma“ (umgebaut, gilt für Gästeseite, Buchungsformular, Nacherfassen)
++-- RadioGroup: Keine Firma · Bestehende Firma · Neue Firma
++-- Bestehende Firma: Firmensuche (neu, Bauart GuestPicker) -> Firmenkarte (nur lesen) + „Ändern“
++-- Neue Firma: Firmenfelder (dieselbe Komponente wie im Panel)
+    +-- Hinweis „Diese Firma gibt es bereits“ + „Bestehende Firma verwenden“
+```
+
+Entfallen: das Vorschlagsfeld beim Firmennamen aus PROJ-49 samt Server-Aktion.
+
+### B) Datenmodell (in Worten)
+
+**Neue Tabelle „Firmen“**, je Kunde:
+- Kennung, Kunde
+- Firmenname (Pflicht, bis 200 Zeichen), Merker „Name fehlt“ (nur aus der Überführung, fällt bei der ersten Namensänderung weg)
+- UID, Adresszeile 1/2, PLZ, Ort, Staat (Regeln wie bisher am Gast)
+- E-Mail, Webadresse (so gespeichert wie eingegeben; die Anzeige ergänzt „https://“ für den Link), Ansprechpartner (bis 200 Zeichen)
+- Suchtext (von der Datenbank gepflegt: Name und UID in vereinheitlichter Form, also ohne Schreibung, Umlaute und Akzente, wie bei Gästen)
+- angelegt/geändert am und von (für den Schutz vor Überschreiben und das Protokoll)
+
+**Gast:** bekommt eine Verknüpfung „Firma“ (leer = keine Firma). Wird die Firma gelöscht, wird die Verknüpfung automatisch geleert. Die Verknüpfung ist nur innerhalb desselben Kunden möglich.
+
+**Neue Tabelle „Keine doppelte Firma“:** gemerkte Firmenpaare, die nicht mehr vorgeschlagen werden (wie bei Gästen).
+
+**Alte Firmenspalten am Gast:** werden ab PROJ-50 von nichts mehr gelesen oder geschrieben und bleiben bis zu einer späteren Aufräum-Migration als Sicherung stehen. Sie entfallen, sobald die Überführung in Produktion bestätigt ist.
+
+**Änderungsprotokoll:** Die Firmentabelle wird an das bestehende automatische Protokoll angeschlossen. Beim Löschen einer Firma werden Ansprechpartner und E-Mail mit der vorhandenen Bereinigungsfunktion (PROJ-1/PROJ-7) aus den Altwerten entfernt. Am Gast erscheint ein Firmenwechsel als Änderung der Verknüpfung.
+
+### C) Abläufe in der Datenbank
+
+Alle Schritte, die gemeinsam gelingen müssen, laufen als geschützte Datenbank-Funktionen. Dort werden auch die Rollen geprüft, wie bisher bei Gästen.
+
+| Ablauf | Umsetzung |
+|---|---|
+| Firma anlegen/bearbeiten (Inhaber, Reiter „Firmen“) | direkt in der Tabelle; Rechte: nur Inhaber darf schreiben, alle Mitglieder lesen; Schutz vor Überschreiben über „geändert am“ wie beim Gast |
+| Gast speichern auf der Gästeseite (Inhaber) | **neue** Funktion „Gast speichern“: legt bei „Neue Firma“ zuerst die Firma an und verknüpft dann den Gast, in einem Schritt. Sie ersetzt das bisherige direkte Schreiben in die Gast-Tabelle |
+| Buchung mit neuem Gast (auch Mitarbeiter) | bestehende Funktion „Buchung speichern“ nimmt statt Firmenfeldern entweder eine gewählte Firma oder Daten für eine neue Firma entgegen. Mitarbeiter dürfen hier eine Firma anlegen, sonst nirgends |
+| Rechnung nacherfassen mit neuem Gast | bestehende Funktion wie oben umgestellt |
+| Firma löschen | neue Funktion: Verknüpfungen leeren, Protokoll bereinigen, löschen |
+| Firmen zusammenführen | neue Funktion (Bauart „Gäste zusammenführen“): Feldwahl übernehmen, Gäste umhängen, Dubletten-Merker aufräumen, zweite Firma löschen, Protokolleintrag |
+| Gäste zusammenführen | bestehende Funktion: Feldwahl „Firma“ wählt jetzt die Verknüpfung statt sieben Felder |
+| Gast anonymisieren | bestehende Funktion: leert die Verknüpfung, die Firma bleibt |
+| Firmenliste | neue Lesefunktion mit Suche, Anzahl Gäste je Firma und Seiten |
+| Firmensuche im Gastformular | dieselbe Lesefunktion, höchstens 8 Treffer ab 2 Zeichen (wie GuestPicker) |
+| Gleicher Name bei „Neue Firma“ | Abfrage über den vereinheitlichten Namen, verzögert beim Tippen |
+| Mögliche doppelte Firmen | neue Lesefunktion (Bauart Gäste-Dubletten): gleicher vereinheitlichter Name oder gleiche UID, ohne Paare aus „Keine doppelte Firma“; Platzhalternamen paaren nur über die UID |
+| Gästeliste | Suche trifft Gastsuchtext **oder** Suchtext der verknüpften Firma. Eine Umbenennung der Firma wirkt dadurch sofort, ohne die Gäste umzuschreiben |
+| Firmendetail: Buchungen | Buchungen, deren Hauptgast heute mit der Firma verknüpft ist |
+| Firmendetail: Rechnungen | Rechnungen mit Empfänger-Art „Firma“ zu diesen Buchungen, dazu die Gutschriften zu diesen Rechnungen |
+| Rechnungsentwurf, Rechnungs-Buchungssuche, PDF-Muster | lesen Firmendaten über die Verknüpfung des Hauptgasts |
+
+### D) Überführung der Altdaten (eine Migration)
+1. Firmentabelle, Verknüpfung am Gast und Dubletten-Merker anlegen.
+2. Je Kunde die Gäste mit mindestens einem Firmenfeld nach den 7 Feldern gruppieren (Groß-/Kleinschreibung und Rand-Leerzeichen egal, nicht anonymisiert). Je Gruppe entsteht eine Firma mit den Werten des zuletzt geänderten Gastes, und alle Gäste der Gruppe werden verknüpft.
+3. Gruppen ohne Firmennamen erhalten „Firma ohne Namen“ und den Merker „Name fehlt“.
+4. Prüfung in derselben Migration: Die Zahl der Gäste mit Firmendaten muss gleich der Zahl der verknüpften Gäste sein, sonst bricht die Migration ab und nichts wird geändert.
+5. Alle oben genannten Funktionen auf die Verknüpfung umstellen, die PROJ-49-Vorschlagsfunktion entfernen.
+6. Altdaten über 200 Zeichen in Adresszeile 1 werden ohne Längenprüfung übernommen. Die Prüfung gilt erst beim Bearbeiten (wie PROJ-33).
+7. Die Überführung schreibt keine Protokolleinträge je Gast, damit das Protokoll nicht mit Tausenden Systemeinträgen gefüllt wird.
+
+Reihenfolge beim Ausliefern wie gewohnt: zuerst die Migration, dann der App-Code. Im kurzen Zeitfenster dazwischen würde eine Buchung mit neuem Gast über die alte App die Firmendaten nicht übernehmen. Deshalb ausliefern, wenn niemand arbeitet, und die Migration so bauen, dass alte Aufrufe nicht scheitern.
+
+### E) Rechte (zusätzlich zur Datenbank auch in den Server-Aktionen)
+- Lesen: alle Mitglieder des Kunden
+- Anlegen/Bearbeiten/Löschen/Zusammenführen/Dubletten: nur Inhaber
+- Mitarbeiter: Firma wählen oder neu anlegen nur innerhalb von „Buchung speichern“ mit neuem Gast
+- Fremde Firmen (anderer Kunde): nicht lesbar, Detailseite „Seite nicht gefunden“
+
+### F) Tests (Hinweis für /backend und /qa)
+- Integrationstests: Überführung (gleiche/abweichende Fassung, ohne Namen, zwei Kunden, Zählprüfung), Rechte Inhaber/Mitarbeiter/fremder Kunde, Löschen mit Gästen und Protokollbereinigung, Zusammenführen, Dubletten-Paare, Buchung mit neuer Firma als Ganzes, Gästesuche nach Umbenennung
+- E2E: ersetzt `tests/PROJ-49-firmen-wiederverwenden.spec.ts`. Der Integrationstest der PROJ-49-Vorschläge entfällt
+- Bestehende Tests mit Firmenfeldern am Gast (Gäste, Buchungen, Rechnungsentwurf, Nacherfassen, PDF-Muster) auf die Verknüpfung umstellen
+
+### G) Pakete
+Keine neuen Pakete. Alle Bausteine sind vorhanden (shadcn RadioGroup, Command, Table, AlertDialog, Pagination, Tabs-Bauart der Einstellungen).
+
+### H) Abweichung von der Spec (bestätigt 2026-11-08)
+Die Spec sah ein „Änderungsprotokoll der Firma“ zum Ansehen für Inhaber vor. In der App gibt es bisher **keine** Anzeige des Protokolls, auch nicht für Gäste (PROJ-7). Entschieden: Das Protokoll wird wie bei Gästen nur in der Datenbank geführt. Eine Anzeige kommt bei Bedarf als eigenes Feature für alle Bereiche. Rechte-Tabelle und Akzeptanzkriterien sind angepasst.
 
 ## QA Test Results
 _To be added by /qa_
