@@ -137,6 +137,8 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-26 Gästeblatt', () => {
       { tenant_id: tenant, user_id: staffUser.id, role: 'staff' },
       { tenant_id: tenantB, user_id: ob.user.id, role: 'owner' },
     ])
+    // Hochladen nur mit „Gästeblätter nacherfassen“ (Erweiterung 2026-11-09)
+    await service.from('tenants').update({ guest_sheet_backfill_enabled: true }).eq('id', tenant)
     const { data: property } = await service
       .from('properties')
       .insert({ tenant_id: tenant, name: `Haus ${runId}`, street: 'Seeweg 12', postal_code: '5340', city: 'St. Gilgen', municipality_code: '50330' })
@@ -251,12 +253,11 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-26 Gästeblatt', () => {
       await service.storage.from('guest-documents').remove([path])
     })
 
-    it('Lfd.-Nr. und Mitreisende an der Buchung; Höchstzahl wie im Buchungsformular', async () => {
-      const booking = await newBooking(await newGuest(), { adults: 2 })
+    it('Mitreisende an der Buchung, Höchstzahl wie im Buchungsformular; die Lfd.-Nr. ist auf dem Blatt nicht änderbar', async () => {
+      const booking = await newBooking(await newGuest(), { adults: 2, guest_sheet_number: '2026/7' })
       let s = await stamps(booking)
-      const { error } = await field(staff, booking, 'booking', { guest_sheet_number: ' 2026/7 ' }, s.booking)
-      expect(error).toBeNull()
-      s = await stamps(booking)
+      // Erweiterung 2026-11-09: kein Ziel „booking“ mehr
+      expect((await field(staff, booking, 'booking', { guest_sheet_number: '9' }, s.booking)).error?.code).toBe('22023')
       const one = [{ last_name: 'Rossi', first_name: 'Luca', birth_date: '2016-07-09', tourist_tax_exempt: false }]
       expect((await field(staff, booking, 'companions', { companions: one }, s.booking)).error).toBeNull()
       s = await stamps(booking)
@@ -270,25 +271,30 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-26 Gästeblatt', () => {
       const option = await newBooking(guest, { kind: 'option', option_until: "2028-01-15" })
       const residence = await newBooking(guest, { residence_registered: true })
       const s1 = await stamps(option)
-      expect((await field(staff, option, 'booking', { guest_sheet_number: '1' }, s1.booking)).error?.code).toBe('P0976')
+      expect((await field(staff, option, 'companions', { companions: [] }, s1.booking)).error?.code).toBe('P0976')
       const s2 = await stamps(residence)
-      expect((await field(staff, residence, 'booking', { guest_sheet_number: '1' }, s2.booking)).error?.code).toBe('P0976')
+      expect((await field(staff, residence, 'companions', { companions: [] }, s2.booking)).error?.code).toBe('P0976')
       const booking = await newBooking(guest)
       const s3 = await stamps(booking)
-      expect((await field(ownerB, booking, 'booking', { guest_sheet_number: '1' }, s3.booking)).error?.code).toBe('42501')
+      expect((await field(ownerB, booking, 'companions', { companions: [] }, s3.booking)).error?.code).toBe('42501')
     })
   })
 
   describe('Hochladen und Fertigstellen', () => {
     it('Hochladen: Datei muss im Ordner des Kunden liegen; ersetzt das vorige Blatt; Einwilligung am Gast', async () => {
       const guest = await newGuest()
-      const booking = await newBooking(guest)
+      const booking = await newBooking(guest, { guest_sheet_number: '0017' })
+      // Erweiterung 2026-11-09: nur mit „Gästeblätter nacherfassen“
+      await service.from('tenants').update({ guest_sheet_backfill_enabled: false }).eq('id', tenant)
+      const off = await staff.rpc('register_guest_sheet_upload', { p_input: { booking_id: booking, pdf_path: await upload(), previous_sheet_id: null } as Json })
+      expect(off.error?.code).toBe('P0987')
+      await service.from('tenants').update({ guest_sheet_backfill_enabled: true }).eq('id', tenant)
       const missing = await staff.rpc('register_guest_sheet_upload', {
         p_input: { booking_id: booking, pdf_path: `${tenant}/${randomUUID()}.pdf`, previous_sheet_id: null } as Json,
       })
       expect(missing.error?.code).toBe('P0980')
       const { data: first, error } = await staff.rpc('register_guest_sheet_upload', {
-        p_input: { booking_id: booking, pdf_path: await upload(), sheet_number: '17', signed_on: '2025-08-12', marketing_consent: true, previous_sheet_id: null } as Json,
+        p_input: { booking_id: booking, pdf_path: await upload(), sheet_number: '99', signed_on: '2025-08-12', marketing_consent: true, previous_sheet_id: null } as Json,
       })
       expect(error).toBeNull()
       const conflict = await staff.rpc('register_guest_sheet_upload', { p_input: { booking_id: booking, pdf_path: await upload(), previous_sheet_id: null } as Json })
@@ -302,8 +308,9 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-26 Gästeblatt', () => {
       const { data: g } = await service.from('guests').select('marketing_consent_at, marketing_consent_sheet_id').eq('id', guest).single()
       expect(g!.marketing_consent_sheet_id).toBe(first)
       expect(new Date(g!.marketing_consent_at!).toISOString()).toBe('2025-08-11T22:00:00.000Z')
-      const { data: b } = await service.from('bookings').select('guest_sheet_number').eq('id', booking).single()
-      expect(b!.guest_sheet_number).toBeNull()
+      // Lfd.-Nr. aus der Buchung, eine mitgeschickte Nummer zählt nicht
+      const { data: sheet } = await service.from('guest_sheets').select('sheet_number').eq('id', first as string).single()
+      expect(sheet!.sheet_number).toBe('0017')
     })
 
     it('Fertigstellen nur für den Server; prüft Pflichtangaben, Stand und aktuelles Blatt', async () => {

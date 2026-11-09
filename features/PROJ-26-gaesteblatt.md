@@ -674,6 +674,46 @@ PDF Seite 1
   - `save_guest_sheet_field`: Ziel „booking“ ohne `guest_sheet_number`.
   - `admin_delete_tenant`: neue Tabellen.
 
+
+### Implementation Notes Erweiterung (Backend, 2026-11-09)
+- **Migration** `20261109110308_guest_sheet_numbering.sql` (in Dev).
+- **Tabellen:**
+  - `establishment_numbers` (eindeutig je Kunde und Gemeinde).
+  - `guest_sheet_number_ranges` (Reihenfolge `position`, `next_number`, `exhausted_at`; Prüfungen für Format, Vorsatz und von ≤ bis).
+  - Beide haben RLS: Mitglieder und Admin lesen, geschrieben wird nur über Funktionen; Änderungsprotokoll über `enable_tenant_table`.
+- **Spalte** `tenants.guest_sheet_backfill_enabled`: Startwert ein bei Kunden mit Nummer an einer Buchung oder hochgeladenem Blatt.
+- **Nummernregel in der Datenbank:**
+  - Bausteine: `sheet_number_ok`, `sheet_number_prefix`, `sheet_number_digits`, `sheet_number_format` (wächst über die Stellenzahl hinaus, ohne zu kürzen).
+  - `sheet_range_scan` liefert den nächsten freien Wert per Lückensuche, ohne Aufzählung. Belegt ist nur genau dieselbe Schreibweise einer Buchung derselben Gemeinde.
+  - `sheet_numbering_state` liefert den Stand je Gemeinde.
+- **Lesesichten** `establishment_number_list`, `guest_sheet_numbering` und `guest_sheet_number_range_list` (Stand berechnet, `last_issued` = höchste belegte Nummer im Bereich in Verwendung). Sie laufen mit den Rechten der lesenden Person; die Zählung läuft als security definer mit Mitgliedschafts- bzw. Admin-Prüfung, damit auch der Betreiber belegte Nummern sieht.
+- **Schreibfunktionen** (Inhaber und Admin, Kunde aktiv):
+  - `save_establishment_numbers` (nur Gemeinden mit Objekt oder gespeicherter Kennzahl).
+  - `save_guest_sheet_number_range`:
+    - Sperrt die Bereiche der Gemeinde.
+    - Prüft auf Überschneidung (P0983) und Format (P0984).
+    - Beim Bereich in Verwendung ist „von“ fest (P0985) und „bis“ darf nicht unter die belegte Nummer (P0984).
+    - Ein neuer Bereich bekommt „Nächste Nummer“ nur, wenn er sofort verwendet wird.
+    - Veralteter Stand: P0982.
+  - `delete_guest_sheet_number_range` (nur folgende, sonst P0985).
+  - `save_guest_sheet_backfill`.
+- **Vergabe** `assign_guest_sheet_number` (nur service_role, im Namen der Person):
+  - Prüft den Stand der Buchung (P0975). Eine vorhandene Nummer bleibt.
+  - Sperrt die Bereiche, überspringt belegte Nummern, markiert aufgebrauchte Bereiche und springt in den nächsten.
+  - Schreibt die Nummer mit Protokoll-Quelle „Gästeblatt“; ohne freie Nummer P0986.
+- **Angepasst:**
+  - `save_booking`: fehlender Schlüssel = Nummer unverändert, Doppelt-Prüfung nur bei mitgeschickter Nummer und je Gemeinde.
+  - `booking_warnings`: neue Fassung `guest_sheet_duplicates(…, p_apartment_id)`, die alte ist entfernt.
+  - `register_guest_sheet_upload`: Nummer aus der Buchung, nur mit Schalter (P0987), ändert die Buchung nicht mehr.
+  - `save_guest_sheet_field`: ohne Ziel „booking“.
+  - `admin_delete_tenant` unverändert: Kaskade über `tenant_id`.
+- **Tests:**
+  - Neu: `supabase/tests/guest-sheet-numbering.integration.test.ts` mit 10 Tests (Weiterzählen A-0098 → A-0100 → 9999 → 10000, Überspringen nur gleicher Schreibweise und Gemeinde, gleichzeitige Vergabe ohne Doppelte, keine Nummer, Prüfungen, Rechte, Sichten, Kennzahlen, Schalter, Buchung ohne Nummernfeld, Doppelt-Hinweis je Gemeinde).
+  - Angepasst: `guest-sheets.integration.test.ts` mit 16 Tests.
+  - `bookings.integration.test.ts` mit 32 Tests, unverändert grün.
+  - Unit: 987 Tests. Lint und Typprüfung grün.
+- **Datenbank-Prüfung:** Die Warnung „doppelter Index“ habe ich behoben; der eigene Index entfällt, es bleibt der bestehende `bookings_guest_sheet_idx`. Übrig bleibt nur die bekannte Auth-Warnung zur OTP-Ablaufzeit.
+
 ## Tech Design (Solution Architect)
 
 ### Ausgangslage (bereits vorhanden)

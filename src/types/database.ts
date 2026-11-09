@@ -781,6 +781,54 @@ export type Database = {
           },
         ]
       }
+      establishment_numbers: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          establishment_number: string | null
+          id: string
+          municipality_code: string
+          tenant_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          establishment_number?: string | null
+          id?: string
+          municipality_code: string
+          tenant_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          establishment_number?: string | null
+          id?: string
+          municipality_code?: string
+          tenant_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "establishment_numbers_municipality_code_fkey"
+            columns: ["municipality_code"]
+            isOneToOne: false
+            referencedRelation: "municipalities"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "establishment_numbers_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       guest_duplicate_dismissals: {
         Row: {
           dismissed_at: string
@@ -820,6 +868,66 @@ export type Database = {
           },
           {
             foreignKeyName: "guest_duplicate_dismissals_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      guest_sheet_number_ranges: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          exhausted_at: string | null
+          id: string
+          municipality_code: string
+          next_number: string | null
+          position: number
+          range_from: string
+          range_to: string
+          tenant_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          exhausted_at?: string | null
+          id?: string
+          municipality_code: string
+          next_number?: string | null
+          position?: never
+          range_from: string
+          range_to: string
+          tenant_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          exhausted_at?: string | null
+          id?: string
+          municipality_code?: string
+          next_number?: string | null
+          position?: never
+          range_from?: string
+          range_to?: string
+          tenant_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guest_sheet_number_ranges_municipality_code_fkey"
+            columns: ["municipality_code"]
+            isOneToOne: false
+            referencedRelation: "municipalities"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "guest_sheet_number_ranges_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -2177,6 +2285,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           email: string | null
+          guest_sheet_backfill_enabled: boolean
           id: string
           logo_path: string | null
           name: string
@@ -2198,6 +2307,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           email?: string | null
+          guest_sheet_backfill_enabled?: boolean
           id?: string
           logo_path?: string | null
           name: string
@@ -2219,6 +2329,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           email?: string | null
+          guest_sheet_backfill_enabled?: boolean
           id?: string
           logo_path?: string | null
           name?: string
@@ -2277,6 +2388,16 @@ export type Database = {
       }
     }
     Views: {
+      establishment_number_list: {
+        Row: {
+          establishment_number: string | null
+          has_properties: boolean | null
+          municipality_code: string | null
+          municipality_name: string | null
+          tenant_id: string | null
+        }
+        Relationships: []
+      }
       guest_sheet_list: {
         Row: {
           apartment_name: string | null
@@ -2360,6 +2481,65 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "bookings_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      guest_sheet_number_range_list: {
+        Row: {
+          exhausted_at: string | null
+          id: string | null
+          last_issued: string | null
+          municipality_code: string | null
+          next_number: string | null
+          position: number | null
+          range_from: string | null
+          range_to: string | null
+          state: string | null
+          tenant_id: string | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guest_sheet_number_ranges_municipality_code_fkey"
+            columns: ["municipality_code"]
+            isOneToOne: false
+            referencedRelation: "municipalities"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "guest_sheet_number_ranges_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      guest_sheet_numbering: {
+        Row: {
+          free_count: number | null
+          has_apartments: boolean | null
+          has_ranges: boolean | null
+          municipality_code: string | null
+          municipality_name: string | null
+          next_number: string | null
+          tenant_id: string | null
+          tenant_name: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "properties_municipality_code_fkey"
+            columns: ["municipality_code"]
+            isOneToOne: false
+            referencedRelation: "municipalities"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "properties_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -2506,6 +2686,14 @@ export type Database = {
         }[]
       }
       anonymize_guest: { Args: { p_guest_id: string }; Returns: undefined }
+      assign_guest_sheet_number: {
+        Args: {
+          p_actor_id: string
+          p_booking_id: string
+          p_expected_updated_at: string
+        }
+        Returns: Json
+      }
       belongs_to_deactivated_tenant: { Args: never; Returns: boolean }
       billed_cents: {
         Args: { "": Database["public"]["Tables"]["bookings"]["Row"] }
@@ -2645,6 +2833,10 @@ export type Database = {
       }
       delete_company: { Args: { p_company_id: string }; Returns: number }
       delete_guest: { Args: { p_guest_id: string }; Returns: string }
+      delete_guest_sheet_number_range: {
+        Args: { p_expected_updated_at: string; p_id: string }
+        Returns: undefined
+      }
       delete_invoice: { Args: { p_invoice_id: string }; Returns: string }
       delete_invoice_draft: { Args: { p_invoice_id: string }; Returns: string }
       delete_invoice_text_block: {
@@ -2810,7 +3002,15 @@ export type Database = {
         Args: { p_booking_id: string; p_companions: Json; p_updated_at: string }
         Returns: undefined
       }
+      save_establishment_numbers: {
+        Args: { p_items: Json; p_tenant_id: string }
+        Returns: undefined
+      }
       save_guest: { Args: { p_input: Json }; Returns: string }
+      save_guest_sheet_backfill: {
+        Args: { p_enabled: boolean; p_tenant_id: string }
+        Returns: undefined
+      }
       save_guest_sheet_field: {
         Args: {
           p_booking_id: string
@@ -2818,6 +3018,10 @@ export type Database = {
           p_target: string
           p_values: Json
         }
+        Returns: string
+      }
+      save_guest_sheet_number_range: {
+        Args: { p_input: Json }
         Returns: string
       }
       save_guest_sheet_texts: {
