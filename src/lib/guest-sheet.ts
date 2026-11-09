@@ -1,7 +1,7 @@
 // Gästeblatt (PROJ-26): Regeln, Typen und Standardtexte. Gilt im Browser und auf dem Server; die Datenbank prüft die
 // Pflichtangaben beim Fertigstellen noch einmal mit derselben Regel.
 
-import { type BookingKind, currentMonth, todayIso } from '@/lib/bookings'
+import type { BookingKind } from '@/lib/bookings'
 import { countryName, type DocumentType, type Gender } from '@/lib/guests'
 import { pdfDoc } from '@/lib/invoice-pdf/view'
 import { docFromText, type RichDoc } from '@/lib/rich-text'
@@ -202,37 +202,44 @@ export type GuestSheetSummary = {
 export const GUEST_SHEET_PAGE_SIZE = 50
 
 export type GuestSheetFilters = {
-  // Monat der Ankunft „2026-11“ oder null für „Alle Monate“
+  // Monat der Ankunft „2026-11“ oder null für „Alle Monate“ (Voreinstellung seit refine 2026-11-09)
   month: string | null
+  // Wohnung der Buchung oder null für „Alle Wohnungen“
+  apartment: string | null
   query: string
-  // „Gästeblatt fehlt“: statt der Blätter die Buchungen ohne Blatt (Ankunft bis heute)
+  // „Buchungen ohne Gästeblatt“: statt der Liste die Buchungen ohne Gästeblattnummer (Ankunft bis heute)
   missing: boolean
   page: number
 }
 
+// Art einer Zeile: unterschrieben, nacherfasst (hochgeladenes PDF) oder Nummer ohne Blatt
+export type GuestSheetRowKind = GuestSheetKind | 'none'
+
+// Zeile der Liste „Gästeblätter“: Buchung mit Gästeblattnummer und aktuellem Blatt, falls vorhanden (refine 2026-11-09)
 export type GuestSheetRow = {
-  id: string
   bookingId: string
   bookingNumber: string | null
-  kind: GuestSheetKind
-  sheetNumber: string | null
+  sheetNumber: string
+  // aktuelles Blatt (Link zum PDF); null = Nummer ohne Blatt
+  sheetId: string | null
+  kind: GuestSheetRowKind
+  guestId: string | null
   guestName: string | null
+  guestAnonymized: boolean
   arrival: string
   departure: string
   apartmentLabel: string
-  marketingConsent: boolean
-  changed: boolean
-  cancelled: boolean
 }
 
 export type MissingSheetRow = {
   bookingId: string
   bookingNumber: string | null
+  guestId: string | null
   guestName: string | null
+  guestAnonymized: boolean
   arrival: string
   departure: string
   apartmentLabel: string
-  sheetNumber: string | null
 }
 
 export type GuestSheetPage = GuestSheetFilters & {
@@ -240,29 +247,32 @@ export type GuestSheetPage = GuestSheetFilters & {
   missingRows: MissingSheetRow[]
   total: number
   pageCount: number
-  // false: Datenbank noch ohne Gästeblätter (vor der Migration)
+  // false: Datenbank noch ohne die Lesesichten (vor der Migration)
   ready: boolean
 }
 
 const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/
-const ALL_MONTHS = 'alle'
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-// ?monat=2026-10|alle, q, fehlt=1, seite – ungültige Werte werden ignoriert; Standard: aktueller Monat
-export function parseGuestSheetFilters(params: Record<string, string | string[] | undefined>, today: string = todayIso()): GuestSheetFilters {
+// ?monat=2026-10, wohnung, q, fehlt=1, seite – ungültige Werte werden ignoriert; Standard: alle Monate, alle Wohnungen.
+// Frühere Links mit ?monat=alle gelten weiter als „Alle Monate“.
+export function parseGuestSheetFilters(params: Record<string, string | string[] | undefined>): GuestSheetFilters {
   const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? ''
   const month = first(params.monat)
+  const apartment = first(params.wohnung)
   return {
-    month: month === ALL_MONTHS ? null : MONTH.test(month) ? month : currentMonth(today),
+    month: MONTH.test(month) ? month : null,
+    apartment: UUID.test(apartment) ? apartment.toLowerCase() : null,
     query: first(params.q).trim().slice(0, 100),
     missing: first(params.fehlt) === '1',
     page: Math.max(1, Math.floor(Number(first(params.seite)) || 1)),
   }
 }
 
-export function guestSheetListUrl(filters: Partial<GuestSheetFilters>, today: string = todayIso()): string {
+export function guestSheetListUrl(filters: Partial<GuestSheetFilters>): string {
   const params = new URLSearchParams()
-  if (filters.month === null) params.set('monat', ALL_MONTHS)
-  else if (filters.month && filters.month !== currentMonth(today)) params.set('monat', filters.month)
+  if (filters.month) params.set('monat', filters.month)
+  if (filters.apartment) params.set('wohnung', filters.apartment)
   if (filters.query) params.set('q', filters.query)
   if (filters.missing) params.set('fehlt', '1')
   if (filters.page && filters.page > 1) params.set('seite', String(filters.page))

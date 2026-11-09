@@ -160,19 +160,41 @@ export const getBookingGuestSheets = cache(async (bookingId: string): Promise<Bo
 
 // ---- Liste „Gästeblätter“ -----------------------------------------------------------------------------
 
-type MissingDb = NameDb & {
+// Gast der Zeile: anonymisierte Gäste ohne Link (Name „Anonymisiert“ kommt aus der Datenbank)
+type GuestRefDb = NameDb & { guest_id: string | null; guest_anonymized: boolean | null }
+
+type MissingDb = GuestRefDb & {
   booking_id: string
   booking_number: string | null
   arrival: string
   departure: string
   property_name: string
   apartment_name: string
-  guest_sheet_number: string | null
 }
+
+type RegisterDb = GuestRefDb & {
+  booking_id: string
+  booking_number: string | null
+  sheet_number: string
+  sheet_id: string | null
+  sheet_kind: GuestSheetKind | null
+  arrival: string
+  departure: string
+  property_name: string
+  apartment_name: string
+}
+
+const REGISTER_COLUMNS =
+  'booking_id, booking_number, sheet_number, sheet_id, sheet_kind, guest_id, guest_anonymized, last_name, first_name, title_prefix, title_suffix, arrival, departure, property_name, apartment_name'
+const MISSING_COLUMNS =
+  'booking_id, booking_number, guest_id, guest_anonymized, last_name, first_name, title_prefix, title_suffix, arrival, departure, property_name, apartment_name'
 
 // Suche: Ziffern, Buchstaben, Leerzeichen und übliche Zeichen der Nummern; alles andere würde den Filter stören
 const cleanQuery = (q: string) => q.replace(/[^\p{L}\p{N}\s/.\-_]/gu, '').trim()
 
+// Liste „Gästeblätter“ (refine 2026-11-09): Buchungen mit Gästeblattnummer absteigend nach der Zahl am Ende der Nummer
+// (Lesesicht guest_sheet_register), bzw. mit „Buchungen ohne Gästeblatt“ die Buchungen ohne Nummer ab dem Ankunftstag.
+// Optionen, Sperren, stornierte Buchungen und „Wohnsitz angemeldet“ schließen beide Sichten aus.
 export async function getGuestSheetPage(filters: GuestSheetFilters): Promise<GuestSheetPage> {
   const { tenantId } = await requireMember()
   const supabase = await untyped()
@@ -181,15 +203,16 @@ export async function getGuestSheetPage(filters: GuestSheetFilters): Promise<Gue
   const from = (filters.page - 1) * GUEST_SHEET_PAGE_SIZE
   const to = from + GUEST_SHEET_PAGE_SIZE - 1
   const empty = { ...filters, rows: [], missingRows: [], total: 0, pageCount: 1 }
+  const guestOf = (r: GuestRefDb) => ({ guestId: r.guest_id, guestName: nameOf(r), guestAnonymized: Boolean(r.guest_anonymized) })
 
   if (filters.missing) {
-    // Buchungen ab Ankunftstag ohne Blatt; „Alle Monate“ bzw. der Monat der Ankunft
-    let request = supabase.from('guest_sheet_missing').select('*', { count: 'exact' }).eq('tenant_id', tenantId).lte('arrival', todayIso())
+    let request = supabase.from('guest_sheet_missing').select(MISSING_COLUMNS, { count: 'exact' }).eq('tenant_id', tenantId).lte('arrival', todayIso())
     if (range) request = request.gte('arrival', range.from).lt('arrival', range.to)
+    if (filters.apartment) request = request.eq('apartment_id', filters.apartment)
     if (query) request = request.ilike('search_text', `%${query}%`)
     const { data, error, count } = await request.order('arrival', { ascending: false }).order('booking_number').range(from, to)
     const ready = !isMissingRelation(error)
-    if (error && ready) console.error('[gaesteblatt] Fehlende Gästeblätter nicht lesbar', error.message)
+    if (error && ready) console.error('[gaesteblatt] Buchungen ohne Gästeblatt nicht lesbar', error.message)
     if (error) return { ...empty, ready }
     const total = count ?? 0
     return {
@@ -197,23 +220,27 @@ export async function getGuestSheetPage(filters: GuestSheetFilters): Promise<Gue
       ready,
       total,
       pageCount: Math.max(1, Math.ceil(total / GUEST_SHEET_PAGE_SIZE)),
-      missingRows: ((data ?? []) as MissingDb[]).map((r) => ({
+      missingRows: ((data ?? []) as unknown as MissingDb[]).map((r) => ({
         bookingId: r.booking_id,
         bookingNumber: r.booking_number,
-        guestName: nameOf(r),
+        ...guestOf(r),
         arrival: r.arrival,
         departure: r.departure,
         apartmentLabel: apartmentLabel(r.property_name, r.apartment_name),
-        sheetNumber: r.guest_sheet_number,
       })),
     }
   }
 
-  // Aktuelle Blätter (ersetzte nur in der Buchung)
-  let request = supabase.from('guest_sheet_list').select(LIST_COLUMNS, { count: 'exact' }).eq('tenant_id', tenantId).is('replaced_at', null)
+  let request = supabase.from('guest_sheet_register').select(REGISTER_COLUMNS, { count: 'exact' }).eq('tenant_id', tenantId)
   if (range) request = request.gte('arrival', range.from).lt('arrival', range.to)
+  if (filters.apartment) request = request.eq('apartment_id', filters.apartment)
   if (query) request = request.ilike('search_text', `%${query}%`)
-  const { data, error, count } = await request.order('arrival', { ascending: false }).order('created_at', { ascending: false }).range(from, to)
+  // Zahl am Ende absteigend, dann Vorsatz; Nummern ohne Zahl (Altbestand) zuletzt
+  const { data, error, count } = await request
+    .order('sort_value', { ascending: false, nullsFirst: false })
+    .order('sort_prefix', { ascending: false })
+    .order('sheet_number', { ascending: false })
+    .range(from, to)
   const ready = !isMissingRelation(error)
   if (error && ready) console.error('[gaesteblatt] Liste nicht lesbar', error.message)
   if (error) return { ...empty, ready }
@@ -223,28 +250,25 @@ export async function getGuestSheetPage(filters: GuestSheetFilters): Promise<Gue
     ready,
     total,
     pageCount: Math.max(1, Math.ceil(total / GUEST_SHEET_PAGE_SIZE)),
-    rows: ((data ?? []) as ListDb[]).map((r) => ({
-      id: r.id,
+    rows: ((data ?? []) as unknown as RegisterDb[]).map((r) => ({
       bookingId: r.booking_id,
       bookingNumber: r.booking_number,
-      kind: r.kind,
       sheetNumber: r.sheet_number,
-      guestName: nameOf(r),
+      sheetId: r.sheet_id,
+      kind: r.sheet_id ? (r.sheet_kind ?? 'signed') : 'none',
+      ...guestOf(r),
       arrival: r.arrival,
       departure: r.departure,
       apartmentLabel: apartmentLabel(r.property_name, r.apartment_name),
-      marketingConsent: r.marketing_consent,
-      changed: r.changed,
-      cancelled: r.booking_cancelled,
     })),
   }
 }
 
-// Gibt es beim Kunden überhaupt schon ein Gästeblatt? (Leerzustand der Liste)
+// Gibt es beim Kunden überhaupt schon eine Buchung mit Gästeblattnummer? (Leerzustand der Liste)
 export async function hasAnyGuestSheet(): Promise<boolean> {
   const { tenantId } = await requireMember()
   const supabase = await untyped()
-  const { count, error } = await supabase.from('guest_sheets').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId)
+  const { count, error } = await supabase.from('guest_sheet_register').select('booking_id', { count: 'exact', head: true }).eq('tenant_id', tenantId)
   if (error && !isMissingRelation(error)) console.error('[gaesteblatt] Anzahl nicht lesbar', error.message)
   return (count ?? 0) > 0
 }

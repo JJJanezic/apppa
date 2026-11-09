@@ -1,6 +1,6 @@
 # PROJ-26: Gästeblatt (Meldewesen)
 
-## Status: Planned
+## Status: In Progress
 **Created:** 2026-11-08
 **Last Updated:** 2026-11-09 (refine: Liste „Gästeblätter“ überarbeitet; Kennzahl und Gästeblattnummer je Gemeinde live seit v1.45.0)
 
@@ -865,6 +865,28 @@ Abschnitt „Menüpunkt „Gästeblätter““.
 - Anonymisierter Hauptgast: Name „Anonymisiert“ ohne Link
 - Buchung ohne Gast (Altbestand): „–“
 - Ersetzte Blätter: nur das aktuelle Blatt zählt für Link und Art
+
+### Umsetzung Frontend (2026-11-09)
+- Ohne eigenen `/architecture`-Schritt (kleiner Umfang); Entwurf hier.
+- **`src/lib/guest-sheet.ts`:**
+  - `GuestSheetFilters` mit `apartment`; Voreinstellung „Alle Monate“; `?monat=YYYY-MM`, `?wohnung=…`, `?fehlt=1`. Alte Links mit `monat=alle` gelten weiter.
+  - Neue Zeilentypen `GuestSheetRow` (Nummer, aktuelles Blatt, Art `signed|uploaded|none`, Gast mit Kennung) und `MissingSheetRow` (mit Gast-Kennung).
+- **`src/lib/guest-sheets-data.ts`:**
+  - `getGuestSheetPage` liest die neue Sicht `guest_sheet_register`, sortiert nach `sort_value` (absteigend, ohne Zahl zuletzt), `sort_prefix` und Nummer.
+  - „Buchungen ohne Gästeblatt“ liest `guest_sheet_missing` mit Wohnungsfilter.
+  - `hasAnyGuestSheet` zählt Buchungen mit Nummer.
+- **Oberfläche:** `guest-sheet-list.tsx` neu (Spalten laut Spec, Gast → Gastseite, anonymisiert ohne Link, Handy-Karten). `guest-sheet-filters.tsx` mit Wohnungsauswahl wie in der Buchungsübersicht; der Schalter heißt „Buchungen ohne Gästeblatt“.
+- **Texte:** „nacherfasst“, „kein PDF“; Buchungsdetail „Nacherfasst am …“.
+
+#### Erwartete Datenbank-Schnittstellen (für /backend)
+- **Neue Sicht `guest_sheet_register`** (security_invoker): Buchungen `kind = 'booking'`, nicht storniert, ohne „Wohnsitz angemeldet“, mit `guest_sheet_number`. Spalten:
+  - `booking_id`, `tenant_id`, `booking_number`, `sheet_number` (= `guest_sheet_number`)
+  - `sort_value` (numerische Ziffern am Ende, sonst null), `sort_prefix` (Vorsatz in Kleinbuchstaben)
+  - `sheet_id` und `sheet_kind` des aktuellen Blatts (`replaced_at` null)
+  - `guest_id`, `guest_anonymized`, Namensspalten
+  - `arrival`, `departure`, `apartment_id`, `property_name`, `apartment_name`
+  - `search_text` (Gästeblatt- und Buchungsnummer, Name)
+- **`guest_sheet_missing` neu definiert:** Buchungen **ohne Gästeblattnummer** (statt ohne Blatt), zusätzlich `apartment_id`, `guest_id`, `guest_anonymized`.
 
 ## Tech Design (Solution Architect)
 

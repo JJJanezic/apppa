@@ -110,20 +110,26 @@ describe('Tatsächliche Abreise auf dem Blatt', () => {
 })
 
 describe('Liste: Filter in der Adresse', () => {
-  it('liest Monat, Suche, „fehlt“ und Seite; Standard aktueller Monat', () => {
-    expect(parseGuestSheetFilters({}, '2026-11-09')).toEqual({ month: '2026-11', query: '', missing: false, page: 1 })
-    expect(parseGuestSheetFilters({ monat: 'alle', q: ' Huber ', fehlt: '1', seite: '3' }, '2026-11-09')).toEqual({
-      month: null,
+  const apt = '0b1c2d3e-4f50-4a6b-8c7d-9e0f1a2b3c4d'
+  it('liest Monat, Wohnung, Suche, „ohne Gästeblatt“ und Seite; Standard alle Monate und Wohnungen', () => {
+    expect(parseGuestSheetFilters({})).toEqual({ month: null, apartment: null, query: '', missing: false, page: 1 })
+    expect(parseGuestSheetFilters({ monat: '2026-11', wohnung: apt.toUpperCase(), q: ' Huber ', fehlt: '1', seite: '3' })).toEqual({
+      month: '2026-11',
+      apartment: apt,
       query: 'Huber',
       missing: true,
       page: 3,
     })
-    expect(parseGuestSheetFilters({ monat: '2026-13' }, '2026-11-09').month).toBe('2026-11')
+    // frühere Links und ungültige Werte
+    expect(parseGuestSheetFilters({ monat: 'alle', wohnung: 'x' })).toMatchObject({ month: null, apartment: null })
+    expect(parseGuestSheetFilters({ monat: '2026-13' }).month).toBeNull()
   })
 
   it('schreibt nur Abweichungen vom Standard', () => {
-    expect(guestSheetListUrl({ month: '2026-11', query: '', missing: false, page: 1 }, '2026-11-09')).toBe('/gaesteblaetter')
-    expect(guestSheetListUrl({ month: null, query: 'A-1', missing: true, page: 2 }, '2026-11-09')).toBe('/gaesteblaetter?monat=alle&q=A-1&fehlt=1&seite=2')
+    expect(guestSheetListUrl({ month: null, apartment: null, query: '', missing: false, page: 1 })).toBe('/gaesteblaetter')
+    expect(guestSheetListUrl({ month: '2026-11', apartment: apt, query: 'A-1', missing: true, page: 2 })).toBe(
+      `/gaesteblaetter?monat=2026-11&wohnung=${apt}&q=A-1&fehlt=1&seite=2`
+    )
   })
 })
 

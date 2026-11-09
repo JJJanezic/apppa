@@ -11,6 +11,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { requireArea } from '@/lib/areas'
 import { todayIso } from '@/lib/bookings'
+import { getBookableApartments } from '@/lib/bookings-data'
 import { guestSheetListUrl, parseGuestSheetFilters } from '@/lib/guest-sheet'
 import { getGuestSheetPage, hasAnyGuestSheet } from '@/lib/guest-sheets-data'
 import { getTenantContext } from '@/lib/tenant'
@@ -22,8 +23,9 @@ export async function generateMetadata(): Promise<Metadata> {
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>
 
-// Gästeblätter (PROJ-26) für Inhaber und Mitarbeiter: aktuelle Blätter nach Monat der Ankunft, Suche und „Gästeblatt fehlt“.
-// Entstehen und Hochladen geschieht in der Buchung.
+// Gästeblätter (PROJ-26) für Inhaber und Mitarbeiter: Buchungen mit Gästeblattnummer absteigend nach Nummer, Filter Monat
+// (Voreinstellung alle Monate), Wohnung und Suche; „Buchungen ohne Gästeblatt“ (refine 2026-11-09). Entstehen und
+// Hochladen geschieht in der Buchung.
 export default async function GuestSheetsPage({ searchParams }: { searchParams: SearchParams }) {
   await requireArea('guestSheets')
   const t = await getTranslations('guestSheets')
@@ -38,8 +40,8 @@ export default async function GuestSheetsPage({ searchParams }: { searchParams: 
     )
   }
   const today = todayIso()
-  const filters = parseGuestSheetFilters(await searchParams, today)
-  const [page, any] = await Promise.all([getGuestSheetPage(filters), hasAnyGuestSheet()])
+  const filters = parseGuestSheetFilters(await searchParams)
+  const [page, any, apartments] = await Promise.all([getGuestSheetPage(filters), hasAnyGuestSheet(), getBookableApartments()])
   const rows = filters.missing ? page.missingRows : page.rows
 
   return (
@@ -52,12 +54,12 @@ export default async function GuestSheetsPage({ searchParams }: { searchParams: 
       )}
       {!any && !filters.missing ? (
         <section className="flex flex-col gap-4">
-          <GuestSheetFilterBar filters={filters} today={today} />
+          <GuestSheetFilterBar filters={filters} today={today} apartments={apartments} />
           <EmptyState icon={Signature} title={t('list.emptyTitle')} text={t('list.emptyText')} />
         </section>
       ) : (
         <section className="flex flex-col gap-4">
-          <GuestSheetFilterBar filters={filters} today={today} />
+          <GuestSheetFilterBar filters={filters} today={today} apartments={apartments} />
           <p className="text-sm text-ds-neutral-800" aria-live="polite">
             {filters.missing ? t('list.missingCount', { count: page.total }) : t('list.count', { count: page.total })}
           </p>
@@ -69,13 +71,13 @@ export default async function GuestSheetsPage({ searchParams }: { searchParams: 
               action={
                 filters.query ? (
                   <Button asChild variant="outline" className="min-h-11">
-                    <Link href={guestSheetListUrl({ month: filters.month, missing: filters.missing }, today)}>{t('list.clearSearch')}</Link>
+                    <Link href={guestSheetListUrl({ month: filters.month, apartment: filters.apartment, missing: filters.missing })}>{t('list.clearSearch')}</Link>
                   </Button>
                 ) : undefined
               }
             />
           ) : (
-            <GuestSheetList page={page} today={today} />
+            <GuestSheetList page={page} />
           )}
         </section>
       )}

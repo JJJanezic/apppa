@@ -10,15 +10,19 @@ import { DateJump } from '@/components/date-jump'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
-import { currentMonth, shiftMonth } from '@/lib/bookings'
+import { type BookableApartment, currentMonth, shiftMonth } from '@/lib/bookings'
 import { type GuestSheetFilters, guestSheetListUrl } from '@/lib/guest-sheet'
 
 const DELAY_MS = 300
 
-// Monatsleiste (Monat der Ankunft) mit Sprungauswahl, „Alle Monate“, Suche und Schalter „Gästeblatt fehlt“ (PROJ-26).
-// Alles steht in der Adresse; jede Änderung beginnt wieder auf Seite 1. Aufbau wie die Zahlungsliste (PROJ-45).
-export function GuestSheetFilterBar({ filters, today }: { filters: GuestSheetFilters; today: string }) {
+const ALL = 'alle'
+
+// Monatsleiste (Monat der Ankunft) mit Sprungauswahl, „Alle Monate“ (Voreinstellung), Wohnung, Suche und Schalter
+// „Buchungen ohne Gästeblatt“ (PROJ-26, refine 2026-11-09). Alles steht in der Adresse; jede Änderung beginnt wieder auf
+// Seite 1. Aufbau wie die Zahlungsliste (PROJ-45), Wohnungsauswahl wie die Buchungsübersicht.
+export function GuestSheetFilterBar({ filters, today, apartments }: { filters: GuestSheetFilters; today: string; apartments: BookableApartment[] }) {
   const t = useTranslations('guestSheets.list')
   const format = useFormatter()
   const router = useRouter()
@@ -26,7 +30,7 @@ export function GuestSheetFilterBar({ filters, today }: { filters: GuestSheetFil
   const [value, setValue] = useState(filters.query)
   const [seenQuery, setSeenQuery] = useState(filters.query)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const href = (next: Partial<GuestSheetFilters>) => guestSheetListUrl({ ...filters, page: 1, ...next }, today)
+  const href = (next: Partial<GuestSheetFilters>) => guestSheetListUrl({ ...filters, page: 1, ...next })
 
   // Zurück-Taste bzw. „Zurücksetzen“ ändern die Adresse: Feld nachziehen (nicht beim eigenen Tippen)
   if (filters.query !== seenQuery) {
@@ -117,6 +121,21 @@ export function GuestSheetFilterBar({ filters, today }: { filters: GuestSheetFil
             className="min-h-11 pl-9"
           />
         </div>
+        <Select value={filters.apartment ?? ALL} onValueChange={(v) => go({ apartment: v === ALL ? null : v })}>
+          <SelectTrigger aria-label={t('apartmentLabel')} className="min-h-11 lg:w-60">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL} className="min-h-11">
+              {t('allApartments')}
+            </SelectItem>
+            {apartments.map((a) => (
+              <SelectItem key={a.id} value={a.id} className="min-h-11">
+                {a.archived ? t('archivedApartment', { label: a.label }) : a.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <div className="flex min-h-11 items-center gap-3">
           <Switch id="filter-gaesteblatt-fehlt" checked={filters.missing} onCheckedChange={(missing) => go({ missing })} />
           <Label htmlFor="filter-gaesteblatt-fehlt" className="text-[15px] font-normal">
