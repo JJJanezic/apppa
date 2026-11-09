@@ -1,6 +1,6 @@
 # PROJ-7: Gäste-Datenbank
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-10-26
 **Last Updated:** 2026-11-09 (refine: Staatsangehörigkeit optional)
 
@@ -613,3 +613,11 @@ _Stand 2026-10-26 (/deploy, Tag `v1.1.0`)_
 - **Production:** https://app.apppa.at (Vercel `apppa`, Supabase `ahclrqbhfpidxjzbpfgb`), Commit `f5d8c1c`, 2026-10-26
 - **Migrationen** in Staging und Production eingespielt: `20261026120000_guests.sql`, `20261026120100_guests_search_words.sql`. Advisors ohne Befund zur Datenbank (nur der bekannte Auth-Hinweis zur Gültigkeit der Mail-Links)
 - **Im selben Release:** Fix PROJ-5 BUG-5 (Einladung an einen Betreiber-Admin ohne Kunden annehmbar)
+
+### Staatsangehörigkeit optional (refine 2026-11-09)
+_Stand 2026-11-09 (/deploy, Tag `v1.47.0-PROJ-7`)_
+
+- **Staging:** https://staging.apppa.at, vom Nutzer geprüft und freigegeben (2026-11-09)
+- **Production:** https://app.apppa.at, Commit `0e1dd76`, 2026-11-09
+- **Migration** in Staging und Production eingespielt: `20261109182316_guest_country_optional.sql` (Staatsangehörigkeit in `guests` ohne Pflicht, Prüfung auf zweistelligen Code bleibt). Advisors nur mit dem bekannten Hinweis `auth_otp_long_expiry`
+- **Im selben Release:** Buchhaltung PROJ-26 (Deploy-Eintrag Liste „Gästeblätter“) und Dev-Bereinigung mit Ablage „guest-sheets“
