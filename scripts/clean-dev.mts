@@ -19,7 +19,7 @@ import { DEV_PROJECT_REF, projectRef } from '../src/lib/supabase/projects.ts'
 
 const TEST_EMAIL = /^test-(e2e-)?[0-9a-f-]{36}@example\.com$/
 const MIN_AGE_MS = 2 * 60 * 60 * 1000
-const BUCKETS = ['invoices', 'tenant-logos', 'guest-documents', 'payment-receipts'] as const
+const BUCKETS = ['invoices', 'tenant-logos', 'guest-documents', 'payment-receipts', 'guest-sheets'] as const
 const PAGE = 1000
 
 const apply = process.argv.includes('--apply')
