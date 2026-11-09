@@ -42,7 +42,8 @@ const COMPLETE_AT = {
   address_country: 'AT',
 }
 
-async function setup(page: Page, users: Users, role: 'owner' | 'staff' = 'owner') {
+// numbering: Nummernbereich 0001–0500 in St. Gilgen und „Gästeblätter nacherfassen“ ein (Erweiterung 2026-11-09)
+async function setup(page: Page, users: Users, role: 'owner' | 'staff' = 'owner', numbering = true) {
   const owner = await users({ displayName: 'Olga Owner' })
   const staff = await users({ displayName: 'Sam Staff' })
   const tenantId = await createTenant('QA26 Pichler', [
@@ -60,6 +61,10 @@ async function setup(page: Page, users: Users, role: 'owner' | 'staff' = 'owner'
     .select('id')
     .single()
   if (error) throw error
+  if (numbering) {
+    await service().from('guest_sheet_number_ranges').insert({ tenant_id: tenantId, municipality_code: '50330', range_from: '0001', range_to: '0500' })
+    await service().from('tenants').update({ guest_sheet_backfill_enabled: true }).eq('id', tenantId)
+  }
   await signInAs(page, role === 'staff' ? staff : owner)
   return { tenantId, apartmentId: apt.id, owner, staff }
 }
@@ -74,7 +79,7 @@ async function addBooking(
   tenantId: string,
   apartmentId: string,
   guestId: string,
-  over: { kind?: string; adults?: number; residence?: boolean; arrival?: string; companions?: { last_name: string; first_name: string; birth_date?: string }[] } = {}
+  over: { kind?: string; adults?: number; residence?: boolean; arrival?: string; sheet?: string; companions?: { last_name: string; first_name: string; birth_date?: string }[] } = {}
 ) {
   const arrival = over.arrival ?? day(-seq * 6 - 1)
   seq++
@@ -96,6 +101,7 @@ async function addBooking(
       number_seq: 900 + seq,
       option_until: kind === 'option' ? day(20) : null,
       residence_registered: over.residence ?? false,
+      guest_sheet_number: over.sheet ?? null,
     })
     .select('id, number')
     .single()
@@ -217,8 +223,8 @@ test.describe('Vollbild-Ansicht', () => {
     await page.getByLabel('Postleitzahl').fill('6020')
     await page.getByLabel('Familienname').click()
     await expect(page.getByLabel('Ortsgemeinde')).toHaveValue('Innsbruck')
-    await page.getByLabel('Lfd.-Nr.').fill('2026/5')
-    await page.getByLabel('Familienname').click()
+    // Lfd.-Nr. nur lesen, vergeben beim „Fertig“ (Erweiterung 2026-11-09)
+    await expect(page.getByText('wird beim Abschluss vergeben')).toBeVisible()
     await page.waitForTimeout(1600)
     await saved(page)
     const { data: g } = await service().from('guests').select('birth_date, postal_code, city').eq('id', guest).single()
@@ -253,7 +259,7 @@ test.describe('Vollbild-Ansicht', () => {
     await expect(page.getByText('erteilt', { exact: true })).toBeVisible()
 
     const { data: sheet } = await service().from('guest_sheets').select('id, kind, sheet_number, marketing_consent, created_by').eq('booking_id', booking.id).single()
-    expect(sheet).toMatchObject({ kind: 'signed', sheet_number: '2026/5', marketing_consent: true })
+    expect(sheet).toMatchObject({ kind: 'signed', sheet_number: '0001', marketing_consent: true })
     const { data: consent } = await service().from('guests').select('marketing_consent_sheet_id').eq('id', guest).single()
     expect(consent!.marketing_consent_sheet_id).toBe(sheet!.id)
     const pdf = await page.request.get(`/api/gaesteblatt/${sheet!.id}/pdf`)
@@ -283,7 +289,7 @@ test.describe('Vollbild-Ansicht', () => {
     await rows.nth(1).getByLabel('Familienname').fill('Rossi')
     await rows.nth(1).getByLabel('Vorname(n)').fill('Sara')
     await rows.nth(1).getByLabel('Geburtsdatum').fill('2018-01-02')
-    await page.getByLabel('Lfd.-Nr.').click()
+    await page.getByLabel('Familienname').first().click()
     await page.waitForTimeout(1600)
     await saved(page)
     await expect(page.getByText('Bitte zuerst alle markierten Felder ergänzen.')).toHaveCount(0)
@@ -392,15 +398,17 @@ test.describe('Hochladen', () => {
     desktopOnly()
     const { tenantId, apartmentId } = await setup(page, users, 'staff')
     const guest = await addGuest(tenantId, { birth_date: null })
-    const booking = await addBooking(tenantId, apartmentId, guest)
+    const booking = await addBooking(tenantId, apartmentId, guest, { sheet: '17' })
     await page.goto(`/buchungen/${booking.id}`)
     await page.getByRole('button', { name: 'Gästeblatt hochladen' }).click()
     const dialog = page.getByRole('dialog')
+    // Lfd.-Nr. aus der Buchung, nur lesen (Erweiterung 2026-11-09)
+    await expect(dialog.getByText('17', { exact: true })).toBeVisible()
+    await expect(dialog.getByRole('textbox', { name: 'Lfd.-Nr.' })).toHaveCount(0)
     const file = dialog.locator('input[type=file]')
     await file.setInputFiles({ name: 'blatt.jpg', mimeType: 'image/jpeg', buffer: Buffer.from('x') })
     await expect(dialog.getByText('Bitte eine PDF-Datei wählen.')).toBeVisible()
     await file.setInputFiles({ name: 'blatt.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4\n%%EOF\n') })
-    await dialog.getByLabel('Lfd.-Nr.').fill('17')
     await dialog.getByLabel('Unterschrieben am').fill('2025-08-12')
     await dialog.getByRole('checkbox', { name: 'Marketing-Einwilligung liegt unterschrieben vor' }).check()
     await dialog.getByRole('button', { name: 'Hochladen' }).click()
@@ -433,17 +441,13 @@ test.describe('Liste „Gästeblätter“', () => {
     const missing = await addBooking(tenantId, apartmentId, await addGuest(tenantId, { last_name: 'Fehlt' }), { arrival: TODAY })
     const residence = await addBooking(tenantId, apartmentId, await addGuest(tenantId, { last_name: 'Wohnsitz' }), { arrival: TODAY, residence: true })
     await openSheet(page, done.id)
-    await page.getByLabel('Lfd.-Nr.').fill('L-99')
-    await page.getByLabel('Familienname').click()
-    await saved(page)
-    // BUG-1 aus QA: direkt nach der Eingabe unterschreiben (ohne Warten)
     await signAndFinish(page)
 
     await page.setViewportSize({ width: 1440, height: 900 })
     await page.goto('/gaesteblaetter')
     await expect(page.getByText('1 Gästeblatt')).toBeVisible()
     const row = page.getByRole('row').filter({ hasText: 'Huber, Anna' })
-    await expect(row.getByRole('link', { name: 'L-99' })).toHaveAttribute('href', /\/api\/gaesteblatt\/.+\/pdf/)
+    await expect(row.getByRole('link', { name: '0001' })).toHaveAttribute('href', /\/api\/gaesteblatt\/.+\/pdf/)
     await expect(row.getByRole('link', { name: done.number! })).toHaveAttribute('href', `/buchungen/${done.id}`)
     await expect(row).toContainText('unterschrieben')
 
@@ -491,7 +495,8 @@ test.describe('Einstellungen und Stammdaten', () => {
     await page.goto('/einstellungen/stammdaten')
     await page.getByLabel('E-Mail').fill('office@pichler.at')
     await page.getByLabel('Telefon').fill('+43 512 123456')
-    await page.getByRole('button', { name: 'Speichern' }).click()
+    // exakt: darunter steht „Kennzahlen speichern“ (Erweiterung 2026-11-09)
+    await page.getByRole('button', { name: 'Speichern', exact: true }).click()
     await expect(page.getByText('Kundendaten gespeichert.')).toBeVisible()
     await page.goto('/einstellungen/gaesteblatt')
     await expect(page.getByRole('textbox', { name: 'Text Teil A' })).toContainText('Verantwortlich')
@@ -546,7 +551,7 @@ test.describe('QA-Korrekturen', () => {
     const booking = await addBooking(tenantId, apartmentId, await addGuest(tenantId))
     await openSheet(page, booking.id)
     // Fokus im Feld, sofort zum Stift: Der Strich verlässt das Feld, während noch gespeichert wird
-    await page.getByLabel('Lfd.-Nr.').fill('B1')
+    await page.getByLabel('Straße/Gasse/Platz').fill('Hauptplatz 3')
     await draw(page, 'unterschrift-1')
     await page.waitForTimeout(2000)
     await expect(page.getByText('Unterschrieben.', { exact: true })).toBeVisible()
@@ -554,8 +559,8 @@ test.describe('QA-Korrekturen', () => {
     await expect(page.getByRole('button', { name: 'Weiter' })).toBeEnabled()
     await page.getByRole('button', { name: 'Weiter' }).click()
     await expect(page.getByRole('heading', { name: 'Einwilligung in Marketing' })).toBeVisible()
-    const { data } = await service().from('bookings').select('guest_sheet_number').eq('id', booking.id).single()
-    expect(data!.guest_sheet_number).toBe('B1')
+    const { data } = await service().from('guests').select('street').eq('id', (await service().from('bookings').select('guest_id').eq('id', booking.id).single()).data!.guest_id!).single()
+    expect(data!.street).toBe('Hauptplatz 3')
   })
 
   test('BUG-1: „Weiter“ bleibt auf Seite 1, wenn eine Angabe nicht gespeichert werden kann', async ({ page, users }) => {
@@ -652,7 +657,7 @@ test.describe('Layout und Barrierefreiheit', () => {
   test('Vollbild, Liste und Einstellungen ohne automatisch erkennbare WCAG-2.1-AA-Verstöße und ohne seitliches Scrollen', async ({ page, users }) => {
     const { tenantId, apartmentId } = await setup(page, users)
     const booking = await addBooking(tenantId, apartmentId, await addGuest(tenantId, { country: 'IT', birth_date: null }), { adults: 2 })
-    for (const path of [`/gaesteblatt/${booking.id}`, '/gaesteblaetter?fehlt=1', '/einstellungen/gaesteblatt', `/buchungen/${booking.id}`]) {
+    for (const path of [`/gaesteblatt/${booking.id}`, '/gaesteblaetter?fehlt=1', '/einstellungen/gaesteblatt', '/einstellungen/stammdaten', `/buchungen/${booking.id}`]) {
       await page.goto(path)
       await page.waitForLoadState('networkidle')
       const axe = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze()
@@ -660,5 +665,162 @@ test.describe('Layout und Barrierefreiheit', () => {
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
       expect(overflow, path).toBeLessThanOrEqual(0)
     }
+  })
+})
+
+// ---- Erweiterung 2026-11-09: Kennzahl und Gästeblattnummer je Gemeinde ---------------------------------------------
+
+const ranges = (tenantId: string) =>
+  service().from('guest_sheet_number_ranges').select('range_from, range_to, next_number, exhausted_at').eq('tenant_id', tenantId).order('position')
+
+test.describe('Kennzahl und Gästeblattnummer je Gemeinde', () => {
+  test('AC: Kennzahl je Gemeinde in den Stammdaten mit führenden Nullen; Hinweis bei fehlender Kennzahl', async ({ page, users }) => {
+    desktopOnly()
+    const { tenantId } = await setup(page, users)
+    await service().from('properties').insert({ tenant_id: tenantId, name: 'Haus Burg', street: 'Hauptstraße 1', postal_code: '7000', city: 'Eisenstadt', municipality_code: '10101' })
+    await page.goto('/einstellungen/stammdaten')
+    await expect(page.getByRole('heading', { name: 'Kennzahlen je Gemeinde' })).toBeVisible()
+    await expect(page.getByText('Kennzahl fehlt – wird auf dem Gästeblatt leer gedruckt.')).toHaveCount(2)
+    await page.getByLabel('Kennzahl St. Gilgen (50330)').fill('00123')
+    await page.getByLabel('Kennzahl Eisenstadt (10101)').fill('12 3')
+    await page.getByRole('button', { name: 'Kennzahlen speichern' }).click()
+    await expect(page.getByText('Nur Buchstaben, Ziffern und „-“, „/“, „.“ – ohne Leerzeichen.')).toBeVisible()
+    await page.getByLabel('Kennzahl Eisenstadt (10101)').fill('')
+    await page.getByRole('button', { name: 'Kennzahlen speichern' }).click()
+    await expect(page.getByText('Kennzahlen gespeichert.')).toBeVisible()
+    await page.reload()
+    await expect(page.getByLabel('Kennzahl St. Gilgen (50330)')).toHaveValue('00123')
+    await expect(page.getByText('Kennzahl fehlt – wird auf dem Gästeblatt leer gedruckt.')).toHaveCount(1)
+  })
+
+  test('AC: Nummer erst beim „Fertig“, Kennzahl im Kopf; Abbrechen verbraucht keine; neu unterschreiben behält die Nummer', async ({ page, users }) => {
+    desktopOnly()
+    test.setTimeout(120_000)
+    const { tenantId, apartmentId } = await setup(page, users, 'staff', false)
+    await service().from('guest_sheet_number_ranges').insert({ tenant_id: tenantId, municipality_code: '50330', range_from: '0042', range_to: '0500' })
+    await service().from('establishment_numbers').insert({ tenant_id: tenantId, municipality_code: '50330', establishment_number: '00123' })
+    // 0043 ist an einer anderen Buchung nacherfasst und wird übersprungen
+    await addBooking(tenantId, apartmentId, await addGuest(tenantId, { last_name: 'Alt' }), { sheet: '0043' })
+    const booking = await addBooking(tenantId, apartmentId, await addGuest(tenantId))
+
+    await openSheet(page, booking.id)
+    await expect(page.getByText('wird beim Abschluss vergeben')).toBeVisible()
+    await expect(page.getByText('00123', { exact: true })).toBeVisible()
+    await page.getByRole('button', { name: 'Abbrechen' }).click()
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Abbrechen', exact: true }).click()
+    await page.waitForURL(/\/buchungen\//)
+    expect((await ranges(tenantId)).data![0].next_number).toBeNull()
+
+    await openSheet(page, booking.id)
+    await signAndFinish(page)
+    const { data: sheet } = await service().from('guest_sheets').select('sheet_number, snapshot').eq('booking_id', booking.id).single()
+    expect(sheet!.sheet_number).toBe('0042')
+    expect((sheet!.snapshot as { establishmentNumber: string }).establishmentNumber).toBe('00123')
+    await expect(page.getByText('0042', { exact: true }).first()).toBeVisible()
+
+    // Kennzahl später geändert: das Blatt behält die alte
+    await service().from('establishment_numbers').update({ establishment_number: '999' }).eq('tenant_id', tenantId)
+    await page.getByRole('button', { name: 'Neu unterschreiben lassen' }).click()
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Neu unterschreiben lassen' }).click()
+    await expect(page.getByRole('heading', { name: 'Mitreisende im familiären Verbund' })).toBeVisible()
+    await expect(page.getByText('0042', { exact: true }).first()).toBeVisible()
+    await expect(page.getByText('999', { exact: true })).toBeVisible()
+    await page.waitForTimeout(500)
+    await signAndFinish(page)
+    const { data: all } = await service().from('guest_sheets').select('sheet_number, snapshot, replaced_at').eq('booking_id', booking.id).order('created_at')
+    expect(all!.map((s) => s.sheet_number)).toEqual(['0042', '0042'])
+    expect((all![0].snapshot as { establishmentNumber: string }).establishmentNumber).toBe('00123')
+    // Zähler: 0042 vergeben, „neu unterschreiben“ hat keine weitere Nummer verbraucht (das Überspringen von 0043 prüft der
+    // Integrationstest; die Lesesicht zählt belegte Nummern nur für Mitglieder und Betreiber, nicht für die Service-Rolle)
+    expect((await ranges(tenantId)).data![0].next_number).toBe('0043')
+  })
+
+  test('AC: Bereiche in den Einstellungen anlegen, Überschneidung abgelehnt, folgenden Bereich löschen; Frühwarnung', async ({ page, users }) => {
+    desktopOnly()
+    await setup(page, users, 'owner', false)
+    await page.goto('/einstellungen/gaesteblatt')
+    await expect(page.getByRole('heading', { name: 'Laufende Nummer je Gemeinde' })).toBeVisible()
+    await expect(page.getByText('Nummernbereich für St. Gilgen noch nicht festgelegt.')).toBeVisible()
+
+    const add = async (from: string, to: string, next?: string) => {
+      await page.getByRole('button', { name: 'Nummernbereich hinzufügen' }).click()
+      const dialog = page.getByRole('dialog')
+      await dialog.getByLabel('von').fill(from)
+      await dialog.getByLabel('bis').fill(to)
+      if (next !== undefined) await dialog.getByLabel('Nächste Nummer').fill(next)
+      await dialog.getByRole('button', { name: 'Bereich speichern' }).click()
+      return dialog
+    }
+    await add('0001', '0010', '0006')
+    await expect(page.getByText('Nummernbereich gespeichert.')).toBeVisible()
+    await expect(page.getByText('St. Gilgen: nur noch 5 Nummern frei.')).toBeVisible()
+    await expect(page.getByText('Nächste Nummer: 0006 · 5 Nummern frei')).toBeVisible()
+
+    const overlap = await add('0008', '0020')
+    await expect(overlap.getByText('Überschneidet sich mit einem anderen Bereich dieser Gemeinde.')).toBeVisible()
+    await overlap.getByRole('button', { name: 'Abbrechen' }).click()
+
+    await add('B-0001', 'B-0100')
+    await expect(page.getByText('Nummernbereich gespeichert.').first()).toBeVisible()
+    await expect(page.getByText(/nur noch .* Nummern frei/)).toHaveCount(0)
+    await expect(page.getByRole('cell', { name: 'Folgt' })).toBeVisible()
+
+    await page.getByRole('button', { name: 'Bereich B-0001 bis B-0100 löschen' }).click()
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Löschen' }).click()
+    await expect(page.getByText('Nummernbereich gelöscht.')).toBeVisible()
+    await expect(page.getByText('St. Gilgen: nur noch 5 Nummern frei.')).toBeVisible()
+    // Bereich in Verwendung lässt sich nicht löschen
+    await expect(page.getByRole('button', { name: 'Bereich 0001 bis 0010 löschen' })).toHaveCount(0)
+  })
+
+  test('AC: ohne Nummernbereich ist „Gästeblatt“ gesperrt; Dashboard nennt Kunde und Gemeinde, Mitarbeiter ohne Link', async ({ page, users }) => {
+    desktopOnly()
+    const { tenantId, apartmentId, owner } = await setup(page, users, 'staff', false)
+    const booking = await addBooking(tenantId, apartmentId, await addGuest(tenantId))
+    await page.goto(`/buchungen/${booking.id}`)
+    await expect(page.getByText('Nummernbereich für St. Gilgen noch nicht festgelegt. Bitte in Einstellungen → Gästeblatt einen Nummernbereich erfassen.')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Gästeblatt', exact: true })).toBeDisabled()
+    await page.goto(`/gaesteblatt/${booking.id}`)
+    await expect(page.getByText('Für die Gemeinde St. Gilgen ist keine Gästeblattnummer verfügbar.', { exact: false })).toBeVisible()
+
+    await page.goto('/')
+    const alerts = page.getByRole('region', { name: 'Gästeblattnummern' })
+    await expect(alerts).toContainText('QA26 Pichler · Nummernbereich für St. Gilgen (50330) noch nicht festgelegt.')
+    await expect(alerts.getByRole('link')).toHaveCount(0)
+    await expect(alerts.getByRole('button')).toHaveCount(0)
+
+    // Inhaber: Zeile führt zu den Einstellungen; mit Bereich verschwindet der Hinweis
+    await signInAs(page, owner)
+    await page.goto('/')
+    await page.getByRole('region', { name: 'Gästeblattnummern' }).getByRole('link').click()
+    await page.waitForURL(/\/einstellungen\/gaesteblatt/)
+    await service().from('guest_sheet_number_ranges').insert({ tenant_id: tenantId, municipality_code: '50330', range_from: '1', range_to: '500' })
+    await page.goto('/')
+    await expect(page.getByRole('heading', { name: /Guten|Hallo|Grüß/ })).toBeVisible()
+    await expect(page.getByRole('region', { name: 'Gästeblattnummern' })).toHaveCount(0)
+  })
+
+  test('AC: „Gästeblätter nacherfassen“ aus: kein Nummernfeld, kein Hochladen, Nummer bleibt beim Speichern; ein: beides da', async ({ page, users }) => {
+    desktopOnly()
+    const { tenantId, apartmentId } = await setup(page, users, 'owner', false)
+    await service().from('guest_sheet_number_ranges').insert({ tenant_id: tenantId, municipality_code: '50330', range_from: '0001', range_to: '0500' })
+    const booking = await addBooking(tenantId, apartmentId, await addGuest(tenantId), { sheet: 'X-7' })
+    await page.goto(`/buchungen/${booking.id}`)
+    await expect(page.getByRole('button', { name: 'Gästeblatt hochladen' })).toHaveCount(0)
+    await page.getByRole('button', { name: 'Bearbeiten', exact: true }).click()
+    await expect(page.getByRole('dialog').getByRole('button', { name: 'Änderungen speichern', exact: true })).toBeEnabled()
+    await expect(page.getByLabel(/Gästeblattnummer/)).toHaveCount(0)
+    await page.getByRole('dialog').getByRole('button', { name: 'Änderungen speichern', exact: true }).click()
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+    expect((await service().from('bookings').select('guest_sheet_number').eq('id', booking.id).single()).data!.guest_sheet_number).toBe('X-7')
+
+    await page.goto('/einstellungen/gaesteblatt')
+    await page.getByRole('switch', { name: 'Gästeblätter nacherfassen' }).click()
+    await page.getByRole('button', { name: 'Speichern', exact: true }).click()
+    await expect(page.getByText('Einstellung gespeichert.')).toBeVisible()
+    await page.goto(`/buchungen/${booking.id}`)
+    await expect(page.getByRole('button', { name: 'Gästeblatt hochladen' })).toBeVisible()
+    await page.getByRole('button', { name: 'Bearbeiten', exact: true }).click()
+    await expect(page.getByLabel('Gästeblattnummer (optional)')).toHaveValue('X-7')
   })
 })

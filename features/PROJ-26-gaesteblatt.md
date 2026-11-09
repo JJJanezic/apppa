@@ -1,6 +1,6 @@
 # PROJ-26: Gästeblatt (Meldewesen)
 
-## Status: In Progress
+## Status: In Review
 **Created:** 2026-11-08
 **Last Updated:** 2026-11-09 (refine: Kennzahl und Gästeblattnummer je Gemeinde; Grundumfang und Nachbesserung live seit v1.44.0)
 
@@ -713,6 +713,78 @@ PDF Seite 1
   - `bookings.integration.test.ts` mit 32 Tests, unverändert grün.
   - Unit: 987 Tests. Lint und Typprüfung grün.
 - **Datenbank-Prüfung:** Die Warnung „doppelter Index“ habe ich behoben; der eigene Index entfällt, es bleibt der bestehende `bookings_guest_sheet_idx`. Übrig bleibt nur die bekannte Auth-Warnung zur OTP-Ablaufzeit.
+
+
+### QA Test Results Erweiterung (2026-11-09)
+
+**Tested:** 2026-11-09 gegen Dev (localhost, gebauter Server; Supabase „apppa-dev“)
+**Result:** 16 von 17 Akzeptanzkriterien bestanden, 1 Fehler (High) → **nicht bereit**
+
+#### Acceptance Criteria
+- [x] Kennzahl je Gemeinde in den Stammdaten, führende Nullen, Hinweis bei fehlender Kennzahl, ungültige Zeichen abgelehnt (E2E)
+- [x] Kennzahl auf Seite 1 und in der Fassung des PDFs; spätere Änderung ändert das Blatt nicht (E2E)
+- [x] Ohne Kennzahl gelingt das Blatt, Feld leer (Integration + E2E)
+- [x] Nummer erst beim „Fertig“ (0042), Zähler danach 0043 (E2E, Integration)
+- [x] Abbrechen verbraucht keine Nummer (E2E)
+- [x] Nacherfasste Nummer derselben Gemeinde wird übersprungen, andere Schreibweise/Gemeinde nicht (Integration)
+- [x] Sprung in den folgenden Bereich (A-0100 → 9999), alter Bereich „aufgebraucht“ (Integration)
+- [x] „Neu unterschreiben lassen“ behält die Nummer, kein weiterer Verbrauch (E2E)
+- [x] Nacherfasste Nummer an der Buchung wird übernommen (Integration)
+- [x] Überschneidung, von > bis, anderer Vorsatz und Nummer ohne Ziffer am Ende abgelehnt (Integration; im Formular E2E für Überschneidung)
+- [ ] **Neuer Bereich in den Einstellungen nach einem bereits angelegten (ohne Neuladen): siehe BUG-5**
+- [x] Frühwarnung „nur noch 5 Nummern frei“ in den Einstellungen; verschwindet mit folgendem Bereich (Datenbank/Integration; E2E bis BUG-5)
+- [x] Ohne Nummernbereich ist „Gästeblatt“ gesperrt mit Hinweis, Vollbild-Seite erklärt es (E2E)
+- [x] Dashboard nennt Kunde und Gemeinde; Mitarbeiter ohne Link, Inhaber mit Link in die Einstellungen (E2E)
+- [x] Schalter aus: weder Feld „Gästeblattnummer“ noch „Gästeblatt hochladen“; Speichern behält die Nummer (E2E)
+- [x] Schalter ein: doppelte Nummer nur Hinweis, nur in derselben Gemeinde (Integration, PROJ-30-E2E)
+- [x] Hochladen zeigt die Nummer der Buchung nur lesbar, zählt nicht hoch; ohne Schalter abgelehnt (E2E, Integration)
+- [x] Startwert des Schalters für bestehende Kunden mit Nummern (Migration; in Dev geprüft)
+
+#### Edge Cases
+- [x] Gleichzeitige Vergabe an vier Buchungen ergibt vier verschiedene Nummern (Integration)
+- [x] „bis“ unter die belegte Nummer abgelehnt, „von“ im laufenden Bereich fest, nur folgende Bereiche löschbar (Integration)
+- [x] Veralteter Stand der Buchung bei der Vergabe → P0975 (Integration)
+- [x] Keine freie Nummer → P0986, Unterschriften bleiben (Integration; Meldung im Browser vorhanden)
+- [x] Fremder Kunde sieht weder Nummernstand noch Kennzahlen (Integration)
+
+#### Security Audit
+- [x] Vergabe nur mit der Service-Rolle; Mitarbeiter-Aufruf abgelehnt (Integration)
+- [x] Bereiche, Kennzahlen und Schalter: nur Inhaber und Betreiber; Mitarbeiter und fremde Inhaber 42501 (Integration)
+- [x] Lesesichten zeigen nur Kunden der lesenden Person; die Zählung belegter Nummern prüft die Mitgliedschaft (security definer)
+- [x] Hochladen ohne Schalter auch serverseitig abgelehnt (P0987)
+- [x] Kennzahl und Nummern nur aus erlaubten Zeichen; keine Eingabe gelangt ungeprüft in HTML
+- Hinweis (Low, BUG-7): Ein Mitglied kann über einen direkten Datenbankaufruf `save_booking` mit Gästeblattnummer auch bei ausgeschaltetem Schalter speichern; die App selbst schickt sie dann nicht. Mitglieder dürfen Buchungen ohnehin bearbeiten.
+
+#### Regression
+- Gästeblatt (alle 23 bestehenden Tests, angepasst an die nur lesbare Lfd.-Nr.), PROJ-30 (15), PROJ-47 (11), PROJ-46 (17), PROJ-5 (16), PROJ-14 (17): grün. Ein PROJ-30-Test schlug einmal unter Last fehl und lief einzeln grün (Ausreißer).
+- Layout und Barrierefreiheit (axe, kein waagrechtes Scrollen) für Einstellungen → Gästeblatt und → Stammdaten in Desktop, Tablet und Handy: grün. Firefox/Safari nicht gesondert geprüft.
+- Unit 987, Integration 10 + 16 + 32: grün.
+
+#### Bugs Found
+
+##### BUG-5: Zweiter neuer Nummernbereich lässt sich ohne Neuladen nicht speichern (High)
+- **Schritte:**
+  1. Einstellungen → Gästeblatt öffnen, für eine Gemeinde ohne Bereich „Nummernbereich hinzufügen“ wählen.
+  2. 0001–0010 mit „Nächste Nummer“ 0006 speichern.
+  3. Ohne Neuladen erneut „Nummernbereich hinzufügen“ wählen, B-0001–B-0100 eingeben und „Bereich speichern“ klicken.
+- **Erwartet:** Der Bereich wird als „Folgt“ gespeichert.
+- **Tatsächlich:** Nichts passiert, keine Meldung.
+- **Ursache:**
+  - Der Dialog für neue Bereiche behält denselben `key` und damit die Formularwerte. Die „Nächste Nummer“ 0006 aus dem ersten Dialog bleibt erhalten, obwohl das Feld beim zweiten Bereich ausgeblendet ist.
+  - Die Prüfung meldet sie als „nicht im Bereich“ am unsichtbaren Feld.
+- **Folge:** Genau der Fall „neuen Bereich vorab erfassen“ scheitert still. Umgehung: Seite neu laden.
+- **E2E-Test:** „AC: Bereiche in den Einstellungen anlegen …“ schlägt deshalb fehl.
+
+##### BUG-6: Schalter „Gästeblätter nacherfassen“ auf der Kundenseite des Betreibers setzt das Stammdaten-Formular zurück (Low)
+- Der Schalter liegt am Kunden und ändert dessen Stand. Ungespeicherte Eingaben im Stammdaten-Formular derselben Seite gehen nach dem Umschalten verloren, weil sich das Formular mit dem neuen Stand neu aufbaut.
+
+##### BUG-7: `save_booking` prüft den Schalter nicht selbst (Low)
+- Siehe Security Audit; nur über direkte Aufrufe erreichbar.
+
+#### Testdaten-Hinweis
+- Die Lesesicht zählt belegte Nummern nur für Mitglieder und Betreiber. Mit der Service-Rolle (Testskripte) erscheinen sie als frei; in der App spielt das keine Rolle.
+
+**Production-ready:** NEIN, BUG-5 zuerst beheben.
 
 ## Tech Design (Solution Architect)
 
