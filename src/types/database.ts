@@ -340,6 +340,13 @@ export type Database = {
             referencedColumns: ["booking_id", "tenant_id"]
           },
           {
+            foreignKeyName: "booking_amounts_booking_fkey"
+            columns: ["id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "guest_sheet_register"
+            referencedColumns: ["booking_id", "tenant_id"]
+          },
+          {
             foreignKeyName: "booking_amounts_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -410,6 +417,13 @@ export type Database = {
             columns: ["booking_id", "tenant_id"]
             isOneToOne: false
             referencedRelation: "guest_sheet_missing"
+            referencedColumns: ["booking_id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "booking_charges_booking_fkey"
+            columns: ["booking_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "guest_sheet_register"
             referencedColumns: ["booking_id", "tenant_id"]
           },
           {
@@ -484,6 +498,13 @@ export type Database = {
             columns: ["booking_id", "tenant_id"]
             isOneToOne: false
             referencedRelation: "guest_sheet_missing"
+            referencedColumns: ["booking_id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "booking_companions_booking_fkey"
+            columns: ["booking_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "guest_sheet_register"
             referencedColumns: ["booking_id", "tenant_id"]
           },
           {
@@ -1106,6 +1127,13 @@ export type Database = {
             referencedColumns: ["booking_id", "tenant_id"]
           },
           {
+            foreignKeyName: "guest_sheets_booking_fkey"
+            columns: ["booking_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "guest_sheet_register"
+            referencedColumns: ["booking_id", "tenant_id"]
+          },
+          {
             foreignKeyName: "guest_sheets_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
@@ -1132,6 +1160,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "guest_sheet_list"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guest_sheets_replaced_by_fkey"
+            columns: ["replaced_by"]
+            isOneToOne: false
+            referencedRelation: "guest_sheet_register"
+            referencedColumns: ["sheet_id"]
           },
           {
             foreignKeyName: "guest_sheets_replaced_by_fkey"
@@ -1311,6 +1346,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "guest_sheet_list"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guests_marketing_consent_sheet_id_fkey"
+            columns: ["marketing_consent_sheet_id"]
+            isOneToOne: false
+            referencedRelation: "guest_sheet_register"
+            referencedColumns: ["sheet_id"]
           },
           {
             foreignKeyName: "guests_marketing_consent_sheet_id_fkey"
@@ -1858,6 +1900,13 @@ export type Database = {
             columns: ["booking_id", "tenant_id"]
             isOneToOne: false
             referencedRelation: "guest_sheet_missing"
+            referencedColumns: ["booking_id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "invoices_booking_fkey"
+            columns: ["booking_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "guest_sheet_register"
             referencedColumns: ["booking_id", "tenant_id"]
           },
           {
@@ -2482,6 +2531,13 @@ export type Database = {
             referencedColumns: ["booking_id", "tenant_id"]
           },
           {
+            foreignKeyName: "guest_sheets_booking_fkey"
+            columns: ["booking_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "guest_sheet_register"
+            referencedColumns: ["booking_id", "tenant_id"]
+          },
+          {
             foreignKeyName: "guest_sheets_guest_fkey"
             columns: ["guest_id"]
             isOneToOne: false
@@ -2499,13 +2555,15 @@ export type Database = {
       }
       guest_sheet_missing: {
         Row: {
+          apartment_id: string | null
           apartment_name: string | null
           arrival: string | null
           booking_id: string | null
           booking_number: string | null
           departure: string | null
           first_name: string | null
-          guest_sheet_number: string | null
+          guest_anonymized: boolean | null
+          guest_id: string | null
           last_name: string | null
           property_name: string | null
           search_text: string | null
@@ -2514,6 +2572,20 @@ export type Database = {
           title_suffix: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "bookings_apartment_fkey"
+            columns: ["apartment_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "apartments"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "bookings_guest_fkey"
+            columns: ["guest_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "guests"
+            referencedColumns: ["id", "tenant_id"]
+          },
           {
             foreignKeyName: "bookings_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -2575,6 +2647,53 @@ export type Database = {
           },
           {
             foreignKeyName: "properties_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      guest_sheet_register: {
+        Row: {
+          apartment_id: string | null
+          apartment_name: string | null
+          arrival: string | null
+          booking_id: string | null
+          booking_number: string | null
+          departure: string | null
+          first_name: string | null
+          guest_anonymized: boolean | null
+          guest_id: string | null
+          last_name: string | null
+          property_name: string | null
+          search_text: string | null
+          sheet_id: string | null
+          sheet_kind: string | null
+          sheet_number: string | null
+          sort_prefix: string | null
+          sort_value: number | null
+          tenant_id: string | null
+          title_prefix: string | null
+          title_suffix: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bookings_apartment_fkey"
+            columns: ["apartment_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "apartments"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "bookings_guest_fkey"
+            columns: ["guest_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "guests"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "bookings_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"

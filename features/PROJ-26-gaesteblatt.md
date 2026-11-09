@@ -888,6 +888,21 @@ Abschnitt „Menüpunkt „Gästeblätter““.
   - `search_text` (Gästeblatt- und Buchungsnummer, Name)
 - **`guest_sheet_missing` neu definiert:** Buchungen **ohne Gästeblattnummer** (statt ohne Blatt), zusätzlich `apartment_id`, `guest_id`, `guest_anonymized`.
 
+### Umsetzung Backend (2026-11-09)
+- Migration `20261109144029_guest_sheet_register.sql` (in Dev):
+  - **Neue Sicht `guest_sheet_register`:**
+    - Buchungen mit Nummer, nicht storniert, ohne Option, Sperre und „Wohnsitz angemeldet“.
+    - Aktuelles Blatt per `left join`.
+    - `sort_value` = Ziffern am Ende als Zahl, `sort_prefix` = Vorsatz klein.
+    - Gast mit `guest_anonymized`.
+    - `search_text` aus Nummer, Buchungsnummer und Name.
+  - **`guest_sheet_missing` neu angelegt:** ohne Nummer statt ohne Blatt, dazu `apartment_id`, `guest_id`, `guest_anonymized`.
+  - Beide mit `security_invoker`, Lesen für angemeldete Personen per RLS der Grundtabellen.
+- **Tests:**
+  - Integrationstest „Liste „Gästeblätter““ neu: Reihenfolge 0054, 0053, 0001; nacherfasstes Blatt mit Art; Storno und Wohnsitz ausgeblendet; „ohne Gästeblatt“ mit Wohnung und Gast; fremder Kunde sieht nichts.
+  - Bestehender Test an die neue Regel angepasst. Gästeblatt-Integration 17 von 17 grün.
+- Die Datenbank-Prüfung meldet nur die bekannte Auth-Warnung.
+
 ## Tech Design (Solution Architect)
 
 ### Ausgangslage (bereits vorhanden)

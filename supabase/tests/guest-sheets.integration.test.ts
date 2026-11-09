@@ -365,6 +365,8 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-26 Gästeblatt', () => {
       expect((await list()).changed).toBe(true)
 
       const residence = await newBooking(guest, { residence_registered: true })
+      // „Buchungen ohne Gästeblatt“ = ohne Gästeblattnummer (refine 2026-11-09)
+      await service.from('bookings').update({ guest_sheet_number: `T-${runId}` }).eq('id', booking)
       const missing = (await staff.from('guest_sheet_missing').select('booking_id').eq('tenant_id', tenant)).data!.map((r) => r.booking_id)
       expect(missing).not.toContain(booking)
       expect(missing).not.toContain(residence)
@@ -421,6 +423,46 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-26 Gästeblatt', () => {
       expect(sheet!.guest_id).toBe(keep)
       const { data: g } = await service.from('guests').select('marketing_consent_sheet_id').eq('id', keep).single()
       expect(g!.marketing_consent_sheet_id).toBe(id)
+    })
+  })
+
+  describe('Liste „Gästeblätter“ (refine 2026-11-09)', () => {
+    it('Buchungen mit Nummer absteigend nach der Zahl am Ende, mit aktuellem Blatt; ohne Storno, Option, Wohnsitz', async () => {
+      const prefix = `R${runId}-`
+      const guest = await newGuest()
+      const make = async (n: string, over: Record<string, unknown> = {}) => newBooking(guest, { guest_sheet_number: `${prefix}${n}`, ...over })
+      const first = await make('0001')
+      const top = await make('0054')
+      const middle = await make('0053')
+      const cancelled = await make('0099')
+      await service.from('bookings').update({ cancelled_at: new Date().toISOString() }).eq('id', cancelled)
+      const residence = await make('0098', { residence_registered: true })
+      // Blatt zur mittleren Buchung (nacherfasst)
+      const { data: sheetId, error } = await staff.rpc('register_guest_sheet_upload', {
+        p_input: { booking_id: middle, pdf_path: await upload(), previous_sheet_id: null } as Json,
+      })
+      expect(error).toBeNull()
+
+      const { data } = await staff
+        .from('guest_sheet_register')
+        .select('booking_id, sheet_number, sheet_id, sheet_kind, guest_id, guest_anonymized')
+        .eq('tenant_id', tenant)
+        .ilike('search_text', `%${prefix}%`)
+        .order('sort_value', { ascending: false, nullsFirst: false })
+        .order('sort_prefix', { ascending: false })
+      expect(data!.map((r) => r.booking_id)).toEqual([top, middle, first])
+      expect(data![1]).toMatchObject({ sheet_id: sheetId, sheet_kind: 'uploaded', guest_id: guest, guest_anonymized: false })
+      expect(data![0].sheet_id).toBeNull()
+      expect(data!.map((r) => r.booking_id)).not.toContain(cancelled)
+      expect(data!.map((r) => r.booking_id)).not.toContain(residence)
+
+      // ohne Nummer erscheint die Buchung unter „Buchungen ohne Gästeblatt“, mit Wohnung und Gast
+      const none = await newBooking(guest)
+      const { data: missing } = await staff.from('guest_sheet_missing').select('booking_id, apartment_id, guest_id').eq('tenant_id', tenant).eq('booking_id', none)
+      expect(missing).toEqual([{ booking_id: none, apartment_id: apartment, guest_id: guest }])
+      expect((await staff.from('guest_sheet_missing').select('booking_id').in('booking_id', [first, top, middle])).data).toEqual([])
+      // fremder Kunde sieht nichts
+      expect((await ownerB.from('guest_sheet_register').select('booking_id').eq('tenant_id', tenant)).data).toEqual([])
     })
   })
 
