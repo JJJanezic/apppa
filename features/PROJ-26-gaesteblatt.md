@@ -1,6 +1,6 @@
 # PROJ-26: Gästeblatt (Meldewesen)
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-11-08
 **Last Updated:** 2026-11-09 (Refine: Spalte „Unterschrieben am“ in der Liste, Gästeblattnummer in der Buchungsübersicht als PDF-Link)
 
@@ -999,6 +999,37 @@ und in der Buchungsübersicht soll die Gästeblattnummer direkt das PDF öffnen.
   - Neu hochgeladen zählt das aktuelle Blatt.
   - Abfrage der Buchungsliste als Mitarbeiter liefert das aktuelle Blatt.
   - Gästeblatt-Integration 19 von 19 grün.
+
+### QA Unterschriftsdatum und PDF-Link (2026-11-09)
+**Ergebnis:** 9 von 9 Akzeptanzkriterien bestanden, keine Fehler → **bereit**
+
+- [x] Am Tablet unterschrieben: Spalte 2 „Unterschrieben am“ mit dem Tag der Unterschrift, ohne Uhrzeit (E2E; Wiener Zeit kurz nach Mitternacht in der Integration)
+- [x] Nacherfasst mit „Unterschrieben am“ zeigt das Datum („Di, 12.08.2025“); ohne Angabe „–“ (E2E)
+- [x] Nummer ohne Blatt: „–“ (E2E, Integration)
+- [x] Neu hochgeladenes Blatt: Datum des aktuellen Blatts (E2E, Integration)
+- [x] Handy-Karte mit „Unterschrieben am …“, ohne Datum keine Zeile, kein seitliches Scrollen (E2E, 375 px)
+- [x] Buchungsübersicht: Nummer mit Blatt ist Link auf das PDF, `target="_blank"`; das PDF öffnet für Mitarbeiter (E2E)
+- [x] Nummer ohne Blatt bleibt Text (E2E, Tabelle und Handy-Karte)
+- [x] Gastseite und Firmenseite mit demselben Link (E2E)
+- [x] Suchtreffer in der Plattform-Nummer: „Gästeblatt 0449053 · booking.com 4123456789“, nur die Gästeblattnummer ist Link (E2E)
+
+**Edge Cases:**
+- Mitternacht in Wien: Unterschrift um 23:30 UTC zählt als Folgetag (Integration).
+- Blatt ohne Gästeblattnummer: keine Nummer, also kein Link (Code-Prüfung, unverändertes Verhalten).
+- Anonymisierter Gast: Datum und Link hängen nicht am Gast (Code-Prüfung der Sicht).
+- Stornierte Buchung mit Blatt: derselbe Codeweg wie andere Zeilen (Code-Prüfung, nicht eigens getestet).
+
+**Sicherheit:**
+- `guest_sheet_register` läuft nach der Migration weiter mit `security_invoker=true`, kein Lesen für `anon` (in Dev geprüft); ein fremder Inhaber sieht nichts (Integration).
+- Der PDF-Link führt auf den bestehenden Abruf mit Anmelde- und Kundenprüfung (E2E „Sicherheit“ grün).
+- Die Buchungsliste zeigt Mitarbeitern nur die Kennung des Blatts, die sie im Buchungsdetail ohnehin sehen. Es gibt keine neuen Schreibwege.
+
+**Regression:**
+- E2E Gästeblatt: neue Tests 2 von 2; Liste, Hochladen, Sicherheit, Nacherfassen und Layout (Desktop, Tablet, Handy) grün. Der bestehende Listentest wurde an die neue Spalte angepasst.
+- E2E Buchungsliste: PROJ-8 (Monatsliste, Handy-Karte der Sperre, Layout Desktop und Handy), PROJ-30 (Gästeblattnummer in der Liste), PROJ-47 (Suche nach Plattform-Nummer), PROJ-37 (Spalte „Rechnungen“, Handy-Karte, Layout), PROJ-50 (Firmendetail, Layout) grün.
+- Integration Gästeblatt 19 von 19, Unit 988 von 988.
+- Firefox und Safari habe ich nicht gesondert geprüft.
+- Der Dev-Bezug kam über die verknüpfte CLI (`nizgfmvjplhegoosanmu`) und die Schutzprüfung der Test-Helfer; `.env.local` war in dieser Sitzung nicht lesbar.
 
 ## Tech Design (Solution Architect)
 

@@ -463,7 +463,7 @@ test.describe('Liste „Gästeblätter“', () => {
     const firstCells = await page.locator('table tbody tr td:first-child').allInnerTexts()
     expect(firstCells.map((c) => c.trim())).toEqual(['0449054', '0449053', '0449001', '0001'])
     const headers = await page.locator('table thead th').allInnerTexts()
-    expect(headers.map((h) => h.trim())).toEqual(['Lfd.-Nr.', 'Buchung', 'Hauptgast', 'Ankunft', 'Abreise', 'Wohnung', 'Art'])
+    expect(headers.map((h) => h.trim())).toEqual(['Lfd.-Nr.', 'Unterschrieben am', 'Buchung', 'Hauptgast', 'Ankunft', 'Abreise', 'Wohnung', 'Art'])
 
     const signedRow = page.getByRole('row').filter({ hasText: '0001' })
     await expect(signedRow.getByRole('link', { name: 'Gästeblatt 0001 als PDF öffnen' })).toHaveAttribute('href', /\/api\/gaesteblatt\/.+\/pdf/)
@@ -906,5 +906,127 @@ test.describe('Kennzahl und Gästeblattnummer je Gemeinde', () => {
     await expect(page.getByRole('button', { name: 'Gästeblatt hochladen' })).toBeVisible()
     await page.getByRole('button', { name: 'Bearbeiten', exact: true }).click()
     await expect(page.getByLabel('Gästeblattnummer (optional)')).toHaveValue('X-7')
+  })
+})
+
+// Ergänzung (refine 2026-11-09): Spalte „Unterschrieben am“ in der Liste, Gästeblattnummer in der Buchungsübersicht als PDF-Link
+const shown = (iso: string) => {
+  const [y, m, d] = iso.split('-')
+  return `${['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'][new Date(`${iso}T12:00:00Z`).getUTCDay()]}, ${d}.${m}.${y}`
+}
+
+async function uploadSheet(page: Page, bookingId: string, signedOn?: string) {
+  await page.goto(`/buchungen/${bookingId}`)
+  await page.getByRole('button', { name: 'Gästeblatt hochladen' }).click()
+  const dialog = page.getByRole('dialog')
+  await dialog.locator('input[type=file]').setInputFiles({ name: 'blatt.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4\n%%EOF\n') })
+  if (signedOn) await dialog.getByLabel('Unterschrieben am').fill(signedOn)
+  await dialog.getByRole('button', { name: 'Hochladen' }).click()
+  await expect(page.getByText(/Nacherfasst am /)).toBeVisible()
+}
+
+test.describe('Unterschriftsdatum und PDF-Link (refine 2026-11-09)', () => {
+  test('AC: Spalte „Unterschrieben am“: Tablet = Tag der Unterschrift, nacherfasst mit/ohne Datum, ohne Blatt „–“; neues Blatt zählt; Handy-Karte', async ({ page, users }) => {
+    desktopOnly()
+    test.setTimeout(150_000)
+    const { tenantId, apartmentId } = await setup(page, users, 'staff')
+    const signed = await addBooking(tenantId, apartmentId, await addGuest(tenantId), { arrival: TODAY })
+    const dated = await addBooking(tenantId, apartmentId, await addGuest(tenantId, { last_name: 'Datum' }), { sheet: '0449053' })
+    const undated = await addBooking(tenantId, apartmentId, await addGuest(tenantId, { last_name: 'Ohnedatum' }), { sheet: '0449052' })
+    await addBooking(tenantId, apartmentId, await addGuest(tenantId, { last_name: 'Nurnummer' }), { sheet: '0449051' })
+
+    await openSheet(page, signed.id)
+    await signAndFinish(page)
+    await uploadSheet(page, dated.id, '2025-08-12')
+    await uploadSheet(page, undated.id)
+
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.goto('/gaesteblaetter')
+    const cells = async (n: string) => {
+      const r = page.getByRole('row').filter({ hasText: n })
+      await expect(r).toBeVisible()
+      return (await r.locator('td').allInnerTexts()).map((c) => c.trim())
+    }
+    expect((await cells('0449053'))[1]).toBe('Di, 12.08.2025')
+    expect((await cells('0449052'))[1]).toBe('–')
+    expect((await cells('0449051'))[1]).toBe('–')
+    // nur Datum, ohne Uhrzeit
+    expect((await cells('Huber, Anna'))[1]).toBe(shown(TODAY))
+
+    // neu hochgeladen (ersetzt): das Datum des aktuellen Blatts
+    await page.goto(`/buchungen/${dated.id}`)
+    await page.getByRole('button', { name: 'Gästeblatt hochladen' }).click()
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Ersetzen' }).click()
+    const dialog = page.getByRole('dialog')
+    await dialog.locator('input[type=file]').setInputFiles({ name: 'neu.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4\n%%EOF\n') })
+    await dialog.getByLabel('Unterschrieben am').fill('2025-09-01')
+    await dialog.getByRole('button', { name: 'Hochladen' }).click()
+    await expect(page.getByText('Gästeblatt gespeichert.')).toBeVisible()
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+    const { data: current } = await service().from('guest_sheets').select('signed_on').eq('booking_id', dated.id).is('replaced_at', null).single()
+    expect(current!.signed_on).toBe('2025-09-01')
+    await page.goto('/gaesteblaetter')
+    expect((await cells('0449053'))[1]).toBe('Mo, 01.09.2025')
+
+    // Handy: Karte mit „Unterschrieben am …“, ohne Datum keine Zeile; kein seitliches Scrollen
+    await page.setViewportSize({ width: 375, height: 800 })
+    await page.reload()
+    const card = (n: string) => page.locator('ul li').filter({ hasText: n })
+    await expect(card('0449053')).toContainText('Unterschrieben am Mo, 01.09.2025')
+    await expect(card('0449052')).not.toContainText('Unterschrieben am')
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+  })
+
+  test('AC: Buchungsübersicht, Gast- und Firmenseite: Gästeblattnummer mit Blatt als PDF-Link (neuer Tab), ohne Blatt Text; Plattform-Nummer Text; Handy', async ({ page, users }) => {
+    desktopOnly()
+    test.setTimeout(120_000)
+    const { tenantId, apartmentId } = await setup(page, users, 'staff')
+    const guest = await addGuest(tenantId, { last_name: 'Papier' })
+    const withSheet = await addBooking(tenantId, apartmentId, guest, { sheet: '0449053', arrival: TODAY })
+    const numberOnly = await addBooking(tenantId, apartmentId, await addGuest(tenantId, { last_name: 'Nurnummer' }), { sheet: '0449051', arrival: TODAY })
+    await uploadSheet(page, withSheet.id)
+    const { data: sheet } = await service().from('guest_sheets').select('id').eq('booking_id', withSheet.id).is('replaced_at', null).single()
+
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.goto('/buchungen')
+    const row = (n: string) => page.getByRole('row').filter({ hasText: n })
+    const link = row(withSheet.number!).getByRole('link', { name: 'Gästeblatt 0449053 als PDF öffnen' })
+    await expect(link).toHaveAttribute('href', `/api/gaesteblatt/${sheet!.id}/pdf`)
+    await expect(link).toHaveAttribute('target', '_blank')
+    await expect(link).toHaveText('0449053')
+    await expect(row(withSheet.number!)).toContainText('Gästeblatt 0449053')
+    await expect(row(numberOnly.number!)).toContainText('Gästeblatt 0449051')
+    await expect(row(numberOnly.number!).getByRole('link', { name: /als PDF öffnen/ })).toHaveCount(0)
+    // das PDF öffnet sich für die angemeldete Person (Mitarbeiter)
+    const pdf = await page.request.get(`/api/gaesteblatt/${sheet!.id}/pdf`)
+    expect(pdf.status()).toBe(200)
+
+    // Suchtreffer in der Plattform-Nummer: sie bleibt Text, die Gästeblattnummer daneben Link
+    await service().from('bookings').update({ source: 'booking_com', platform_number: '4123456789' }).eq('id', withSheet.id)
+    await page.goto('/buchungen?q=4123456789')
+    await expect(row(withSheet.number!)).toContainText('Gästeblatt 0449053 · booking.com 4123456789')
+    await expect(row(withSheet.number!).getByRole('link', { name: /4123456789/ })).toHaveCount(0)
+    await expect(row(withSheet.number!).getByRole('link', { name: 'Gästeblatt 0449053 als PDF öffnen' })).toBeVisible()
+
+    // Gastseite und Firmenseite nutzen dieselbe Liste
+    await page.goto(`/gaeste/${guest}`)
+    await expect(page.getByRole('link', { name: 'Gästeblatt 0449053 als PDF öffnen' })).toBeVisible()
+    const { data: company } = await service().from('companies').insert({ tenant_id: tenantId, name: 'QA26 Firma' }).select('id').single()
+    await service().from('guests').update({ company_id: company!.id }).eq('id', guest)
+    await page.goto(`/gaeste/firmen/${company!.id}`)
+    await expect(page.getByRole('link', { name: 'Gästeblatt 0449053 als PDF öffnen' })).toBeVisible()
+
+    // Handy: Karte führt zur Buchung, das PDF steht als eigener Link darunter; ohne Blatt Text in der Karte
+    await page.setViewportSize({ width: 375, height: 800 })
+    await page.goto('/buchungen')
+    const cards = page.locator('ul.md\\:hidden > li')
+    const card = cards.filter({ hasText: withSheet.number! })
+    await expect(card.getByRole('link', { name: 'Gästeblatt 0449053 als PDF öffnen' })).toBeVisible()
+    await expect(card.getByRole('link').first()).toHaveAttribute('href', `/buchungen/${withSheet.id}`)
+    await expect(cards.filter({ hasText: numberOnly.number! })).toContainText('Gästeblatt 0449051')
+    await expect(cards.filter({ hasText: numberOnly.number! }).getByRole('link', { name: /als PDF öffnen/ })).toHaveCount(0)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+    const axe = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze()
+    expect(axe.violations).toEqual([])
   })
 })
