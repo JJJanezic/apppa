@@ -1100,7 +1100,8 @@
       "confirmDelete": "Endgültig löschen",
       "confirmAnonymize": "Anonymisieren",
       "cancel": "Abbrechen",
-      "textAnonymizeInvoices": "Der Gast ist mit Rechnungen verknüpft, die 7 Jahre aufbewahrt werden müssen. Er wird deshalb anonymisiert: Name, Kontakt, Adresse, Sprache, Geburtsdatum, Firma, Marketing-Quelle und Notiz werden entfernt, Staatsangehörigkeit und Rechnungen bleiben. Das lässt sich nicht rückgängig machen."
+      "textAnonymizeInvoices": "Der Gast ist mit Rechnungen verknüpft, die 7 Jahre aufbewahrt werden müssen. Er wird deshalb anonymisiert: Name, Kontakt, Adresse, Sprache, Geburtsdatum, Firma, Marketing-Quelle und Notiz werden entfernt, Staatsangehörigkeit und Rechnungen bleiben. Das lässt sich nicht rückgängig machen.",
+      "textAnonymizeSheets": "Der Gast ist mit Gästeblättern verknüpft, die 7 Jahre aufbewahrt werden müssen. Er wird deshalb anonymisiert: Name, Kontakt, Adresse, Sprache, Geburtsdatum, Firma, Marketing-Quelle und Notiz werden entfernt, Staatsangehörigkeit und Gästeblätter bleiben. Das lässt sich nicht rückgängig machen."
     },
     "done": {
       "created": "„{name}“ angelegt",
@@ -3442,7 +3443,8 @@
       "signedOnFuture": "Das Datum darf nicht in der Zukunft liegen.",
       "sheetNumberTooLong": "Die Lfd.-Nr. darf höchstens 30 Zeichen haben.",
       "textRequired": "Bitte einen Text eingeben oder auf Standard zurücksetzen.",
-      "notFound": "Die Buchung wurde nicht gefunden."
+      "notFound": "Die Buchung wurde nicht gefunden.",
+      "notSaved": "Einige Angaben konnten nicht gespeichert werden. Bitte die Felder auf Seite 1 prüfen."
     },
     "validation": {
       "tooLong": "Diese Angabe ist zu lang.",
@@ -3634,7 +3636,6 @@
       "notSigned": "Noch nicht unterschrieben.",
       "clearSignature": "Unterschrift löschen",
       "completeFirst": "Bitte zuerst alle markierten Felder ergänzen.",
-      "savingFirst": "Die Angaben werden noch gespeichert …",
       "signatureCleared": "Die Angaben wurden geändert. Bitte erneut unterschreiben.",
       "privacyTitle": "Information zur Verarbeitung Ihrer Daten",
       "marketingTitle": "Einwilligung in Marketing",

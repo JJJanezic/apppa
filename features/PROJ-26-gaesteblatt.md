@@ -1,6 +1,6 @@
 # PROJ-26: Gästeblatt (Meldewesen)
 
-## Status: In Review
+## Status: Approved
 **Created:** 2026-11-08
 **Last Updated:** 2026-11-09
 
@@ -615,7 +615,7 @@ Die Lesefunktion der Auswertung nimmt das Herkunftsland der Adresse des Hauptgas
 - [x] Mitarbeiter korrigiert die Straße, gespeichert (E2E)
 - [x] Ankunft/Abreise nur lesen, tatsächliche Abreise leer (E2E)
 - [x] „Weiter“ gesperrt ohne Unterschrift; nach Änderung wird Unterschrift 1 gelöscht mit Hinweis (E2E)
-- [ ] BUG-1: Unterschrift kurz nach dem Verlassen eines Felds geht verloren (siehe unten)
+- [x] BUG-1 behoben: Unterschrift direkt nach einer Eingabe bleibt (E2E)
 - [ ] Stift (iPad) und Finger (Handy) nicht auf echten Geräten geprüft; Maus am Desktop funktioniert (E2E)
 
 #### Seite 2 und Abschluss
@@ -651,7 +651,7 @@ Die Lesefunktion der Auswertung nimmt das Herkunftsland der Adresse des Hauptgas
 - [x] Reiter nur für Inhaber, Mitarbeiter 404 (E2E)
 - [x] Standardtexte; unbekannter Platzhalter abgelehnt; Hinweis auf leere Stammdaten (E2E)
 - [x] Leerer Text abgelehnt (Unit + Integration)
-- [ ] BUG-2: „Auf Standard zurücksetzen“ zeigt den Standardtext nicht im Editor (gespeichert wird er aber)
+- [x] BUG-2 behoben: „Auf Standard zurücksetzen“ zeigt den Standardtext sofort (E2E)
 - [x] Stammdaten mit E-Mail und Telefon, erscheinen im Text (E2E)
 
 #### Aufbewahrung
@@ -666,8 +666,8 @@ Die Lesefunktion der Auswertung nimmt das Herkunftsland der Adresse des Hauptgas
 - [x] Staatsangehörigkeit Österreich: Dokumentbereich verschwindet (E2E)
 - [x] Anonymisierter Gast: Blatt gesperrt (E2E)
 - [x] Kundenwechsel in anderem Tab: Aktionen prüfen den Kunden des Blatts (Code-Review; „Fertig“ mit fremdem Kunden → 403, E2E)
-- [ ] BUG-3: Nach dem Anonymisieren zeigt ein unterschriebenes Blatt „Buchung nach der Unterschrift geändert“
-- [ ] BUG-4: Lösch-Dialog eines Gastes, an dem nur noch ein Gästeblatt hängt, kündigt „endgültig löschen“ an; tatsächlich wird anonymisiert
+- [x] BUG-3 behoben: Nach dem Anonymisieren kein falscher Änderungshinweis (Integration)
+- [x] BUG-4 behoben: Lösch-Dialog kündigt das Anonymisieren an (E2E)
 
 ### Security Audit Results
 - [x] Ohne Anmeldung: PDF-Schnittstelle leitet zur Anmeldung um (E2E)
@@ -687,33 +687,41 @@ Die Lesefunktion der Auswertung nimmt das Herkunftsland der Adresse des Hauptgas
 
 ### Bugs Found
 
-#### BUG-1: Unterschrift 1 geht verloren, wenn man direkt nach einer Eingabe unterschreibt
+#### BUG-1: Unterschrift 1 geht verloren, wenn man direkt nach einer Eingabe unterschreibt — behoben
 - **Severity:** High
 - **Steps to Reproduce:**
   1. Gästeblatt öffnen, ein Feld ergänzen (z. B. Lfd.-Nr.), dann sofort auf die Unterschriftsfläche schreiben
   2. Expected: „Unterschrieben.“, „Weiter“ aktiv
   3. Actual: Die Unterschrift erscheint kurz und wird gelöscht („Die Angaben wurden geändert …“), „Weiter“ bleibt gesperrt
-- **Ursache:** `form.subscribe({ formState: { values: true } })` in `guest-sheet-signing.tsx` ruft den Rückruf bei jeder Zustandsmeldung des Formulars (z. B. Prüfung beim Verlassen des Felds), nicht nur bei geänderten Werten
+- **Ursache (nach Messung im Browser):** Die Unterschriftsfläche war gesperrt, solange die zuletzt ergänzten Angaben gespeichert wurden (bis gut 1 s). Ein Strich in dieser Zeit wurde verworfen. Zusätzlich meldet `form.subscribe` auch Zustände ohne geänderte Werte (Prüfung beim Verlassen eines Felds)
 - **Priority:** Fix before deployment (die Unterschrift ist der Kern des Ablaufs; am Tablet wechselt man typischerweise direkt vom Feld zum Stift)
 
-#### BUG-2: „Auf Standard zurücksetzen“ ändert den Editor nicht
+#### BUG-2: „Auf Standard zurücksetzen“ ändert den Editor nicht — behoben
 - **Severity:** Medium
 - **Steps to Reproduce:** Einstellungen → Gästeblatt, Text ändern, „Auf Standard zurücksetzen“ bestätigen
 - **Expected:** Editor zeigt den Standardtext. **Actual:** Editor zeigt weiter den geänderten Text; gespeichert wird aber der Standard (nach Neuladen sichtbar). Tippt man danach im Editor, gilt wieder der alte Text
 - **Ursache:** Der Editor aus PROJ-39 übernimmt Werte von außen nicht
 - **Priority:** Fix before deployment
 
-#### BUG-3: Falscher Änderungshinweis nach dem Anonymisieren
+#### BUG-3: Falscher Änderungshinweis nach dem Anonymisieren — behoben
 - **Severity:** Low
 - **Steps to Reproduce:** Buchung mit Mitreisenden unterschreiben lassen, Gast anonymisieren
 - **Actual:** Anonymisieren entfernt die Mitreisenden der Buchung; Blatt und Liste zeigen „Buchung nach der Unterschrift geändert“
 - **Priority:** Nice to have
 
-#### BUG-4: Lösch-Dialog kündigt „endgültig löschen“ an, obwohl anonymisiert wird
+#### BUG-4: Lösch-Dialog kündigt „endgültig löschen“ an, obwohl anonymisiert wird — behoben
 - **Severity:** Low
 - **Steps to Reproduce:** Gast unterschreibt, Buchung wird einem anderen Gast zugeordnet, ersten Gast löschen
 - **Actual:** Dialog-Text „löschen“, Ergebnis „anonymisiert“ (Gästeblatt muss erhalten bleiben). Seltener Fall
 - **Priority:** Nice to have
+
+### Korrekturen (2026-11-09)
+- **BUG-1:** Die Unterschriftsfläche ist offen, sobald alle Pflichtangaben eingetragen sind; laufendes Speichern sperrt sie nicht mehr. „Weiter“ wartet, bis alles gespeichert ist, und bleibt mit der Meldung „Einige Angaben konnten nicht gespeichert werden …“ auf Seite 1, wenn etwas nicht gespeichert werden konnte (z. B. Geburtsdatum in der Zukunft). Unterschrift 1 wird nur noch bei tatsächlich geänderten Werten gelöscht. „Fertig“ prüft wie bisher auf dem Server Stand und Pflichtangaben
+- **BUG-2:** Nach „Auf Standard zurücksetzen“ wird der Editor auf der Gästeblatt-Seite neu aufgebaut und zeigt den Standardtext (Editor aus PROJ-39 unverändert)
+- **BUG-3:** Migration `20261109065600_guest_sheets_qa_fixes.sql`: `guest_sheet_list` vergleicht die Mitreisenden nur bei nicht anonymisiertem Gast (in Dev eingespielt)
+- **BUG-4:** `GuestStays.guestSheets` zählt die Gästeblätter; der Lösch-Dialog kündigt dann das Anonymisieren an (eigener Text „mit Gästeblättern verknüpft“)
+- **Tests:** E2E „QA-Korrekturen“ (BUG-1 direkt nach der Eingabe unterschreiben, BUG-1 „Weiter“ bei nicht speicherbarer Angabe, BUG-4), Einstellungen-Test prüft den Editor sofort (BUG-2), Integrationstest BUG-3; die vorläufigen Umgehungen sind entfernt. Alle 20 Gästeblatt-E2E-Tests, 15 Integrationstests, alle Unit-Tests (966), Lint, Build und die Löschtests von PROJ-7 grün
+- **Zusätzlich gefunden:** Die Testhilfe „Gespeichert“ traf auch „Wird gespeichert …“; jetzt exakt
 
 ### Open Points (keine Fehler)
 - Test auf einem echten iPad mit Stift und einem Handy mit Finger (Scrollen beim Schreiben, Druck, Drehen)
@@ -721,11 +729,11 @@ Die Lesefunktion der Auswertung nimmt das Herkunftsland der Adresse des Hauptgas
 - Betreiber-Dialog „Kunde löschen“ zählt vorab nur Rechnungen; mit Gästeblättern kommt die Sperre erst beim Löschen (eigene Meldung)
 
 ### Summary
-- **Acceptance Criteria:** 45 von 48 Prüfgruppen bestätigt; offen: BUG-1, BUG-2 und der Test auf echten Geräten (Stift/Finger)
-- **Bugs Found:** 4 total (0 critical, 1 high, 1 medium, 2 low)
+- **Acceptance Criteria:** 47 von 48 Prüfgruppen bestätigt (nach den Korrekturen); offen nur der Test auf echten Geräten (Stift/Finger)
+- **Bugs Found:** 4 total (0 critical, 1 high, 1 medium, 2 low), alle behoben und mit Tests abgesichert
 - **Security:** Pass
-- **Production Ready:** NO
-- **Recommendation:** BUG-1 und BUG-2 beheben, danach `/qa` für diese beiden und ein Test auf einem echten iPad
+- **Production Ready:** YES, vorbehaltlich eines Tests auf einem echten iPad mit Stift (auf Staging)
+- **Recommendation:** Deploy; auf Staging einmal am iPad unterschreiben
 
 
 ## Deployment

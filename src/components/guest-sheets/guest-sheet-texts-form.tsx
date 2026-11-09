@@ -51,6 +51,8 @@ export function GuestSheetTextsForm({ tenantId, texts, values }: GuestSheetTexts
   const [error, setError] = useState<string | null>(null)
   const [stale, setStale] = useState(false)
   const [reset, setReset] = useState<Field | null>(null)
+  // Der Editor übernimmt Werte von außen nicht: Nach „Auf Standard zurücksetzen“ wird er neu aufgebaut (BUG-2 aus QA)
+  const [editorKeys, setEditorKeys] = useState<Record<Field, number>>({ privacy: 0, marketing: 0 })
   const guard = useRichTextGuard()
   const [privacy, marketing] = useWatch({ control: form.control, name: ['privacy', 'marketing'] })
   const missing = emptyPlaceholders([docPlainText(privacy), docPlainText(marketing)], values)
@@ -72,6 +74,7 @@ export function GuestSheetTextsForm({ tenantId, texts, values }: GuestSheetTexts
   const field = (name: Field) => (
     <div className="flex flex-col gap-3">
       <RichTextField
+        key={editorKeys[name]}
         control={form.control}
         name={name}
         label={t(`${name}.label`)}
@@ -123,7 +126,10 @@ export function GuestSheetTextsForm({ tenantId, texts, values }: GuestSheetTexts
         confirmLabel={t('resetConfirm')}
         cancelLabel={t('cancel')}
         onConfirm={() => {
-          if (reset) form.setValue(reset, reset === 'privacy' ? defaultPrivacyDoc() : defaultMarketingDoc(), { shouldDirty: true, shouldValidate: true })
+          if (reset) {
+            form.setValue(reset, reset === 'privacy' ? defaultPrivacyDoc() : defaultMarketingDoc(), { shouldDirty: true, shouldValidate: true })
+            setEditorKeys((k) => ({ ...k, [reset]: k[reset] + 1 }))
+          }
           setReset(null)
         }}
       />

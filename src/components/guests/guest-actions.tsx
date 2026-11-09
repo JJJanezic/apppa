@@ -23,9 +23,9 @@ export function GuestActions({ guest }: { guest: Guest }) {
   const [dialog, setDialog] = useState<'edit' | 'merge' | 'delete' | null>(null)
   const [pending, setPending] = useState(false)
   const close = (open: boolean) => !open && setDialog(null)
-  // Mit Buchungen (auch Optionen und stornierten) oder Rechnungen (PROJ-37) wird anonymisiert statt gelöscht
-  // (Buchungen bleiben für Abgabe und Steuer, Rechnungen 7 Jahre)
-  const anonymize = guest.stays.bookings > 0 || guest.stays.invoices > 0
+  // Mit Buchungen (auch Optionen und stornierten), Rechnungen (PROJ-37) oder Gästeblättern (PROJ-26) wird anonymisiert statt
+  // gelöscht (Buchungen bleiben für Abgabe und Steuer, Rechnungen und Gästeblätter 7 Jahre)
+  const anonymize = guest.stays.bookings > 0 || guest.stays.invoices > 0 || guest.stays.guestSheets > 0
 
   if (guest.anonymizedAt) return null
 
@@ -73,7 +73,15 @@ export function GuestActions({ guest }: { guest: Guest }) {
           open
           onOpenChange={close}
           title={t('delete.title', { name: guestDisplayName(guest) })}
-          text={guest.stays.bookings > 0 ? t('delete.textAnonymize') : anonymize ? t('delete.textAnonymizeInvoices') : t('delete.textDelete')}
+          text={
+            guest.stays.bookings > 0
+              ? t('delete.textAnonymize')
+              : guest.stays.invoices > 0
+                ? t('delete.textAnonymizeInvoices')
+                : anonymize
+                  ? t('delete.textAnonymizeSheets')
+                  : t('delete.textDelete')
+          }
           confirmLabel={anonymize ? t('delete.confirmAnonymize') : t('delete.confirmDelete')}
           cancelLabel={t('delete.cancel')}
           onConfirm={remove}

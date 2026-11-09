@@ -93,6 +93,8 @@ export type GuestStays = {
   bookings: number
   // verknüpfte Rechnungen (PROJ-37); auch sie verhindern das endgültige Löschen
   invoices: number
+  // Gästeblätter (PROJ-26, 7 Jahre aufbewahrt); auch sie verhindern das endgültige Löschen
+  guestSheets: number
   // ISO-Datum (Anreise) des letzten bzw. nächsten Aufenthalts; bis PROJ-8 immer leer
   last: string | null
   next: string | null

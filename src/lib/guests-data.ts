@@ -103,16 +103,18 @@ export const toCompanySummary = (c: CompanyEmbed): CompanySummary | null =>
   }
 
 // Aufenthalte werden aus den Buchungen berechnet (PROJ-8), nicht am Gast gespeichert
-const NO_STAYS: GuestStays = { count: 0, bookings: 0, invoices: 0, last: null, next: null, channels: [] }
+const NO_STAYS: GuestStays = { count: 0, bookings: 0, invoices: 0, guestSheets: 0, last: null, next: null, channels: [] }
 
 export async function guestStays(tenantId: string, guestId: string): Promise<GuestStays> {
   const supabase = await createClient()
-  const [{ data, error }, invoices] = await Promise.all([
+  const [{ data, error }, invoices, sheets] = await Promise.all([
     supabase.from('bookings').select('kind, channel, arrival, cancelled_at').eq('tenant_id', tenantId).eq('guest_id', guestId).limit(2000),
     supabase.from('invoices').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('guest_id', guestId),
+    supabase.from('guest_sheets').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('guest_id', guestId),
   ])
   if (error) console.error('[gaeste] Aufenthalte nicht lesbar', error.message)
   if (invoices.error) console.error('[gaeste] Rechnungen des Gastes nicht lesbar', invoices.error.message)
+  if (sheets.error) console.error('[gaeste] Gästeblätter des Gastes nicht lesbar', sheets.error.message)
   const all = data ?? []
   const stays = all.filter((b) => b.kind === 'booking' && b.cancelled_at === null)
   const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Vienna' })
@@ -122,6 +124,7 @@ export async function guestStays(tenantId: string, guestId: string): Promise<Gue
     count: stays.length,
     bookings: all.length,
     invoices: invoices.count ?? 0,
+    guestSheets: sheets.count ?? 0,
     last: past.at(-1) ?? null,
     next: future[0] ?? null,
     channels: [...new Set(stays.map((b) => b.channel))],

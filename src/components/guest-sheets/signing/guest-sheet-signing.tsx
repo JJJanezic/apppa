@@ -68,8 +68,6 @@ export function GuestSheetSigning({ data }: GuestSheetSigningProps) {
   // Gespeicherter Stand je Feld (Vergleich für „ungespeichert“) und Stände von Gast und Buchung
   const saved = useRef<SheetForm>(initial)
   const stamps = useRef({ guest: guest.updatedAt, booking: data.booking.updatedAt })
-  // Dasselbe als Zustand für die Anzeige (der Ref ist für das Speichern, der Zustand für das Rendern)
-  const [savedValues, setSavedValues] = useState<SheetForm>(initial)
   const queue = useRef<Promise<void>>(Promise.resolve())
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const sig1Ref = useRef<SignatureValue>(null)
@@ -140,7 +138,6 @@ export function GuestSheetSigning({ data }: GuestSheetSigningProps) {
         saved.current = { ...saved.current, companions }
       } else failures.push(result.ok ? 'unknown' : result.error)
     }
-    setSavedValues(saved.current)
     setSaveError(failures[0] ?? null)
     setSaveState(failures.length ? 'error' : 'saved')
   }, [data.booking.id, data.tenantId, form, guestSchema, tv])
@@ -151,11 +148,17 @@ export function GuestSheetSigning({ data }: GuestSheetSigningProps) {
     return queue.current
   }, [saveDirty])
 
-  // Jede Änderung auf Seite 1: Unterschrift 1 gilt nicht mehr; nach kurzer Pause speichern
+  // Jede Änderung auf Seite 1: Unterschrift 1 gilt nicht mehr; nach kurzer Pause speichern. Das Formular meldet sich auch
+  // ohne geänderte Werte (z. B. Prüfung beim Verlassen eines Felds, wenn der Stift die Fläche berührt); darum werden die
+  // Werte selbst verglichen (BUG-1 aus QA)
+  const seenValues = useRef(JSON.stringify(initial))
   useEffect(() => {
     const unsubscribe = form.subscribe({
       formState: { values: true },
       callback: () => {
+        const now = JSON.stringify(form.getValues())
+        if (now === seenValues.current) return
+        seenValues.current = now
         if (sig1Ref.current) {
           setSig1(null)
           setSig1Cleared(true)
@@ -170,14 +173,29 @@ export function GuestSheetSigning({ data }: GuestSheetSigningProps) {
     }
   }, [flush, form])
 
-  // Ungespeicherte Änderungen (für die Sperre der Unterschrift)
-  const unsaved =
-    SHEET_GUEST_FIELDS.some((f) => values[f] !== savedValues[f]) ||
-    values.sheetNumber !== savedValues.sheetNumber ||
-    !sameCompanionInput(values.companions ?? [], savedValues.companions)
+  // Weicht die Eingabe vom gespeicherten Stand ab?
+  const differs = (v: SheetForm, s: SheetForm) =>
+    SHEET_GUEST_FIELDS.some((f) => v[f] !== s[f]) || v.sheetNumber !== s.sheetNumber || !sameCompanionInput(v.companions ?? [], s.companions)
 
-  const canSign1 = complete && !unsaved && saveState !== 'saving'
-  const sig1Hint = gaps.companionsTooMany ? te('tooManyCompanions') : !complete ? t('completeFirst') : unsaved ? t('savingFirst') : undefined
+  // Unterschreiben, sobald alle Pflichtangaben eingetragen sind. Ein laufendes Speichern sperrt die Fläche nicht: Wer direkt
+  // vom Feld zum Stift wechselt, verlor sonst den ersten Strich (BUG-1 aus QA). „Weiter“ wartet, bis alles gespeichert ist.
+  const canSign1 = complete
+  const sig1Hint = gaps.companionsTooMany ? te('tooManyCompanions') : !complete ? t('completeFirst') : undefined
+  const [advancing, setAdvancing] = useState(false)
+
+  async function next() {
+    setAdvancing(true)
+    await flush()
+    setAdvancing(false)
+    // Was jetzt noch abweicht, ließ sich nicht speichern (ungültige Eingabe, Verbindung, Stand)
+    if (differs(form.getValues(), saved.current)) {
+      setSaveError((e) => e ?? 'notSaved')
+      window.scrollTo({ top: 0 })
+      return
+    }
+    setStep(2)
+    window.scrollTo({ top: 0 })
+  }
 
   // ---- Fertigstellen ---------------------------------------------------------------------------------
 
@@ -330,11 +348,9 @@ export function GuestSheetSigning({ data }: GuestSheetSigningProps) {
               <Button
                 type="button"
                 className="min-h-11"
-                disabled={!sig1}
-                onClick={() => {
-                  setStep(2)
-                  window.scrollTo({ top: 0 })
-                }}
+                disabled={!sig1 || advancing}
+                aria-busy={advancing}
+                onClick={() => void next()}
               >
                 {t('next')}
                 <ArrowRight size={18} aria-hidden="true" />

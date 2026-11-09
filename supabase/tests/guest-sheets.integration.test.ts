@@ -366,6 +366,27 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-26 Gästeblatt', () => {
       expect(sheet!.guest_id).toBe(guest)
     })
 
+    it('BUG-3: Anonymisieren entfernt die Mitreisenden, das Blatt gilt trotzdem nicht als „geändert“', async () => {
+      const guest = await newGuest()
+      const booking = await newBooking(guest, { adults: 2 })
+      const s = await stamps(booking)
+      const companion = { last_name: 'Rossi', first_name: 'Luca', birth_date: '2016-07-09', tourist_tax_exempt: false }
+      expect((await field(owner, booking, 'companions', { companions: [companion] }, s.booking)).error).toBeNull()
+      const { data: b } = await service.from('bookings').select('arrival, planned_departure').eq('id', booking).single()
+      const { data: id } = await finish(booking, {
+        snapshot: {
+          version: 1,
+          stay: { arrival: b!.arrival, plannedDeparture: b!.planned_departure, persons: 2 },
+          companions: [{ lastName: 'Rossi', firstName: 'Luca', birthDate: '2016-07-09' }],
+        },
+      })
+      const changed = async () => (await owner.from('guest_sheet_list').select('changed').eq('id', id as string).single()).data!.changed
+      expect(await changed()).toBe(false)
+      expect((await owner.rpc('delete_guest', { p_guest_id: guest })).data).toBe('anonymized')
+      expect((await service.from('booking_companions').select('id').eq('booking_id', booking)).data).toEqual([])
+      expect(await changed()).toBe(false)
+    })
+
     it('Zusammenführen hängt Blätter um und behält die jüngere Einwilligung', async () => {
       const keep = await newGuest({ last_name: `Keep ${runId}` })
       const remove = await newGuest({ last_name: `Remove ${runId}` })

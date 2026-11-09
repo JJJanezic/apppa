@@ -129,11 +129,12 @@ async function openSheet(page: Page, bookingId: string) {
   await page.waitForTimeout(500)
 }
 
-const saved = (page: Page) => expect(page.getByRole('status').filter({ hasText: 'Gespeichert' })).toBeVisible({ timeout: 10_000 })
+// genau „Gespeichert“ (nicht „Wird gespeichert …“)
+const saved = (page: Page) => expect(page.getByRole('status').filter({ hasText: /^Gespeichert$/ })).toBeVisible({ timeout: 10_000 })
 
 async function signAndFinish(page: Page, opts: { consent?: boolean } = {}) {
   await draw(page, 'unterschrift-1')
-  await expect(page.getByText('Unterschrieben.')).toBeVisible()
+  await expect(page.getByText('Unterschrieben.', { exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Weiter' }).click()
   await expect(page.getByRole('heading', { name: 'Einwilligung in Marketing' })).toBeVisible()
   if (opts.consent) await page.getByLabel('Ich willige ein.').check()
@@ -241,7 +242,7 @@ test.describe('Vollbild-Ansicht', () => {
     await expect(page.getByLabel('Ich willige ein.')).not.toBeChecked()
     await expect(page.getByRole('button', { name: 'Fertig' })).toBeDisabled()
     await page.getByRole('button', { name: 'Zurück' }).click()
-    await expect(page.getByText('Unterschrieben.')).toBeVisible()
+    await expect(page.getByText('Unterschrieben.', { exact: true })).toBeVisible()
     await page.getByRole('button', { name: 'Weiter' }).click()
     await page.getByLabel('Ich willige ein.').check()
     await draw(page, 'unterschrift-2')
@@ -435,8 +436,7 @@ test.describe('Liste „Gästeblätter“', () => {
     await page.getByLabel('Lfd.-Nr.').fill('L-99')
     await page.getByLabel('Familienname').click()
     await saved(page)
-    // BUG-1: Unterschrift direkt nach einer Eingabe geht verloren; bis zur Behebung kurz warten
-    await page.waitForTimeout(1600)
+    // BUG-1 aus QA: direkt nach der Eingabe unterschreiben (ohne Warten)
     await signAndFinish(page)
 
     await page.setViewportSize({ width: 1440, height: 900 })
@@ -480,7 +480,9 @@ test.describe('Einstellungen und Stammdaten', () => {
 
     await page.getByRole('button', { name: 'Auf Standard zurücksetzen' }).first().click()
     await page.getByRole('alertdialog').getByRole('button', { name: 'Zurücksetzen' }).click()
-    // BUG-2: Der Editor zeigt nach dem Zurücksetzen weiter den alten Text; gespeichert wird aber der Standard
+    // BUG-2 aus QA: Der Editor zeigt nach dem Zurücksetzen sofort den Standardtext
+    await expect(page.getByRole('textbox', { name: 'Text Teil A' })).not.toContainText('{Gastname}')
+    await expect(page.getByRole('textbox', { name: 'Text Teil A' })).toContainText('Verantwortlich für die Verarbeitung')
     await page.getByRole('button', { name: 'Texte speichern' }).click()
     await expect(page.getByText('Texte gespeichert.')).toBeVisible()
     await page.reload()
@@ -534,6 +536,54 @@ test.describe('Sicherheit', () => {
     const invalid = await page.request.post('/api/gaesteblatt/fertig', { data: { tenantId, bookingId: booking.id, signature1: { image: '<script>', signedAt: 'x' } } })
     expect(invalid.status()).toBe(400)
     await otherPage.close()
+  })
+})
+
+test.describe('QA-Korrekturen', () => {
+  test('BUG-1: Unterschrift direkt nach dem Verlassen eines Felds bleibt erhalten', async ({ page, users }) => {
+    desktopOnly()
+    const { tenantId, apartmentId } = await setup(page, users, 'staff')
+    const booking = await addBooking(tenantId, apartmentId, await addGuest(tenantId))
+    await openSheet(page, booking.id)
+    // Fokus im Feld, sofort zum Stift: Der Strich verlässt das Feld, während noch gespeichert wird
+    await page.getByLabel('Lfd.-Nr.').fill('B1')
+    await draw(page, 'unterschrift-1')
+    await page.waitForTimeout(2000)
+    await expect(page.getByText('Unterschrieben.', { exact: true })).toBeVisible()
+    await expect(page.getByText('Die Angaben wurden geändert. Bitte erneut unterschreiben.')).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Weiter' })).toBeEnabled()
+    await page.getByRole('button', { name: 'Weiter' }).click()
+    await expect(page.getByRole('heading', { name: 'Einwilligung in Marketing' })).toBeVisible()
+    const { data } = await service().from('bookings').select('guest_sheet_number').eq('id', booking.id).single()
+    expect(data!.guest_sheet_number).toBe('B1')
+  })
+
+  test('BUG-1: „Weiter“ bleibt auf Seite 1, wenn eine Angabe nicht gespeichert werden kann', async ({ page, users }) => {
+    desktopOnly()
+    const { tenantId, apartmentId } = await setup(page, users)
+    const booking = await addBooking(tenantId, apartmentId, await addGuest(tenantId))
+    await openSheet(page, booking.id)
+    await page.getByLabel('Geburtsdatum').fill('2999-01-01')
+    await draw(page, 'unterschrift-1')
+    await page.getByRole('button', { name: 'Weiter' }).click()
+    await expect(page.getByText('Einige Angaben konnten nicht gespeichert werden. Bitte die Felder auf Seite 1 prüfen.')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Mitreisende im familiären Verbund' })).toBeVisible()
+  })
+
+  test('BUG-4: Lösch-Dialog eines Gastes, an dem nur ein Gästeblatt hängt, kündigt das Anonymisieren an', async ({ page, users }) => {
+    desktopOnly()
+    const { tenantId, apartmentId } = await setup(page, users)
+    const first = await addGuest(tenantId, { last_name: 'Erstgast' })
+    const booking = await addBooking(tenantId, apartmentId, first)
+    const path = `${tenantId}/${crypto.randomUUID()}.pdf`
+    await service().storage.from('guest-sheets').upload(path, new Blob(['%PDF-1.4'], { type: 'application/pdf' }), { contentType: 'application/pdf' })
+    await service().from('guest_sheets').insert({ tenant_id: tenantId, booking_id: booking.id, guest_id: first, kind: 'uploaded', pdf_path: path })
+    // Die Buchung gehört inzwischen einem anderen Gast: Am ersten hängt nur noch das Blatt
+    await service().from('bookings').update({ guest_id: await addGuest(tenantId, { last_name: 'Zweitgast' }) }).eq('id', booking.id)
+    await page.goto(`/gaeste/${first}`)
+    await page.waitForFunction(() => Object.keys(document.querySelector('main') ?? {}).some((k) => k.startsWith('__reactFiber')))
+    await page.getByRole('button', { name: 'Gast löschen' }).click()
+    await expect(page.getByRole('alertdialog')).toContainText('mit Gästeblättern verknüpft')
   })
 })
 

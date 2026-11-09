@@ -53,7 +53,7 @@ const guest = (over: Partial<Guest> = {}): Guest => ({
   documentImages: {},
   anonymizedAt: null,
   updatedAt: '2026-10-20T09:00:00.000Z',
-  stays: { count: 0, bookings: 0, invoices: 0, last: null, next: null, channels: [] },
+  stays: { count: 0, bookings: 0, invoices: 0, guestSheets: 0, last: null, next: null, channels: [] },
   ...over,
 })
 
