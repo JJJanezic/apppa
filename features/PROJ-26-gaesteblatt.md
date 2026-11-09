@@ -1,8 +1,8 @@
 # PROJ-26: Gästeblatt (Meldewesen)
 
-## Status: Deployed
+## Status: Planned
 **Created:** 2026-11-08
-**Last Updated:** 2026-11-09 (refine: iPad-Layout, rote Markierung, Ausweisbilder, E-Mail)
+**Last Updated:** 2026-11-09 (refine: Kennzahl und Gästeblattnummer je Gemeinde; Grundumfang und Nachbesserung live seit v1.44.0)
 
 ## Dependencies
 - Requires: PROJ-4 (Kundenkonten & Rollen): Rollen Inhaber/Mitarbeiter, gewählter Kunde
@@ -14,6 +14,8 @@
 - Requires: PROJ-39 (Einstellungen → Rechnungen): einfacher Texteditor mit Platzhaltern und Vorschau, hier für die Datenschutz-Texte wiederverwendet
 - Requires: PROJ-41 (Briefpapier): Gestaltung der PDF-Ausgabe
 - Wirkt mit: PROJ-18 (Auswertungen): „Gästeherkunft“ rechnet künftig mit dem Herkunftsland der Adresse
+- Requires: PROJ-6 (Wohnungsverwaltung): Gemeinde des Objekts bestimmt Kennzahl und Nummernbereich
+- Wirkt mit: PROJ-14 (Dashboard): Hinweis „Gästeblattnummern“ (Erweiterung 2026-11-09)
 - Wird genutzt von: PROJ-19 (Marketing): Marketing-Einwilligung am Gast mit Datum und Quelle; Widerruf, Segmente und Export dort
 
 ## Überblick
@@ -80,8 +82,8 @@ Aufbau wie das amtliche Gästeverzeichnisblatt, Felder in dieser Gruppierung:
 
 | Bereich | Feld | Quelle | Pflicht |
 |---|---|---|---|
-| Kopf | Lfd.-Nr. | Buchung: Gästeblattnummer | nein (vorerst; siehe Open Questions) |
-| Kopf | Kennzahl | – (vorerst leer, siehe Open Questions) | nein |
+| Kopf | Lfd.-Nr. | automatisch beim „Fertig“ bzw. nacherfasste Nummer der Buchung, nur lesen (siehe Erweiterung 2026-11-09) | – |
+| Kopf | Kennzahl | Kennzahl des Kunden für die Gemeinde der Buchung, nur lesen (siehe Erweiterung 2026-11-09) | nein |
 | Kopf | Name des Beherbergungsbetriebes | Kundenname (Stammdaten), nur lesen | – |
 | Hauptgast | Familienname, Vorname(n) | Gast | ja |
 | Hauptgast | Geschlecht (männlich, weiblich, divers, inter, offen, keine Angabe) | Gast | ja; „keine Angabe“ zählt als Angabe |
@@ -124,7 +126,7 @@ Schlägt ein Teil fehl, wird nichts gespeichert, die Ansicht bleibt mit beiden U
 - Hochgeladene Blätter werden nie ergänzt.
 
 ### Altes Gästeblatt hochladen
-- Dialog „Gästeblatt hochladen“: Datei (nur **PDF**, höchstens **10 MB**, eine Datei), **Lfd.-Nr.** (vorbelegt aus der Buchung, änderbar, wird an der Buchung gespeichert), **Unterschrieben am** (Datum, optional, nicht in der Zukunft), Häkchen **„Marketing-Einwilligung liegt unterschrieben vor“** (nicht vorausgewählt).
+- Dialog „Gästeblatt hochladen“: Datei (nur **PDF**, höchstens **10 MB**, eine Datei), **Lfd.-Nr.** (seit Erweiterung 2026-11-09: nur lesbar aus der Buchung, kein Eingabefeld mehr), **Unterschrieben am** (Datum, optional, nicht in der Zukunft), Häkchen **„Marketing-Einwilligung liegt unterschrieben vor“** (nicht vorausgewählt).
 - Es werden **keine Pflichtfelder** an Gast oder Buchung geprüft.
 - Mit Häkchen wird am verknüpften Gast gespeichert: Marketing-Einwilligung erteilt am [Unterschrieben am, sonst Hochladedatum], über hochgeladenes Gästeblatt zu Buchung [Nummer]. Ohne verknüpften Gast ist das Häkchen gesperrt.
 - Gibt es schon ein Blatt: Rückfrage „Bestehendes Gästeblatt ersetzen?“; das alte bleibt als „ersetzt“.
@@ -175,8 +177,8 @@ Schlägt ein Teil fehl, wird nichts gespeichert, die Ansicht bleibt mit beiden U
 ## Out of Scope
 - Mehrere Gästeblätter je Buchung (eigene Blätter für Mitreisende, die nicht zum familiären Verbund gehören)
 - Reisegruppen (Sammelliste, Aufgliederung nach Herkunftsland)
-- Automatische Vergabe der Lfd.-Nr. (Nummernkreis) → nach Klärung mit der Gemeinde per `/refine PROJ-26`
-- Kennzahl des Beherbergungsbetriebes → nach Klärung mit der Gemeinde, dann als Feld in den Kundenstammdaten
+- ~~Automatische Vergabe der Lfd.-Nr.~~ und ~~Kennzahl~~ → aufgenommen in der Erweiterung 2026-11-09
+- Nummernformate ohne Ziffern am Ende; Neubeginn je Jahr; Nummernvergabe beim Hochladen
 - Elektronische Übermittlung an Gemeinde oder Meldebehörde, Gästeverzeichnis-Export für Behörden
 - Englisch oder weitere Sprachen auf dem Gästeblatt (→ PROJ-23 oder eigenes Feature)
 - PIN-Sperre bzw. Kiosk-Modus für die Vollbild-Ansicht
@@ -296,8 +298,8 @@ Schlägt ein Teil fehl, wird nichts gespeichert, die Ansicht bleibt mit beiden U
 - Browser: Safari (iPad), Chrome, Firefox, Edge; Tablet-Querformat als Hauptziel
 
 ## Open Questions
-- [ ] Gibt es eine **Kennzahl** des Beherbergungsbetriebes? (Klärung mit einer Gemeinde; falls ja: Feld in den Kundenstammdaten, auf dem Blatt im Kopf)
-- [ ] Wie wird die **Lfd.-Nr.** bei elektronischen Gästeverzeichnissen vergeben (fortlaufend, je Jahr, Format)? (Klärung mit der Gemeinde; danach automatische Vergabe per `/refine`)
+- [x] Gibt es eine **Kennzahl** des Beherbergungsbetriebes? → Ja, je Kunde und Gemeinde, fix; in den Stammdaten je Gemeinde, auf dem Blatt im Kopf (2026-11-09)
+- [x] Wie wird die **Lfd.-Nr.** vergeben? → Je Kunde und Gemeinde fortlaufend aus von der Gemeinde zugeteilten Nummernbereichen, Text mit Ziffern am Ende, ohne Jahreswechsel (2026-11-09)
 - [ ] Ist das Gästeverzeichnis tatsächlich **7 Jahre** aufzubewahren, und gilt die Frist ab Abreise oder ab Jahresende? (vom Nutzer bestätigt, Detail offen)
 - [ ] Wortlaut der **Standardtexte** Teil A/B: rechtliche Endprüfung durch den Nutzer
 - [ ] Zweisprachiges Gästeblatt (Deutsch/Englisch) für ausländische Gäste – wann?
@@ -328,6 +330,13 @@ Schlägt ein Teil fehl, wird nichts gespeichert, die Ansicht bleibt mit beiden U
 | Ablage im privaten Speicher des Kunden; eigener Menüpunkt „Gästeblätter“ | „Dokumentenarchiv“ meint den Dateispeicher je Kunde; Liste für Kontrollen | 2026-11-08 |
 | Keine Löschung von Hand, 7 Jahre Aufbewahrung, bleibt bei Anonymisierung | Aufbewahrungspflicht | 2026-11-08 |
 | Hochladen nur PDF ≤ 10 MB, ohne Pflichtfeldprüfung, Marketing-Häkchen optional; wird nie ergänzt | Papierblatt ist schon vollständig; App kennt den Inhalt nicht | 2026-11-08 |
+| Kennzahl je Kunde und Gemeinde in den Stammdaten, optional, Text bis 30 Zeichen; mit dem Blatt eingefroren | Von der Gemeinde so vergeben (Klärung 2026-11-09); fehlende Kennzahl darf die Meldung nicht blockieren | 2026-11-09 |
+| Lfd.-Nr. als Text; weitergezählt werden die Ziffern am Ende mit gleicher Stellenzahl | Andere Gemeinden könnten Buchstaben verwenden; führende Nullen wie im Formularbuch | 2026-11-09 |
+| Nummer erst beim „Fertig“ vergeben; „Neu unterschreiben“ behält die Nummer; nacherfasste Nummer der Buchung hat Vorrang | Keine Lücken durch abgebrochene Blätter; neue Unterschrift ist dieselbe Meldung | 2026-11-09 |
+| Mehrere Nummernbereiche je Gemeinde, nacheinander verbraucht, automatischer Sprung | Gemeinde teilt Blöcke zu; neuer Block soll vor dem Aufbrauchen erfasst werden können | 2026-11-09 |
+| Ohne freie Nummer ist der Knopf „Gästeblatt“ gesperrt; Frühwarnung ab 10 freien Nummern (über alle Bereiche) in Einstellungen, Buchungsdetail und Dashboard | Gast soll nicht am Tablet scheitern; rechtzeitig neuen Bereich anfordern | 2026-11-09 |
+| Handeingabe der Nummer nur mit „Gästeblätter nacherfassen“, doppelte Nummer nur Hinweis | Vom Nutzer so entschieden; Altbestand kann Doppelte enthalten | 2026-11-09 |
+| „Gästeblatt hochladen“ nur mit „Gästeblätter nacherfassen“, ohne eigenes Nummernfeld | Nummer wird an der Buchung nacherfasst, Hochladen ist Nacherfassen | 2026-11-09 |
 | Mitarbeiter dürfen auf dem Blatt Gastdaten ergänzen und korrigieren (nur Blatt-Felder) | Blatt wird oft ohne Inhaber bei der Schlüsselübergabe ausgefüllt; Protokoll „über Gästeblatt“ | 2026-11-08 |
 | Nach Unterschrift: Hinweis bei geänderter Ankunft, Abreise, Hauptgast, Mitreisenden; nicht bei Gastdaten | Meldung gilt für den Zeitpunkt der Anreise | 2026-11-08 |
 
@@ -373,6 +382,90 @@ Rückmeldung vom ersten Einsatz am iPad (Bilder `docs/design/iPad-Gaesteblatt_01
 - `guest-sheet.ts`: `documentFrontPath`/`documentBackPath` als freiwillige Dokumentfelder; `validation/guest-sheet.ts`: `sheetEmailSchema`, Bildpfade
 - Migration `20261109081035_guest_sheets_email_images.sql` (in Dev): `save_guest_sheet_field` nimmt `document_front_path`, `document_back_path` und `email` (nur bei leerer E-Mail)
 - Tests: Integration 16 (neu: E-Mail nur bei leerer Adresse, Bild über das Blatt), E2E „Nachbesserung nach dem Deploy“ (3 Tests); alle 23 Gästeblatt-E2E-Tests, 966 Unit-Tests, Lint und Build grün. Auf Staging am iPad vom Nutzer geprüft
+
+## Erweiterung: Kennzahl und Gästeblattnummer je Gemeinde (refine 2026-11-09)
+
+Klärung mit der Gemeinde: Kennzahl und laufende Gästeblattnummer werden **je Kunde und je Gemeinde** vergeben. **Gemeinde** ist immer die Gemeinde des Objekts der Wohnung der Buchung (PROJ-6).
+
+### Regeln
+
+#### Kennzahl (Einstellungen → Stammdaten)
+- Neuer Abschnitt **„Kennzahlen je Gemeinde“**: je Gemeinde, in der der Kunde mindestens ein Objekt hat, eine Zeile „[Gemeinde] ([Gemeindekennziffer])“ mit Textfeld **„Kennzahl“**.
+- Format: Buchstaben, Ziffern, `-`, `/`, `.`, höchstens 30 Zeichen; führende Nullen bleiben erhalten. **Optional.** Fehlt sie, Hinweis „Kennzahl fehlt – wird auf dem Gästeblatt leer gedruckt“.
+- Bearbeiten: Inhaber und Betreiber (wie übrige Stammdaten).
+- Hat der Kunde in einer Gemeinde kein Objekt mehr, wird die Zeile ausgeblendet; die Kennzahl bleibt gespeichert und erscheint wieder, sobald dort ein Objekt angelegt wird.
+- Auf dem Blatt (Seite 1, Kopf) und im PDF: Kennzahl der Gemeinde der Buchung, nur lesen. Unterschriebene Blätter behalten die Kennzahl vom Zeitpunkt der Unterschrift.
+
+#### Nummernformat
+- Die Gästeblattnummer ist **Text** (Buchstaben, Ziffern, `-`, `/`, `.`, höchstens 30 Zeichen) und muss für die automatische Vergabe **mit einer Ziffer enden**.
+- **Weiterzählen:** Die Ziffern am Ende werden um 1 erhöht, die Stellenzahl mit führenden Nullen bleibt, der Vorsatz davor bleibt unverändert: `0042` → `0043`, `A-0099` → `A-0100`, `9999` → `10000`.
+- Kein Neubeginn je Jahr.
+- Gleichheit: Groß-/Kleinschreibung zählt gleich (`a-0042` = `A-0042`), führende Nullen zählen mit (`042` ≠ `0042`).
+
+#### Nummernbereiche (Einstellungen → Gästeblatt)
+- Neuer Abschnitt **„Laufende Nummer je Gemeinde“** (Inhaber, Betreiber): je Gemeinde mit Objekten eine Tabelle der **Nummernbereiche** mit „von“, „bis“, „Nächste Nummer“ und „Stand“, dazu Knopf **„Nummernbereich hinzufügen“**.
+- **Stand:**
+  - **In Verwendung**: genau ein Bereich, aus dem vergeben wird; „Nächste Nummer“ änderbar, muss im Bereich liegen.
+  - **Folgt**: weitere, vorab erfasste Bereiche (beliebig viele), in der Reihenfolge der Eingabe; beginnen mit ihrer „von“-Nummer.
+  - **Aufgebraucht**: „bis“ wurde vergeben; bleibt zur Nachvollziehbarkeit sichtbar, nur lesen.
+- Ist die „bis“-Nummer des laufenden Bereichs vergeben, nimmt das **nächste Blatt automatisch die „von“-Nummer des nächsten Bereichs**.
+- Prüfungen beim Speichern: „von“ und „bis“ mit gleichem Vorsatz und Ziffern am Ende, „von“ ≤ „bis“; Bereiche derselben Gemeinde dürfen sich nicht überschneiden (verschiedene Vorsätze je Bereich erlaubt).
+- Ändern/Löschen: folgender Bereich frei änderbar und löschbar; beim Bereich in Verwendung nur „bis“ (nicht unter die zuletzt vergebene Nummer) und „Nächste Nummer“; aufgebrauchte nur lesen.
+- Neu erfasster erster Bereich: „Nächste Nummer“ = „von“, sofern nicht anders eingetragen.
+- Ohne Bereich: Gemeinde mit „Nummernbereich noch nicht festgelegt“ markiert.
+
+#### Vergabe
+- Die Nummer wird **beim „Fertig“** vergeben (nicht beim Öffnen). Bis dahin steht auf Seite 1 bei „Lfd.-Nr.“ nur lesbar „wird beim Abschluss vergeben“.
+- Ist die nächste Nummer bereits an einer anderen Buchung derselben Gemeinde vergeben (z. B. nacherfasst), wird sie **übersprungen** und die nächste wirklich freie genommen.
+- Danach steht die Nummer an der Buchung, im PDF, im Buchungsdetail und in der Liste „Gästeblätter“ und ist **nicht mehr änderbar** (außer per Nacherfassen an der Buchung, siehe unten).
+- **„Neu unterschreiben lassen“**: Das neue Blatt behält die Nummer des ersetzten, kein neuer Verbrauch.
+- **Buchung hat schon eine Nummer** (nacherfasst): Das Blatt übernimmt sie, der Zähler bleibt unverändert.
+- Wechselt eine Buchung mit Nummer später Wohnung bzw. Gemeinde, behält sie ihre Nummer.
+
+#### Keine Nummer verfügbar und Frühwarnung
+- **Frühwarnung:** Sind in einer Gemeinde über alle Bereiche (laufender + folgende) nur noch **10 oder weniger** Nummern frei: „Nur noch [n] Nummern frei“.
+- **Keine Nummer verfügbar** (kein Bereich oder alle aufgebraucht): Hinweis „Kein Nummernbereich für [Gemeinde] – bitte in Einstellungen → Gästeblatt festlegen“ bzw. „Nummernbereich für [Gemeinde] aufgebraucht“; der Knopf **„Gästeblatt“ in der Buchung ist gesperrt**. Hat die Buchung bereits eine Nummer, ist er nicht gesperrt.
+- Hinweise erscheinen in Einstellungen → Gästeblatt, im Buchungsdetail (Abschnitt „Gästeblatt“) und auf dem **Dashboard**.
+- **Dashboard (PROJ-14):** Hinweisblock **„Gästeblattnummern“** unter den Kacheln, in Warnfarbe, nur wenn es etwas zu melden gibt; je Zeile **immer mit Kundenname** und Gemeinde, z. B. „Kunde A · Bad Ischl (40702): nur noch 7 Nummern frei“, „… Nummernbereich aufgebraucht“, „… Nummernbereich noch nicht festgelegt“.
+  - Nur Gemeinden mit mindestens einer nicht archivierten Wohnung des Kunden.
+  - Sichtbar für Inhaber und Mitarbeiter des jeweiligen Kunden; folgt dem Kundenfilter.
+  - Für Inhaber führt die Zeile zu Einstellungen → Gästeblatt (mit Wechsel zum Kunden wie andere Dashboard-Zeilen); für Mitarbeiter nur Text.
+  - Erscheint auch bei eingeschaltetem „Gästeblätter nacherfassen“.
+
+#### „Gästeblätter nacherfassen“ (Einstellungen → Gästeblatt)
+- Schalter wie „Rechnungen nacherfassen“ (Inhaber, Betreiber).
+- **Ein:** Im Buchungsformular gibt es das Feld **„Gästeblattnummer“** (Handeingabe, Hinweis bei doppelter Nummer in derselben Gemeinde, **kein** Blockieren); im Buchungsdetail gibt es **„Gästeblatt hochladen“**. Der Dialog hat **kein Nummernfeld** mehr, sondern zeigt die Nummer der Buchung nur lesbar, bei fehlender Nummer „ohne Nummer“ mit Hinweis, sie in der Buchung einzutragen; Hochladen geht trotzdem. Hochladen zählt nichts hoch.
+- **Aus:** Feld „Gästeblattnummer“ im Buchungsformular und Knopf „Gästeblatt hochladen“ sind **nicht vorhanden**. Vorhandene Nummern und hochgeladene Blätter bleiben erhalten und werden angezeigt.
+- **Startwert:** Neue Kunden aus. Bestehende Kunden mit mindestens einer Gästeblattnummer an einer Buchung oder einem hochgeladenen Blatt: ein; alle anderen aus.
+
+### Acceptance Criteria
+- [ ] Angenommen ein Kunde mit Objekten in zwei Gemeinden, wenn Einstellungen → Stammdaten geöffnet wird, dann gibt es je Gemeinde ein Feld „Kennzahl“; ein Inhaber kann „00123“ speichern und es bleibt mit führenden Nullen erhalten
+- [ ] Angenommen eine Kennzahl für die Gemeinde der Buchung, wenn das Gästeblatt geöffnet und fertiggestellt wird, dann steht sie auf Seite 1 und im PDF; eine spätere Änderung der Kennzahl ändert das PDF nicht
+- [ ] Angenommen keine Kennzahl, wenn das Blatt fertiggestellt wird, dann gelingt es und das Feld bleibt leer
+- [ ] Angenommen „Nächste Nummer“ `0042` im Bereich `0001`–`0500`, wenn ein Blatt fertiggestellt wird, dann hat es `0042` (auch an der Buchung) und die nächste Nummer ist `0043`
+- [ ] Angenommen ein Blatt wird geöffnet und abgebrochen, dann wird keine Nummer verbraucht
+- [ ] Angenommen `0043` ist an einer anderen Buchung derselben Gemeinde nacherfasst, wenn das nächste Blatt fertiggestellt wird, dann bekommt es `0044`
+- [ ] Angenommen der laufende Bereich endet bei `0500` und ein folgender Bereich `B-0001`–`B-0100` ist erfasst, wenn nach `0500` ein Blatt fertiggestellt wird, dann bekommt es `B-0001`, der alte Bereich ist „aufgebraucht“
+- [ ] Angenommen „Neu unterschreiben lassen“ bei einem Blatt mit `0042`, dann hat das neue Blatt wieder `0042` und der Zähler bleibt unverändert
+- [ ] Angenommen eine Buchung mit nacherfasster Nummer `0007`, wenn das Blatt fertiggestellt wird, dann hat es `0007` und der Zähler bleibt unverändert
+- [ ] Angenommen ein Bereich `0001`–`0500` und ein neuer Bereich `0400`–`0600`, wenn gespeichert wird, dann erscheint eine Meldung zur Überschneidung; ebenso bei „von“ > „bis“, unterschiedlichem Vorsatz oder einer Nummer ohne Ziffer am Ende
+- [ ] Angenommen insgesamt 10 freie Nummern, dann erscheint „Nur noch 10 Nummern frei“ in den Einstellungen, im Buchungsdetail und auf dem Dashboard mit Kunden- und Gemeindenamen; mit einem zusätzlich erfassten folgenden Bereich verschwindet der Hinweis
+- [ ] Angenommen eine Gemeinde ohne Nummernbereich, wenn das Buchungsdetail einer Buchung ohne Nummer dort geöffnet wird, dann ist „Gästeblatt“ gesperrt mit Hinweis auf Einstellungen → Gästeblatt
+- [ ] Angenommen ein Mitarbeiter, wenn das Dashboard einen Nummern-Hinweis zeigt, dann ist die Zeile nicht verlinkt; für Inhaber führt sie zu Einstellungen → Gästeblatt des Kunden
+- [ ] Angenommen „Gästeblätter nacherfassen“ aus, wenn das Buchungsformular bzw. -detail geöffnet wird, dann gibt es weder das Feld „Gästeblattnummer“ noch „Gästeblatt hochladen“
+- [ ] Angenommen „Gästeblätter nacherfassen“ ein und eine doppelte Nummer in derselben Gemeinde, wenn die Buchung gespeichert wird, dann erscheint ein Hinweis und das Speichern gelingt
+- [ ] Angenommen „Gästeblätter nacherfassen“ ein, wenn „Gästeblatt hochladen“ geöffnet wird, dann zeigt der Dialog die Nummer der Buchung nur lesbar und der Zähler bleibt nach dem Hochladen unverändert
+- [ ] Angenommen ein bestehender Kunde mit nacherfassten Gästeblattnummern, wenn die Erweiterung eingespielt wird, dann ist „Gästeblätter nacherfassen“ eingeschaltet; bei Kunden ohne solche Daten aus
+
+### Edge Cases
+- Zwei Tablets stellen gleichzeitig Blätter derselben Gemeinde fertig → verschiedene Nummern, keine doppelt (Vergabe in der Datenbank in einem Schritt)
+- „Nächste Nummer“ wird auf eine bereits vergebene gesetzt → Hinweis, Speichern möglich; die Vergabe überspringt belegte Nummern
+- Alle restlichen Nummern des laufenden Bereichs sind belegt (nacherfasst) → Vergabe springt in den nächsten Bereich; gibt es keinen, ist kein Blatt möglich (Knopf gesperrt)
+- Bereich in Verwendung: „bis“ unter die zuletzt vergebene Nummer → Meldung, nicht gespeichert
+- Ein Blatt wird bis zur Unterschrift offen gehalten, inzwischen wird der letzte Bereich aufgebraucht → „Fertig“ meldet „Keine Gästeblattnummer verfügbar“, die Unterschriften gehen nicht verloren, sobald ein Bereich erfasst ist, kann erneut „Fertig“ gedrückt werden
+- Wohnung der Buchung wechselt vor dem Fertigstellen die Gemeinde → Nummer und Kennzahl der neuen Gemeinde
+- Gemeinde ohne Objekte mehr → Kennzahl und Bereiche bleiben gespeichert, ausgeblendet; kein Dashboard-Hinweis
+- Altbestand mit doppelten Nummern → bleibt unverändert, nur Hinweis bei Änderung
 
 ## Tech Design (Solution Architect)
 
