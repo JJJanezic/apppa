@@ -310,6 +310,22 @@ test.describe('Buchung anlegen (Inhaber)', () => {
 })
 
 test.describe('Mitarbeiter', () => {
+  test('AC (PROJ-7 refine 2026-11-09): Buchung mit neuem Gast ohne Staatsangehörigkeit wird gespeichert', async ({ page, users }) => {
+    desktopOnly()
+    const { tenantId } = await setup(page, users, 'staff')
+    await withApartments(tenantId)
+    await openList(page)
+    await newBooking(page)
+    await chooseApartment(page, 'Haus See · Top 1')
+    await setPeriod(page, FUTURE, day(3, FUTURE))
+    await panel(page).getByRole('radio', { name: 'Neuer Gast' }).click()
+    await panel(page).getByLabel('Nachname').fill('Bookingcom')
+    await submit(page, 'Buchung speichern')
+    await expect(page).toHaveURL(/\/buchungen\/[0-9a-f-]{36}$/)
+    const { data } = await service().from('guests').select('country').eq('tenant_id', tenantId).eq('last_name', 'Bookingcom').single()
+    expect(data!.country).toBeNull()
+  })
+
   test('AC: Mitarbeiter legt Buchung mit neuem Gast an (Dublettenwarnung), sieht keine Beträge; Buchung erhält den Preisvorschlag', async ({ page, users }) => {
     desktopOnly()
     const { tenantId } = await setup(page, users, 'staff')

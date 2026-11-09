@@ -741,6 +741,22 @@ test.describe('Layout und Barrierefreiheit', () => {
 const ranges = (tenantId: string) =>
   service().from('guest_sheet_number_ranges').select('range_from, range_to, next_number, exhausted_at').eq('tenant_id', tenantId).order('position')
 
+test.describe('Staatsangehörigkeit optional (PROJ-7 refine 2026-11-09)', () => {
+  test('AC: ohne Staatsangehörigkeit rot markiert, kein Reisedokument, Unterschrift gesperrt; mit „Italien“ erscheint das Reisedokument', async ({ page, users }) => {
+    desktopOnly()
+    const { tenantId, apartmentId } = await setup(page, users, 'staff')
+    const booking = await addBooking(tenantId, apartmentId, await addGuest(tenantId, { country: null }))
+    await openSheet(page, booking.id)
+    await expect(page.getByRole('heading', { name: 'Reisedokument' })).toHaveCount(0)
+    await expect(page.getByText('Bitte zuerst alle markierten Felder ergänzen.')).toBeVisible()
+    await expect(page.getByRole('combobox', { name: 'Staatsangehörigkeit' })).toHaveAttribute('aria-invalid', 'true')
+    await page.getByRole('combobox', { name: 'Staatsangehörigkeit' }).click()
+    await page.getByPlaceholder('Land suchen').fill('Italien')
+    await page.getByRole('option', { name: 'Italien', exact: true }).click()
+    await expect(page.getByRole('heading', { name: 'Reisedokument' })).toBeVisible()
+  })
+})
+
 test.describe('Kennzahl und Gästeblattnummer je Gemeinde', () => {
   test('AC: Kennzahl je Gemeinde in den Stammdaten mit führenden Nullen; Hinweis bei fehlender Kennzahl', async ({ page, users }) => {
     desktopOnly()

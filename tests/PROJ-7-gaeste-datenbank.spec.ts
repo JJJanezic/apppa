@@ -147,14 +147,15 @@ test.describe('Liste, Suche und Filter', () => {
 })
 
 test.describe('Anlegen und Bearbeiten', () => {
-  test('AC: Pflichtfelder und Prüfregeln; Anlegen nur mit Nachname und Land; eigene Quelle und Firma', async ({ page, users }) => {
+  test('AC: Pflichtfelder und Prüfregeln; Anlegen nur mit Nachname; eigene Quelle und Firma', async ({ page, users }) => {
     desktopOnly()
     await setup(page, users)
     await openList(page)
     await page.getByRole('button', { name: 'Gast anlegen' }).click()
     await panel(page).getByRole('button', { name: 'Gast anlegen' }).click()
     await expect(panel(page).getByText('Bitte den Nachnamen eingeben.')).toBeVisible()
-    await expect(panel(page).getByText('Bitte die Staatsangehörigkeit wählen.')).toBeVisible()
+    // Staatsangehörigkeit optional (refine 2026-11-09)
+    await expect(panel(page).getByText('Bitte die Staatsangehörigkeit wählen.')).toHaveCount(0)
 
     await panel(page).getByLabel('Nachname').fill('Schmidt')
     await panel(page).getByLabel('Vorname').fill('Jonas')
@@ -222,6 +223,42 @@ test.describe('Anlegen und Bearbeiten', () => {
     await expect(panel(page).getByLabel('Notiz')).toHaveValue('meine Eingabe')
     await panel(page).getByRole('button', { name: 'Aktuelle Fassung laden' }).click()
     await expect(panel(page).getByLabel('Notiz')).toHaveValue('fremde Änderung')
+  })
+})
+
+test.describe('Staatsangehörigkeit optional (refine 2026-11-09)', () => {
+  test('AC: ohne Voreinstellung; Gast ohne Staatsangehörigkeit wird gespeichert, Liste und Detail zeigen „–“', async ({ page, users }) => {
+    desktopOnly()
+    const { tenantId } = await setup(page, users)
+    await openList(page)
+    await page.getByRole('button', { name: 'Gast anlegen' }).click()
+    await expect(panel(page).getByRole('combobox', { name: 'Staatsangehörigkeit' })).toHaveText(/Land wählen/)
+    await panel(page).getByLabel('Nachname').fill('Ohneland')
+    await panel(page).getByRole('button', { name: 'Gast anlegen' }).click()
+    await expect(page.getByRole('heading', { name: 'Ohneland', exact: true })).toBeVisible()
+    const { data } = await service().from('guests').select('country').eq('tenant_id', tenantId).eq('last_name', 'Ohneland').single()
+    expect(data!.country).toBeNull()
+    await expect(page.locator('main').getByText('–').first()).toBeVisible()
+    await openList(page)
+    const row = page.getByRole('row').filter({ hasText: 'Ohneland' })
+    // Spalte „Staatsangehörigkeit“ (auch „Letzter Aufenthalt“ zeigt ohne Aufenthalt „–“)
+    const col = (await page.getByRole('columnheader').allInnerTexts()).findIndex((h) => h.trim() === 'Staatsangehörigkeit')
+    await expect(row.getByRole('cell').nth(col)).toHaveText('–')
+  })
+
+  test('AC: „Keine Angabe“ leert eine gewählte Staatsangehörigkeit', async ({ page, users }) => {
+    desktopOnly()
+    const { tenantId } = await setup(page, users)
+    const id = await addGuest(tenantId, { last_name: 'Weber', country: 'DE' })
+    await page.goto(`/gaeste/${id}`)
+    await ready(page)
+    await page.getByRole('button', { name: 'Bearbeiten' }).click()
+    await panel(page).getByRole('combobox', { name: 'Staatsangehörigkeit' }).click()
+    await page.getByRole('option', { name: 'Keine Angabe' }).click()
+    await panel(page).getByRole('button', { name: 'Speichern', exact: true }).click()
+    await expect(page.getByText('Änderungen gespeichert')).toBeVisible()
+    const { data } = await service().from('guests').select('country').eq('id', id).single()
+    expect(data!.country).toBeNull()
   })
 })
 

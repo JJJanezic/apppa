@@ -1,6 +1,6 @@
 # PROJ-7: Gäste-Datenbank
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-10-26
 **Last Updated:** 2026-11-09 (refine: Staatsangehörigkeit optional)
 
@@ -265,6 +265,23 @@ Gästeblatt (PROJ-26), Seite 1
   - Neu: Gast ohne Angabe gespeichert und leerer Text abgelehnt (Gäste), Buchung mit neuem Gast ohne Staatsangehörigkeit (Buchungen), ohne Staatsangehörigkeit kein Gästeblatt bzw. nach dem Ergänzen möglich (Gästeblatt).
   - Gäste und Gästeblatt 31 von 31, Buchungen 33 von 33 grün.
   - Die Datenbank-Prüfung meldet nur die bekannte Auth-Warnung.
+
+### QA „Staatsangehörigkeit optional“ (2026-11-09)
+**Ergebnis:** 6 von 6 Akzeptanzkriterien bestanden, keine Fehler → **bereit**
+
+- [x] Buchungsformular mit neuem Gast ohne Staatsangehörigkeit wird gespeichert (E2E PROJ-8, Integration)
+- [x] Gast ohne Staatsangehörigkeit in der Gäste-Datenbank gespeichert; Liste und Detail zeigen „–“ (E2E)
+- [x] „Keine Angabe“ leert eine gewählte Staatsangehörigkeit (E2E)
+- [x] Keine Voreinstellung beim Anlegen („Land wählen“) (E2E)
+- [x] Gästeblatt: Feld rot markiert, kein Reisedokument, Unterschrift gesperrt; mit „Italien“ erscheint das Reisedokument; ohne Staatsangehörigkeit lässt die Datenbank kein Blatt zu (E2E PROJ-26, Integration)
+- [x] Gästeherkunft ohne beide Angaben: „Unbekannt“ (Unit `countryName('ZZ')`; die Zuordnung zu `ZZ` macht die Datenbank schon seit PROJ-26). Die Herkunfts-Tests aus PROJ-18 sind grün.
+
+**Sicherheit:** keine neuen Schreib- oder Lesewege. Leerer Text wird von der Datenbank abgelehnt (Integration).
+
+**Regression:**
+- Gäste-Datenbank E2E in allen Breiten grün (18 bestanden, 6 nur im Desktop-Projekt), Buchungen „Mitarbeiter“ 7 von 7, Gästeblatt 9 von 9, Auswertungen „Gästeherkunft“ grün.
+- Integration: Gäste und Gästeblatt 31 von 31, Buchungen 33 von 33. Unit 988 von 988.
+- Firefox und Safari nicht gesondert geprüft.
 
 ## Tech Design (Solution Architect)
 
