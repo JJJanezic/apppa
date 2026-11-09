@@ -12,6 +12,7 @@ export type OperatorErrorCode =
   | 'lastOwner'
   | 'invitationInvalid'
   | 'retainedInvoices'
+  | 'retainedGuestSheets'
   | 'tenantGone'
   | 'notDeactivated'
   | 'nameMismatch'

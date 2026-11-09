@@ -6,6 +6,7 @@ import type { ActionResult, CommonErrorCode } from '@/lib/auth/result'
 import { getSessionUser, pendingMfaStep, type SessionUser } from '@/lib/auth/session'
 import { type OperatorErrorCode, tenantHref } from '@/lib/operator'
 import { removeTenantDocuments } from '@/lib/guest-documents'
+import { removeTenantGuestSheets } from '@/lib/guest-sheet-files'
 import { removeTenantInvoices } from '@/lib/invoice-files'
 import { removeTenantReceipts } from '@/lib/payment-files'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -47,6 +48,8 @@ const DB_ERRORS: Record<string, OperatorErrorCode | CommonErrorCode> = {
   P0014: 'alreadyMember',
   P0015: 'invitationInvalid',
   P0019: 'retainedInvoices',
+  // PROJ-26: Gästeblätter in der Aufbewahrungsfrist
+  P0021: 'retainedGuestSheets',
 }
 
 function dbFail(error: { code?: string; message?: string }, context: string): Failure {
@@ -212,13 +215,14 @@ export async function deleteTenant(values: { tenantId: string; confirmName: stri
     p_confirm_name: values.confirmName,
   })
   if (error) return dbFail(error, 'Kunde nicht gelöscht')
-  // Ausweisbilder der Gäste (PROJ-29), Rechnungs-PDFs (PROJ-37), Logo (PROJ-38) und Zahlungsbelege (PROJ-45); Reste entfernt die
+  // Ausweisbilder der Gäste (PROJ-29), Rechnungs-PDFs (PROJ-37), Logo (PROJ-38), Zahlungsbelege (PROJ-45) und Gästeblätter (PROJ-26); Reste entfernt die
   // tägliche Bereinigung
   await Promise.all([
     removeTenantDocuments(values.tenantId),
     removeTenantInvoices(values.tenantId),
     removeTenantReceipts(values.tenantId),
     removeTenantLogos(values.tenantId),
+    removeTenantGuestSheets(values.tenantId),
   ])
 
   const admin = createAdminClient()

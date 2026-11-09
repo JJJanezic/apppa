@@ -9,19 +9,22 @@ const removeUnusedLogos = vi.fn()
 vi.mock('@/lib/tenant-logo-files', () => ({ removeUnusedLogos: () => removeUnusedLogos() }))
 const removeUnusedReceipts = vi.fn()
 vi.mock('@/lib/payment-files', () => ({ removeUnusedReceipts: () => removeUnusedReceipts() }))
+const removeUnusedGuestSheetFiles = vi.fn()
+vi.mock('@/lib/guest-sheet-files', () => ({ removeUnusedGuestSheetFiles: () => removeUnusedGuestSheetFiles() }))
 
 import { GET } from './route'
 
 const call = (authorization?: string) =>
   GET(new Request('http://localhost/api/cron/ausweisbilder', { headers: authorization ? { authorization } : {} }))
 
-describe('Bereinigung der Ausweisbilder, Rechnungs-PDFs, Logos und Zahlungsbelege (Cron)', () => {
+describe('Bereinigung der Ausweisbilder, Rechnungs-PDFs, Logos, Zahlungsbelege und Gästeblätter (Cron)', () => {
   beforeEach(() => {
     vi.stubEnv('CRON_SECRET', 'geheim-1234567890')
     removeUnusedDocuments.mockReset().mockResolvedValue({ removed: 3, failed: false })
     removeUnusedInvoicePdfs.mockReset().mockResolvedValue({ removed: 2, failed: false })
     removeUnusedLogos.mockReset().mockResolvedValue({ removed: 1, failed: false })
     removeUnusedReceipts.mockReset().mockResolvedValue({ removed: 4, failed: false })
+    removeUnusedGuestSheetFiles.mockReset().mockResolvedValue({ removed: 5, failed: false })
   })
   afterEach(() => vi.unstubAllEnvs())
 
@@ -32,6 +35,7 @@ describe('Bereinigung der Ausweisbilder, Rechnungs-PDFs, Logos und Zahlungsbeleg
     expect(removeUnusedInvoicePdfs).not.toHaveBeenCalled()
     expect(removeUnusedLogos).not.toHaveBeenCalled()
     expect(removeUnusedReceipts).not.toHaveBeenCalled()
+    expect(removeUnusedGuestSheetFiles).not.toHaveBeenCalled()
   })
 
   it('läuft nicht, wenn kein Schlüssel eingerichtet ist', async () => {
@@ -43,11 +47,16 @@ describe('Bereinigung der Ausweisbilder, Rechnungs-PDFs, Logos und Zahlungsbeleg
   it('bereinigt mit richtigem Schlüssel', async () => {
     const response = await call('Bearer geheim-1234567890')
     expect(response.status).toBe(200)
-    expect(await response.json()).toEqual({ removed: 3, invoicePdfsRemoved: 2, logosRemoved: 1, receiptsRemoved: 4, failed: false })
+    expect(await response.json()).toEqual({ removed: 3, invoicePdfsRemoved: 2, logosRemoved: 1, receiptsRemoved: 4, guestSheetFilesRemoved: 5, failed: false })
   })
 
   it('meldet Fehler mit Status 500', async () => {
     removeUnusedDocuments.mockResolvedValue({ removed: 0, failed: true })
+    expect((await call('Bearer geheim-1234567890')).status).toBe(500)
+  })
+
+  it('meldet Fehler der Gästeblatt-Dateien (PROJ-26)', async () => {
+    removeUnusedGuestSheetFiles.mockResolvedValue({ removed: 0, failed: true })
     expect((await call('Bearer geheim-1234567890')).status).toBe(500)
   })
 

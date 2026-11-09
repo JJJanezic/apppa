@@ -333,6 +333,13 @@ export type Database = {
             referencedColumns: ["id", "tenant_id"]
           },
           {
+            foreignKeyName: "booking_amounts_booking_fkey"
+            columns: ["id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "guest_sheet_missing"
+            referencedColumns: ["booking_id", "tenant_id"]
+          },
+          {
             foreignKeyName: "booking_amounts_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -397,6 +404,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "bookings"
             referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "booking_charges_booking_fkey"
+            columns: ["booking_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "guest_sheet_missing"
+            referencedColumns: ["booking_id", "tenant_id"]
           },
           {
             foreignKeyName: "booking_charges_tenant_id_fkey"
@@ -464,6 +478,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "bookings"
             referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "booking_companions_booking_fkey"
+            columns: ["booking_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "guest_sheet_missing"
+            referencedColumns: ["booking_id", "tenant_id"]
           },
           {
             foreignKeyName: "booking_companions_tenant_id_fkey"
@@ -806,6 +827,182 @@ export type Database = {
           },
         ]
       }
+      guest_sheet_settings: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          marketing_text: Json | null
+          privacy_text: Json | null
+          tenant_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          marketing_text?: Json | null
+          privacy_text?: Json | null
+          tenant_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          marketing_text?: Json | null
+          privacy_text?: Json | null
+          tenant_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guest_sheet_settings_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      guest_sheets: {
+        Row: {
+          booking_id: string
+          created_at: string
+          created_by: string | null
+          departure_noted_at: string | null
+          departure_noted_by: string | null
+          guest_id: string | null
+          id: string
+          kind: string
+          marketing_consent: boolean
+          pdf_path: string
+          pdf_sha256: string | null
+          replaced_at: string | null
+          replaced_by: string | null
+          sheet_number: string | null
+          signature_1_path: string | null
+          signature_2_path: string | null
+          signed_at_1: string | null
+          signed_at_2: string | null
+          signed_on: string | null
+          snapshot: Json | null
+          tenant_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          booking_id: string
+          created_at?: string
+          created_by?: string | null
+          departure_noted_at?: string | null
+          departure_noted_by?: string | null
+          guest_id?: string | null
+          id?: string
+          kind: string
+          marketing_consent?: boolean
+          pdf_path: string
+          pdf_sha256?: string | null
+          replaced_at?: string | null
+          replaced_by?: string | null
+          sheet_number?: string | null
+          signature_1_path?: string | null
+          signature_2_path?: string | null
+          signed_at_1?: string | null
+          signed_at_2?: string | null
+          signed_on?: string | null
+          snapshot?: Json | null
+          tenant_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          booking_id?: string
+          created_at?: string
+          created_by?: string | null
+          departure_noted_at?: string | null
+          departure_noted_by?: string | null
+          guest_id?: string | null
+          id?: string
+          kind?: string
+          marketing_consent?: boolean
+          pdf_path?: string
+          pdf_sha256?: string | null
+          replaced_at?: string | null
+          replaced_by?: string | null
+          sheet_number?: string | null
+          signature_1_path?: string | null
+          signature_2_path?: string | null
+          signed_at_1?: string | null
+          signed_at_2?: string | null
+          signed_on?: string | null
+          snapshot?: Json | null
+          tenant_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guest_sheets_booking_fkey"
+            columns: ["booking_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "guest_sheets_booking_fkey"
+            columns: ["booking_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "guest_sheet_missing"
+            referencedColumns: ["booking_id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "guest_sheets_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guest_sheets_guest_fkey"
+            columns: ["guest_id"]
+            isOneToOne: false
+            referencedRelation: "guests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guest_sheets_noted_by_fkey"
+            columns: ["departure_noted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guest_sheets_replaced_by_fkey"
+            columns: ["replaced_by"]
+            isOneToOne: false
+            referencedRelation: "guest_sheet_list"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guest_sheets_replaced_by_fkey"
+            columns: ["replaced_by"]
+            isOneToOne: false
+            referencedRelation: "guest_sheets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guest_sheets_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       guests: {
         Row: {
           address_country: string | null
@@ -838,6 +1035,8 @@ export type Database = {
           id: string
           language: string | null
           last_name: string
+          marketing_consent_at: string | null
+          marketing_consent_sheet_id: string | null
           marketing_custom: string | null
           marketing_source: string | null
           name_key: string | null
@@ -885,6 +1084,8 @@ export type Database = {
           id?: string
           language?: string | null
           last_name: string
+          marketing_consent_at?: string | null
+          marketing_consent_sheet_id?: string | null
           marketing_custom?: string | null
           marketing_source?: string | null
           name_key?: string | null
@@ -932,6 +1133,8 @@ export type Database = {
           id?: string
           language?: string | null
           last_name?: string
+          marketing_consent_at?: string | null
+          marketing_consent_sheet_id?: string | null
           marketing_custom?: string | null
           marketing_source?: string | null
           name_key?: string | null
@@ -955,6 +1158,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "guests_marketing_consent_sheet_id_fkey"
+            columns: ["marketing_consent_sheet_id"]
+            isOneToOne: false
+            referencedRelation: "guest_sheet_list"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guests_marketing_consent_sheet_id_fkey"
+            columns: ["marketing_consent_sheet_id"]
+            isOneToOne: false
+            referencedRelation: "guest_sheets"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "guests_tenant_id_fkey"
@@ -1489,6 +1706,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "bookings"
             referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "invoices_booking_fkey"
+            columns: ["booking_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "guest_sheet_missing"
+            referencedColumns: ["booking_id", "tenant_id"]
           },
           {
             foreignKeyName: "invoices_closing_block_id_fkey"
@@ -2053,6 +2277,96 @@ export type Database = {
       }
     }
     Views: {
+      guest_sheet_list: {
+        Row: {
+          apartment_name: string | null
+          arrival: string | null
+          booking_cancelled: boolean | null
+          booking_id: string | null
+          booking_number: string | null
+          changed: boolean | null
+          created_at: string | null
+          created_by_name: string | null
+          departure: string | null
+          departure_noted_at: string | null
+          departure_noted_by_name: string | null
+          first_name: string | null
+          guest_id: string | null
+          id: string | null
+          kind: string | null
+          last_name: string | null
+          marketing_consent: boolean | null
+          pdf_path: string | null
+          property_name: string | null
+          replaced_at: string | null
+          search_text: string | null
+          sheet_number: string | null
+          signature_1_path: string | null
+          signature_2_path: string | null
+          signed_at: string | null
+          signed_on: string | null
+          snapshot: Json | null
+          tenant_id: string | null
+          title_prefix: string | null
+          title_suffix: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guest_sheets_booking_fkey"
+            columns: ["booking_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "guest_sheets_booking_fkey"
+            columns: ["booking_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "guest_sheet_missing"
+            referencedColumns: ["booking_id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "guest_sheets_guest_fkey"
+            columns: ["guest_id"]
+            isOneToOne: false
+            referencedRelation: "guests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guest_sheets_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      guest_sheet_missing: {
+        Row: {
+          apartment_name: string | null
+          arrival: string | null
+          booking_id: string | null
+          booking_number: string | null
+          departure: string | null
+          first_name: string | null
+          guest_sheet_number: string | null
+          last_name: string | null
+          property_name: string | null
+          search_text: string | null
+          tenant_id: string | null
+          title_prefix: string | null
+          title_suffix: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bookings_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoice_payment_status: {
         Row: {
           balance_cents: number | null
@@ -2338,6 +2652,7 @@ export type Database = {
         Returns: undefined
       }
       delete_payment: { Args: { p_payment_id: string }; Returns: Json }
+      finish_guest_sheet: { Args: { p_input: Json }; Returns: string }
       guest_duplicate_candidates: {
         Args: {
           p_email: string
@@ -2463,6 +2778,7 @@ export type Database = {
         }[]
       }
       record_payment: { Args: { p_input: Json }; Returns: Json }
+      register_guest_sheet_upload: { Args: { p_input: Json }; Returns: string }
       rename_cleaning_charges: {
         Args: { p_tenant_id: string }
         Returns: number
@@ -2495,6 +2811,24 @@ export type Database = {
         Returns: undefined
       }
       save_guest: { Args: { p_input: Json }; Returns: string }
+      save_guest_sheet_field: {
+        Args: {
+          p_booking_id: string
+          p_expected_updated_at: string
+          p_target: string
+          p_values: Json
+        }
+        Returns: string
+      }
+      save_guest_sheet_texts: {
+        Args: {
+          p_expected_updated_at: string
+          p_marketing: Json
+          p_privacy: Json
+          p_tenant_id: string
+        }
+        Returns: string
+      }
       save_invoice: { Args: { p_input: Json }; Returns: Json }
       save_invoice_backfill: {
         Args: {
@@ -2675,6 +3009,10 @@ export type Database = {
         }[]
       }
       unused_guest_documents: { Args: { p_limit?: number }; Returns: string[] }
+      unused_guest_sheet_files: {
+        Args: { p_limit?: number }
+        Returns: string[]
+      }
       unused_invoice_pdfs: { Args: { p_limit?: number }; Returns: string[] }
       unused_payment_receipts: { Args: { p_limit?: number }; Returns: string[] }
       unused_tenant_logos: { Args: { p_limit?: number }; Returns: string[] }

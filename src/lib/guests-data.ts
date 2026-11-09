@@ -143,8 +143,11 @@ type LegacyCompanyColumn =
   | 'company_city'
   | 'company_country'
 
+// Marketing-Einwilligung (PROJ-26): gehört zu PROJ-19, im Gast-Detail noch nicht gelesen
+type MarketingConsentColumn = 'marketing_consent_at' | 'marketing_consent_sheet_id'
+
 export function toGuest(
-  g: Pick<GuestDbRow, Exclude<keyof GuestDbRow, 'tenant_id' | 'created_at' | 'created_by' | 'updated_by' | 'search_text' | 'email_key' | 'phone_key' | 'name_key' | LegacyCompanyColumn>> & {
+  g: Pick<GuestDbRow, Exclude<keyof GuestDbRow, 'tenant_id' | 'created_at' | 'created_by' | 'updated_by' | 'search_text' | 'email_key' | 'phone_key' | 'name_key' | LegacyCompanyColumn | MarketingConsentColumn>> & {
     company: CompanyEmbed
   }
 ): Guest {

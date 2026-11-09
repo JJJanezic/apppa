@@ -540,7 +540,7 @@ Die Lesefunktion der Auswertung nimmt das Herkunftsland der Adresse des Hauptgas
 
 **Abweichung vom Wortlaut der Spec:** Die tatsächliche Abreise ist an der Buchung nie leer (sie läuft mit der geplanten mit, PROJ-30). Darum gilt: Vermerk „nachgetragen am … von …“, sobald jemand nach der Unterschrift die Abreise an der Buchung speichert; sonst ab dem Abreisetag automatisch. Der Edge Case „Abreise wieder geleert“ entfällt.
 
-**Bis zur Migration:** Lesefunktionen erkennen fehlende Tabellen/Sichten und zeigen Standardtexte, leere Listen und den Hinweis „wird gerade eingerichtet“; Speichern meldet „Diese Funktion wird gerade eingerichtet.“. **Stammdaten (Einstellungen und Betreiber) schlagen bis zur Migration beim Laden fehl** (Spalten `email`, `phone` fehlen; in `src/types/database.ts` von Hand ergänzt, /backend erzeugt die Typen neu).
+**Bis zur Migration** (nur bis zum Backend relevant): Lesefunktionen erkennen fehlende Tabellen/Sichten und zeigen Standardtexte, leere Listen und den Hinweis „wird gerade eingerichtet“; Speichern meldet „Diese Funktion wird gerade eingerichtet.“. **Stammdaten (Einstellungen und Betreiber) schlagen bis zur Migration beim Laden fehl** (Spalten `email`, `phone` fehlen; in `src/types/database.ts` von Hand ergänzt, /backend erzeugt die Typen neu).
 
 **Regeln und Dateien**
 - `src/lib/guest-sheet.ts`: `guestSheetExpected`, `sheetGaps`/`sheetComplete`, `needsTravelDocument`, Typ `GuestSheetSnapshot`, `sheetDeparture`, Listenfilter, Standardtexte, `sheetPlaceholderValues`, `emptyPlaceholders`, `filledTexts` (Tests: `guest-sheet.test.ts`)
@@ -565,6 +565,23 @@ Die Lesefunktion der Auswertung nimmt das Herkunftsland der Adresse des Hauptgas
 - Trigger an `bookings`: Änderung von `departure` nach der Unterschrift setzt am aktuellen „signed“-Blatt `departure_noted_at`/`_by`
 - Speicherbereich `guest-sheets` (privat, PDF und PNG, 10 MB, Ordner je Kunde; Mitglieder laden PDFs hoch und lesen nur verwendete Dateien, Löschen nur der Server); tägliche Bereinigung (`/api/cron/ausweisbilder`) um unbenutzte Dateien erweitern
 - Auswertung „Gästeherkunft“ (PROJ-18): `coalesce(address_country, country)` des Hauptgasts
+
+## Implementation Notes (Backend)
+
+**Gebaut (2026-11-09), in Dev eingespielt:** Migration `20261109055811_guest_sheets.sql`. Der Vertrag aus den Frontend-Notizen ist umgesetzt; Abweichungen unten.
+
+- **Tabellen:** `guest_sheet_settings` (je Kunde eine Zeile, Texte jsonb, null = Standard) und `guest_sheets` (unterschrieben/hochgeladen, eingefrorene Fassung, Dateien im Ordner des Kunden, höchstens ein aktuelles Blatt je Buchung per Teilindex, Prüfregeln je Art). Standardfelder und Änderungsprotokoll über `private.enable_tenant_table`. `tenants.email`/`phone`, `guests.marketing_consent_at`/`marketing_consent_sheet_id`.
+- **Zugriff:** Lesen nur Mitglieder (ohne Betreiber-Ausnahme), kein direktes Schreiben. `protect_guest_sheet` lehnt jede Änderung außer „ersetzt“, Abreise-Vermerk und Gast (Zusammenführen) und jedes Löschen ab (P0981), außer mit dem ganzen Kunden.
+- **Funktionen:** `save_guest_sheet_texts` (nur Inhaber, Stand P0970, Platzhalter- und Längenprüfung), `save_guest_sheet_field` (Inhaber und Mitarbeiter; Ziele `guest`, `booking`, `companions`; Mitreisende über die bestehende `private.save_companions`, deren Codes auf P0975/P0979 umgesetzt werden), `register_guest_sheet_upload`, `finish_guest_sheet` (nur Service-Rolle, im Namen der Person über `request.jwt.claims`, alle Prüfungen inkl. Pflichtangaben `private.guest_sheet_complete` = gleiche Regel wie `sheetGaps`).
+- **Protokoll:** `private.audit_row` schreibt bei Änderungen durch eine Person `actor_label` = `app.source` (hier „Gästeblatt“), sonst wie bisher „user“.
+- **Lesesichten:** `guest_sheet_list` (mit `changed` aus der Fassung gegen Buchung und Mitreisende, `search_text`) und `guest_sheet_missing`, beide `security_invoker`.
+- **Abreise-Nachtrag:** Trigger `guest_sheet_departure` an `bookings` (nur bei geänderter `departure`) setzt am aktuellen unterschriebenen Blatt Zeitpunkt und Person.
+- **Bestehende Funktionen ergänzt:** `delete_guest` (mit Gästeblatt nur anonymisieren), `anonymize_guest` (Einwilligung leeren, Blätter bleiben), `merge_guests` (Blätter umhängen, jüngere Einwilligung), `admin_delete_tenant` (Gästeblätter der letzten 7 Kalenderjahre sperren, **P0021** → `retainedGuestSheets`; die Anzahl im Betreiber-Dialog zählt weiterhin nur Rechnungen), `statistics_booking_parts` (`coalesce(address_country, country)`), `update_tenant_master_data` (E-Mail, Telefon).
+- **Speicher:** `guest-sheets` (privat, PDF und PNG, 10 MB). Mitglieder laden nur PDFs in den eigenen Ordner; Lesen und Löschen nur der Server. Tägliche Bereinigung (`unused_guest_sheet_files`, `removeUnusedGuestSheetFiles` in `/api/cron/ausweisbilder`); beim Löschen eines Kunden `removeTenantGuestSheets`.
+- **Abweichungen vom Vertrag:** Fertigstellen gibt die Kennung direkt zurück (kein Objekt). Die Datenbank prüft beim Staat nur das Format (zwei Großbuchstaben), die Länderliste prüft die App. Die von Hand ergänzten Typen sind durch `npm run db:types` ersetzt.
+- **Tests:** `supabase/tests/guest-sheets.integration.test.ts` (14 Tests: Texte, Stammdaten, Feld-Speichern samt Protokoll und Rechten, Option/Wohnsitz, Hochladen mit Ersetzen und Einwilligung, Fertigstellen nur Server mit allen Prüfungen, Unveränderlichkeit, „geändert“, Abreise-Nachtrag, „fehlt“, Löschen/Anonymisieren/Zusammenführen, Speicherregeln, Bereinigung). Grün außerdem: guests, companies, statistics, operator, team, bookings, rls (Integration) und alle Unit-Tests; Cron-Test ergänzt. Advisors nur mit der bekannten Auth-Warnung „OTP-Ablauf“.
+- **Durchgeklickt** (gebauter Server, Chrome 1180 × 820, als Mitarbeiter): Felder ergänzen und speichern, Ort aus der PLZ, Unterschrift 1, „Weiter“, Einwilligung, Unterschrift 2, „Fertig“ → Buchung mit „Gästeblatt gespeichert“, PDF abrufbar (Bild geprüft), Liste, Hochladen ersetzt das Blatt.
+- **Für /deploy:** Migration vor dem Code einspielen. Ohne sie lädt die Seite „Stammdaten“ nicht (Spalten E-Mail/Telefon).
 
 ## QA Test Results
 _To be added by /qa_
