@@ -64,7 +64,7 @@ export type SheetGuest = {
   gender: Gender
   birthDate: string | null
   // Staatsangehörigkeit (Spalte „country“)
-  country: string
+  country: string | null
   documentType: DocumentType | null
   documentNumber: string | null
   documentIssuedOn: string | null
@@ -85,7 +85,8 @@ export type SheetCompanion = { lastName: string; firstName: string; birthDate: s
 export type SheetStay = { arrival: string; plannedDeparture: string; persons: number }
 
 // Reisedokument nur bei ausländischen Gästen (Formular: „bei ausländischen Gästen“)
-export const needsTravelDocument = (g: Pick<SheetGuest, 'country'>) => g.country !== 'AT'
+// Nur bei bekannter Staatsangehörigkeit außer Österreich (ohne Angabe ist sie selbst als Pflichtfeld offen, refine PROJ-7 2026-11-09)
+export const needsTravelDocument = (g: Pick<SheetGuest, 'country'>) => Boolean(g.country) && g.country !== 'AT'
 
 export const SHEET_GUEST_FIELDS = [
   'lastName',

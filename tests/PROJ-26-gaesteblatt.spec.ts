@@ -162,7 +162,7 @@ test.describe('Umbenennung', () => {
     const dialog = page.getByRole('dialog')
     await expect(dialog.getByRole('combobox', { name: 'Staatsangehörigkeit' })).toBeVisible()
     await expect(dialog.getByRole('combobox', { name: 'Herkunftsland' })).toBeVisible()
-    await expect(dialog.getByText('Staatsangehörigkeit des Gastes, für das Gästeblatt.')).toBeVisible()
+    await expect(dialog.getByText('Optional. Für das Gästeblatt ist sie Pflicht und lässt sich dort ergänzen.')).toBeVisible()
   })
 })
 

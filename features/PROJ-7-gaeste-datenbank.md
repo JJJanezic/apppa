@@ -1,6 +1,6 @@
 # PROJ-7: Gäste-Datenbank
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-10-26
 **Last Updated:** 2026-11-09 (refine: Staatsangehörigkeit optional)
 
@@ -247,6 +247,13 @@ Gästeblatt (PROJ-26), Seite 1
 - **Frontend:** Prüfregel des Gastformulars (leer erlaubt), Länderauswahl mit „Keine Angabe“, Typen „Staatsangehörigkeit kann fehlen“, Anzeigen mit „–“, Gästeblatt-Regel für das Reisedokument und Beschriftung „Unbekannt“ in der Auswertung.
 - **Backend:** eine Migration, die die Spalte optional macht und die schreibenden Funktionen anpasst; Integrationstests für das Anlegen ohne Staatsangehörigkeit und für das Gästeblatt.
 - Keine neuen Pakete.
+
+### Umsetzung Frontend (2026-11-09)
+- **Gastformular:** `guestSchema` erlaubt eine leere Staatsangehörigkeit und speichert sie als `null`; ein ungültiger Code ergibt „Bitte prüfe diese Angabe.“. Die Länderauswahl hat jetzt „Keine Angabe“ (`clearable`). Die Hinweistexte im Formular sind angepasst.
+- **Typen:** Die Staatsangehörigkeit kann fehlen (Gast, Buchungsgast, Rechnungsgast, Gästeblatt, Auswahl im Buchungs- und Rechnungsformular).
+- **`countryName`:** ohne Angabe „–“, für `ZZ` (Gästeherkunft ohne beide Angaben) „Unbekannt“. Damit zeigen Gästeliste, Gastdetail, Buchungsdetail, Dubletten, Zusammenführen und die Auswahlen „–“.
+- **Gästeblatt:** `needsTravelDocument` nur bei bekannter Staatsangehörigkeit außer Österreich. Fehlt sie, bleibt sie offene Pflichtangabe (rote Markierung, Unterschrift gesperrt).
+- **Tests:** Unit-Tests ergänzt (Validierung, `countryName`, Gästeblatt-Regel), 988 von 988 grün; Lint und Build grün.
 
 ## Tech Design (Solution Architect)
 

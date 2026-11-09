@@ -65,7 +65,7 @@ type PickedGuest = {
   firstName: string | null
   titlePrefix: string | null
   titleSuffix: string | null
-  country: string
+  country: string | null
   // Geburtsdatum für die Altersbefreiung der Ortstaxe (PROJ-15); undefined = noch nicht geladen
   birthDate?: string | null
 }

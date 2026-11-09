@@ -314,7 +314,7 @@ type GuestDb = {
   title_suffix: string | null
   gender: Gender
   birth_date: string | null
-  country: string
+  country: string | null
   document_type: DocumentType | null
   document_number: string | null
   document_issued_on: string | null

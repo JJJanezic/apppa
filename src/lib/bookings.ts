@@ -127,7 +127,7 @@ export type BookingGuest = {
   firstName: string | null
   titlePrefix: string | null
   titleSuffix: string | null
-  country: string
+  country: string | null
   anonymized: boolean
   // Geburtsdatum für die Altersbefreiung der Ortstaxe (PROJ-15)
   birthDate: string | null

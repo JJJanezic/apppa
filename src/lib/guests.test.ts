@@ -135,6 +135,9 @@ describe('Länder und Sprachen', () => {
   it('liefert deutsche Namen über die eingebaute Sprachfunktion', () => {
     expect(countryName('AT')).toBe('Österreich')
     expect(countryName('DE')).toBe('Deutschland')
+    // Staatsangehörigkeit optional (refine 2026-11-09)
+    expect(countryName(null)).toBe('–')
+    expect(countryName('ZZ')).toBe('Unbekannt')
     expect(languageName('it')).toBe('Italienisch')
   })
 

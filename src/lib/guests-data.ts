@@ -212,7 +212,7 @@ type ListRow = {
   title_suffix: string | null
   company_id: string | null
   company_name: string | null
-  country: string
+  country: string | null
   anonymized_at: string | null
   stay_count: number
   last_stay: string | null

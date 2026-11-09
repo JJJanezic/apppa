@@ -20,12 +20,13 @@ describe('guestSchema', () => {
     expect(result.marketingCustom).toBeNull()
   })
 
-  it('meldet fehlenden Nachnamen und fehlendes Land', () => {
-    expect(errors({ lastName: '  ', country: '' })).toEqual(['lastNameRequired', 'countryRequired'])
+  it('meldet fehlenden Nachnamen; Staatsangehörigkeit ist optional (refine 2026-11-09)', () => {
+    expect(errors({ lastName: '  ', country: '' })).toEqual(['lastNameRequired'])
+    expect(schema.parse({ ...valid, country: '' }).country).toBeNull()
   })
 
   it('lehnt unbekannte Ländercodes ab', () => {
-    expect(errors({ country: 'XX' })).toEqual(['countryRequired'])
+    expect(errors({ country: 'XX' })).toEqual(['unknown'])
   })
 
   it('prüft das E-Mail-Format und speichert Kleinbuchstaben', () => {

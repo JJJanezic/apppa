@@ -139,7 +139,7 @@ export function GuestFields({ documentImages = {}, company = null }: GuestFields
           <FormItem>
             <FormLabel>{t('country')}</FormLabel>
             <FormControl>
-              <CountryPicker value={field.value} onChange={field.onChange} invalid={Boolean(fieldState.error)} />
+              <CountryPicker value={field.value} onChange={field.onChange} clearable invalid={Boolean(fieldState.error)} />
             </FormControl>
             <FormDescription>{t('countryHint')}</FormDescription>
             <FormMessage />

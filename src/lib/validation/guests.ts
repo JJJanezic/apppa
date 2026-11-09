@@ -50,7 +50,11 @@ export const guestSchema = (t: T) =>
       titlePrefix: optional(t, LIMITS.titleMax),
       titleSuffix: optional(t, LIMITS.titleMax),
       gender: z.enum(GENDERS, t('unknown')),
-      country: z.string().refine(isCountry, t('countryRequired')),
+      // Staatsangehörigkeit optional (refine 2026-11-09); Pflicht nur auf dem Gästeblatt (PROJ-26)
+      country: z
+        .string()
+        .refine((v) => v === '' || isCountry(v), t('unknown'))
+        .transform((v) => v || null),
       email: z
         .string()
         .trim()
@@ -213,7 +217,7 @@ export function guestInput(g: Guest): GuestInput {
     titlePrefix: g.titlePrefix ?? '',
     titleSuffix: g.titleSuffix ?? '',
     gender: g.gender,
-    country: g.country,
+    country: g.country ?? '',
     email: g.email ?? '',
     phone: g.phone ?? '',
     language: g.language ?? '',

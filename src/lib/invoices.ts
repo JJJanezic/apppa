@@ -172,7 +172,7 @@ export type InvoiceGuest = {
   firstName: string | null
   titlePrefix: string | null
   titleSuffix: string | null
-  country: string
+  country: string | null
   companyName: string | null
   anonymized: boolean
 }

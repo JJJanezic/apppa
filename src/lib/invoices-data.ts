@@ -242,7 +242,7 @@ type DetailDbRow = {
     first_name: string | null
     title_prefix: string | null
     title_suffix: string | null
-    country: string
+    country: string | null
     company: { name: string } | null
     anonymized_at: string | null
   } | null

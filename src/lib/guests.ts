@@ -106,7 +106,7 @@ export type Guest = {
   id: string
   lastName: string
   firstName: string | null
-  country: string
+  country: string | null
   email: string | null
   emailSource: ContactSource
   phone: string | null
@@ -150,7 +150,7 @@ export type GuestRow = {
   // Verknüpfte Firma (PROJ-50)
   companyId: string | null
   companyName: string | null
-  country: string
+  country: string | null
   stayCount: number
   lastStay: string | null
   anonymized: boolean
@@ -255,8 +255,12 @@ export function duplicateReasons(
   return reasons
 }
 
-// Länder- und Sprachnamen in der Sprache der Oberfläche (eingebaute Sprachfunktion, keine eigene Liste)
-export function countryName(code: string, locale = 'de'): string {
+// Länder- und Sprachnamen in der Sprache der Oberfläche (eingebaute Sprachfunktion, keine eigene Liste).
+// Ohne Angabe „–“ (Staatsangehörigkeit optional, refine PROJ-7 2026-11-09)
+export function countryName(code: string | null | undefined, locale = 'de'): string {
+  if (!code) return '–'
+  // „ZZ“: Auswertung „Gästeherkunft“ ohne Herkunftsland und ohne Staatsangehörigkeit (PROJ-18)
+  if (code === 'ZZ') return 'Unbekannt'
   try {
     return new Intl.DisplayNames([locale], { type: 'region' }).of(code) ?? code
   } catch {

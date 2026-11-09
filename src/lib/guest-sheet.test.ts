@@ -72,6 +72,11 @@ describe('Pflichtangaben', () => {
   it('Reisedokument nur bei Staatsangehörigkeit nicht Österreich', () => {
     expect(needsTravelDocument({ country: 'AT' })).toBe(false)
     expect(needsTravelDocument({ country: 'IT' })).toBe(true)
+    // ohne Angabe noch nicht entscheidbar; die Staatsangehörigkeit selbst fehlt dann (refine PROJ-7 2026-11-09)
+    expect(needsTravelDocument({ country: null })).toBe(false)
+    const gaps = sheetGaps(guest({ country: null }), [], 1)
+    expect(gaps.guest).toContain('country')
+    expect(gaps.guest).not.toContain('documentType')
     expect(sheetGaps(guest({ country: 'IT' }), [], 1).guest).toEqual([
       'documentType',
       'documentNumber',

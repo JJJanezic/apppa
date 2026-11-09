@@ -52,7 +52,7 @@ import { CHARGE_CHOICES, formatVatRate, parseVatRate, VAT_DEFAULTS, vatBreakdown
 import { vatStatusOn } from '@/lib/vat-status'
 
 // Gast im Formular: aus der Gastsuche, der gewählten Buchung oder der gespeicherten Rechnung
-type PickedGuest = { id: string; lastName: string; firstName: string | null; titlePrefix: string | null; titleSuffix: string | null; country: string; companyName: string | null }
+type PickedGuest = { id: string; lastName: string; firstName: string | null; titlePrefix: string | null; titleSuffix: string | null; country: string | null; companyName: string | null }
 
 interface InvoicePanelProps {
   open: boolean
