@@ -1,8 +1,8 @@
 # PROJ-7: Gäste-Datenbank
 
-## Status: Deployed
+## Status: Planned
 **Created:** 2026-10-26
-**Last Updated:** 2026-10-26
+**Last Updated:** 2026-11-09 (refine: Staatsangehörigkeit optional)
 
 ## Dependencies
 - Requires: PROJ-1 (Supabase Infrastructure Setup): Mandanten-Abschottung, Änderungsprotokoll
@@ -153,6 +153,7 @@ Der Betreiber-Admin sieht Gästedaten von Kunden nicht über diese Bereiche. Gä
 ### Product Decisions
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Staatsangehörigkeit ist kein Pflichtfeld mehr (überall, wo das Gastformular vorkommt); Pflicht bleibt sie nur auf dem Gästeblatt | booking.com meldet sie bei der ersten Verständigung nicht; Buchung muss trotzdem gespeichert werden können (refine 2026-11-09) | 2026-11-09 |
 | Ein Gast-Eintrag ist der Hauptgast (buchende Person) | Mitreisende hängen an der einzelnen Buchung (PROJ-8), nicht dauerhaft am Gast | 2026-10-26 |
 | Mitreisende nur je Buchung, nicht wiederverwendbar | Vom Nutzer so entschieden; hält die Gäste-Datenbank schlank | 2026-10-26 |
 | Firma als optionale Zusatzangabe einer Person (Name, UID, Rechnungsadresse) | Dienstwohnungen werden oft von Firmen gebucht; Herkunft und Statistik bleiben personenbezogen | 2026-10-26 |
@@ -186,6 +187,35 @@ Der Betreiber-Admin sieht Gästedaten von Kunden nicht über diese Bereiche. Gä
 
 ---
 <!-- Sections below are added by subsequent skills -->
+
+## Staatsangehörigkeit optional (refine 2026-11-09)
+
+Rückmeldung aus dem Betrieb: Bei Buchungen über booking.com kennt der Vermieter die Staatsangehörigkeit des Gastes anfangs nicht. Das Buchungsformular ließ sich ohne sie aber nicht speichern.
+
+### Regeln
+- Das Feld **„Staatsangehörigkeit“** im Gastformular ist **optional**. Das gilt überall, wo das Formular vorkommt: Gäste-Datenbank (anlegen, bearbeiten), neuer Gast im Buchungsformular, Rechnungsnacherfassung (PROJ-37).
+- Es gibt **keine Voreinstellung**: Beim Anlegen bleibt das Feld leer und wird nicht automatisch mit „Österreich“ befüllt.
+- Ein gewählter Staat lässt sich wieder leeren (Auswahl „Keine Angabe“).
+- **Anzeige** ohne Angabe: „–“ in Gästeliste, Gastdetail, Buchungsdetail und Dublettenvergleich.
+- **Gästeblatt (PROJ-26):** Die Staatsangehörigkeit bleibt Pflichtangabe.
+  - Fehlt sie, ist das Feld auf Seite 1 rot markiert („Bitte ergänzen“), und Unterschrift 1 ist erst nach dem Ergänzen möglich.
+  - Ob ein Reisedokument nötig ist, entscheidet sich erst mit der eingetragenen Staatsangehörigkeit (nicht Österreich).
+  - Solange sie fehlt, ist der Bereich „Reisedokument“ ausgeblendet.
+- **Auswertung „Gästeherkunft“ (PROJ-18):** Herkunftsland der Adresse, ersatzweise die Staatsangehörigkeit. Fehlen beide, zählt der Gast unter **„Unbekannt“**.
+- **Dubletten und Zusammenführen:** Eine fehlende Angabe gilt als leer. Beim Zusammenführen wird die vorhandene übernommen.
+- Bestehende Gäste behalten ihre Staatsangehörigkeit.
+
+### Acceptance Criteria
+- [ ] Angenommen das Buchungsformular mit neuem Gast ohne Staatsangehörigkeit, wenn gespeichert wird, dann entstehen Buchung und Gast ohne Fehlermeldung
+- [ ] Angenommen die Gäste-Datenbank, wenn ein Gast ohne Staatsangehörigkeit angelegt wird, dann wird er gespeichert und in Liste und Detail steht „–“
+- [ ] Angenommen ein Gast mit Staatsangehörigkeit „Deutschland“, wenn sie auf „Keine Angabe“ geändert und gespeichert wird, dann ist sie leer
+- [ ] Angenommen das Gastformular, wenn ein neuer Gast angelegt wird, dann ist keine Staatsangehörigkeit vorausgewählt
+- [ ] Angenommen ein Gast ohne Staatsangehörigkeit, wenn sein Gästeblatt geöffnet wird, dann ist das Feld rot markiert, der Bereich „Reisedokument“ fehlt und Unterschrift 1 ist gesperrt; nach Auswahl „Italien“ erscheint das Reisedokument
+- [ ] Angenommen ein Gast ohne Staatsangehörigkeit und ohne Herkunftsland, wenn die Auswertung „Gästeherkunft“ angezeigt wird, dann zählt er unter „Unbekannt“
+
+### Edge Cases
+- Rechnungsentwurf und PDF zeigen die Staatsangehörigkeit nicht und sind nicht betroffen.
+- Gästeblatt-PDF: Ein Blatt entsteht nur mit Staatsangehörigkeit; ältere Fassungen sind unverändert.
 
 ## Tech Design (Solution Architect)
 
