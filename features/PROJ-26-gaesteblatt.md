@@ -987,6 +987,19 @@ und in der Buchungsübersicht soll die Gästeblattnummer direkt das PDF öffnen.
   - ohne Blatt: null.
 - Bis zur Migration liefert die Liste „Gästeblätter“ in Dev keine Zeilen (Spalte fehlt); die Buchungsliste braucht keine Datenbankänderung.
 
+### Umsetzung Backend (2026-11-09)
+- Migration `20261109213913_guest_sheet_register_signed_date.sql` (in Dev):
+  - `guest_sheet_register` per `create or replace view` um **`signed_date`** am Ende ergänzt. Bei `kind = 'signed'` ist es `(signed_at_2 at time zone 'Europe/Vienna')::date`, sonst `signed_on`; ohne Blatt null.
+  - Alle übrigen Spalten bleiben unverändert, ebenso `security_invoker` und die Rechte.
+- Buchungsliste: keine Datenbankänderung. Die Gästeblätter kommen über den bestehenden Fremdschlüssel `guest_sheets_booking_fkey`, Lesen per RLS „Mitglieder lesen Gästeblätter“ (auch Mitarbeiter).
+- Typen neu erzeugt (`npm run db:types`). Die Datenbank-Prüfung meldet nur die bekannte Auth-Warnung „OTP-Ablauf“.
+- **Tests:** Integrationstest „Unterschriftsdatum“ neu:
+  - 2. Unterschrift um 23:30 UTC ergibt den Folgetag in Wien.
+  - Nacherfasst mit und ohne „Unterschrieben am“; ohne Blatt null.
+  - Neu hochgeladen zählt das aktuelle Blatt.
+  - Abfrage der Buchungsliste als Mitarbeiter liefert das aktuelle Blatt.
+  - Gästeblatt-Integration 19 von 19 grün.
+
 ## Tech Design (Solution Architect)
 
 ### Ausgangslage (bereits vorhanden)

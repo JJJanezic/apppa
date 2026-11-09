@@ -2671,6 +2671,7 @@ export type Database = {
           sheet_id: string | null
           sheet_kind: string | null
           sheet_number: string | null
+          signed_date: string | null
           sort_prefix: string | null
           sort_value: number | null
           tenant_id: string | null

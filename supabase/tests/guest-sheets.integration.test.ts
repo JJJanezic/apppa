@@ -473,6 +473,55 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-26 Gästeblatt', () => {
       // fremder Kunde sieht nichts
       expect((await ownerB.from('guest_sheet_register').select('booking_id').eq('tenant_id', tenant)).data).toEqual([])
     })
+
+    it('Unterschriftsdatum: 2. Unterschrift in Wiener Zeit, nacherfasst „Unterschrieben am“, sonst leer (refine 2026-11-09)', async () => {
+      const prefix = `D${runId}-`
+      const make = async (n: string) => newBooking(await newGuest(), { guest_sheet_number: `${prefix}${n}` })
+      // kurz nach Mitternacht in Wien, in UTC noch der Vortag
+      const signed = await make('0004')
+      const { error } = await finish(signed, { signed_at_1: '2026-11-08T23:20:00Z', signed_at_2: '2026-11-08T23:30:00Z' })
+      expect(error).toBeNull()
+      const dated = await make('0003')
+      const upload1 = await staff.rpc('register_guest_sheet_upload', {
+        p_input: { booking_id: dated, pdf_path: await upload(), signed_on: '2025-08-12', previous_sheet_id: null } as Json,
+      })
+      expect(upload1.error).toBeNull()
+      const undated = await make('0002')
+      const upload2 = await staff.rpc('register_guest_sheet_upload', { p_input: { booking_id: undated, pdf_path: await upload(), previous_sheet_id: null } as Json })
+      expect(upload2.error).toBeNull()
+      const none = await make('0001')
+
+      const { data } = await staff
+        .from('guest_sheet_register')
+        .select('booking_id, signed_date')
+        .eq('tenant_id', tenant)
+        .ilike('search_text', `%${prefix}%`)
+        .order('sort_value', { ascending: false, nullsFirst: false })
+      expect(data).toEqual([
+        { booking_id: signed, signed_date: '2026-11-09' },
+        { booking_id: dated, signed_date: '2025-08-12' },
+        { booking_id: undated, signed_date: null },
+        { booking_id: none, signed_date: null },
+      ])
+
+      // neu hochgeladen: das Datum des aktuellen Blatts zählt
+      await staff.rpc('register_guest_sheet_upload', {
+        p_input: { booking_id: dated, pdf_path: await upload(), signed_on: '2025-09-01', previous_sheet_id: upload1.data } as Json,
+      })
+      const { data: again } = await staff.from('guest_sheet_register').select('signed_date').eq('booking_id', dated).single()
+      expect(again!.signed_date).toBe('2025-09-01')
+
+      // Buchungsübersicht (Gästeblattnummer als PDF-Link): Blätter der Buchung wie in bookings-data, auch für Mitarbeiter
+      const { data: rows, error: listError } = await staff
+        .from('bookings')
+        .select('id, sheets:guest_sheets!guest_sheets_booking_fkey(id, replaced_at)')
+        .in('id', [dated, none])
+      expect(listError).toBeNull()
+      const current = (id: string) => rows!.find((r) => r.id === id)!.sheets.find((x) => x.replaced_at === null)?.id ?? null
+      const { data: latest } = await staff.from('guest_sheets').select('id').eq('booking_id', dated).is('replaced_at', null).single()
+      expect(current(dated)).toBe(latest!.id)
+      expect(current(none)).toBeNull()
+    })
   })
 
   describe('Speicher', () => {
