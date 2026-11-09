@@ -1,6 +1,6 @@
 # PROJ-26: Gästeblatt (Meldewesen)
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-11-08
 **Last Updated:** 2026-11-09 (refine: Liste „Gästeblätter“ überarbeitet; Kennzahl und Gästeblattnummer je Gemeinde live seit v1.45.0)
 
@@ -902,6 +902,28 @@ Abschnitt „Menüpunkt „Gästeblätter““.
   - Integrationstest „Liste „Gästeblätter““ neu: Reihenfolge 0054, 0053, 0001; nacherfasstes Blatt mit Art; Storno und Wohnsitz ausgeblendet; „ohne Gästeblatt“ mit Wohnung und Gast; fremder Kunde sieht nichts.
   - Bestehender Test an die neue Regel angepasst. Gästeblatt-Integration 17 von 17 grün.
 - Die Datenbank-Prüfung meldet nur die bekannte Auth-Warnung.
+
+### QA Liste „Gästeblätter“ (2026-11-09)
+**Ergebnis:** 9 von 9 Akzeptanzkriterien bestanden, keine Fehler → **bereit**
+
+- [x] Reihenfolge 0449054, 0449053, 0449001, 0001; Voreinstellung „Alle Monate“ (E2E, Integration)
+- [x] Unterschriebenes Blatt: Nummer als PDF-Link, Art „unterschrieben“; hochgeladenes: „nacherfasst“ (E2E)
+- [x] Nacherfasste Nummer ohne Blatt: Nummer als Text, „kein PDF“ (E2E)
+- [x] Buchungsnummer → Buchung, Hauptgast → Gastseite (E2E); Gastseite ist für alle Rollen erreichbar
+- [x] Stornierte Buchung, Option und „Wohnsitz angemeldet“ mit Nummer erscheinen nicht (E2E, Integration)
+- [x] Wohnungsfilter, auch zusammen mit dem Monat (E2E)
+- [x] „Buchungen ohne Gästeblatt“: nur ohne Nummer, Ankunft bis heute, ohne Wohnsitz und Storno (E2E, Integration)
+- [x] Buchungsdetail „Nacherfasst am …“ (E2E)
+- [x] Handy, Tablet, Desktop ohne waagrechtes Scrollen, axe ohne Befund für `/gaesteblaetter` und `?fehlt=1` (E2E Layout)
+
+**Sicherheit:** Beide Sichten laufen mit den Rechten der lesenden Person; ein fremder Inhaber sieht nichts (Integration). Es gibt keine neuen Schreibwege.
+
+**Regression:**
+- Alle 37 Gästeblatt-E2E-Tests grün. Angepasst wurden die Liste (neues Verhalten) und „Hochgeladen“ → „Nacherfasst“; der Hinweis „Buchung geändert“ wird nur noch im Buchungsdetail geprüft.
+- Integration 17 von 17, Unit 988 von 988.
+- Firefox und Safari habe ich nicht gesondert geprüft.
+
+**Hinweis (kein Fehler):** Ein hochgeladenes PDF an einer Buchung **ohne** Gästeblattnummer erscheint unter „Buchungen ohne Gästeblatt“, nicht in der Hauptliste. Das entspricht der Regel „ohne Nummer = ohne Gästeblatt“; die Nummer lässt sich in der Buchung nacherfassen.
 
 ## Tech Design (Solution Architect)
 
