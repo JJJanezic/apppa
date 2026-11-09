@@ -1,8 +1,8 @@
 # PROJ-26: Gästeblatt (Meldewesen)
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-11-08
-**Last Updated:** 2026-11-09 (refine: Liste „Gästeblätter“ überarbeitet; Kennzahl und Gästeblattnummer je Gemeinde live seit v1.45.0)
+**Last Updated:** 2026-11-09 (Liste „Gästeblätter“ überarbeitet, live seit v1.46.0)
 
 ## Dependencies
 - Requires: PROJ-4 (Kundenkonten & Rollen): Rollen Inhaber/Mitarbeiter, gewählter Kunde
@@ -1322,3 +1322,4 @@ Die Lesefunktion der Auswertung nimmt das Herkunftsland der Adresse des Hauptgas
 - **Nachbesserung ausgeliefert:** 2026-11-09, Stand `2f8929d`, Tag `v1.44.0-PROJ-26`, Staging und Production; Migration `20261109081035_guest_sheets_email_images.sql`; Advisors nur „OTP-Ablauf“
 - **Rückmeldung nach dem Deploy (iPad):** Felder auf Seite 1 teils überlappend bzw. eng; Wunsch: E-Mail-Adresse auf Seite 2 erfassen, wenn der Hauptgast keine hat → umgesetzt (Abschnitt „Nachbesserung nach dem Deploy“)
 - **Erweiterung Kennzahl und Gästeblattnummer je Gemeinde ausgeliefert:** 2026-11-09, Stand `f56bbde`, Tag `v1.45.0-PROJ-26`, Staging und Production; Migrationen `20261109110308_guest_sheet_numbering.sql`, `20261109121212_guest_sheet_numbering_qa_fixes.sql`, `20261109121457_guest_sheet_options_id.sql`; Advisors nur „OTP-Ablauf“; kein `config push`, keine neuen Umgebungsvariablen. Nach dem Deploy: Nummernbereiche je Gemeinde in Einstellungen → Gästeblatt erfassen
+- **Überarbeitung Liste „Gästeblätter“ ausgeliefert:** 2026-11-09, Stand `0caaa95`, Tag `v1.46.0-PROJ-26`, Staging und Production; Migration `20261109144029_guest_sheet_register.sql`; Advisors nur „OTP-Ablauf“. Mit ausgeliefert (Dateien): `20261109131519_guest_sheet_ranges_geder.sql`, `20261109132026_guest_sheet_ranges_geder_fix.sql` (bereits vorher eingespielt)
