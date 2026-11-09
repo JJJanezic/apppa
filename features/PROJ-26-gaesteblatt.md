@@ -1,8 +1,8 @@
 # PROJ-26: Gästeblatt (Meldewesen)
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-11-08
-**Last Updated:** 2026-11-09 (Refine: Spalte „Unterschrieben am“ in der Liste, Gästeblattnummer in der Buchungsübersicht als PDF-Link)
+**Last Updated:** 2026-11-09 (Spalte „Unterschrieben am“ in der Liste, Gästeblattnummer in der Buchungsübersicht als PDF-Link, live seit v1.48.0)
 
 ## Dependencies
 - Requires: PROJ-4 (Kundenkonten & Rollen): Rollen Inhaber/Mitarbeiter, gewählter Kunde
@@ -1429,3 +1429,4 @@ Die Lesefunktion der Auswertung nimmt das Herkunftsland der Adresse des Hauptgas
 - **Rückmeldung nach dem Deploy (iPad):** Felder auf Seite 1 teils überlappend bzw. eng; Wunsch: E-Mail-Adresse auf Seite 2 erfassen, wenn der Hauptgast keine hat → umgesetzt (Abschnitt „Nachbesserung nach dem Deploy“)
 - **Erweiterung Kennzahl und Gästeblattnummer je Gemeinde ausgeliefert:** 2026-11-09, Stand `f56bbde`, Tag `v1.45.0-PROJ-26`, Staging und Production; Migrationen `20261109110308_guest_sheet_numbering.sql`, `20261109121212_guest_sheet_numbering_qa_fixes.sql`, `20261109121457_guest_sheet_options_id.sql`; Advisors nur „OTP-Ablauf“; kein `config push`, keine neuen Umgebungsvariablen. Nach dem Deploy: Nummernbereiche je Gemeinde in Einstellungen → Gästeblatt erfassen
 - **Überarbeitung Liste „Gästeblätter“ ausgeliefert:** 2026-11-09, Stand `0caaa95`, Tag `v1.46.0-PROJ-26`, Staging und Production; Migration `20261109144029_guest_sheet_register.sql`; Advisors nur „OTP-Ablauf“. Mit ausgeliefert (Dateien): `20261109131519_guest_sheet_ranges_geder.sql`, `20261109132026_guest_sheet_ranges_geder_fix.sql` (bereits vorher eingespielt)
+- **Unterschriftsdatum in der Liste, Gästeblattnummer als PDF-Link ausgeliefert:** 2026-11-09, Stand `c7134ab`, Tag `v1.48.0-PROJ-26`, Staging (https://staging.apppa.at) und Production (https://app.apppa.at), vom Nutzer geprüft; Migration `20261109213913_guest_sheet_register_signed_date.sql`; Advisors nur „OTP-Ablauf“; kein `config push`, keine neuen Umgebungsvariablen. Dev danach bereinigt (35 Testkunden, 9 Testnutzer, 124 Dateien, 7.125 Protokollzeilen)
