@@ -1,8 +1,8 @@
 # PROJ-26: Gästeblatt (Meldewesen)
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-11-08
-**Last Updated:** 2026-11-09 (refine: Kennzahl und Gästeblattnummer je Gemeinde; Grundumfang und Nachbesserung live seit v1.44.0)
+**Last Updated:** 2026-11-09 (Erweiterung Kennzahl und Gästeblattnummer je Gemeinde live seit v1.45.0)
 
 ## Dependencies
 - Requires: PROJ-4 (Kundenkonten & Rollen): Rollen Inhaber/Mitarbeiter, gewählter Kunde
@@ -1204,3 +1204,4 @@ Die Lesefunktion der Auswertung nimmt das Herkunftsland der Adresse des Hauptgas
 - **Kein** `config push`, keine neuen Umgebungsvariablen; neues npm-Paket `signature_pad` 5.1.4
 - **Nachbesserung ausgeliefert:** 2026-11-09, Stand `2f8929d`, Tag `v1.44.0-PROJ-26`, Staging und Production; Migration `20261109081035_guest_sheets_email_images.sql`; Advisors nur „OTP-Ablauf“
 - **Rückmeldung nach dem Deploy (iPad):** Felder auf Seite 1 teils überlappend bzw. eng; Wunsch: E-Mail-Adresse auf Seite 2 erfassen, wenn der Hauptgast keine hat → umgesetzt (Abschnitt „Nachbesserung nach dem Deploy“)
+- **Erweiterung Kennzahl und Gästeblattnummer je Gemeinde ausgeliefert:** 2026-11-09, Stand `f56bbde`, Tag `v1.45.0-PROJ-26`, Staging und Production; Migrationen `20261109110308_guest_sheet_numbering.sql`, `20261109121212_guest_sheet_numbering_qa_fixes.sql`, `20261109121457_guest_sheet_options_id.sql`; Advisors nur „OTP-Ablauf“; kein `config push`, keine neuen Umgebungsvariablen. Nach dem Deploy: Nummernbereiche je Gemeinde in Einstellungen → Gästeblatt erfassen
