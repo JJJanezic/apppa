@@ -1,6 +1,6 @@
 # PROJ-7: Gäste-Datenbank
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-10-26
 **Last Updated:** 2026-11-09 (refine: Staatsangehörigkeit optional)
 
@@ -172,6 +172,9 @@ Der Betreiber-Admin sieht Gästedaten von Kunden nicht über diese Bereiche. Gä
 ### Technical Decisions
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Spalte „Staatsangehörigkeit“ darf leer sein; Formatprüfung (zwei Großbuchstaben) bleibt für eingetragene Werte | Kleinste Änderung; bestehende Daten bleiben gültig (refine 2026-11-09) | 2026-11-09 |
+| Leere Eingabe wird überall als „keine Angabe“ gespeichert, nie als leerer Text | Eindeutige Abfragen und Auswertungen; die Formatprüfung der Datenbank lehnt leeren Text ab | 2026-11-09 |
+| Reisedokument auf dem Gästeblatt nur bei bekannter Staatsangehörigkeit ungleich Österreich | Ohne Angabe ist nicht entscheidbar, ob ein Dokument nötig ist; die Staatsangehörigkeit ist dort ohnehin Pflicht | 2026-11-09 |
 | Daten in Supabase, je Kunde abgeschottet (Muster PROJ-1) | Gästedaten sind geteilte Teamdaten und müssen geräteübergreifend und sicher getrennt sein | 2026-10-26 |
 | Betreiber-Admin darf Gäste lesen wie alle Kundendaten (ohne eigene Oberfläche) | Vom Nutzer entschieden; einheitliche Regel und einfacher Support | 2026-10-26 |
 | Mitarbeiter legen Gäste nur gemeinsam mit einer Buchung an (ein Datenbankvorgang in PROJ-8) | Setzt „Mitarbeiter nur sehen, Anlegen beim Buchen“ in der Datenbank durch; es entstehen keine Gäste ohne Buchung durch Mitarbeiter | 2026-10-26 |
@@ -216,6 +219,34 @@ Rückmeldung aus dem Betrieb: Bei Buchungen über booking.com kennt der Vermiete
 ### Edge Cases
 - Rechnungsentwurf und PDF zeigen die Staatsangehörigkeit nicht und sind nicht betroffen.
 - Gästeblatt-PDF: Ein Blatt entsteht nur mit Staatsangehörigkeit; ältere Fassungen sind unverändert.
+
+### Tech Design der Änderung „Staatsangehörigkeit optional“ (2026-11-09)
+
+#### Oberfläche
+```
+Gastformular (Gäste-Datenbank, neuer Gast im Buchungsformular, Rechnungsnacherfassung)
++-- Staatsangehörigkeit: Länderauswahl ohne Voreinstellung, Eintrag „Keine Angabe“ oben, kein Pflichtzeichen mehr
+Gästeliste, Gastdetail, Buchungsdetail, Dublettenvergleich
++-- ohne Angabe „–“
+Gästeblatt (PROJ-26), Seite 1
++-- Staatsangehörigkeit rot markiert, solange leer
++-- Bereich „Reisedokument“ erst mit eingetragener Staatsangehörigkeit (nicht Österreich)
+```
+
+#### Daten
+- **Gast:** Die Staatsangehörigkeit wird von „Pflicht“ auf „optional“ umgestellt. Eingetragene Werte prüft die Datenbank weiter auf zwei Großbuchstaben. Bestehende Gäste ändern sich nicht.
+- **Leere Eingabe = keine Angabe:** Alle Datenbankfunktionen, die Gäste schreiben, legen ein leeres Feld als „keine Angabe“ ab, nicht als leeren Text:
+  - neuer Gast im Buchungsformular und in der Rechnungsnacherfassung,
+  - Gast bearbeiten,
+  - Feld-Speichern auf dem Gästeblatt,
+  - Zusammenführen: die vorhandene Angabe gewinnt.
+- **Auswertung „Gästeherkunft“:** Sie nimmt schon heute das Herkunftsland der Adresse und ersatzweise die Staatsangehörigkeit. Fehlen beide, fällt der Gast in die bestehende Gruppe der unbekannten Werte; die Beschriftung lautet „Unbekannt“.
+- **Gästeblatt:** Die Pflichtprüfung der Datenbank verlangt die Staatsangehörigkeit schon heute; das bleibt. Die Regel „Reisedokument nötig“ gilt in App und Datenbank nur bei eingetragener Staatsangehörigkeit, die nicht Österreich ist.
+
+#### Für /frontend und /backend
+- **Frontend:** Prüfregel des Gastformulars (leer erlaubt), Länderauswahl mit „Keine Angabe“, Typen „Staatsangehörigkeit kann fehlen“, Anzeigen mit „–“, Gästeblatt-Regel für das Reisedokument und Beschriftung „Unbekannt“ in der Auswertung.
+- **Backend:** eine Migration, die die Spalte optional macht und die schreibenden Funktionen anpasst; Integrationstests für das Anlegen ohne Staatsangehörigkeit und für das Gästeblatt.
+- Keine neuen Pakete.
 
 ## Tech Design (Solution Architect)
 
