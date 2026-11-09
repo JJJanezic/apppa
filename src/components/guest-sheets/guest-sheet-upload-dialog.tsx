@@ -16,7 +16,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { todayIso } from '@/lib/bookings'
-import { GUEST_SHEET_BUCKET, GUEST_SHEET_PDF_MAX_BYTES, SHEET_NUMBER_MAX } from '@/lib/guest-sheet'
+import { GUEST_SHEET_BUCKET, GUEST_SHEET_PDF_MAX_BYTES } from '@/lib/guest-sheet'
 import { createClient } from '@/lib/supabase/client'
 import { sheetUploadSchema, type SheetUploadInput } from '@/lib/validation/guest-sheet'
 
@@ -33,8 +33,8 @@ type FileError = 'pdfInvalid' | 'pdfTooLarge' | 'uploadFailed' | 'fileMissing'
 
 const isPdf = (f: File) => f.type === 'application/pdf' || ((f.type === '' || f.type === 'application/octet-stream') && /\.pdf$/i.test(f.name))
 
-// „Gästeblatt hochladen“ (PROJ-26): altes Papier-Gästeblatt als PDF (bis 10 MB) mit Lfd.-Nr., „Unterschrieben am“ und
-// Marketing-Häkchen. Die Datei geht erst beim Speichern in den Speicher; Pflichtfelder an Gast oder Buchung prüft niemand.
+// „Gästeblatt hochladen“ (PROJ-26): altes Papier-Gästeblatt als PDF (bis 10 MB) mit „Unterschrieben am“ und
+// Marketing-Häkchen; die Lfd.-Nr. kommt aus der Buchung (nur lesen). Die Datei geht erst beim Speichern in den Speicher; Pflichtfelder an Gast oder Buchung prüft niemand.
 export function GuestSheetUploadDialog({ open, onOpenChange, bookingId, previousSheetId, sheetNumber, canConsent }: GuestSheetUploadDialogProps) {
   const t = useTranslations('guestSheets.upload')
   const tv = useTranslations('guestSheets.validation')
@@ -46,7 +46,7 @@ export function GuestSheetUploadDialog({ open, onOpenChange, bookingId, previous
   const schema = useMemo(() => sheetUploadSchema(tv), [tv])
   const form = useForm<SheetUploadInput>({
     resolver: zodResolver(schema, undefined, { raw: true }),
-    defaultValues: { sheetNumber: sheetNumber ?? '', signedOn: '', marketingConsent: false },
+    defaultValues: { signedOn: '', marketingConsent: false },
   })
 
   function choose(f: File) {
@@ -121,19 +121,12 @@ export function GuestSheetUploadDialog({ open, onOpenChange, bookingId, previous
               )}
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
-              <FormField
-                control={form.control}
-                name="sheetNumber"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t('sheetNumber')}</FormLabel>
-                    <FormControl>
-                      <Input maxLength={SHEET_NUMBER_MAX} autoComplete="off" className="min-h-11" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {/* Lfd.-Nr. aus der Buchung, nur lesen (Erweiterung 2026-11-09): nacherfasst wird sie im Buchungsformular */}
+              <div className="flex flex-col gap-2">
+                <span className="text-sm font-medium leading-none">{t('sheetNumber')}</span>
+                <p className="flex min-h-11 items-center break-words font-semibold">{sheetNumber ?? t('noNumber')}</p>
+                {!sheetNumber && <p className="text-[13px] text-ds-neutral-800">{t('noNumberHint')}</p>}
+              </div>
               <FormField
                 control={form.control}
                 name="signedOn"

@@ -2,6 +2,7 @@ import { z } from 'zod'
 
 import { isIsoDate } from '@/lib/bookings'
 import { GUEST_SHEET_TEXT_MAX, SHEET_NUMBER_MAX } from '@/lib/guest-sheet'
+import { checkRange, type NumberRange, SHEET_CODE_MAX, SHEET_CODE_PATTERN } from '@/lib/guest-sheet-numbering'
 import { DOCUMENT_TYPES, GENDERS, isCountry, isDocumentPath, LIMITS } from '@/lib/guests'
 import { checkDoc, docField } from '@/lib/validation/invoice-settings'
 
@@ -91,9 +92,9 @@ export type SheetCompanionInput = z.input<ReturnType<typeof sheetCompanionSchema
 export const sheetNumberSchema = (t: T) => optional(t, SHEET_NUMBER_MAX)
 
 // Hochladen eines alten Gästeblatts (Datei wird vorher direkt in den Speicher geladen)
+// Seit der Erweiterung 2026-11-09 ohne Nummernfeld: die Lfd.-Nr. kommt aus der Buchung
 export const sheetUploadSchema = (t: T) =>
   z.object({
-    sheetNumber: sheetNumberSchema(t),
     signedOn: pastDate(t, 'signedOnFuture'),
     marketingConsent: z.boolean(),
   })
@@ -111,3 +112,48 @@ export const guestSheetTextsSchema = (t: T) =>
     })
 
 export type GuestSheetTextsInput = z.input<ReturnType<typeof guestSheetTextsSchema>>
+
+// ---- Kennzahl und Gästeblattnummer je Gemeinde (Erweiterung 2026-11-09) ------------------------------------
+
+// Kennzahl: optional, Buchstaben, Ziffern, „-“, „/“, „.“, bis 30 Zeichen; führende Nullen bleiben
+export const establishmentNumberSchema = (t: T) =>
+  z
+    .string()
+    .trim()
+    .max(SHEET_CODE_MAX, t('codeTooLong', { max: SHEET_CODE_MAX }))
+    .refine((v) => v === '' || SHEET_CODE_PATTERN.test(v), t('codeInvalid'))
+    .transform((v) => v || null)
+
+export const establishmentNumbersSchema = (t: T) =>
+  z.object({
+    items: z.array(z.object({ code: z.string().regex(/^[1-9][0-9]{4}$/), number: establishmentNumberSchema(t) })).max(500),
+  })
+
+export type EstablishmentNumbersInput = z.input<ReturnType<typeof establishmentNumbersSchema>>
+
+const RANGE_MESSAGES: Record<string, string> = {
+  fromInvalid: 'rangeNumberInvalid',
+  toInvalid: 'rangeNumberInvalid',
+  nextInvalid: 'rangeNumberInvalid',
+  prefixDiffers: 'rangePrefixDiffers',
+  fromAfterTo: 'rangeFromAfterTo',
+  overlaps: 'rangeOverlaps',
+  nextOutside: 'rangeNextOutside',
+  toBelowUsed: 'rangeToBelowUsed',
+}
+
+// Nummernbereich: „von“, „bis“ und (nur beim ersten bzw. laufenden Bereich) „Nächste Nummer“; others = übrige Bereiche
+// derselben Gemeinde, lastIssued = zuletzt vergebene Nummer dieses Bereichs
+export const sheetRangeSchema = (t: T, others: NumberRange[] = [], lastIssued: string | null = null) =>
+  z
+    .object({
+      from: z.string().trim().max(SHEET_CODE_MAX, t('codeTooLong', { max: SHEET_CODE_MAX })),
+      to: z.string().trim().max(SHEET_CODE_MAX, t('codeTooLong', { max: SHEET_CODE_MAX })),
+      next: z.string().trim().max(SHEET_CODE_MAX, t('codeTooLong', { max: SHEET_CODE_MAX })),
+    })
+    .superRefine((v, ctx) => {
+      const issue = checkRange({ from: v.from, to: v.to, next: v.next }, others, lastIssued)
+      if (issue) ctx.addIssue({ code: 'custom', path: [issue.field], message: t(RANGE_MESSAGES[issue.issue] ?? 'unknown') })
+    })
+
+export type SheetRangeInput = z.input<ReturnType<typeof sheetRangeSchema>>

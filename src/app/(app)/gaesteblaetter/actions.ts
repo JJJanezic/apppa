@@ -16,7 +16,6 @@ import {
   type SheetCompanionInput,
   sheetGuestSchema,
   type SheetGuestInput,
-  sheetNumberSchema,
   sheetUploadSchema,
   type SheetUploadInput,
 } from '@/lib/validation/guest-sheet'
@@ -43,6 +42,8 @@ const DB_ERRORS: Record<string, ErrorCode> = {
   P0978: 'guestAnonymized',
   P0979: 'tooManyCompanions',
   P0980: 'pdfInvalid',
+  // Erweiterung 2026-11-09: Hochladen nur mit „Gästeblätter nacherfassen“
+  P0987: 'backfillOff',
 }
 
 function dbFail(error: { code?: string; message?: string }, context: string, stale: ErrorCode = 'staleBooking'): Failure {
@@ -127,30 +128,6 @@ export async function saveSheetGuest(input: {
   return { ok: true, data: { updatedAt: data as string } }
 }
 
-// Lfd.-Nr. = Gästeblattnummer der Buchung (PROJ-30)
-export async function saveSheetNumber(input: {
-  tenantId: string
-  bookingId: string
-  updatedAt: string
-  value: string
-}): Promise<ActionResult<{ updatedAt: string }, ErrorCode>> {
-  const guard = await requireTenant(input?.tenantId)
-  if (!guard.ok) return guard
-  if (!isId(input.bookingId) || typeof input.updatedAt !== 'string') return fail('unknown')
-  const parsed = sheetNumberSchema(key).safeParse(input.value)
-  if (!parsed.success) return fail('sheetNumberTooLong')
-  const supabase = await untyped()
-  const { data, error } = await supabase.rpc('save_guest_sheet_field', {
-    p_booking_id: input.bookingId,
-    p_target: 'booking',
-    p_values: { guest_sheet_number: parsed.data },
-    p_expected_updated_at: input.updatedAt,
-  })
-  if (error) return dbFail(error, 'Lfd.-Nr. speichern')
-  revalidate(input.bookingId)
-  return { ok: true, data: { updatedAt: data as string } }
-}
-
 // Mitreisende der Buchung; „Von der Ortstaxe befreit“ (PROJ-15) kommt unverändert mit
 export async function saveSheetCompanions(input: {
   tenantId: string
@@ -216,7 +193,6 @@ export async function registerGuestSheetUpload(input: {
     p_input: {
       booking_id: input.bookingId,
       pdf_path: input.path,
-      sheet_number: parsed.data.sheetNumber,
       signed_on: parsed.data.signedOn,
       marketing_consent: parsed.data.marketingConsent,
       previous_sheet_id: input.previousSheetId,

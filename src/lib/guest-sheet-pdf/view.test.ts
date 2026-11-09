@@ -7,6 +7,7 @@ const snapshot: GuestSheetSnapshot = {
   version: 1,
   tenantName: 'Pichler Ferienwohnungen',
   sheetNumber: '2026/17',
+  establishmentNumber: '00123',
   guest: {
     lastName: 'Rossi',
     firstName: 'Giulia',
@@ -54,6 +55,7 @@ describe('PDF-Vorlage des Gästeblatts', () => {
   it('übernimmt die eingefrorene Fassung', () => {
     const v = build(null)
     expect(v.establishment).toBe('Pichler Ferienwohnungen')
+    expect(v.establishmentNumber).toBe('00123')
     expect(v.guest.firstNames).toBe('Dott. Giulia')
     expect(v.guest.birthDate).toBe('03.04.1985')
     expect(v.guest.nationality).toBe('Italien')

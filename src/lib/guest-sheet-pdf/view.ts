@@ -86,6 +86,7 @@ export function buildGuestSheetPdfView(p: GuestSheetPdfInput): GuestSheetPdfView
     genders: GENDERS.map((value) => ({ value, label: p.genderLabel(value) })),
     sheetNumber: s.sheetNumber ?? '',
     establishment: s.tenantName,
+    establishmentNumber: s.establishmentNumber ?? '',
     guest: {
       lastName: g.lastName,
       // Titel stehen beim Vornamen, damit der Familienname wie auf dem Formular allein steht

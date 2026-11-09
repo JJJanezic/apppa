@@ -18,6 +18,8 @@ export type GuestSheetPdfView = {
   genders: { value: Gender; label: string }[]
   sheetNumber: string
   establishment: string
+  // Kennzahl des Betriebs in der Gemeinde (leer = keine)
+  establishmentNumber: string
   guest: {
     lastName: string
     firstNames: string

@@ -13,13 +13,16 @@ import { Input } from '@/components/ui/input'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { formatDate } from '@/lib/format'
-import { needsTravelDocument, type SheetGaps, SHEET_NUMBER_MAX } from '@/lib/guest-sheet'
+import { needsTravelDocument, type SheetGaps } from '@/lib/guest-sheet'
 import { DOCUMENT_TYPES, GENDERS, LIMITS } from '@/lib/guests'
 import { cn } from '@/lib/utils'
 import type { SheetForm } from '@/components/guest-sheets/signing/sheet-form'
 
 interface SheetPageOneProps {
   tenantName: string
+  // Lfd.-Nr. der Buchung (null = wird beim „Fertig“ vergeben) und Kennzahl der Gemeinde, beide nur lesen (Erweiterung 2026-11-09)
+  sheetNumber: string | null
+  establishmentNumber: string | null
   stay: { arrival: string; plannedDeparture: string; persons: number }
   gaps: SheetGaps
   // nach jeder Auswahl in Listen sofort speichern (Textfelder speichern beim Verlassen)
@@ -41,7 +44,7 @@ type TextName = Exclude<
 
 // Seite 1 „Meldedaten“ des Gästeblatts (PROJ-26): Aufbau wie das amtliche Gästeverzeichnisblatt (ohne Reisegruppen).
 // Fehlende Pflichtangaben sind markiert und per Tastatur ergänzbar.
-export function SheetPageOne({ tenantName, stay, gaps, onCommit, documentWaiting, imagesOnFile }: SheetPageOneProps) {
+export function SheetPageOne({ tenantName, sheetNumber, establishmentNumber, stay, gaps, onCommit, documentWaiting, imagesOnFile }: SheetPageOneProps) {
   const t = useTranslations('guestSheets.signing')
   const tg = useTranslations('guests.gender')
   const tdt = useTranslations('guests.documentType')
@@ -105,8 +108,15 @@ export function SheetPageOne({ tenantName, stay, gaps, onCommit, documentWaiting
   return (
     <div className="flex flex-col gap-6">
       {/* Kopf wie auf dem Formular */}
-      <section className="grid gap-4 rounded-lg border bg-ds-surface p-4 sm:grid-cols-[minmax(0,12rem)_1fr]">
-        {text('sheetNumber', t('sheetNumber'), { max: SHEET_NUMBER_MAX })}
+      <section className="grid gap-4 rounded-lg border bg-ds-surface p-4 sm:grid-cols-[minmax(0,12rem)_minmax(0,12rem)_1fr]">
+        <div className="flex flex-col gap-2">
+          <span className="text-sm font-medium leading-none">{t('sheetNumber')}</span>
+          <p className={cn('flex min-h-11 items-center break-words', sheetNumber ? 'font-semibold' : 'text-ds-neutral-800')}>{sheetNumber ?? t('sheetNumberPending')}</p>
+        </div>
+        <div className="flex flex-col gap-2">
+          <span className="text-sm font-medium leading-none">{t('kennzahl')}</span>
+          <p className="flex min-h-11 items-center break-words font-semibold">{establishmentNumber ?? '–'}</p>
+        </div>
         <div className="flex flex-col gap-2">
           <span className="text-sm font-medium leading-none">{t('establishment')}</span>
           <p className="flex min-h-11 items-center break-words font-semibold">{tenantName}</p>

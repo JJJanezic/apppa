@@ -26,8 +26,22 @@ const schema = z.object({
   signature2: signature,
 })
 
-type FinishError = 'sessionExpired' | 'forbidden' | 'invalid' | 'notExpected' | 'staleBooking' | 'incomplete' | 'sheetExists' | 'notImplemented' | 'unknown'
-const answer = (body: { ok: true; id: string } | { ok: false; error: FinishError; currentSheetId?: string }, status = 200) =>
+type FinishError =
+  | 'sessionExpired'
+  | 'forbidden'
+  | 'invalid'
+  | 'notExpected'
+  | 'staleBooking'
+  | 'incomplete'
+  | 'sheetExists'
+  | 'notImplemented'
+  | 'noSheetNumber'
+  | 'unknown'
+// bookingUpdatedAt: neuer Stand der Buchung, wenn die Nummer vergeben wurde und danach etwas scheiterte (erneutes „Fertig“)
+const answer = (
+  body: { ok: true; id: string } | { ok: false; error: FinishError; currentSheetId?: string; bookingUpdatedAt?: string },
+  status = 200
+) =>
   Response.json(body, { status, headers: { 'cache-control': 'no-store' } })
 
 // PDF, Ablage und Festschreiben dürfen länger dauern als die Standardgrenze
@@ -58,11 +72,43 @@ export async function POST(request: Request) {
   if (!sheetComplete(sheetGaps(guest, data.companions, data.booking.persons))) return answer({ ok: false, error: 'incomplete' }, 409)
   if (data.currentSheetId !== input.previousSheetId) return answer({ ok: false, error: 'sheetExists', currentSheetId: data.currentSheetId ?? undefined }, 409)
 
+  // Gästeblattnummer (Erweiterung 2026-11-09): Hat die Buchung keine, vergibt die Datenbank die nächste freie der Gemeinde
+  // (Sperre gegen gleichzeitige Vergabe, belegte übersprungen, Sprung in den nächsten Bereich) und schreibt sie an die
+  // Buchung. Scheitert danach etwas, bleibt die Nummer dort und ein erneutes „Fertig“ nimmt sie wieder.
+  const admin = createAdminClient()
+  let sheetNumber = data.booking.sheetNumber
+  let bookingUpdatedAt = input.bookingUpdatedAt
+  if (!sheetNumber) {
+    const { data: assigned, error: assignError } = await admin.rpc('assign_guest_sheet_number' as never, {
+      p_booking_id: data.booking.id,
+      p_actor_id: user.userId,
+      p_expected_updated_at: input.bookingUpdatedAt,
+    } as never)
+    const code = (assignError as { code?: string } | null)?.code
+    if (code === 'P0986') return answer({ ok: false, error: 'noSheetNumber' }, 409)
+    if (code === 'P0975') return answer({ ok: false, error: 'staleBooking' }, 409)
+    // Funktion fehlt (Umgebung ohne Migration): Blatt ohne Nummer wie bisher
+    if (assignError && code !== '42883' && code !== 'PGRST202') {
+      console.error('[gaesteblatt] Nummer nicht vergeben', code, (assignError as { message?: string }).message)
+      return answer({ ok: false, error: 'unknown' }, 500)
+    }
+    const result = assigned as unknown as { sheet_number: string; updated_at: string } | null
+    if (result) {
+      sheetNumber = result.sheet_number
+      bookingUpdatedAt = result.updated_at
+    }
+  }
+
+  // Antworten nach der Vergabe tragen den neuen Stand der Buchung mit
+  const failAfter = (error: FinishError, status: number) =>
+    answer({ ok: false, error, bookingUpdatedAt: bookingUpdatedAt !== input.bookingUpdatedAt ? bookingUpdatedAt : undefined }, status)
+
   const now = Date.now()
   const snapshot: GuestSheetSnapshot = {
     version: 1,
     tenantName: data.tenantName,
-    sheetNumber: data.booking.sheetNumber,
+    sheetNumber,
+    establishmentNumber: data.establishmentNumber,
     guest: {
       lastName: guest.lastName,
       firstName: guest.firstName,
@@ -97,10 +143,9 @@ export async function POST(request: Request) {
     pdf = (await renderGuestSheet({ snapshot, departure: null, signatures: { first: input.signature1.image, second: input.signature2.image } })).pdf
   } catch (e) {
     console.error('[gaesteblatt] PDF nicht erzeugt', e instanceof Error ? e.message : e)
-    return answer({ ok: false, error: 'unknown' }, 500)
+    return failAfter('unknown', 500)
   }
 
-  const admin = createAdminClient()
   const storage = admin.storage.from(GUEST_SHEET_BUCKET)
   const png = (dataUrl: string) => Buffer.from(dataUrl.slice(dataUrl.indexOf(',') + 1), 'base64')
   const paths = { pdf: `${active.id}/${randomUUID()}.pdf`, first: `${active.id}/${randomUUID()}.png`, second: `${active.id}/${randomUUID()}.png` }
@@ -114,9 +159,9 @@ export async function POST(request: Request) {
   if (uploadError) {
     await remove()
     // Speicherbereich fehlt noch (Migration nicht eingespielt)
-    if (/not found/i.test(uploadError.message)) return answer({ ok: false, error: 'notImplemented' }, 501)
+    if (/not found/i.test(uploadError.message)) return failAfter('notImplemented', 501)
     console.error('[gaesteblatt] Dateien nicht abgelegt', uploadError.message)
-    return answer({ ok: false, error: 'unknown' }, 500)
+    return failAfter('unknown', 500)
   }
 
   const { data: id, error } = await admin.rpc('finish_guest_sheet' as never, {
@@ -125,7 +170,7 @@ export async function POST(request: Request) {
       booking_id: data.booking.id,
       guest_id: guest.id,
       actor_id: user.userId,
-      booking_updated_at: input.bookingUpdatedAt,
+      booking_updated_at: bookingUpdatedAt,
       guest_updated_at: input.guestUpdatedAt,
       previous_sheet_id: input.previousSheetId,
       sheet_number: snapshot.sheetNumber,
@@ -144,23 +189,23 @@ export async function POST(request: Request) {
     const code = (error as { code?: string }).code
     switch (code) {
       case 'P0973':
-        return answer({ ok: false, error: 'sheetExists' }, 409)
+        return failAfter('sheetExists', 409)
       case 'P0975':
-        return answer({ ok: false, error: 'staleBooking' }, 409)
+        return failAfter('staleBooking', 409)
       case 'P0974':
-        return answer({ ok: false, error: 'incomplete' }, 409)
+        return failAfter('incomplete', 409)
       case 'P0976':
       case 'P0977':
       case 'P0978':
-        return answer({ ok: false, error: 'notExpected' }, 409)
+        return failAfter('notExpected', 409)
       case 'P0016':
-        return answer({ ok: false, error: 'forbidden' }, 403)
+        return failAfter('forbidden', 403)
       case '42883':
       case 'PGRST202':
-        return answer({ ok: false, error: 'notImplemented' }, 501)
+        return failAfter('notImplemented', 501)
     }
     console.error('[gaesteblatt] Nicht festgeschrieben', code, (error as { message?: string }).message)
-    return answer({ ok: false, error: 'unknown' }, 500)
+    return failAfter('unknown', 500)
   }
   revalidatePath(bookingHref(data.booking.id))
   revalidatePath(guestSheetListHref)

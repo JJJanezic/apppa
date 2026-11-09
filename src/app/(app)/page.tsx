@@ -8,6 +8,7 @@ import { Suspense } from 'react'
 import { OccupancyCalendar } from '@/components/calendar/occupancy-calendar'
 import { DashboardKpis, DashboardKpisSkeleton, DashboardLead } from '@/components/dashboard/dashboard-kpis'
 import { DashboardNotice } from '@/components/dashboard/dashboard-notice'
+import { GuestSheetNumberAlerts } from '@/components/dashboard/guest-sheet-number-alerts'
 import { OpenInvoicesSection } from '@/components/dashboard/open-invoices-section'
 import { SectionSkeleton } from '@/components/dashboard/section'
 import { TenantFilter } from '@/components/dashboard/tenant-filter'
@@ -103,6 +104,10 @@ async function DashboardBody({ scope, today, params }: { scope: DashboardScope; 
       {scope.tenants.length > 1 && <TenantFilter tenants={scope.tenants.map((s) => ({ id: s.id, name: s.name }))} value={scope.filter} />}
       <Suspense fallback={<DashboardKpisSkeleton />}>
         <DashboardKpis scope={scope} today={today} />
+      </Suspense>
+      {/* Gästeblattnummern je Gemeinde (PROJ-26): nur wenn es etwas zu melden gibt */}
+      <Suspense fallback={null}>
+        <GuestSheetNumberAlerts scope={scope} />
       </Suspense>
       <div className="min-w-0">
         <OccupancyCalendar variant="dashboard" searchParams={params} tenants={tenants} />

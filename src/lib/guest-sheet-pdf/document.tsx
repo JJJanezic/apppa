@@ -98,7 +98,9 @@ export function GuestSheetDocument({ view, familyOf, onPages }: { view: GuestShe
         {/* Kopf: Titel, Kennzahl, Name des Beherbergungsbetriebes, Lfd.-Nr. */}
         <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 4 }}>
           <Text style={{ fontSize: 18, fontWeight: 700, width: 250 }}>{l.title}</Text>
-          <Text style={{ fontSize: 9, width: 150, paddingTop: 5 }}>{l.kennzahl}</Text>
+          <Text style={{ fontSize: 9, width: 150, paddingTop: 5 }}>
+            {l.kennzahl} <Text style={{ fontWeight: 700 }}>{view.establishmentNumber}</Text>
+          </Text>
           <Text style={{ fontSize: 9, flex: 1, paddingTop: 5 }}>
             {l.establishment} <Text style={{ fontWeight: 700 }}>{view.establishment}</Text>
           </Text>

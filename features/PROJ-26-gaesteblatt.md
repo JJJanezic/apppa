@@ -1,6 +1,6 @@
 # PROJ-26: Gästeblatt (Meldewesen)
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-11-08
 **Last Updated:** 2026-11-09 (refine: Kennzahl und Gästeblattnummer je Gemeinde; Grundumfang und Nachbesserung live seit v1.44.0)
 
@@ -627,6 +627,52 @@ PDF Seite 1
     - Buchung speichern ohne Feld.
     - Rechte.
   - E2E: die Akzeptanzkriterien oben.
+
+
+### Implementation Notes Erweiterung (Frontend, 2026-11-09)
+- **Nummernregel** `src/lib/guest-sheet-numbering.ts` (+ Tests): `parseSheetNumber`, `incrementSheetNumber`, `sameSheetNumber`, `inRange`, `checkRange`, `countBetween`, `numberingState` (ok/low ≤ 10/exhausted/unset), `canIssueSheet`.
+- **Lesen** `src/lib/guest-sheet-numbering-data.ts`: `loadEstablishmentNumbers`, `loadSheetNumbering`, `getGuestSheetBackfill` (je Anfrage), `getBookingNumbering`, `getNumberAlerts`; ohne Migration leere Ergebnisse, Schalter aus. `getSigningData` liefert zusätzlich `establishmentNumber` (`loadEstablishmentNumber`).
+- **Aktionen** `src/app/(app)/einstellungen/gaesteblatt/numbering-actions.ts` (Inhaber des gewählten Kunden und Betreiber): `saveEstablishmentNumbers`, `saveSheetNumberRange`, `deleteSheetNumberRange`, `saveGuestSheetBackfill`.
+- **Oberfläche:**
+  - Stammdaten: `EstablishmentNumbersForm` unter dem Stammdaten-Formular (auch Betreiber-Kundenseite).
+  - Einstellungen → Gästeblatt: `GuestSheetNumberingSections` mit `SheetNumberingSettings` (Karte je Gemeinde, Tabelle, `RangeDialog`, Löschen nur „Folgt“) und `SheetBackfillSwitch` über den Texten (auch Betreiber-Kundenseite, Abschnitt „Gästeblatt“).
+  - Buchungsdetail: `NumberNotice` und gesperrter Knopf „Gästeblatt“ ohne freie Nummer; „Gästeblatt hochladen“ nur mit Schalter. Upload-Dialog ohne Nummernfeld (Nummer nur lesen, „ohne Nummer“ mit Hinweis).
+  - Buchungsformular: Feld „Gästeblattnummer“ nur mit Schalter (`GuestSheetBackfillProvider` im App-Layout). `saveBooking` schickt `guest_sheet_number`/`confirm_guest_sheet_number` nur bei eingeschaltetem Schalter.
+  - Vollbild Seite 1: Lfd.-Nr. („wird beim Abschluss vergeben“) und Kennzahl nur lesen. Die Aktion `saveSheetNumber` und das Nummernfeld auf dem Blatt sind entfernt. Ohne freie Nummer erklärt die Seite das (`blocked.noNumber`).
+  - Dashboard: `GuestSheetNumberAlerts` unter den Kacheln.
+  - PDF: Kennzahl im Kopf aus der Fassung (`establishmentNumber`).
+- **Fertig-Schnittstelle:**
+  - Vor der Fassung `assign_guest_sheet_number`, nur wenn die Buchung keine Nummer hat. Fehler: P0986 → `noSheetNumber`, P0975 → `staleBooking`. Fehlt die Funktion, entsteht das Blatt ohne Nummer.
+  - Antworten nach der Vergabe tragen `bookingUpdatedAt`; der Browser übernimmt den Stand für das erneute „Fertig“.
+- **Texte:** `guestSheets.numbering`, `.backfill`, `.establishment`, neue Fehler- und Prüfmeldungen; Hinweistexte im Buchungsformular angepasst.
+
+#### Erwartete Datenbank-Schnittstellen (für /backend)
+- **Tabellen:**
+  - `establishment_numbers`: tenant_id, municipality_code, establishment_number, Stempel; eindeutig je Kunde und Gemeinde.
+  - `guest_sheet_number_ranges`: id, tenant_id, municipality_code, position, range_from, range_to, next_number, exhausted_at, updated_at.
+  - Spalte `tenants.guest_sheet_backfill_enabled`, Startwerte laut Spec.
+- **Sichten** (security_invoker; Mitglieder und Betreiber lesen):
+  - `establishment_number_list`: tenant_id, municipality_code, municipality_name, establishment_number, has_properties.
+  - `guest_sheet_numbering`: tenant_id, tenant_name, municipality_code, municipality_name, next_number (nächste wirklich freie), free_count, has_ranges, has_apartments (nicht archivierte Wohnung); je Gemeinde mit Objekten.
+  - `guest_sheet_number_range_list`: id, tenant_id, municipality_code, position, range_from, range_to, next_number, state active/queued/exhausted, exhausted_at, last_issued, updated_at.
+- **Funktionen:**
+  - `save_establishment_numbers(p_tenant_id, p_items [{municipality_code, establishment_number}])`
+  - `save_guest_sheet_number_range(p_input {tenant_id, municipality_code, id, updated_at, range_from, range_to, next_number})`
+  - `delete_guest_sheet_number_range(p_id, p_expected_updated_at)`
+  - `save_guest_sheet_backfill(p_tenant_id, p_enabled)`
+  - `assign_guest_sheet_number(p_booking_id, p_actor_id, p_expected_updated_at)`, nur service role, liefert {sheet_number, updated_at}.
+- **Fehlercodes:**
+  - P0982: Stand der Bereiche.
+  - P0983: Überschneidung.
+  - P0984: ungültiger Bereich.
+  - P0985: Bereich gesperrt.
+  - P0986: keine Nummer.
+  - P0987: Hochladen ohne Schalter.
+- **Anzupassen:**
+  - `save_booking`: fehlender Schlüssel `guest_sheet_number` = unverändert; Doppelt-Prüfung je Gemeinde. Das gilt auch für `booking_warnings`/`guest_sheet_duplicates`.
+  - `register_guest_sheet_upload`: Nummer aus der Buchung, Schalter prüfen.
+  - `save_guest_sheet_field`: Ziel „booking“ ohne `guest_sheet_number`.
+  - `admin_delete_tenant`: neue Tabellen.
 
 ## Tech Design (Solution Architect)
 

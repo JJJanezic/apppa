@@ -271,6 +271,8 @@ export type SigningData = {
     apartmentLabel: string
     updatedAt: string
   }
+  // Kennzahl des Kunden für die Gemeinde der Buchung (Erweiterung 2026-11-09); null = keine
+  establishmentNumber: string | null
   guest: SigningGuest | null
   // Mitreisende in der Reihenfolge der Buchung; „Von der Ortstaxe befreit“ bleibt beim Speichern erhalten
   companions: (SheetCompanion & { taxExempt: boolean })[]
@@ -347,7 +349,7 @@ type BookingDb = {
   guest_sheet_number: string | null
   updated_at: string
   guest: GuestDb | null
-  apartment: { name: string; property: { name: string } }
+  apartment: { name: string; property: { name: string; municipality_code: string } }
   companions: { position: number; first_name: string; last_name: string; birth_date: string | null; tourist_tax_exempt: boolean }[]
 }
 
@@ -360,7 +362,7 @@ export async function getSigningData(bookingId: string, locale = 'de'): Promise<
   const { data, error } = await supabase
     .from('bookings')
     .select(
-      `id, number, kind, cancelled_at, residence_registered, arrival, planned_departure, departure, adults, child_ages, guest_sheet_number, updated_at, guest:guests(${GUEST_COLUMNS}), apartment:apartments!inner(name, property:properties!inner(name)), companions:booking_companions(position, first_name, last_name, birth_date, tourist_tax_exempt)`
+      `id, number, kind, cancelled_at, residence_registered, arrival, planned_departure, departure, adults, child_ages, guest_sheet_number, updated_at, guest:guests(${GUEST_COLUMNS}), apartment:apartments!inner(name, property:properties!inner(name, municipality_code)), companions:booking_companions(position, first_name, last_name, birth_date, tourist_tax_exempt)`
     )
     .eq('id', bookingId)
     .eq('tenant_id', tenantId)
@@ -368,7 +370,12 @@ export async function getSigningData(bookingId: string, locale = 'de'): Promise<
   if (error) console.error('[gaesteblatt] Buchung nicht lesbar', error.message)
   if (!data) notFound()
   const b = data as unknown as BookingDb
-  const [issuer, texts, sheets] = await Promise.all([loadIssuer(supabase, tenantId), loadTexts(supabase, tenantId), getBookingGuestSheets(bookingId)])
+  const [issuer, texts, sheets, establishmentNumber] = await Promise.all([
+    loadIssuer(supabase, tenantId),
+    loadTexts(supabase, tenantId),
+    getBookingGuestSheets(bookingId),
+    loadEstablishmentNumber(supabase, tenantId, b.apartment.property.municipality_code),
+  ])
   return {
     tenantId,
     tenantName: issuer.name,
@@ -386,6 +393,7 @@ export async function getSigningData(bookingId: string, locale = 'de'): Promise<
       apartmentLabel: apartmentLabel(b.apartment.property.name, b.apartment.name),
       updatedAt: b.updated_at,
     },
+    establishmentNumber,
     guest: b.guest ? signingGuestOf(b.guest) : null,
     companions: [...b.companions]
       .sort((x, y) => x.position - y.position)
@@ -393,4 +401,16 @@ export async function getSigningData(bookingId: string, locale = 'de'): Promise<
     currentSheetId: sheets.current?.id ?? null,
     texts: filledTexts(texts, issuer, locale),
   }
+}
+
+// Kennzahl des Kunden für eine Gemeinde (Erweiterung 2026-11-09); fehlt die Tabelle noch, keine
+export async function loadEstablishmentNumber(supabase: SupabaseClient, tenantId: string, municipalityCode: string): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('establishment_numbers')
+    .select('establishment_number')
+    .eq('tenant_id', tenantId)
+    .eq('municipality_code', municipalityCode)
+    .maybeSingle()
+  if (error && !isMissingRelation(error)) console.error('[gaesteblatt] Kennzahl nicht lesbar', error.message)
+  return (data as { establishment_number: string | null } | null)?.establishment_number ?? null
 }

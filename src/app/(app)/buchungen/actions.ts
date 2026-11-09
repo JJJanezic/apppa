@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation'
 import type { ActionResult, CommonErrorCode } from '@/lib/auth/result'
 import { getSessionUser, pendingMfaStep } from '@/lib/auth/session'
 import { type BlockReason, type BookingErrorCode, type BookingKind, type BookingWarnings, isIsoDate, isPlatformSource, LIMITS, normalizePlatformNumber } from '@/lib/bookings'
+import { getGuestSheetBackfill } from '@/lib/guest-sheet-numbering-data'
 import { guestCompanyPayload, guestDbColumns } from '@/lib/guests-data'
 import { createClient } from '@/lib/supabase/server'
 import { getTenantContext, type TenantSummary } from '@/lib/tenant'
@@ -239,6 +240,10 @@ export async function saveBooking(input: SaveBooking): Promise<Result<{ id: stri
     newGuest = { ...guestDbColumns(guest.data), ...guestCompanyPayload(guest.data.company) }
   }
 
+  // Gästeblattnummer nur mit „Gästeblätter nacherfassen“ (PROJ-26, Erweiterung 2026-11-09); sonst fehlt der Schlüssel und
+  // die Datenbank lässt eine vorhandene Nummer unverändert (auch eine beim „Fertig“ vergebene)
+  const sheetNumber = (await getGuestSheetBackfill()) ? { guest_sheet_number: v.guestSheetNumber, confirm_guest_sheet_number: input.confirmGuestSheet === true } : {}
+
   const supabase = await createClient()
   const { data, error } = await supabase.rpc('save_booking', {
     p_input: {
@@ -253,8 +258,7 @@ export async function saveBooking(input: SaveBooking): Promise<Result<{ id: stri
       departure: v.departure,
       check_in: v.checkIn,
       check_out: v.checkOut,
-      guest_sheet_number: v.guestSheetNumber,
-      confirm_guest_sheet_number: input.confirmGuestSheet === true,
+      ...sheetNumber,
       residence_registered: v.residenceRegistered,
       // Ortstaxe (PROJ-15): Häkchen für alle Mitglieder; Zustand und Neuberechnung wertet die Datenbank nur für
       // Inhaber aus, die Abgabe-Beträge rechnet sie im Zustand „automatisch“ selbst

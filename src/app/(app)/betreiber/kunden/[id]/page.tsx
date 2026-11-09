@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { getTranslations } from 'next-intl/server'
 
+import { GuestSheetNumberingSections } from '@/components/guest-sheets/numbering/guest-sheet-numbering-sections'
 import { InvoiceSettings } from '@/components/invoice-settings/invoice-settings'
 import { LetterheadSettings } from '@/components/letterhead/letterhead-settings'
 import { OperatorInvitations } from '@/components/operator/operator-invitations'
@@ -12,9 +13,11 @@ import { OwnerInvitePanel } from '@/components/operator/owner-invite-panel'
 import { TenantDangerZone } from '@/components/operator/tenant-danger-zone'
 import { TenantStatusBadge } from '@/components/operator/tenant-status-badge'
 import { PageHeader } from '@/components/page-header'
+import { EstablishmentNumbersForm } from '@/components/tenant/establishment-numbers-form'
 import { TenantMasterDataForm } from '@/components/tenant/tenant-master-data-form'
 import { requireArea } from '@/lib/areas'
 import { formatDate } from '@/lib/format'
+import { loadEstablishmentNumbers, loadSheetNumbering } from '@/lib/guest-sheet-numbering-data'
 import { loadInvoiceSettings } from '@/lib/invoice-settings-data'
 import { countRetainedInvoices } from '@/lib/invoices-data'
 import { loadLetterhead } from '@/lib/letterhead-data'
@@ -27,12 +30,18 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   return { title: tenant.name }
 }
 
-// Detailseite eines Kunden: Status, Stammdaten (PROJ-28), Rechnungen (PROJ-39), Mitglieder, Einladungen, Protokoll und Aktionen (PROJ-5)
+// Detailseite eines Kunden: Status, Stammdaten (PROJ-28), Kennzahlen und Gästeblattnummern (PROJ-26), Rechnungen (PROJ-39), Mitglieder, Einladungen, Protokoll und Aktionen (PROJ-5)
 export default async function TenantDetailPage({ params }: { params: Params }) {
   await requireArea('operator')
   const { id } = await params
   const t = await getTranslations('operator')
-  const [tenant, invoiceSettings, letterhead] = await Promise.all([getTenantDetail(id), loadInvoiceSettings(id), loadLetterhead(id)])
+  const [tenant, invoiceSettings, letterhead, establishment, numbering] = await Promise.all([
+    getTenantDetail(id),
+    loadInvoiceSettings(id),
+    loadLetterhead(id),
+    loadEstablishmentNumbers(id),
+    loadSheetNumbering(id),
+  ])
   const deactivated = tenant.status === 'deactivated'
 
   return (
@@ -57,11 +66,25 @@ export default async function TenantDetailPage({ params }: { params: Params }) {
         <TenantMasterDataForm key={tenant.masterData.updatedAt} data={tenant.masterData} mode="operator" readOnly={deactivated} />
       </section>
 
+      <EstablishmentNumbersForm
+        key={establishment.items.map((i) => `${i.code}:${i.number ?? ''}`).join('|')}
+        tenantId={tenant.id}
+        items={establishment.items}
+        ready={establishment.ready}
+        readOnly={deactivated}
+        level={2}
+      />
+
       <LetterheadSettings key={letterhead.updatedAt} data={letterhead} readOnly={deactivated} />
 
       <section className="flex flex-col gap-4">
         <h2 className="text-2xl">{t('invoiceSettingsTitle')}</h2>
         <InvoiceSettings tenantId={tenant.id} data={invoiceSettings} level={3} readOnly={deactivated} />
+      </section>
+
+      <section className="flex flex-col gap-4">
+        <h2 className="text-2xl">{t('guestSheetSettingsTitle')}</h2>
+        <GuestSheetNumberingSections tenantId={tenant.id} data={numbering} level={3} readOnly={deactivated} />
       </section>
 
       <section className="flex flex-col gap-4">

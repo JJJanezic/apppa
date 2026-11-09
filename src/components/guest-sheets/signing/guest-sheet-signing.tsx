@@ -7,7 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { z } from 'zod'
 
-import { saveSheetCompanions, saveSheetGuest, saveSheetNumber } from '@/app/(app)/gaesteblaetter/actions'
+import { saveSheetCompanions, saveSheetGuest } from '@/app/(app)/gaesteblaetter/actions'
 import { callAction } from '@/components/auth/form-error'
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { initialSheetForm, sameCompanionInput, sheetCompanionsOf, type SheetForm, sheetGuestOf } from '@/components/guest-sheets/signing/sheet-form'
@@ -22,14 +22,24 @@ import { bookingHref } from '@/lib/bookings'
 import { isDocumentField, SHEET_GUEST_FIELDS, sheetComplete, sheetGaps, type SheetGuestField } from '@/lib/guest-sheet'
 import type { SigningData } from '@/lib/guest-sheets-data'
 import { cn } from '@/lib/utils'
-import { sheetCompanionSchema, sheetGuestSchema, sheetNumberSchema } from '@/lib/validation/guest-sheet'
+import { sheetCompanionSchema, sheetGuestSchema } from '@/lib/validation/guest-sheet'
 
 // Nach der letzten Eingabe so lange warten, bevor automatisch gespeichert wird (z. B. Ort aus der PLZ)
 const AUTOSAVE_MS = 1200
 const DOCUMENT_FIELDS = SHEET_GUEST_FIELDS.filter(isDocumentField)
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error'
-type FinishError = 'sheetExists' | 'staleBooking' | 'incomplete' | 'notImplemented' | 'network' | 'unknown' | 'sessionExpired' | 'tooManyCompanions'
+type FinishError =
+  | 'sheetExists'
+  | 'staleBooking'
+  | 'incomplete'
+  | 'notImplemented'
+  | 'network'
+  | 'unknown'
+  | 'sessionExpired'
+  | 'tooManyCompanions'
+  // keine freie Gästeblattnummer (Erweiterung 2026-11-09); die Unterschriften bleiben, „Fertig“ ist erneut möglich
+  | 'noSheetNumber'
 
 interface GuestSheetSigningProps {
   data: SigningData
@@ -50,7 +60,6 @@ export function GuestSheetSigning({ data }: GuestSheetSigningProps) {
   const formSchema = useMemo(
     () =>
       guestSchema.extend({
-        sheetNumber: sheetNumberSchema(tv),
         companions: z.array(sheetCompanionSchema(tv).extend({ taxExempt: z.boolean() })),
       }),
     [guestSchema, tv]
@@ -99,10 +108,9 @@ export function GuestSheetSigning({ data }: GuestSheetSigningProps) {
     const documentReady = documentDirty && (documentEmpty || (Boolean(v.documentType) && Boolean(v.documentNumber.trim()))) && DOCUMENT_FIELDS.every(valid)
     setDocumentWaiting(documentDirty && !documentReady)
     const guestFields = [...plain, ...(documentReady ? DOCUMENT_FIELDS : [])]
-    const numberDirty = v.sheetNumber !== s.sheetNumber && sheetNumberSchema(tv).safeParse(v.sheetNumber).success
     const companionsDirty =
       !sameCompanionInput(v.companions, s.companions) && v.companions.every((c) => sheetCompanionSchema(tv).safeParse(c).success)
-    if (!guestFields.length && !numberDirty && !companionsDirty) return
+    if (!guestFields.length && !companionsDirty) return
 
     setSaveState('saving')
     if (guestFields.length) {
@@ -117,15 +125,6 @@ export function GuestSheetSigning({ data }: GuestSheetSigningProps) {
       if (result.ok && result.data) {
         stamps.current.guest = result.data.updatedAt
         saved.current = { ...saved.current, ...Object.fromEntries(guestFields.map((f) => [f, v[f]])) }
-      } else failures.push(result.ok ? 'unknown' : result.error)
-    }
-    if (numberDirty) {
-      const result = await callAction(() =>
-        saveSheetNumber({ tenantId: data.tenantId, bookingId: data.booking.id, updatedAt: stamps.current.booking, value: v.sheetNumber })
-      )
-      if (result.ok && result.data) {
-        stamps.current.booking = result.data.updatedAt
-        saved.current = { ...saved.current, sheetNumber: v.sheetNumber }
       } else failures.push(result.ok ? 'unknown' : result.error)
     }
     if (companionsDirty) {
@@ -195,7 +194,7 @@ export function GuestSheetSigning({ data }: GuestSheetSigningProps) {
 
   // Weicht die Eingabe vom gespeicherten Stand ab?
   const differs = (v: SheetForm, s: SheetForm) =>
-    SHEET_GUEST_FIELDS.some((f) => v[f] !== s[f]) || v.sheetNumber !== s.sheetNumber || !sameCompanionInput(v.companions ?? [], s.companions)
+    SHEET_GUEST_FIELDS.some((f) => v[f] !== s[f]) || !sameCompanionInput(v.companions ?? [], s.companions)
 
   // Unterschreiben, sobald alle Pflichtangaben eingetragen sind. Ein laufendes Speichern sperrt die Fläche nicht: Wer direkt
   // vom Feld zum Stift wechselt, verlor sonst den ersten Strich (BUG-1 aus QA). „Weiter“ wartet, bis alles gespeichert ist.
@@ -239,7 +238,9 @@ export function GuestSheetSigning({ data }: GuestSheetSigningProps) {
           signature2: sig2,
         }),
       })
-      const body = (await response.json().catch(() => ({}))) as { error?: FinishError; currentSheetId?: string }
+      const body = (await response.json().catch(() => ({}))) as { error?: FinishError; currentSheetId?: string; bookingUpdatedAt?: string }
+      // Nummer schon vergeben, danach gescheitert: neuer Stand der Buchung für das erneute „Fertig“
+      if (body.bookingUpdatedAt) stamps.current.booking = body.bookingUpdatedAt
       if (response.ok) {
         // Vollständiger Seitenaufruf: zurück zur Buchung mit frischem Stand
         window.location.href = `${bookingHref(data.booking.id)}?gaesteblatt=gespeichert`
@@ -326,6 +327,8 @@ export function GuestSheetSigning({ data }: GuestSheetSigningProps) {
           <div className={cn(step !== 1 && 'hidden')}>
             <SheetPageOne
               tenantName={data.tenantName}
+              sheetNumber={data.booking.sheetNumber}
+              establishmentNumber={data.establishmentNumber}
               stay={{ arrival: data.booking.arrival, plannedDeparture: data.booking.plannedDeparture, persons: data.booking.persons }}
               gaps={gaps}
               onCommit={() => void flush()}

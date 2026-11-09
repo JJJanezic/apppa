@@ -674,7 +674,8 @@
       "retainedGuestSheets": "Der Kunde hat Gästeblätter, die noch unter die Aufbewahrungspflicht fallen. Er lässt sich nicht löschen und kann deaktiviert bleiben."
     },
     "masterDataTitle": "Stammdaten",
-    "invoiceSettingsTitle": "Rechnungen"
+    "invoiceSettingsTitle": "Rechnungen",
+    "guestSheetSettingsTitle": "Gästeblatt"
   },
   "apartments": {
     "title": "Wohnungen",
@@ -1528,7 +1529,7 @@
       },
       "registration": "Meldung und Ortstaxe",
       "guestSheetNumber": "Gästeblattnummer (optional)",
-      "guestSheetNumberHint": "Kann jederzeit nachgetragen werden, z. B. beim Check-in.",
+      "guestSheetNumberHint": "Nur für nacherfasste Gästeblätter. Bei Unterschrift am Tablet vergibt die App die Nummer selbst.",
       "residenceRegistered": "Wohnsitz angemeldet",
       "residenceRegisteredHint": "Für diesen Aufenthalt ist keine Ortstaxe zu entrichten.",
       "guest": "Hauptgast",
@@ -1692,7 +1693,7 @@
       "unknown": "Etwas ist schiefgelaufen. Bitte versuche es erneut.",
       "tooManyCompanions": "Es sind mehr Mitreisende erfasst, als die Personenzahl zulässt. Bitte zuerst Mitreisende entfernen.",
       "documentImageMissing": "Ein Ausweisbild ist nicht mehr verfügbar. Bitte lade es erneut hoch und speichere noch einmal.",
-      "guestSheetDuplicate": "Die Gästeblattnummer ist bereits vergeben. Bitte prüfen und „Trotzdem speichern“ bestätigen.",
+      "guestSheetDuplicate": "Die Gästeblattnummer ist in dieser Gemeinde bereits vergeben. Bitte prüfen und „Trotzdem speichern“ bestätigen.",
       "billedTooHigh": "Der hochgerechnete Übernachtungspreis übersteigt den Höchstbetrag von € 1.000.000,00. Bitte den vereinbarten Preis oder die Abreise prüfen.",
       "tooManyCharges": "Mit der Ortstaxe hätte diese Buchung mehr als 20 Zusatzkosten-Positionen. Ein Inhaber muss zuerst Positionen entfernen.",
       "companyMissing": "Die gewählte Firma des neuen Gastes gibt es nicht mehr. Bitte eine andere Firma wählen."
@@ -3444,7 +3445,13 @@
       "sheetNumberTooLong": "Die Lfd.-Nr. darf höchstens 30 Zeichen haben.",
       "textRequired": "Bitte einen Text eingeben oder auf Standard zurücksetzen.",
       "notFound": "Die Buchung wurde nicht gefunden.",
-      "notSaved": "Einige Angaben konnten nicht gespeichert werden. Bitte die Felder auf Seite 1 prüfen."
+      "notSaved": "Einige Angaben konnten nicht gespeichert werden. Bitte die Felder auf Seite 1 prüfen.",
+      "staleRange": "Die Nummernbereiche wurden inzwischen geändert.",
+      "rangeOverlaps": "Der Bereich überschneidet sich mit einem anderen Bereich dieser Gemeinde.",
+      "rangeInvalid": "Bitte „von“, „bis“ und „Nächste Nummer“ prüfen.",
+      "rangeLocked": "Dieser Bereich kann so nicht mehr geändert oder gelöscht werden, weil daraus schon Nummern vergeben wurden.",
+      "noSheetNumber": "Keine Gästeblattnummer verfügbar. Bitte in Einstellungen → Gästeblatt einen Nummernbereich erfassen und dann erneut „Fertig“ wählen. Die Unterschriften bleiben erhalten.",
+      "backfillOff": "Hochladen ist nur mit „Gästeblätter nacherfassen“ möglich (Einstellungen → Gästeblatt)."
     },
     "validation": {
       "tooLong": "Diese Angabe ist zu lang.",
@@ -3465,7 +3472,15 @@
         "depositOnly": "Der Platzhalter {token} ist hier nicht erlaubt."
       },
       "emailInvalid": "Bitte prüfe die E-Mail-Adresse, z. B. anna.huber@beispiel.at.",
-      "documentUploading": "Bitte warte, bis das Bild hochgeladen ist."
+      "documentUploading": "Bitte warte, bis das Bild hochgeladen ist.",
+      "codeTooLong": "Höchstens {max} Zeichen.",
+      "codeInvalid": "Nur Buchstaben, Ziffern und „-“, „/“, „.“ – ohne Leerzeichen.",
+      "rangeNumberInvalid": "Bitte eine Nummer eingeben, die mit einer Ziffer endet, z. B. 0001 oder A-0001.",
+      "rangePrefixDiffers": "„von“ und „bis“ brauchen denselben Vorsatz vor den Ziffern.",
+      "rangeFromAfterTo": "„bis“ muss gleich oder größer als „von“ sein.",
+      "rangeOverlaps": "Überschneidet sich mit einem anderen Bereich dieser Gemeinde.",
+      "rangeNextOutside": "Die nächste Nummer muss im Bereich liegen.",
+      "rangeToBelowUsed": "„bis“ darf nicht unter der zuletzt vergebenen Nummer liegen."
     },
     "booking": {
       "title": "Gästeblatt",
@@ -3482,7 +3497,8 @@
       "cancelled": "Buchung storniert. Das Gästeblatt bleibt erhalten.",
       "blocked": {
         "noGuest": "Bitte zuerst einen Gast mit der Buchung verknüpfen.",
-        "guestAnonymized": "Der Gast wurde anonymisiert."
+        "guestAnonymized": "Der Gast wurde anonymisiert.",
+        "noNumber": "Keine Gästeblattnummer verfügbar."
       },
       "view": "Gästeblatt ansehen",
       "sign": "Gästeblatt",
@@ -3518,7 +3534,9 @@
       "cancel": "Abbrechen",
       "save": "Hochladen",
       "saving": "Wird hochgeladen …",
-      "saved": "Gästeblatt gespeichert."
+      "saved": "Gästeblatt gespeichert.",
+      "noNumber": "ohne Nummer",
+      "noNumberHint": "Die Lfd.-Nr. wird in der Buchung eingetragen (Buchung bearbeiten → Gästeblattnummer)."
     },
     "listTitle": "Gästeblätter",
     "listLead": "Unterschriebene und hochgeladene Gästeblätter nach Monat der Ankunft. Neue Blätter entstehen in der Buchung.",
@@ -3580,7 +3598,8 @@
       "blocked": {
         "notExpected": "Für diese Buchung ist kein Gästeblatt vorgesehen (Option, Sperre, storniert oder Wohnsitz angemeldet).",
         "noGuest": "Bitte zuerst einen Gast mit der Buchung verknüpfen.",
-        "guestAnonymized": "Der Gast wurde anonymisiert. Ein Gästeblatt ist nicht möglich."
+        "guestAnonymized": "Der Gast wurde anonymisiert. Ein Gästeblatt ist nicht möglich.",
+        "noNumber": "Für die Gemeinde {municipality} ist keine Gästeblattnummer verfügbar. Bitte zuerst in Einstellungen → Gästeblatt einen Nummernbereich erfassen."
       },
       "progress": "Fortschritt",
       "step1": "Meldedaten",
@@ -3662,7 +3681,9 @@
       "emailHint": "Freiwillig. Wird beim Gast gespeichert, auch ohne Häkchen.",
       "emailSaved": "E-Mail-Adresse gespeichert.",
       "documentImages": "Bilder des Reisedokuments",
-      "documentImagesHint": "Freiwillig. Vorder- und Rückseite mit der Kamera aufnehmen oder ein Foto wählen."
+      "documentImagesHint": "Freiwillig. Vorder- und Rückseite mit der Kamera aufnehmen oder ein Foto wählen.",
+      "kennzahl": "Kennzahl",
+      "sheetNumberPending": "wird beim Abschluss vergeben"
     },
     "pdf": {
       "fileTitle": "Gästeblatt {number}",
@@ -3705,6 +3726,66 @@
       "signature2": "Unterschrift",
       "signedAt": "Unterschrieben am {date}",
       "footer": "Gästeblatt Lfd.-Nr. {number} · Seite {page} von {pages}"
+    },
+    "numbering": {
+      "title": "Laufende Nummer je Gemeinde",
+      "lead": "Die Gemeinde teilt Nummernbereiche zu. Beim Abschluss eines Gästeblatts vergibt die App die nächste freie Nummer; nach der letzten Nummer eines Bereichs geht es mit dem nächsten Bereich weiter.",
+      "notReady": "Diese Funktion wird gerade eingerichtet.",
+      "empty": "Noch keine Objekte. Nummernbereiche gibt es je Gemeinde der Objekte.",
+      "nextSummary": "Nächste Nummer: {number} · {count, plural, one {# Nummer frei} other {# Nummern frei}}",
+      "from": "von",
+      "to": "bis",
+      "next": "Nächste Nummer",
+      "state": "Stand",
+      "actions": "Aktionen",
+      "states": {
+        "active": "In Verwendung",
+        "queued": "Folgt",
+        "exhausted": "Aufgebraucht"
+      },
+      "exhaustedOn": "Aufgebraucht am {date}",
+      "add": "Nummernbereich hinzufügen",
+      "edit": "Bereich {from} bis {to} bearbeiten",
+      "delete": "Bereich {from} bis {to} löschen",
+      "addTitle": "Nummernbereich für {municipality}",
+      "editTitle": "Nummernbereich für {municipality} bearbeiten",
+      "dialogActive": "Aus diesem Bereich werden die nächsten Gästeblattnummern vergeben.",
+      "dialogQueued": "Der Bereich wird verwendet, sobald die Nummern der vorherigen Bereiche aufgebraucht sind. Er beginnt mit „von“.",
+      "nextHint": "Wird beim nächsten Gästeblatt vergeben. Bereits vergebene Nummern überspringt die App.",
+      "nextHintNew": "Leer lassen, um mit „von“ zu beginnen, z. B. die Seite nach der letzten im Papierbuch.",
+      "formatHint": "Nummern enden mit Ziffern; führende Nullen und ein Vorsatz wie „A-“ bleiben erhalten (0042 → 0043).",
+      "cancel": "Abbrechen",
+      "save": "Bereich speichern",
+      "saving": "Wird gespeichert …",
+      "rangeSaved": "Nummernbereich gespeichert.",
+      "rangeDeleted": "Nummernbereich gelöscht.",
+      "deleteTitle": "Nummernbereich löschen?",
+      "deleteText": "Der folgende Bereich {from} bis {to} wird gelöscht. Daraus wurde noch keine Nummer vergeben.",
+      "deleteConfirm": "Löschen",
+      "dashboardTitle": "Gästeblattnummern",
+      "notice": {
+        "low": "{municipality}: nur noch {count, plural, one {# Nummer} other {# Nummern}} frei.",
+        "exhausted": "Nummernbereich für {municipality} aufgebraucht.",
+        "unset": "Nummernbereich für {municipality} noch nicht festgelegt.",
+        "settingsHint": "Bitte in Einstellungen → Gästeblatt einen Nummernbereich erfassen."
+      }
+    },
+    "backfill": {
+      "title": "Gästeblätter nacherfassen",
+      "label": "Gästeblätter nacherfassen",
+      "hint": "Eingeschaltet: Im Buchungsformular gibt es das Feld „Gästeblattnummer“ und im Buchungsdetail „Gästeblatt hochladen“ für Papier-Gästeblätter. Ausgeschaltet: beides ist nicht vorhanden; vorhandene Nummern und Blätter bleiben erhalten.",
+      "save": "Speichern",
+      "saved": "Einstellung gespeichert."
+    },
+    "establishment": {
+      "title": "Kennzahlen je Gemeinde",
+      "lead": "Die Gemeinde vergibt je Betrieb eine Kennzahl. Sie steht auf dem Gästeblatt im Kopf.",
+      "notReady": "Diese Funktion wird gerade eingerichtet.",
+      "empty": "Noch keine Objekte. Kennzahlen gibt es je Gemeinde der Objekte.",
+      "label": "Kennzahl {municipality} ({code})",
+      "missing": "Kennzahl fehlt – wird auf dem Gästeblatt leer gedruckt.",
+      "save": "Kennzahlen speichern",
+      "saved": "Kennzahlen gespeichert."
     }
   }
 }

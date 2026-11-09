@@ -17,6 +17,7 @@ import { BookingWarningsAlert, GuestSheetWarning, hasGuestSheetDuplicates, hasWa
 import { chargeMoneyCell, SortableChargeList, SortableChargeRow } from '@/components/bookings/sortable-charges'
 import { useBookingWarnings } from '@/components/bookings/use-booking-warnings'
 import { DetailPanel } from '@/components/detail-panel'
+import { useGuestSheetBackfill } from '@/components/guest-sheets/guest-sheet-backfill-context'
 import { GuestFields } from '@/components/guests/guest-fields'
 import { GuestPicker } from '@/components/guests/guest-picker'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -242,6 +243,8 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
   // Offene Auswahl der Bezeichnung: Escape schließt nur die Auswahl (PROJ-35)
   const labelListOpen = useRef(false)
   const vatHistory = useVatStatus()
+  // Feld „Gästeblattnummer“ nur mit „Gästeblätter nacherfassen“ (PROJ-26, Erweiterung 2026-11-09)
+  const sheetBackfill = useGuestSheetBackfill()
 
   const [
     kind,
@@ -318,7 +321,7 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
     departure,
     persons,
     adults: adultCount,
-    guestSheetNumber,
+    guestSheetNumber: sheetBackfill ? guestSheetNumber : '',
     // PROJ-47: nur die Nummer der gewählten Plattform
     source,
     platformNumber: isPlatformSource(source) ? platformNumbers[source] : '',
@@ -883,21 +886,23 @@ export function BookingPanel({ open, onOpenChange, apartments, booking, owner, t
                 </FormItem>
               )}
             />
-            <FormField
-              control={form.control}
-              name="guestSheetNumber"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t('panel.guestSheetNumber')}</FormLabel>
-                  <FormControl>
-                    {/* Ohne maxLength: zu lange Nummern meldet die Prüfung (Spec) */}
-                    <Input autoComplete="off" className="min-h-11 w-56" {...field} />
-                  </FormControl>
-                  <FormDescription>{t('panel.guestSheetNumberHint')}</FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {sheetBackfill && (
+              <FormField
+                control={form.control}
+                name="guestSheetNumber"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('panel.guestSheetNumber')}</FormLabel>
+                    <FormControl>
+                      {/* Ohne maxLength: zu lange Nummern meldet die Prüfung (Spec) */}
+                      <Input autoComplete="off" className="min-h-11 w-56" {...field} />
+                    </FormControl>
+                    <FormDescription>{t('panel.guestSheetNumberHint')}</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
           </fieldset>
 
           {owner ? (

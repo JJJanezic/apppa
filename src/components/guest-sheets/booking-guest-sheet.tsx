@@ -2,23 +2,34 @@ import { FilePdf, Warning } from '@phosphor-icons/react/ssr'
 import { getTranslations } from 'next-intl/server'
 
 import { GuestSheetButtons } from '@/components/guest-sheets/guest-sheet-buttons'
+import { NumberNotice } from '@/components/guest-sheets/numbering/number-notice'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import type { Booking } from '@/lib/bookings'
 import { formatDate, formatDateTime } from '@/lib/format'
 import { guestSheetExpected, guestSheetPdfHref, type GuestSheetSummary } from '@/lib/guest-sheet'
+import { canIssueSheet } from '@/lib/guest-sheet-numbering'
+import { getBookingNumbering, getGuestSheetBackfill } from '@/lib/guest-sheet-numbering-data'
 import { getBookingGuestSheets } from '@/lib/guest-sheets-data'
 
 // Abschnitt „Gästeblatt“ im Buchungsdetail (PROJ-26) für Inhaber und Mitarbeiter: Stand, Ansehen, Unterschreiben lassen,
 // Hochladen, frühere Blätter. Nur bei Buchungen, für die ein Blatt vorgesehen ist, oder wenn schon eines existiert
-// (z. B. nach Storno oder nachträglich gesetztem „Wohnsitz angemeldet“).
+// (z. B. nach Storno oder nachträglich gesetztem „Wohnsitz angemeldet“). Seit der Erweiterung 2026-11-09: Hinweis zu den
+// Gästeblattnummern der Gemeinde; ohne freie Nummer (und ohne Nummer an der Buchung) ist „Gästeblatt“ gesperrt;
+// „Gästeblatt hochladen“ nur mit „Gästeblätter nacherfassen“.
 export async function BookingGuestSheetSection({ booking, headingSize }: { booking: Booking; headingSize: string }) {
   if (booking.kind !== 'booking') return null
   const t = await getTranslations('guestSheets.booking')
-  const { current, previous } = await getBookingGuestSheets(booking.id)
+  const [{ current, previous }, numbering, backfill] = await Promise.all([
+    getBookingGuestSheets(booking.id),
+    getBookingNumbering(booking.id),
+    getGuestSheetBackfill(),
+  ])
   const expected = guestSheetExpected(booking)
   if (!expected && !current && previous.length === 0) return null
 
-  const blocked = !booking.guest ? 'noGuest' : booking.guest.anonymized ? 'guestAnonymized' : null
+  // Ohne Nummernstand (Umgebung ohne Migration) nicht sperren
+  const noNumber = numbering !== null && !canIssueSheet(booking.guestSheetNumber, numbering.state)
+  const blocked = !booking.guest ? 'noGuest' : booking.guest.anonymized ? 'guestAnonymized' : noNumber ? 'noNumber' : null
   const status = (s: GuestSheetSummary) =>
     s.kind === 'signed'
       ? t('signedAt', { date: s.signedAt ? formatDateTime(s.signedAt) : '–' })
@@ -42,6 +53,9 @@ export async function BookingGuestSheetSection({ booking, headingSize }: { booki
           <AlertDescription>{t('cancelled')}</AlertDescription>
         </Alert>
       )}
+      {expected && numbering && !booking.cancelledAt && (
+        <NumberNotice state={numbering.state} municipality={numbering.municipalityName} free={numbering.free} settingsHint />
+      )}
       <div className="flex flex-col gap-3 rounded-lg bg-ds-surface px-4 py-3">
         {current ? (
           <dl className="flex flex-col divide-y">
@@ -52,12 +66,12 @@ export async function BookingGuestSheetSection({ booking, headingSize }: { booki
         ) : (
           <p>{t('none')}</p>
         )}
-        {blocked && !current && expected && <p className="text-sm text-ds-neutral-800">{t(`blocked.${blocked}`)}</p>}
+        {blocked && blocked !== 'noNumber' && !current && expected && <p className="text-sm text-ds-neutral-800">{t(`blocked.${blocked}`)}</p>}
         <GuestSheetButtons
           bookingId={booking.id}
           current={current ? { id: current.id, pdfHref: guestSheetPdfHref(current.id) } : null}
           canSign={expected && !blocked}
-          canUpload={expected}
+          canUpload={expected && backfill}
           sheetNumber={booking.guestSheetNumber}
           canConsent={Boolean(booking.guest && !booking.guest.anonymized)}
         />

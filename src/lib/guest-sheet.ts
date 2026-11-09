@@ -24,6 +24,13 @@ export type GuestSheetErrorCode =
   | 'sheetNumberTooLong'
   | 'textRequired'
   | 'staleSettings'
+  // Kennzahl und Gästeblattnummer je Gemeinde (Erweiterung 2026-11-09)
+  | 'staleRange'
+  | 'rangeOverlaps'
+  | 'rangeInvalid'
+  | 'rangeLocked'
+  | 'noSheetNumber'
+  | 'backfillOff'
 
 export const GUEST_SHEET_BUCKET = 'guest-sheets'
 // Hochgeladene Gästeblätter: nur PDF, höchstens 10 MB (gleiche Grenze im Speicherbereich)
@@ -145,6 +152,8 @@ export type GuestSheetSnapshot = {
   // Name des Beherbergungsbetriebes = Kundenname
   tenantName: string
   sheetNumber: string | null
+  // Kennzahl der Gemeinde (Erweiterung 2026-11-09); fehlt bei älteren Fassungen
+  establishmentNumber?: string | null
   guest: SheetGuest
   companions: SheetCompanion[]
   stay: SheetStay

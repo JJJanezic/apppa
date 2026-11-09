@@ -2,11 +2,11 @@ import { SHEET_GUEST_FIELDS, type SheetCompanion, type SheetGuest, type SheetGue
 import type { SigningData } from '@/lib/guest-sheets-data'
 import type { Gender } from '@/lib/guests'
 
-// Formularwerte der Seite 1 (PROJ-26): Felder des Hauptgasts als Text, dazu Lfd.-Nr. und Mitreisende der Buchung.
+// Formularwerte der Seite 1 (PROJ-26): Felder des Hauptgasts als Text, dazu die Mitreisenden der Buchung (die Lfd.-Nr.
+// ist seit der Erweiterung 2026-11-09 nur lesbar).
 // „Von der Ortstaxe befreit“ der Mitreisenden ist nicht sichtbar, geht aber beim Speichern unverändert mit.
 export type SheetForm = Record<Exclude<SheetGuestField, 'gender'>, string> & {
   gender: Gender
-  sheetNumber: string
   companions: { lastName: string; firstName: string; birthDate: string; taxExempt: boolean }[]
 }
 
@@ -16,7 +16,6 @@ export function initialSheetForm(d: SigningData): SheetForm {
   return {
     ...guest,
     gender: g.gender,
-    sheetNumber: d.booking.sheetNumber ?? '',
     companions: d.companions.map((c) => ({ lastName: c.lastName, firstName: c.firstName, birthDate: c.birthDate ?? '', taxExempt: c.taxExempt })),
   }
 }
