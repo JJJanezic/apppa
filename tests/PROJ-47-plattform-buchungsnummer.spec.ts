@@ -50,7 +50,7 @@ async function setup(page: Page, users: Users, role: 'owner' | 'staff' = 'owner'
   }
   const tenantId = await createTenant('QA47 Testkunde', members)
   // Feld „Gästeblattnummer“ nur mit „Gästeblätter nacherfassen“ (PROJ-26, Erweiterung 2026-11-09)
-  await service().from('tenants').update({ guest_sheet_backfill_enabled: true }).eq('id', tenantId)
+  await service().from('guest_sheet_options').upsert({ tenant_id: tenantId, backfill_enabled: true }, { onConflict: 'tenant_id' })
   await signInAs(page, role === 'staff' ? staff! : owner)
   return { tenantId }
 }

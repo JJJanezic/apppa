@@ -37,7 +37,10 @@ export function RangeDialog({ open, onOpenChange, tenantId, municipality, range,
   const tv = useTranslations('guestSheets.validation')
   const router = useRouter()
   const active = range ? range.state === 'active' : becomesActive
-  const schema = useMemo(() => sheetRangeSchema(tv, others, range?.state === 'active' ? range.lastIssued : null), [tv, others, range])
+  const schema = useMemo(
+    () => sheetRangeSchema(tv, others, range?.state === 'active' ? range.lastIssued : null, active),
+    [tv, others, range, active]
+  )
   const form = useForm<SheetRangeInput>({
     resolver: zodResolver(schema, undefined, { raw: true }),
     defaultValues: { from: range?.from ?? '', to: range?.to ?? '', next: range?.state === 'active' ? (range.next ?? '') : '' },

@@ -143,8 +143,9 @@ const RANGE_MESSAGES: Record<string, string> = {
 }
 
 // Nummernbereich: „von“, „bis“ und (nur beim ersten bzw. laufenden Bereich) „Nächste Nummer“; others = übrige Bereiche
-// derselben Gemeinde, lastIssued = zuletzt vergebene Nummer dieses Bereichs
-export const sheetRangeSchema = (t: T, others: NumberRange[] = [], lastIssued: string | null = null) =>
+// derselben Gemeinde, lastIssued = zuletzt vergebene Nummer dieses Bereichs. withNext = false: „Nächste Nummer“ wird
+// nicht geprüft (Feld ausgeblendet, QA BUG-5)
+export const sheetRangeSchema = (t: T, others: NumberRange[] = [], lastIssued: string | null = null, withNext = true) =>
   z
     .object({
       from: z.string().trim().max(SHEET_CODE_MAX, t('codeTooLong', { max: SHEET_CODE_MAX })),
@@ -152,7 +153,7 @@ export const sheetRangeSchema = (t: T, others: NumberRange[] = [], lastIssued: s
       next: z.string().trim().max(SHEET_CODE_MAX, t('codeTooLong', { max: SHEET_CODE_MAX })),
     })
     .superRefine((v, ctx) => {
-      const issue = checkRange({ from: v.from, to: v.to, next: v.next }, others, lastIssued)
+      const issue = checkRange({ from: v.from, to: v.to, next: withNext ? v.next : null }, others, lastIssued)
       if (issue) ctx.addIssue({ code: 'custom', path: [issue.field], message: t(RANGE_MESSAGES[issue.issue] ?? 'unknown') })
     })
 

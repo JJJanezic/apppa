@@ -132,9 +132,10 @@ export async function loadSheetNumbering(tenantId: string): Promise<SheetNumberi
 }
 
 async function loadBackfill(supabase: SupabaseClient, tenantId: string): Promise<boolean> {
-  const { data, error } = await supabase.from('tenants').select('guest_sheet_backfill_enabled').eq('id', tenantId).maybeSingle()
+  // eigene Tabelle (QA BUG-6): Umschalten ändert nicht den Stand der Stammdaten; keine Zeile = aus
+  const { data, error } = await supabase.from('guest_sheet_options').select('backfill_enabled').eq('tenant_id', tenantId).maybeSingle()
   logError('Schalter „nacherfassen“ nicht lesbar', error)
-  return Boolean((data as { guest_sheet_backfill_enabled?: boolean } | null)?.guest_sheet_backfill_enabled)
+  return Boolean((data as { backfill_enabled?: boolean } | null)?.backfill_enabled)
 }
 
 // Schalter „Gästeblätter nacherfassen“ des gewählten Kunden (Buchungsformular, Buchungsdetail); einmal je Anfrage

@@ -63,7 +63,7 @@ async function setup(page: Page, users: Users, role: 'owner' | 'staff' = 'owner'
   if (error) throw error
   if (numbering) {
     await service().from('guest_sheet_number_ranges').insert({ tenant_id: tenantId, municipality_code: '50330', range_from: '0001', range_to: '0500' })
-    await service().from('tenants').update({ guest_sheet_backfill_enabled: true }).eq('id', tenantId)
+    await service().from('guest_sheet_options').upsert({ tenant_id: tenantId, backfill_enabled: true }, { onConflict: 'tenant_id' })
   }
   await signInAs(page, role === 'staff' ? staff : owner)
   return { tenantId, apartmentId: apt.id, owner, staff }

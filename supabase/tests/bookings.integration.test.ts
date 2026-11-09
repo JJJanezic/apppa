@@ -26,6 +26,8 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-8 Manuelle Buchungen', () => {
     const { data, error } = await service.from('tenants').insert({ name: `PROJ-8 Test ${runId}` }).select('id').single()
     if (error) throw error
     tenants.push(data.id)
+    // Gästeblattnummer nur mit „Gästeblätter nacherfassen“ (PROJ-26, Erweiterung 2026-11-09)
+    await service.from('guest_sheet_options').insert({ tenant_id: data.id, backfill_enabled: true })
     for (const [u, role] of members) {
       const { error: e } = await service.from('memberships').insert({ tenant_id: data.id, user_id: u.id, role })
       if (e) throw e

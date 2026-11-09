@@ -103,6 +103,8 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-26 Gästeblattnummer je Gemeinde', () => 
       { tenant_id: tenant, user_id: staffUser.id, role: 'staff' },
       { tenant_id: tenantB, user_id: ob.user.id, role: 'owner' },
     ])
+    // Nacherfasste Nummern im Buchungsformular nur mit „Gästeblätter nacherfassen“
+    await service.from('guest_sheet_options').insert({ tenant_id: tenant, backfill_enabled: true })
     for (const code of [GEMEINDE_A, GEMEINDE_B]) {
       const { data: property, error } = await service
         .from('properties')
@@ -245,8 +247,13 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-26 Gästeblattnummer je Gemeinde', () => 
     it('Schalter „Gästeblätter nacherfassen“: Inhaber schaltet, Mitarbeiter nicht', async () => {
       expect((await owner.rpc('save_guest_sheet_backfill', { p_tenant_id: tenant, p_enabled: true })).error).toBeNull()
       expect((await staff.rpc('save_guest_sheet_backfill', { p_tenant_id: tenant, p_enabled: false })).error?.code).toBe('42501')
-      const { data } = await staff.from('tenants').select('guest_sheet_backfill_enabled').eq('id', tenant).single()
-      expect(data!.guest_sheet_backfill_enabled).toBe(true)
+      const { data } = await staff.from('guest_sheet_options').select('backfill_enabled').eq('tenant_id', tenant).single()
+      expect(data!.backfill_enabled).toBe(true)
+      // BUG-6: der Stand der Stammdaten bleibt beim Umschalten unverändert
+      const before = (await service.from('tenants').select('updated_at').eq('id', tenant).single()).data!.updated_at
+      expect((await owner.rpc('save_guest_sheet_backfill', { p_tenant_id: tenant, p_enabled: false })).error).toBeNull()
+      expect((await service.from('tenants').select('updated_at').eq('id', tenant).single()).data!.updated_at).toBe(before)
+      await owner.rpc('save_guest_sheet_backfill', { p_tenant_id: tenant, p_enabled: true })
     })
   })
 
@@ -288,6 +295,16 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-26 Gästeblattnummer je Gemeinde', () => 
       }
       expect(await warn(GEMEINDE_A)).toBe(1)
       expect(await warn(GEMEINDE_B)).toBe(0)
+    })
+
+    it('BUG-7: ohne „Gästeblätter nacherfassen“ übernimmt save_booking keine Nummer, auch bei direktem Aufruf', async () => {
+      await owner.rpc('save_guest_sheet_backfill', { p_tenant_id: tenant, p_enabled: false })
+      try {
+        const id = await newBooking(GEMEINDE_A, { guest_sheet_number: 'Z-1' })
+        expect((await booking(id)).guest_sheet_number).toBeNull()
+      } finally {
+        await owner.rpc('save_guest_sheet_backfill', { p_tenant_id: tenant, p_enabled: true })
+      }
     })
   })
 })

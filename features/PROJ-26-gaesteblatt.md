@@ -1,6 +1,6 @@
 # PROJ-26: Gästeblatt (Meldewesen)
 
-## Status: In Review
+## Status: Approved
 **Created:** 2026-11-08
 **Last Updated:** 2026-11-09 (refine: Kennzahl und Gästeblattnummer je Gemeinde; Grundumfang und Nachbesserung live seit v1.44.0)
 
@@ -731,7 +731,7 @@ PDF Seite 1
 - [x] „Neu unterschreiben lassen“ behält die Nummer, kein weiterer Verbrauch (E2E)
 - [x] Nacherfasste Nummer an der Buchung wird übernommen (Integration)
 - [x] Überschneidung, von > bis, anderer Vorsatz und Nummer ohne Ziffer am Ende abgelehnt (Integration; im Formular E2E für Überschneidung)
-- [ ] **Neuer Bereich in den Einstellungen nach einem bereits angelegten (ohne Neuladen): siehe BUG-5**
+- [x] Neuer Bereich in den Einstellungen nach einem bereits angelegten, ohne Neuladen (nach Korrektur BUG-5, E2E)
 - [x] Frühwarnung „nur noch 5 Nummern frei“ in den Einstellungen; verschwindet mit folgendem Bereich (Datenbank/Integration; E2E bis BUG-5)
 - [x] Ohne Nummernbereich ist „Gästeblatt“ gesperrt mit Hinweis, Vollbild-Seite erklärt es (E2E)
 - [x] Dashboard nennt Kunde und Gemeinde; Mitarbeiter ohne Link, Inhaber mit Link in die Einstellungen (E2E)
@@ -762,7 +762,7 @@ PDF Seite 1
 
 #### Bugs Found
 
-##### BUG-5: Zweiter neuer Nummernbereich lässt sich ohne Neuladen nicht speichern (High)
+##### BUG-5: Zweiter neuer Nummernbereich lässt sich ohne Neuladen nicht speichern (High) — behoben
 - **Schritte:**
   1. Einstellungen → Gästeblatt öffnen, für eine Gemeinde ohne Bereich „Nummernbereich hinzufügen“ wählen.
   2. 0001–0010 mit „Nächste Nummer“ 0006 speichern.
@@ -775,16 +775,38 @@ PDF Seite 1
 - **Folge:** Genau der Fall „neuen Bereich vorab erfassen“ scheitert still. Umgehung: Seite neu laden.
 - **E2E-Test:** „AC: Bereiche in den Einstellungen anlegen …“ schlägt deshalb fehl.
 
-##### BUG-6: Schalter „Gästeblätter nacherfassen“ auf der Kundenseite des Betreibers setzt das Stammdaten-Formular zurück (Low)
+##### BUG-6: Schalter „Gästeblätter nacherfassen“ auf der Kundenseite des Betreibers setzt das Stammdaten-Formular zurück (Low) — behoben
 - Der Schalter liegt am Kunden und ändert dessen Stand. Ungespeicherte Eingaben im Stammdaten-Formular derselben Seite gehen nach dem Umschalten verloren, weil sich das Formular mit dem neuen Stand neu aufbaut.
 
-##### BUG-7: `save_booking` prüft den Schalter nicht selbst (Low)
+##### BUG-7: `save_booking` prüft den Schalter nicht selbst (Low) — behoben
 - Siehe Security Audit; nur über direkte Aufrufe erreichbar.
 
 #### Testdaten-Hinweis
 - Die Lesesicht zählt belegte Nummern nur für Mitglieder und Betreiber. Mit der Service-Rolle (Testskripte) erscheinen sie als frei; in der App spielt das keine Rolle.
 
-**Production-ready:** NEIN, BUG-5 zuerst beheben.
+#### Korrekturen (2026-11-09)
+- **BUG-5:** Der Dialog „Nummernbereich“ bekommt bei jedem Öffnen einen neuen Schlüssel und beginnt so mit frischen Werten. `sheetRangeSchema(…, withNext)` prüft die „Nächste Nummer“ nur, wenn das Feld angezeigt wird. Unit-Test ergänzt; der E2E-Test „Bereiche in den Einstellungen …“ ist grün.
+- **BUG-6:**
+  - Der Schalter liegt jetzt in der eigenen Tabelle `guest_sheet_options` (eine Zeile je Kunde, RLS: Mitglieder und Admin lesen). Die Spalte `tenants.guest_sheet_backfill_enabled` entfällt, die Werte wurden übernommen.
+  - Umschalten ändert den Stand der Stammdaten nicht mehr (Integrationstest).
+  - Migrationen: `20261109121212_guest_sheet_numbering_qa_fixes.sql` und `20261109121457_guest_sheet_options_id.sql` (Spalte `id` fürs Änderungsprotokoll).
+- **BUG-7:** `save_booking` übernimmt eine mitgeschickte Gästeblattnummer nur bei eingeschaltetem Schalter; `register_guest_sheet_upload` liest den Schalter aus der neuen Tabelle. Integrationstest ergänzt.
+- **Nachtest:**
+
+  | Bereich | Bestanden |
+  |---|---|
+  | Integration Nummernvergabe | 11 von 11 |
+  | Integration Gästeblatt | 16 von 16 |
+  | Integration Buchungen | 32 von 32 |
+  | Unit | 988 von 988 |
+  | E2E Erweiterung | 5 von 5 |
+  | E2E Gästeblatt-Regression | 7 von 7 |
+  | E2E PROJ-30 | 5 von 5 |
+  | E2E PROJ-47 | 11 von 11 |
+
+  Lint und Typprüfung grün; die Datenbank-Prüfung meldet nur die bekannte Auth-Warnung.
+
+**Production-ready:** JA (alle Fehler behoben).
 
 ## Tech Design (Solution Architect)
 

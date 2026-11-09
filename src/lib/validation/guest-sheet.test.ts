@@ -71,3 +71,11 @@ describe('Einstellungen → Gästeblatt', () => {
     expect(unknown.error?.issues.map((i) => i.message)).toEqual(['placeholder.unknown'])
   })
 })
+
+describe('QA BUG-5', () => {
+  it('„Nächste Nummer“ wird bei ausgeblendetem Feld nicht geprüft', () => {
+    const others = [{ from: '0001', to: '0010' }]
+    expect(sheetRangeSchema(t, others).safeParse({ from: 'B-0001', to: 'B-0100', next: '0006' }).success).toBe(false)
+    expect(sheetRangeSchema(t, others, null, false).safeParse({ from: 'B-0001', to: 'B-0100', next: '0006' }).success).toBe(true)
+  })
+})

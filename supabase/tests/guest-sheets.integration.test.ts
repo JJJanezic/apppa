@@ -138,7 +138,7 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-26 Gästeblatt', () => {
       { tenant_id: tenantB, user_id: ob.user.id, role: 'owner' },
     ])
     // Hochladen nur mit „Gästeblätter nacherfassen“ (Erweiterung 2026-11-09)
-    await service.from('tenants').update({ guest_sheet_backfill_enabled: true }).eq('id', tenant)
+    await service.from('guest_sheet_options').upsert({ tenant_id: tenant, backfill_enabled: true }, { onConflict: 'tenant_id' })
     const { data: property } = await service
       .from('properties')
       .insert({ tenant_id: tenant, name: `Haus ${runId}`, street: 'Seeweg 12', postal_code: '5340', city: 'St. Gilgen', municipality_code: '50330' })
@@ -285,10 +285,10 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-26 Gästeblatt', () => {
       const guest = await newGuest()
       const booking = await newBooking(guest, { guest_sheet_number: '0017' })
       // Erweiterung 2026-11-09: nur mit „Gästeblätter nacherfassen“
-      await service.from('tenants').update({ guest_sheet_backfill_enabled: false }).eq('id', tenant)
+      await service.from('guest_sheet_options').upsert({ tenant_id: tenant, backfill_enabled: false }, { onConflict: 'tenant_id' })
       const off = await staff.rpc('register_guest_sheet_upload', { p_input: { booking_id: booking, pdf_path: await upload(), previous_sheet_id: null } as Json })
       expect(off.error?.code).toBe('P0987')
-      await service.from('tenants').update({ guest_sheet_backfill_enabled: true }).eq('id', tenant)
+      await service.from('guest_sheet_options').upsert({ tenant_id: tenant, backfill_enabled: true }, { onConflict: 'tenant_id' })
       const missing = await staff.rpc('register_guest_sheet_upload', {
         p_input: { booking_id: booking, pdf_path: `${tenant}/${randomUUID()}.pdf`, previous_sheet_id: null } as Json,
       })

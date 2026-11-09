@@ -20,7 +20,8 @@ import { formatDate } from '@/lib/format'
 import type { MunicipalityNumbering, SheetNumberRange } from '@/lib/guest-sheet-numbering'
 import { cn } from '@/lib/utils'
 
-type DialogState = { municipality: MunicipalityNumbering; range: SheetNumberRange | null } | null
+// opened: Zähler je Öffnen, damit der Dialog immer mit frischen Werten beginnt (QA BUG-5)
+type DialogState = { municipality: MunicipalityNumbering; range: SheetNumberRange | null; opened: number } | null
 
 // Abschnitt „Laufende Nummer je Gemeinde“ (PROJ-26, Erweiterung 2026-11-09): je Gemeinde mit Objekten die Nummernbereiche
 // in der Reihenfolge der Eingabe. Der erste offene Bereich ist „in Verwendung“, weitere „folgen“; nach der letzten Nummer
@@ -58,7 +59,7 @@ export function SheetNumberingSettings({
   if (!municipalities.length) return <p className="text-ds-neutral-800">{t('empty')}</p>
 
   const open = (municipality: MunicipalityNumbering, range: SheetNumberRange | null) => {
-    setDialog({ municipality, range })
+    setDialog((d) => ({ municipality, range, opened: (d?.opened ?? 0) + 1 }))
     setDialogOpen(true)
   }
 
@@ -150,7 +151,7 @@ export function SheetNumberingSettings({
 
       {dialog && (
         <RangeDialog
-          key={`${dialog.municipality.code}-${dialog.range?.id ?? 'neu'}-${dialog.range?.updatedAt ?? ''}`}
+          key={dialog.opened}
           open={dialogOpen}
           onOpenChange={setDialogOpen}
           tenantId={tenantId}

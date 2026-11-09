@@ -935,6 +935,44 @@ export type Database = {
           },
         ]
       }
+      guest_sheet_options: {
+        Row: {
+          backfill_enabled: boolean
+          created_at: string
+          created_by: string | null
+          id: string
+          tenant_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          backfill_enabled?: boolean
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          tenant_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          backfill_enabled?: boolean
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          tenant_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guest_sheet_options_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       guest_sheet_settings: {
         Row: {
           created_at: string
@@ -2285,7 +2323,6 @@ export type Database = {
           created_at: string
           created_by: string | null
           email: string | null
-          guest_sheet_backfill_enabled: boolean
           id: string
           logo_path: string | null
           name: string
@@ -2307,7 +2344,6 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           email?: string | null
-          guest_sheet_backfill_enabled?: boolean
           id?: string
           logo_path?: string | null
           name: string
@@ -2329,7 +2365,6 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           email?: string | null
-          guest_sheet_backfill_enabled?: boolean
           id?: string
           logo_path?: string | null
           name?: string
