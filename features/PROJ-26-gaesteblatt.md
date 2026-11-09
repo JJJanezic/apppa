@@ -1,8 +1,8 @@
 # PROJ-26: Gästeblatt (Meldewesen)
 
-## Status: Deployed
+## Status: In Review
 **Created:** 2026-11-08
-**Last Updated:** 2026-11-09
+**Last Updated:** 2026-11-09 (refine: iPad-Layout, rote Markierung, Ausweisbilder, E-Mail)
 
 ## Dependencies
 - Requires: PROJ-4 (Kundenkonten & Rollen): Rollen Inhaber/Mitarbeiter, gewählter Kunde
@@ -348,6 +348,31 @@ Schlägt ein Teil fehl, wird nichts gespeichert, die Ansicht bleibt mit beiden U
 
 ---
 <!-- Sections below are added by subsequent skills -->
+
+## Nachbesserung nach dem Deploy (refine 2026-11-09)
+
+Rückmeldung vom ersten Einsatz am iPad (Bilder `docs/design/iPad-Gaesteblatt_01.png`, `_02.png`).
+
+### Regeln
+- **Layout am iPad:** Datumsfelder sind genau so breit und hoch wie ihre Spalte, Text links (Safari zeichnete sie breiter und höher, sie überdeckten das Nachbarfeld). Kopf- und Fußleiste des Blatts sind deckend, nichts scheint durch. Gilt für alle Datumsfelder der App.
+- **Fehlende Angaben rot umrandet:** Jedes fehlende Pflichtfeld hat einen deutlichen roten Rahmen (auch PLZ, Ortsgemeinde und die Länderauswahl), der Hinweis „Bitte ergänzen“ steht fett in Rot.
+- **Ausweisbilder auf dem Blatt:** Ist die Staatsangehörigkeit nicht Österreich und fehlt am Gast ein Bild (Vorder- oder Rückseite), bietet der Bereich „Reisedokument“ die fehlende Seite zum Aufnehmen (Kamera) oder Auswählen an. Freiwillig, nicht Pflicht. Gespeichert am Gast mit dem Reisedokument, sobald Art und Nummer eingetragen sind. Schon hinterlegte Bilder werden auf dem Blatt nicht angezeigt.
+- **E-Mail auf Seite 2:** Hat der Hauptgast beim Öffnen keine E-Mail, steht unter der Marketing-Einwilligung das Feld „E-Mail-Adresse“. Freiwillig, auch ohne Häkchen; Prüfung wie im Gastformular; beim Verlassen des Felds am Gast gespeichert. Eine vorhandene E-Mail lässt sich über das Blatt nicht ändern (auch die Datenbank lehnt das ab). Die E-Mail steht nicht auf dem PDF.
+
+### Acceptance Criteria
+- [x] Angenommen ein iPad, wenn Seite 1 angezeigt wird, dann überdecken Datumsfelder keine Nachbarfelder und Kopf-/Fußleiste sind deckend
+- [x] Angenommen fehlendes Geburtsdatum, PLZ, Ort und Herkunftsland, wenn Seite 1 angezeigt wird, dann sind diese Felder rot umrandet, vollständige nicht
+- [x] Angenommen ein deutscher Gast ohne Ausweisbilder, wenn Seite 1 angezeigt wird, dann gibt es „Bilder des Reisedokuments“ mit Vorder- und Rückseite; bei einem österreichischen Gast nicht
+- [x] Angenommen ein Gast ohne E-Mail, wenn auf Seite 2 eine gültige E-Mail eingetragen und das Feld verlassen wird, dann ist sie in Kleinbuchstaben am Gast gespeichert; eine ungültige zeigt eine Meldung
+- [x] Angenommen ein Gast mit E-Mail, wenn Seite 2 angezeigt wird, dann gibt es kein E-Mail-Feld
+
+### Umsetzung
+- `globals.css`: Datumsfelder ohne Safari-Eigenaussehen, `min-width: 0`, Text links
+- `sheet-page-one.tsx`: roter Rahmen `border-2 border-red-600`, Länderauswahl mit roter Umrandung, PLZ/Ort über neue Option `inputClassNames` von `PostalPlaceFields`; Ausweisbilder mit dem Baustein aus PROJ-29 (`DocumentImageField`); Rasterspalten `min-w-0`
+- `sheet-page-two.tsx`: Feld „E-Mail-Adresse“; gespeichert über `saveSheetGuest` in derselben Warteschlange wie Seite 1
+- `guest-sheet.ts`: `documentFrontPath`/`documentBackPath` als freiwillige Dokumentfelder; `validation/guest-sheet.ts`: `sheetEmailSchema`, Bildpfade
+- Migration `20261109081035_guest_sheets_email_images.sql` (in Dev): `save_guest_sheet_field` nimmt `document_front_path`, `document_back_path` und `email` (nur bei leerer E-Mail)
+- Tests: Integration 16 (neu: E-Mail nur bei leerer Adresse, Bild über das Blatt), E2E „Nachbesserung nach dem Deploy“ (3 Tests); alle 23 Gästeblatt-E2E-Tests, 966 Unit-Tests, Lint und Build grün. Auf einem echten iPad noch zu prüfen
 
 ## Tech Design (Solution Architect)
 

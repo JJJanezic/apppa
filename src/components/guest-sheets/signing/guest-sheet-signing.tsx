@@ -148,6 +148,26 @@ export function GuestSheetSigning({ data }: GuestSheetSigningProps) {
     return queue.current
   }, [saveDirty])
 
+  // Ausweisbilder, die beim Öffnen schon hinterlegt waren, werden auf dem Blatt nicht angeboten
+  const [imagesOnFile] = useState(() => ({ front: Boolean(guest.documentFrontPath), back: Boolean(guest.documentBackPath) }))
+
+  // E-Mail auf Seite 2, nur wenn der Gast beim Öffnen keine hatte; gespeichert in derselben Warteschlange wie Seite 1
+  const [askEmail] = useState(() => !guest.email)
+  const saveEmail = useCallback(
+    (email: string): Promise<string | null> => {
+      let outcome: string | null = null
+      queue.current = queue.current.then(async () => {
+        const result = await callAction(() =>
+          saveSheetGuest({ tenantId: data.tenantId, bookingId: data.booking.id, updatedAt: stamps.current.guest, values: { email } })
+        )
+        if (result.ok && result.data) stamps.current.guest = result.data.updatedAt
+        else outcome = result.ok ? 'unknown' : result.error
+      })
+      return queue.current.then(() => outcome)
+    },
+    [data.booking.id, data.tenantId]
+  )
+
   // Jede Änderung auf Seite 1: Unterschrift 1 gilt nicht mehr; nach kurzer Pause speichern. Das Formular meldet sich auch
   // ohne geänderte Werte (z. B. Prüfung beim Verlassen eines Felds, wenn der Stift die Fläche berührt); darum werden die
   // Werte selbst verglichen (BUG-1 aus QA)
@@ -244,7 +264,7 @@ export function GuestSheetSigning({ data }: GuestSheetSigningProps) {
 
   return (
     <div className="flex min-h-dvh flex-col">
-      <header className="sticky top-0 z-10 border-b bg-ds-bg/95 backdrop-blur">
+      <header className="sticky top-0 z-20 border-b bg-ds-bg shadow-sm">
         <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-4 py-3">
           <div className="flex min-w-0 flex-col">
             <span className="text-[13px] uppercase tracking-wide text-ds-neutral-800">{t('title')}</span>
@@ -310,6 +330,7 @@ export function GuestSheetSigning({ data }: GuestSheetSigningProps) {
               gaps={gaps}
               onCommit={() => void flush()}
               documentWaiting={documentWaiting}
+              imagesOnFile={imagesOnFile}
             />
           </div>
         </Form>
@@ -331,9 +352,18 @@ export function GuestSheetSigning({ data }: GuestSheetSigningProps) {
           </section>
         )}
 
-        {step === 2 && <SheetPageTwo texts={data.texts} consent={consent} onConsent={setConsent} signature={sig2} onSignature={setSig2} />}
+        {step === 2 && (
+          <SheetPageTwo
+            texts={data.texts}
+            consent={consent}
+            onConsent={setConsent}
+            signature={sig2}
+            onSignature={setSig2}
+            email={askEmail ? { save: saveEmail } : null}
+          />
+        )}
 
-        <div className="sticky bottom-0 -mx-4 mt-auto flex flex-wrap items-center justify-between gap-3 border-t bg-ds-bg/95 px-4 py-3 backdrop-blur">
+        <div className="sticky bottom-0 -mx-4 mt-auto flex flex-wrap items-center justify-between gap-3 z-20 border-t bg-ds-bg px-4 py-3 shadow-[0_-1px_3px_rgba(0,0,0,0.08)]">
           <Button type="button" variant="ghost" className="min-h-11" onClick={() => setAbort(true)}>
             {t('abort')}
           </Button>

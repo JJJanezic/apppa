@@ -35,6 +35,8 @@ const guest = (over: Partial<SheetGuest> = {}): SheetGuest => ({
   postalCode: '6020',
   city: 'Innsbruck',
   addressCountry: 'AT',
+  documentFrontPath: null,
+  documentBackPath: null,
   ...over,
 })
 

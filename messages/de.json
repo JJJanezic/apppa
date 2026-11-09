@@ -3463,7 +3463,9 @@
         "unknown": "Unbekannter Platzhalter: {token}",
         "notHere": "Der Platzhalter {token} ist hier nicht erlaubt.",
         "depositOnly": "Der Platzhalter {token} ist hier nicht erlaubt."
-      }
+      },
+      "emailInvalid": "Bitte prüfe die E-Mail-Adresse, z. B. anna.huber@beispiel.at.",
+      "documentUploading": "Bitte warte, bis das Bild hochgeladen ist."
     },
     "booking": {
       "title": "Gästeblatt",
@@ -3655,7 +3657,12 @@
       "conflictText": "Für diese Buchung wurde inzwischen ein Gästeblatt gespeichert. Soll dieses Blatt das gespeicherte ersetzen?",
       "conflictDiscard": "Verwerfen",
       "conflictReplace": "Als neues Blatt speichern",
-      "savedToast": "Gästeblatt gespeichert."
+      "savedToast": "Gästeblatt gespeichert.",
+      "email": "E-Mail-Adresse",
+      "emailHint": "Freiwillig. Wird beim Gast gespeichert, auch ohne Häkchen.",
+      "emailSaved": "E-Mail-Adresse gespeichert.",
+      "documentImages": "Bilder des Reisedokuments",
+      "documentImagesHint": "Freiwillig. Vorder- und Rückseite mit der Kamera aufnehmen oder ein Foto wählen."
     },
     "pdf": {
       "fileTitle": "Gästeblatt {number}",

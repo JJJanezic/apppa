@@ -12,6 +12,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getTenantContext } from '@/lib/tenant'
 import {
   sheetCompanionSchema,
+  sheetEmailSchema,
   type SheetCompanionInput,
   sheetGuestSchema,
   type SheetGuestInput,
@@ -76,7 +77,7 @@ const revalidate = (bookingId: string) => {
 
 // ---- Seite 1: einzelne Felder ------------------------------------------------------------------------
 
-const GUEST_COLUMNS: Record<SheetGuestField, string> = {
+const GUEST_COLUMNS: Record<SheetGuestField | 'email', string> = {
   lastName: 'last_name',
   firstName: 'first_name',
   gender: 'gender',
@@ -91,6 +92,10 @@ const GUEST_COLUMNS: Record<SheetGuestField, string> = {
   postalCode: 'postal_code',
   city: 'city',
   addressCountry: 'address_country',
+  documentFrontPath: 'document_front_path',
+  documentBackPath: 'document_back_path',
+  // nur auf Seite 2 und nur, solange der Gast keine E-Mail hat (prüft die Datenbank)
+  email: 'email',
 }
 
 // Ein oder mehrere Felder des Hauptgasts (das Reisedokument zusammen, PLZ mit Ort und Herkunftsland). Antwort: neuer Stand.
@@ -98,16 +103,17 @@ export async function saveSheetGuest(input: {
   tenantId: string
   bookingId: string
   updatedAt: string
-  values: Partial<SheetGuestInput>
+  values: Partial<SheetGuestInput & { email: string }>
 }): Promise<ActionResult<{ updatedAt: string }, ErrorCode>> {
   const guard = await requireTenant(input?.tenantId)
   if (!guard.ok) return guard
   if (!isId(input.bookingId) || typeof input.updatedAt !== 'string' || !input.values || typeof input.values !== 'object') return fail('unknown')
-  const fields = Object.keys(input.values) as SheetGuestField[]
+  const fields = Object.keys(input.values) as (SheetGuestField | 'email')[]
   if (fields.length === 0 || fields.some((f) => !(f in GUEST_COLUMNS))) return fail('unknown')
-  const parsed = sheetGuestSchema(key).pick(Object.fromEntries(fields.map((f) => [f, true])) as Record<SheetGuestField, true>).safeParse(input.values)
+  const schema = sheetGuestSchema(key).extend({ email: sheetEmailSchema(key) })
+  const parsed = schema.pick(Object.fromEntries(fields.map((f) => [f, true])) as never).safeParse(input.values)
   if (!parsed.success) return fail('unknown')
-  const values = Object.fromEntries(Object.entries(parsed.data).map(([f, v]) => [GUEST_COLUMNS[f as SheetGuestField], v]))
+  const values = Object.fromEntries(Object.entries(parsed.data as Record<string, unknown>).map(([f, v]) => [GUEST_COLUMNS[f as SheetGuestField | 'email'], v]))
 
   const supabase = await untyped()
   const { data, error } = await supabase.rpc('save_guest_sheet_field', {

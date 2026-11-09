@@ -227,12 +227,28 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-26 Gästeblatt', () => {
       const guest = await newGuest({ document_type: null, document_number: null, document_issued_on: null, document_authority: null, document_country: null })
       const booking = await newBooking(guest)
       const s = await stamps(booking)
-      expect((await field(staff, booking, 'guest', { email: 'x@y.at' }, s.guest)).error?.code).toBe('22023')
       expect((await field(staff, booking, 'guest', { city: 'Wien' }, '2000-01-01T00:00:00Z')).error?.code).toBe('P0975')
       expect((await field(staff, booking, 'guest', { document_issued_on: '2020-01-01' }, s.guest)).error?.code).toBe('22023')
       expect((await field(staff, booking, 'guest', { country: 'X1' }, s.guest)).error?.code).toBe('22023')
       const ok = await field(staff, booking, 'guest', { document_type: 'passport', document_number: 'P1', document_issued_on: '2020-01-01' }, s.guest)
       expect(ok.error).toBeNull()
+    })
+
+    it('E-Mail nur, solange der Gast keine hat; Ausweisbilder über das Blatt (Nachbesserung)', async () => {
+      const withMail = await newGuest({ email: `alt-${runId}@example.at` })
+      const b1 = await newBooking(withMail)
+      expect((await field(staff, b1, 'guest', { email: 'neu@example.at' }, (await stamps(b1)).guest)).error?.code).toBe('22023')
+
+      const guest = await newGuest()
+      const booking = await newBooking(guest)
+      expect((await field(staff, booking, 'guest', { email: ' Neu@Example.AT ' }, (await stamps(booking)).guest)).error).toBeNull()
+      const path = `${tenant}/${randomUUID()}.jpg`
+      const { error: up } = await service.storage.from('guest-documents').upload(path, new Blob(['x'], { type: 'image/jpeg' }), { contentType: 'image/jpeg' })
+      expect(up).toBeNull()
+      expect((await field(staff, booking, 'guest', { document_front_path: path }, (await stamps(booking)).guest)).error).toBeNull()
+      const { data } = await service.from('guests').select('email, document_front_path').eq('id', guest).single()
+      expect(data).toEqual({ email: 'neu@example.at', document_front_path: path })
+      await service.storage.from('guest-documents').remove([path])
     })
 
     it('Lfd.-Nr. und Mitreisende an der Buchung; Höchstzahl wie im Buchungsformular', async () => {

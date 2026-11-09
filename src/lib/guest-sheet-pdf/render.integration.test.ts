@@ -39,6 +39,8 @@ const snapshot = (companions: number): GuestSheetSnapshot => ({
     postalCode: '39100',
     city: 'Bolzano',
     addressCountry: 'IT',
+    documentFrontPath: null,
+    documentBackPath: null,
   },
   companions: Array.from({ length: companions }, (_, i) => ({ lastName: 'Rossi', firstName: `Kind ${i + 1}`, birthDate: '2016-07-09' })),
   stay: { arrival: '2026-11-02', plannedDeparture: '2026-11-09', persons: companions + 1 },

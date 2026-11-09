@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl'
 import { useFieldArray, useFormContext, useWatch } from 'react-hook-form'
 
 import { CountryPicker } from '@/components/guests/country-picker'
+import { DocumentImageField } from '@/components/guests/document-image-field'
 import { PostalPlaceFields } from '@/components/guests/postal-place-fields'
 import { Button } from '@/components/ui/button'
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
@@ -25,13 +26,22 @@ interface SheetPageOneProps {
   onCommit: () => void
   // Hinweis am Reisedokument: wird erst mit Art und Nummer gespeichert
   documentWaiting: boolean
+  // Ausweisbilder beim Öffnen schon hinterlegt? Fehlende Seiten lassen sich auf dem Blatt aufnehmen
+  imagesOnFile: { front: boolean; back: boolean }
 }
 
-type TextName = Exclude<keyof SheetForm, 'gender' | 'companions' | 'country' | 'documentType' | 'documentCountry' | 'addressCountry'>
+// Fehlende Angabe: deutlich rot umrandet (Rückmeldung nach dem Deploy)
+const MISSING = 'border-2 border-red-600 bg-red-50 focus-visible:ring-red-600'
+const MISSING_HINT = 'text-[13px] font-semibold text-red-700'
+
+type TextName = Exclude<
+  keyof SheetForm,
+  'gender' | 'companions' | 'country' | 'documentType' | 'documentCountry' | 'addressCountry' | 'documentFrontPath' | 'documentBackPath'
+>
 
 // Seite 1 „Meldedaten“ des Gästeblatts (PROJ-26): Aufbau wie das amtliche Gästeverzeichnisblatt (ohne Reisegruppen).
 // Fehlende Pflichtangaben sind markiert und per Tastatur ergänzbar.
-export function SheetPageOne({ tenantName, stay, gaps, onCommit, documentWaiting }: SheetPageOneProps) {
+export function SheetPageOne({ tenantName, stay, gaps, onCommit, documentWaiting, imagesOnFile }: SheetPageOneProps) {
   const t = useTranslations('guestSheets.signing')
   const tg = useTranslations('guests.gender')
   const tdt = useTranslations('guests.documentType')
@@ -46,7 +56,7 @@ export function SheetPageOne({ tenantName, stay, gaps, onCommit, documentWaiting
       control={control}
       name={name}
       render={({ field }) => (
-        <FormItem>
+        <FormItem className="min-w-0">
           <FormLabel>{label}</FormLabel>
           <FormControl>
             <Input
@@ -54,11 +64,11 @@ export function SheetPageOne({ tenantName, stay, gaps, onCommit, documentWaiting
               maxLength={opts.max}
               autoComplete={opts.autoComplete ?? 'off'}
               aria-invalid={mark(name) || undefined}
-              className={cn('min-h-11 bg-white', mark(name) && 'border-ds-accent-2-700 bg-ds-accent-2-100')}
+              className={cn('min-h-11 bg-white', mark(name) && MISSING)}
               {...field}
             />
           </FormControl>
-          {mark(name) && <p className="text-[13px] text-ds-accent-2-800">{t('fillIn')}</p>}
+          {mark(name) && <p className={MISSING_HINT}>{t('fillIn')}</p>}
           <FormMessage />
         </FormItem>
       )}
@@ -70,20 +80,22 @@ export function SheetPageOne({ tenantName, stay, gaps, onCommit, documentWaiting
       control={control}
       name={name}
       render={({ field, fieldState }) => (
-        <FormItem>
+        <FormItem className="min-w-0">
           <FormLabel>{label}</FormLabel>
-          <FormControl>
-            <CountryPicker
-              value={field.value}
-              onChange={(v) => {
-                field.onChange(v)
-                onCommit()
-              }}
-              clearable={name !== 'country'}
-              invalid={Boolean(fieldState.error) || mark(name)}
-            />
-          </FormControl>
-          {mark(name) && <p className="text-[13px] text-ds-accent-2-800">{t('fillIn')}</p>}
+          <div className={cn('rounded-md', mark(name) && 'bg-red-50 ring-2 ring-red-600')}>
+            <FormControl>
+              <CountryPicker
+                value={field.value}
+                onChange={(v) => {
+                  field.onChange(v)
+                  onCommit()
+                }}
+                clearable={name !== 'country'}
+                invalid={Boolean(fieldState.error) || mark(name)}
+              />
+            </FormControl>
+          </div>
+          {mark(name) && <p className={MISSING_HINT}>{t('fillIn')}</p>}
           <FormMessage />
         </FormItem>
       )}
@@ -155,7 +167,7 @@ export function SheetPageOne({ tenantName, stay, gaps, onCommit, documentWaiting
               control={control}
               name="documentType"
               render={({ field }) => (
-                <FormItem>
+                <FormItem className="min-w-0">
                   <FormLabel>{t('documentType')}</FormLabel>
                   <Select
                     value={field.value || undefined}
@@ -167,7 +179,7 @@ export function SheetPageOne({ tenantName, stay, gaps, onCommit, documentWaiting
                     <FormControl>
                       <SelectTrigger
                         aria-invalid={mark('documentType') || undefined}
-                        className={cn('min-h-11 bg-white', mark('documentType') && 'border-ds-accent-2-700 bg-ds-accent-2-100')}
+                        className={cn('min-h-11 bg-white', mark('documentType') && MISSING)}
                       >
                         <SelectValue placeholder={t('choose')} />
                       </SelectTrigger>
@@ -180,7 +192,7 @@ export function SheetPageOne({ tenantName, stay, gaps, onCommit, documentWaiting
                       ))}
                     </SelectContent>
                   </Select>
-                  {mark('documentType') && <p className="text-[13px] text-ds-accent-2-800">{t('fillIn')}</p>}
+                  {mark('documentType') && <p className={MISSING_HINT}>{t('fillIn')}</p>}
                   <FormMessage />
                 </FormItem>
               )}
@@ -190,6 +202,29 @@ export function SheetPageOne({ tenantName, stay, gaps, onCommit, documentWaiting
             {text('documentAuthority', t('documentAuthority'), { max: LIMITS.documentAuthorityMax })}
             {countryField('documentCountry', t('documentCountry'))}
           </div>
+          {(!imagesOnFile.front || !imagesOnFile.back) && (
+            <div className="flex flex-col gap-2">
+              <span className="text-sm font-medium leading-none">{t('documentImages')}</span>
+              <p className="text-sm text-ds-neutral-800">{t('documentImagesHint')}</p>
+              <div className="grid gap-4 md:grid-cols-2">
+                {(['front', 'back'] as const)
+                  .filter((side) => !imagesOnFile[side])
+                  .map((side) => (
+                    <FormField
+                      key={side}
+                      control={control}
+                      name={side === 'front' ? 'documentFrontPath' : 'documentBackPath'}
+                      render={({ field }) => (
+                        <FormItem className="min-w-0">
+                          <DocumentImageField side={side} value={field.value} onChange={field.onChange} />
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  ))}
+              </div>
+            </div>
+          )}
           {documentWaiting && <p className="text-sm text-ds-neutral-800">{t('documentWaiting')}</p>}
         </section>
       )}
@@ -210,9 +245,10 @@ export function SheetPageOne({ tenantName, stay, gaps, onCommit, documentWaiting
           cityLabel={t('city')}
           postalMax={LIMITS.postalCodeMax}
           cityMax={LIMITS.cityMax}
-          gridClassName="grid grid-cols-[minmax(0,8rem)_1fr] gap-3"
+          gridClassName="grid grid-cols-[minmax(0,8rem)_minmax(0,1fr)] gap-3"
+          inputClassNames={{ postal: cn('bg-white', mark('postalCode') && MISSING), city: cn('bg-white', mark('city') && MISSING) }}
         />
-        {(mark('postalCode') || mark('city')) && <p className="-mt-2 text-[13px] text-ds-accent-2-800">{t('fillInAddress')}</p>}
+        {(mark('postalCode') || mark('city')) && <p className={cn('-mt-2', MISSING_HINT)}>{t('fillInAddress')}</p>}
         {countryField('addressCountry', t('residenceCountry'))}
       </section>
 
@@ -235,7 +271,7 @@ export function SheetPageOne({ tenantName, stay, gaps, onCommit, documentWaiting
                   control={control}
                   name={`companions.${i}.${f}`}
                   render={({ field }) => (
-                    <FormItem>
+                    <FormItem className="min-w-0">
                       <FormLabel>{t(f === 'birthDate' ? 'birthDate' : f)}</FormLabel>
                       <FormControl>
                         <Input
@@ -243,11 +279,11 @@ export function SheetPageOne({ tenantName, stay, gaps, onCommit, documentWaiting
                           maxLength={f === 'birthDate' ? 10 : LIMITS.nameMax}
                           autoComplete="off"
                           aria-invalid={gap || undefined}
-                          className={cn('min-h-11 bg-white', gap && 'border-ds-accent-2-700 bg-ds-accent-2-100')}
+                          className={cn('min-h-11 bg-white', gap && MISSING)}
                           {...field}
                         />
                       </FormControl>
-                      {gap && <p className="text-[13px] text-ds-accent-2-800">{t('fillIn')}</p>}
+                      {gap && <p className={MISSING_HINT}>{t('fillIn')}</p>}
                       <FormMessage />
                     </FormItem>
                   )}
@@ -268,10 +304,10 @@ export function SheetPageOne({ tenantName, stay, gaps, onCommit, documentWaiting
             </Button>
           </fieldset>
         ))}
-        {gaps.companionsTooMany && <p className="text-sm text-ds-accent-2-800">{t('tooManyCompanions')}</p>}
+        {gaps.companionsTooMany && <p className="text-sm font-semibold text-red-700">{t('tooManyCompanions')}</p>}
         {gaps.companionsMissing > 0 && (
           <div className="flex flex-col gap-2">
-            <p className="text-sm text-ds-accent-2-800">{t('companionsMissing', { count: gaps.companionsMissing })}</p>
+            <p className="text-sm font-semibold text-red-700">{t('companionsMissing', { count: gaps.companionsMissing })}</p>
             <Button
               type="button"
               variant="outline"

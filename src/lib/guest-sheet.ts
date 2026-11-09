@@ -68,6 +68,9 @@ export type SheetGuest = {
   city: string | null
   // Herkunftsland (Staat des Wohnsitzes)
   addressCountry: string | null
+  // Ausweisbilder (PROJ-29), auf dem Blatt aufnehmbar, wenn noch keine hinterlegt sind; nicht Pflicht
+  documentFrontPath: string | null
+  documentBackPath: string | null
 }
 
 export type SheetCompanion = { lastName: string; firstName: string; birthDate: string | null }
@@ -92,11 +95,15 @@ export const SHEET_GUEST_FIELDS = [
   'postalCode',
   'city',
   'addressCountry',
+  'documentFrontPath',
+  'documentBackPath',
 ] as const
 export type SheetGuestField = (typeof SHEET_GUEST_FIELDS)[number]
 
+// Pflichtangaben des Reisedokuments; die Bilder gehören zum Dokument (werden mit ihm gespeichert), sind aber nicht Pflicht
 const DOCUMENT_FIELDS: readonly SheetGuestField[] = ['documentType', 'documentNumber', 'documentIssuedOn', 'documentAuthority', 'documentCountry']
-export const isDocumentField = (f: SheetGuestField) => DOCUMENT_FIELDS.includes(f)
+const DOCUMENT_IMAGE_FIELDS: readonly SheetGuestField[] = ['documentFrontPath', 'documentBackPath']
+export const isDocumentField = (f: SheetGuestField) => DOCUMENT_FIELDS.includes(f) || DOCUMENT_IMAGE_FIELDS.includes(f)
 
 export const SHEET_COMPANION_FIELDS = ['lastName', 'firstName', 'birthDate'] as const
 export type SheetCompanionField = (typeof SHEET_COMPANION_FIELDS)[number]

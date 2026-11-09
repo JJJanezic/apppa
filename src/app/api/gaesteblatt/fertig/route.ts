@@ -80,6 +80,8 @@ export async function POST(request: Request) {
       postalCode: guest.postalCode,
       city: guest.city,
       addressCountry: guest.addressCountry,
+      documentFrontPath: guest.documentFrontPath,
+      documentBackPath: guest.documentBackPath,
     },
     companions: data.companions.map((c) => ({ lastName: c.lastName, firstName: c.firstName, birthDate: c.birthDate })),
     stay: { arrival: data.booking.arrival, plannedDeparture: data.booking.plannedDeparture, persons: data.booking.persons },

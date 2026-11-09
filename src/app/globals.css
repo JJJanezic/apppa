@@ -91,6 +91,17 @@
   * {
     @apply border-border;
   }
+  /* Datumsfelder in Safari (iPad, iPhone): ohne eigenes Aussehen genau so breit und hoch wie ihre Spalte, Text links.
+     Sonst werden sie breiter als die Spalte und überdecken das Nachbarfeld (PROJ-26, Rückmeldung iPad). */
+  input[type='date'] {
+    -webkit-appearance: none;
+    appearance: none;
+    min-width: 0;
+  }
+  input[type='date']::-webkit-date-and-time-value {
+    margin: 0;
+    text-align: left;
+  }
   body {
     @apply bg-background font-sans text-foreground antialiased;
     font-size: 15px;

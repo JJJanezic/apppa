@@ -9,6 +9,7 @@ import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/comp
 import { Input } from '@/components/ui/input'
 import { countryName } from '@/lib/guests'
 import { type AutofillPlan, loadPostalPlaces, planAutofill, postalLookup } from '@/lib/postal-places'
+import { cn } from '@/lib/utils'
 import type { GuestInput } from '@/lib/validation/guests'
 
 type TextKey = 'postalCode' | 'city' | 'companyPostalCode' | 'companyCity'
@@ -24,6 +25,8 @@ interface PostalPlaceFieldsProps {
   cityMax: number
   // Raster für PLZ und Ort (Gast- und Firmenanschrift unterscheiden sich auf dem Handy)
   gridClassName: string
+  // Zusätzliche Klassen für die beiden Eingabefelder (Gästeblatt: rot umrandet, wenn die Angabe fehlt, PROJ-26)
+  inputClassNames?: { postal?: string; city?: string }
   // reset(): Ort/Staat wurden von außen gesetzt (Firmenvorschlag, PROJ-49). Merker „automatisch befüllt“ und offene
   // Ortsauswahl verwerfen, damit die Automatik die gesetzten Werte nicht überschreibt
   ref?: Ref<PostalPlaceFieldsHandle>
@@ -36,7 +39,7 @@ export interface PostalPlaceFieldsHandle {
 // PLZ und Ort einer Anschrift im Gastformular (PROJ-48): Eine österreichische oder deutsche PLZ füllt Ort und Land aus.
 // Nur Eingaben im PLZ-Feld lösen das aus – Öffnen eines Gastes oder Zurücksetzen des Formulars nicht.
 // Welche Werte automatisch eingetragen wurden, gilt nur für die laufende Bearbeitung und wird nicht gespeichert.
-export function PostalPlaceFields({ postalName, cityName, countryName: countryKey, postalLabel, cityLabel, postalMax, cityMax, gridClassName, ref }: PostalPlaceFieldsProps) {
+export function PostalPlaceFields({ postalName, cityName, countryName: countryKey, postalLabel, cityLabel, postalMax, cityMax, gridClassName, inputClassNames, ref }: PostalPlaceFieldsProps) {
   const t = useTranslations('guests.postalPlaces')
   const locale = useLocale()
   const { control, getValues, setValue, setFocus, formState } = useFormContext<GuestInput>()
@@ -107,7 +110,7 @@ export function PostalPlaceFields({ postalName, cityName, countryName: countryKe
                 <Input
                   autoComplete="off"
                   maxLength={postalMax}
-                  className="min-h-11"
+                  className={cn('min-h-11', inputClassNames?.postal)}
                   {...field}
                   onChange={(e: ChangeEvent<HTMLInputElement>) => {
                     field.onChange(e)
@@ -129,7 +132,7 @@ export function PostalPlaceFields({ postalName, cityName, countryName: countryKe
                 <Input
                   autoComplete="off"
                   maxLength={cityMax}
-                  className="min-h-11"
+                  className={cn('min-h-11', inputClassNames?.city)}
                   {...field}
                   onChange={(e: ChangeEvent<HTMLInputElement>) => {
                     field.onChange(e)

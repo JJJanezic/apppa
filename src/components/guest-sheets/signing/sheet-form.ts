@@ -42,6 +42,8 @@ export function sheetGuestOf(v: SheetForm, titles: { titlePrefix: string | null;
     postalCode: orNull(v.postalCode),
     city: orNull(v.city),
     addressCountry: orNull(v.addressCountry),
+    documentFrontPath: orNull(v.documentFrontPath),
+    documentBackPath: orNull(v.documentBackPath),
   }
 }
 

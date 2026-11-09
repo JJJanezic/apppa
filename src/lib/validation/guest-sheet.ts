@@ -2,7 +2,7 @@ import { z } from 'zod'
 
 import { isIsoDate } from '@/lib/bookings'
 import { GUEST_SHEET_TEXT_MAX, SHEET_NUMBER_MAX } from '@/lib/guest-sheet'
-import { DOCUMENT_TYPES, GENDERS, isCountry, LIMITS } from '@/lib/guests'
+import { DOCUMENT_TYPES, GENDERS, isCountry, isDocumentPath, LIMITS } from '@/lib/guests'
 import { checkDoc, docField } from '@/lib/validation/invoice-settings'
 
 // Prüfregeln des Gästeblatts (PROJ-26). Browser und Server-Aktionen nutzen dieselben Schemas; die Datenbank prüft
@@ -33,6 +33,12 @@ const countryOrEmpty = (t: T) =>
     .refine((v) => v === '' || isCountry(v), t('unknown'))
     .transform((v) => v || null)
 
+const imagePath = (t: T) =>
+  z
+    .string()
+    .refine((v) => v === '' || isDocumentPath(v), t('documentUploading'))
+    .transform((v) => v || null)
+
 // Felder des Hauptgasts auf Seite 1, einzeln speicherbar. Leere Pflichtfelder sind erlaubt (das Blatt markiert sie);
 // nur Nachname und Staatsangehörigkeit darf man nicht leeren, weil der Gast sie immer hat (PROJ-7).
 export const sheetGuestSchema = (t: T) =>
@@ -54,7 +60,19 @@ export const sheetGuestSchema = (t: T) =>
     postalCode: optional(t, LIMITS.postalCodeMax),
     city: optional(t, LIMITS.cityMax),
     addressCountry: countryOrEmpty(t),
+    // Ausweisbilder: leer oder <Kunde>/<zufällig>.jpg; während des Hochladens nicht speicherbar
+    documentFrontPath: imagePath(t),
+    documentBackPath: imagePath(t),
   })
+
+// E-Mail des Gastes auf Seite 2 (nur wenn noch keine hinterlegt ist); Regel wie im Gastformular, Kleinbuchstaben
+export const sheetEmailSchema = (t: T) =>
+  z
+    .string()
+    .trim()
+    .max(LIMITS.emailMax, t('tooLong'))
+    .refine((v) => v === '' || z.email().safeParse(v).success, t('emailInvalid'))
+    .transform((v) => v.toLowerCase() || null)
 
 export type SheetGuestInput = z.input<ReturnType<typeof sheetGuestSchema>>
 export type SheetGuestValues = z.output<ReturnType<typeof sheetGuestSchema>>

@@ -587,6 +587,67 @@ test.describe('QA-Korrekturen', () => {
   })
 })
 
+test.describe('Nachbesserung nach dem Deploy', () => {
+  test('Fehlende Felder sind rot umrandet, auch PLZ, Ort und Länderauswahl', async ({ page, users }) => {
+    desktopOnly()
+    const { tenantId, apartmentId } = await setup(page, users)
+    const guest = await addGuest(tenantId, { birth_date: null, postal_code: null, city: null, address_country: null })
+    const booking = await addBooking(tenantId, apartmentId, guest)
+    await openSheet(page, booking.id)
+    const red = 'rgb(220, 38, 38)'
+    for (const label of ['Geburtsdatum', 'Postleitzahl', 'Ortsgemeinde']) {
+      await expect(page.getByLabel(label)).toHaveCSS('border-top-color', red)
+    }
+    const picker = page.getByRole('combobox', { name: 'Herkunftsland' })
+    await expect(picker.locator('xpath=..')).toHaveClass(/ring-red-600/)
+    await expect(page.getByLabel('Familienname')).not.toHaveCSS('border-top-color', red)
+  })
+
+  test('Ausweisbilder lassen sich bei ausländischen Gästen ohne Bilder aufnehmen; bei Österreichern nicht', async ({ page, users }) => {
+    desktopOnly()
+    const { tenantId, apartmentId } = await setup(page, users, 'staff')
+    const foreign = await addBooking(tenantId, apartmentId, await addGuest(tenantId, { country: 'DE' }))
+    await openSheet(page, foreign.id)
+    await expect(page.getByText('Bilder des Reisedokuments')).toBeVisible()
+    await expect(page.getByText('Vorderseite', { exact: true })).toBeVisible()
+    await expect(page.getByText('Rückseite', { exact: true })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Bild hinzufügen' })).toHaveCount(2)
+    const local = await addBooking(tenantId, apartmentId, await addGuest(tenantId))
+    await openSheet(page, local.id)
+    await expect(page.getByText('Bilder des Reisedokuments')).toHaveCount(0)
+  })
+
+  test('E-Mail auf Seite 2 nur bei Gästen ohne E-Mail; wird beim Verlassen am Gast gespeichert', async ({ page, users }) => {
+    desktopOnly()
+    test.setTimeout(90_000)
+    const { tenantId, apartmentId } = await setup(page, users, 'staff')
+    const guest = await addGuest(tenantId)
+    const booking = await addBooking(tenantId, apartmentId, guest)
+    await openSheet(page, booking.id)
+    await draw(page, 'unterschrift-1')
+    await page.getByRole('button', { name: 'Weiter' }).click()
+    const email = page.getByLabel('E-Mail-Adresse')
+    await email.fill('falsch@')
+    await page.getByLabel('Ich willige ein.').click()
+    await expect(page.getByText('Bitte prüfe die E-Mail-Adresse')).toBeVisible()
+    await email.fill('Anna.Huber@Example.at')
+    await page.getByLabel('Ich willige ein.').click()
+    await expect(page.getByText('E-Mail-Adresse gespeichert.')).toBeVisible()
+    const { data } = await service().from('guests').select('email').eq('id', guest).single()
+    expect(data!.email).toBe('anna.huber@example.at')
+    await draw(page, 'unterschrift-2')
+    await page.getByRole('button', { name: 'Fertig' }).click()
+    await page.waitForURL(/\/buchungen\/[^/?]+$/, { timeout: 30_000 })
+
+    const other = await addBooking(tenantId, apartmentId, await addGuest(tenantId, { email: 'schon@example.at' }))
+    await openSheet(page, other.id)
+    await draw(page, 'unterschrift-1')
+    await page.getByRole('button', { name: 'Weiter' }).click()
+    await expect(page.getByRole('heading', { name: 'Einwilligung in Marketing' })).toBeVisible()
+    await expect(page.getByLabel('E-Mail-Adresse')).toHaveCount(0)
+  })
+})
+
 test.describe('Layout und Barrierefreiheit', () => {
   test('Vollbild, Liste und Einstellungen ohne automatisch erkennbare WCAG-2.1-AA-Verstöße und ohne seitliches Scrollen', async ({ page, users }) => {
     const { tenantId, apartmentId } = await setup(page, users)

@@ -24,6 +24,8 @@ const snapshot: GuestSheetSnapshot = {
     postalCode: '39100',
     city: 'Bolzano',
     addressCountry: 'IT',
+    documentFrontPath: null,
+    documentBackPath: null,
   },
   companions: [{ lastName: 'Rossi', firstName: 'Luca', birthDate: '2016-07-09' }],
   stay: { arrival: '2026-11-02', plannedDeparture: '2026-11-09', persons: 2 },

@@ -251,7 +251,8 @@ export async function hasAnyGuestSheet(): Promise<boolean> {
 
 // ---- Vollbild-Seite --------------------------------------------------------------------------------
 
-export type SigningGuest = SheetGuest & { id: string; anonymized: boolean; updatedAt: string }
+// email: für das Feld auf Seite 2 (nur bei leerer E-Mail angeboten); nicht Teil des Blatts
+export type SigningGuest = SheetGuest & { id: string; email: string | null; anonymized: boolean; updatedAt: string }
 
 export type SigningData = {
   tenantId: string
@@ -297,12 +298,15 @@ type GuestDb = {
   postal_code: string | null
   city: string | null
   address_country: string | null
+  document_front_path: string | null
+  document_back_path: string | null
+  email: string | null
   anonymized_at: string | null
   updated_at: string
 }
 
 const GUEST_COLUMNS =
-  'id, last_name, first_name, title_prefix, title_suffix, gender, birth_date, country, document_type, document_number, document_issued_on, document_authority, document_country, street, postal_code, city, address_country, anonymized_at, updated_at'
+  'id, last_name, first_name, title_prefix, title_suffix, gender, birth_date, country, document_type, document_number, document_issued_on, document_authority, document_country, street, postal_code, city, address_country, document_front_path, document_back_path, email, anonymized_at, updated_at'
 
 export const signingGuestOf = (g: GuestDb): SigningGuest => ({
   id: g.id,
@@ -322,6 +326,9 @@ export const signingGuestOf = (g: GuestDb): SigningGuest => ({
   postalCode: g.postal_code,
   city: g.city,
   addressCountry: g.address_country,
+  documentFrontPath: g.document_front_path,
+  documentBackPath: g.document_back_path,
+  email: g.email,
   anonymized: g.anonymized_at !== null,
   updatedAt: g.updated_at,
 })
