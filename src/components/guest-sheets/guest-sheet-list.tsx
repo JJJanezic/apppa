@@ -12,7 +12,7 @@ import { guestHref } from '@/lib/guests'
 const LINK = 'text-ds-accent-700 underline-offset-[3px] hover:underline'
 
 // Liste „Gästeblätter“ (PROJ-26, refine 2026-11-09): Buchungen mit Gästeblattnummer, absteigend nach Nummer. Spalten Lfd.-Nr.
-// (Link zum PDF, wenn ein Blatt vorhanden ist), Buchung, Hauptgast (Link zur Gastseite), Ankunft, Abreise, Wohnung, Art.
+// (Link zum PDF, wenn ein Blatt vorhanden ist), Unterschrieben am (nur Datum, sonst „–“), Buchung, Hauptgast (Link zur Gastseite), Ankunft, Abreise, Wohnung, Art.
 // Mit „Buchungen ohne Gästeblatt“ die Buchungen ohne Nummer. Ab 768 px Tabelle, darunter Karten; keine Zeile als Ganzes
 // verlinkt (Safari-Regel).
 export function GuestSheetList({ page }: { page: GuestSheetPage }) {
@@ -105,6 +105,7 @@ export function GuestSheetList({ page }: { page: GuestSheetPage }) {
         <TableHeader>
           <TableRow>
             <TableHead>{t('col.sheetNumber')}</TableHead>
+            <TableHead>{t('col.signedOn')}</TableHead>
             <TableHead>{t('col.booking')}</TableHead>
             <TableHead>{t('col.guest')}</TableHead>
             <TableHead>{t('col.arrival')}</TableHead>
@@ -117,6 +118,7 @@ export function GuestSheetList({ page }: { page: GuestSheetPage }) {
           {page.rows.map((r) => (
             <TableRow key={r.bookingId}>
               <TableCell className="whitespace-nowrap">{number(r)}</TableCell>
+              <TableCell className="whitespace-nowrap tabular-nums">{r.signedOn ? formatDate(r.signedOn) : dash}</TableCell>
               <TableCell className="whitespace-nowrap">{booking(r.bookingId, r.bookingNumber)}</TableCell>
               <TableCell className="max-w-[260px] break-words">{guest(r)}</TableCell>
               <TableCell className="whitespace-nowrap tabular-nums">{formatDate(r.arrival)}</TableCell>
@@ -137,6 +139,7 @@ export function GuestSheetList({ page }: { page: GuestSheetPage }) {
               <span className="shrink-0 pt-3 text-[13px] text-ds-neutral-800">{t(`kind.${r.kind}`)}</span>
             </span>
             <span className="break-words font-semibold">{r.guestName ? guest(r) : t('noGuest')}</span>
+            {r.signedOn && <span className="text-[13px] tabular-nums text-ds-neutral-800">{t('signedOn', { date: formatDate(r.signedOn) })}</span>}
             <span className="text-[13px] tabular-nums text-ds-neutral-800">
               {formatDate(r.arrival)} – {formatDate(r.departure)} · {r.apartmentLabel}
             </span>

@@ -178,6 +178,7 @@ type RegisterDb = GuestRefDb & {
   sheet_number: string
   sheet_id: string | null
   sheet_kind: GuestSheetKind | null
+  signed_date: string | null
   arrival: string
   departure: string
   property_name: string
@@ -185,7 +186,7 @@ type RegisterDb = GuestRefDb & {
 }
 
 const REGISTER_COLUMNS =
-  'booking_id, booking_number, sheet_number, sheet_id, sheet_kind, guest_id, guest_anonymized, last_name, first_name, title_prefix, title_suffix, arrival, departure, property_name, apartment_name'
+  'booking_id, booking_number, sheet_number, sheet_id, sheet_kind, signed_date, guest_id, guest_anonymized, last_name, first_name, title_prefix, title_suffix, arrival, departure, property_name, apartment_name'
 const MISSING_COLUMNS =
   'booking_id, booking_number, guest_id, guest_anonymized, last_name, first_name, title_prefix, title_suffix, arrival, departure, property_name, apartment_name'
 
@@ -256,6 +257,7 @@ export async function getGuestSheetPage(filters: GuestSheetFilters): Promise<Gue
       sheetNumber: r.sheet_number,
       sheetId: r.sheet_id,
       kind: r.sheet_id ? (r.sheet_kind ?? 'signed') : 'none',
+      signedOn: r.sheet_id ? r.signed_date : null,
       ...guestOf(r),
       arrival: r.arrival,
       departure: r.departure,

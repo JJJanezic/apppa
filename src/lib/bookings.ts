@@ -232,6 +232,8 @@ export type BookingRow = {
   guestName: string | null
   blockReason: BlockReason | null
   guestSheetNumber: string | null
+  // aktuelles Gästeblatt (PROJ-26): die Gästeblattnummer führt zum PDF; null = Nummer ohne Blatt
+  guestSheetId: string | null
   source: BookingSource
   // PROJ-47: Anzeige nur bei Suchtreffern
   platformNumber: string | null

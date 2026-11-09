@@ -1439,6 +1439,8 @@
     "nightsCount": "{nights, plural, one {# Nacht} other {# Nächte}}",
     "personsCount": "{persons, plural, one {# Person} other {# Personen}}",
     "guestSheetShort": "Gästeblatt {number}",
+    "guestSheetLink": "Gästeblatt <pdf>{number}</pdf>",
+    "guestSheetPdf": "Gästeblatt {number} als PDF öffnen",
     "platformNumberShort": {
       "booking_com": "booking.com {number}",
       "airbnb": "Airbnb {number}"
@@ -3566,6 +3568,7 @@
       "clearSearch": "Suche zurücksetzen",
       "col": {
         "sheetNumber": "Lfd.-Nr.",
+        "signedOn": "Unterschrieben am",
         "guest": "Hauptgast",
         "arrival": "Ankunft",
         "departure": "Abreise",
@@ -3588,7 +3591,8 @@
       "apartmentLabel": "Wohnung",
       "allApartments": "Alle Wohnungen",
       "archivedApartment": "{label} (archiviert)",
-      "openPdf": "Gästeblatt {number} als PDF öffnen"
+      "openPdf": "Gästeblatt {number} als PDF öffnen",
+      "signedOn": "Unterschrieben am {date}"
     },
     "signing": {
       "title": "Gästeblatt",

@@ -1,6 +1,6 @@
 # PROJ-26: Gästeblatt (Meldewesen)
 
-## Status: Planned
+## Status: In Progress
 **Created:** 2026-11-08
 **Last Updated:** 2026-11-09 (Refine: Spalte „Unterschrieben am“ in der Liste, Gästeblattnummer in der Buchungsübersicht als PDF-Link)
 
@@ -966,6 +966,26 @@ und in der Buchungsübersicht soll die Gästeblattnummer direkt das PDF öffnen.
 - Uhrzeit der Unterschrift kurz nach Mitternacht: Das Datum richtet sich nach österreichischer Zeit, nicht nach UTC
 - Anonymisierter Gast: Datum und PDF-Link bleiben (das Blatt bleibt aufbewahrt)
 - Blatt an einer Buchung ohne Gästeblattnummer: in der Buchungsübersicht keine Nummer, also kein Link (Blatt im Buchungsdetail erreichbar)
+
+### Umsetzung Frontend (2026-11-09)
+- Ohne eigenen `/architecture`-Schritt (kleiner Umfang).
+- **Liste „Gästeblätter“** (`guest-sheet-list.tsx`):
+  - Spalte „Unterschrieben am“ zwischen Lfd.-Nr. und Buchung, `formatDate` (nur Datum), ohne Wert „–“.
+  - Handy-Karte mit Zeile „Unterschrieben am …“ unter dem Hauptgast; ohne Datum entfällt sie.
+  - `GuestSheetRow.signedOn` aus der neuen Spalte `signed_date` der Sicht `guest_sheet_register` (`guest-sheets-data.ts`), nur bei vorhandenem Blatt.
+- **Buchungsliste** (`booking-list.tsx`, damit Buchungsübersicht, Gastseite, Firmenseite):
+  - `ROW_COLUMNS` lädt die Gästeblätter der Buchung (`sheets:guest_sheets!guest_sheets_booking_fkey(id, replaced_at)`); `BookingRow.guestSheetId` = nicht ersetztes Blatt.
+  - Tabelle: „Gästeblatt <Nummer>“ mit der Nummer als Link auf `/api/gaesteblatt/{id}/pdf` (neuer Tab, `aria-label` „Gästeblatt … als PDF öffnen“); ohne Blatt Text wie bisher; Plattform-Nummer bleibt Text.
+  - Handy: Die Karte bleibt der Link zur Buchung; bei vorhandenem Blatt steht „Gästeblatt <Nummer>“ als eigener Link unter der Karte (kein Link im Link), sonst die Nummer wie bisher in der Karte.
+- **Texte:** `bookings.guestSheetLink`, `bookings.guestSheetPdf`, `guestSheets.list.col.signedOn`, `guestSheets.list.signedOn`.
+- Unit-Test `bookings.test.ts` um `guestSheetId` ergänzt (34 von 34 grün); `tsc` und ESLint ohne neue Befunde.
+
+#### Erwartete Datenbank-Schnittstelle (für /backend)
+- **Sicht `guest_sheet_register`** um die Spalte **`signed_date`** (date) ergänzen:
+  - unterschriebenes Blatt: Datum von `signed_at_2` in Wiener Zeit (`(signed_at_2 at time zone 'Europe/Vienna')::date`);
+  - nacherfasstes Blatt: `signed_on`;
+  - ohne Blatt: null.
+- Bis zur Migration liefert die Liste „Gästeblätter“ in Dev keine Zeilen (Spalte fehlt); die Buchungsliste braucht keine Datenbankänderung.
 
 ## Tech Design (Solution Architect)
 

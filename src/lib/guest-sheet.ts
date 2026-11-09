@@ -224,6 +224,9 @@ export type GuestSheetRow = {
   // aktuelles Blatt (Link zum PDF); null = Nummer ohne Blatt
   sheetId: string | null
   kind: GuestSheetRowKind
+  // Tag der Unterschrift des aktuellen Blatts (refine 2026-11-09): unterschrieben = 2. Unterschrift (Wiener Zeit),
+  // nacherfasst = „Unterschrieben am“ beim Hochladen; null = ohne Angabe bzw. ohne Blatt
+  signedOn: string | null
   guestId: string | null
   guestName: string | null
   guestAnonymized: boolean

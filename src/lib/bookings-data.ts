@@ -101,7 +101,9 @@ const touristTaxMode = (value: string | null | undefined): TouristTaxMode =>
 const ROW_COLUMNS =
   'id, kind, number, apartment_id, arrival, departure, adults, child_ages, block_reason, option_until, cancelled_at, price_review, guest_sheet_number, source, platform_number, guest:guests(id, last_name, first_name, title_prefix, title_suffix), apartment:apartments!inner(name, property:properties!inner(name)), amounts:booking_amounts(billed_nights_cents), charges:booking_charges(amount_cents), ' +
   // PROJ-37: verknüpfte Rechnungen (Lesen für alle Mitglieder, RLS); PROJ-40: Entwürfe ohne Nummer
-  'invoices(id, number, invoice_date, origin, kind)'
+  'invoices(id, number, invoice_date, origin, kind), ' +
+  // PROJ-26: Gästeblätter der Buchung (Lesen für alle Mitglieder, RLS); das aktuelle ist das nicht ersetzte
+  'sheets:guest_sheets!guest_sheets_booking_fkey(id, replaced_at)'
 
 type ListDbRow = {
   id: string
@@ -126,6 +128,7 @@ type ListDbRow = {
   amounts: { billed_nights_cents: number }[]
   charges: { amount_cents: number }[]
   invoices?: { id: string; number: string | null; invoice_date: string; origin: string; kind: string | null }[]
+  sheets?: { id: string; replaced_at: string | null }[]
 }
 
 // Aktive Einträge (für das Kennzeichen „überschneidet sich“) der betroffenen Wohnungen im Zeitraum
@@ -184,6 +187,7 @@ function toRow(r: ListDbRow, owner: boolean, today: string, occupancy: Occupancy
     guestName: r.guest ? guestName(r.guest) : null,
     blockReason: r.block_reason as BlockReason | null,
     guestSheetNumber: r.guest_sheet_number,
+    guestSheetId: r.sheets?.find((s) => s.replaced_at === null)?.id ?? null,
     source: r.source as BookingSource,
     platformNumber: r.platform_number,
     persons: kind === 'block' ? 0 : personCount(r.adults ?? 0, r.child_ages),

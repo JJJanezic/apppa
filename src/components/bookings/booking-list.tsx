@@ -6,6 +6,7 @@ import { BookingBadges } from '@/components/bookings/booking-badges'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { formatDate, formatNumber, formatPeriod } from '@/lib/format'
 import { bookingHref, type BookingRow, isPlatformSource, nightsBetween, platformNumberKey } from '@/lib/bookings'
+import { guestSheetPdfHref } from '@/lib/guest-sheet'
 import { guestHref } from '@/lib/guests'
 import { invoiceHref } from '@/lib/invoices'
 
@@ -27,16 +28,49 @@ export function BookingList({ rows, showAmounts, query = '', guestLinks = true }
   const period = (r: BookingRow) => formatPeriod(r.arrival, r.departure)
   const title = (r: BookingRow) => r.guestName ?? (r.blockReason ? `${t('kind.block')}: ${t(`blockReason.${r.blockReason}`)}` : t('kind.block'))
   const amount = (r: BookingRow) => (r.totalCents === null ? '–' : <Amount cents={r.totalCents} />)
-  // Gästeblattnummer (PROJ-30) unter der Buchungsnummer
+  // Gästeblattnummer (PROJ-30) unter der Buchungsnummer; mit aktuellem Blatt führt die Nummer zum PDF (PROJ-26, refine
+  // 2026-11-09), in einem neuen Tab wie in der Liste „Gästeblätter“
   // Plattform-Nummer nur bei einem Suchtreffer in ihr (gleiche Bereinigung wie die Suche, ab 2 Zeichen)
   const term = platformNumberKey(query.replace(/[^\p{L}\d\s-]/gu, ''))
   const platform = (r: BookingRow) =>
     term.length >= 2 && r.platformNumber && isPlatformSource(r.source) && platformNumberKey(r.platformNumber).includes(term)
       ? t(`platformNumberShort.${r.source}`, { number: r.platformNumber })
       : null
-  const extraNumbers = (r: BookingRow) =>
-    [r.guestSheetNumber && t('guestSheetShort', { number: r.guestSheetNumber }), platform(r)].filter(Boolean).join(' · ')
   const linkClass = 'font-medium text-ds-accent-700 underline underline-offset-[3px] hover:decoration-2'
+  const sheetPdf = (r: BookingRow) =>
+    r.guestSheetId && r.guestSheetNumber
+      ? t.rich('guestSheetLink', {
+          number: r.guestSheetNumber,
+          pdf: (chunks) => (
+            <a
+              href={guestSheetPdfHref(r.guestSheetId!)}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={t('guestSheetPdf', { number: r.guestSheetNumber! })}
+              className="text-ds-accent-700 underline underline-offset-[3px] hover:decoration-2"
+            >
+              {chunks}
+            </a>
+          ),
+        })
+      : null
+  // Tabelle: Gästeblattnummer (Link oder Text) und Plattform-Nummer, mit „ · “ getrennt
+  const extraNumbers = (r: BookingRow) => {
+    const parts = [
+      r.guestSheetNumber && (sheetPdf(r) ?? t('guestSheetShort', { number: r.guestSheetNumber })),
+      platform(r),
+    ].filter(Boolean)
+    if (parts.length === 0) return null
+    return parts.map((p, i) => (
+      <span key={i}>
+        {i > 0 && ' · '}
+        {p}
+      </span>
+    ))
+  }
+  // Handy: Die Karte ist der Link zur Buchung; ein Gästeblatt-PDF steht deshalb als eigener Link unter der Karte
+  const cardNumbers = (r: BookingRow) =>
+    [r.guestSheetNumber && !sheetPdf(r) && t('guestSheetShort', { number: r.guestSheetNumber }), platform(r)].filter(Boolean).join(' · ')
   const badges = (r: BookingRow) => (
     <BookingBadges kind={r.kind} state={r.state} optionUntil={r.optionUntil} overlapping={r.overlapping} priceReview={showAmounts && r.priceReview} />
   )
@@ -118,8 +152,8 @@ export function BookingList({ rows, showAmounts, query = '', guestLinks = true }
 
       <ul className="flex flex-col gap-3 md:hidden">
         {rows.map((r) => (
-          <li key={r.id}>
-            <Link href={bookingHref(r.id)} className="flex flex-col gap-1.5 rounded-lg bg-ds-surface p-4 hover:bg-ds-neutral-200">
+          <li key={r.id} className="flex flex-col rounded-lg bg-ds-surface">
+            <Link href={bookingHref(r.id)} className="flex flex-col gap-1.5 rounded-lg p-4 hover:bg-ds-neutral-200">
               {r.number && <span className="text-[13px] font-medium tabular-nums text-ds-neutral-800">{r.number}</span>}
               <span className="flex items-start justify-between gap-3">
                 <span className="min-w-0 break-words text-lg font-semibold">{title(r)}</span>
@@ -137,7 +171,7 @@ export function BookingList({ rows, showAmounts, query = '', guestLinks = true }
               </span>
               <span className="break-words text-[13px] text-ds-neutral-800">
                 {r.apartmentLabel}
-                {extraNumbers(r) && <> · {extraNumbers(r)}</>}
+                {cardNumbers(r) && <> · {cardNumbers(r)}</>}
               </span>
               {/* Handy: die Karte ist der Link zur Buchung, Rechnungsnummern daher als Text (kein Link im Link) */}
               {r.invoices.length > 0 && (
@@ -145,6 +179,11 @@ export function BookingList({ rows, showAmounts, query = '', guestLinks = true }
               )}
               {badges(r)}
             </Link>
+            {sheetPdf(r) && (
+              <span className="flex min-h-11 items-center break-words px-4 pb-2 text-[13px] text-ds-neutral-800">
+                {sheetPdf(r)}
+              </span>
+            )}
           </li>
         ))}
       </ul>
