@@ -1,8 +1,8 @@
 # PROJ-26: Gästeblatt (Meldewesen)
 
-## Status: Deployed
+## Status: Planned
 **Created:** 2026-11-08
-**Last Updated:** 2026-11-09 (Erweiterung Kennzahl und Gästeblattnummer je Gemeinde live seit v1.45.0)
+**Last Updated:** 2026-11-09 (refine: Liste „Gästeblätter“ überarbeitet; Kennzahl und Gästeblattnummer je Gemeinde live seit v1.45.0)
 
 ## Dependencies
 - Requires: PROJ-4 (Kundenkonten & Rollen): Rollen Inhaber/Mitarbeiter, gewählter Kunde
@@ -311,6 +311,12 @@ Schlägt ein Teil fehl, wird nichts gespeichert, die Ansicht bleibt mit beiden U
 ### Product Decisions
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Liste „Gästeblätter“ nach Gästeblattnummer absteigend, Voreinstellung „Alle Monate“, Filter Wohnung | Vollständiges, lückenlos prüfbares Verzeichnis für Kontrollen (refine 2026-11-09) | 2026-11-09 |
+| Hauptliste = Buchungen mit Gästeblattnummer, auch ohne PDF; Nummer als Link zum PDF statt eigenem Knopf | Nacherfasste Nummern ohne Scan sollen sichtbar sein | 2026-11-09 |
+| Hauptgast verlinkt die Gastseite; Spalten Marketing/Hinweise entfallen | Vom Nutzer so gewünscht | 2026-11-09 |
+| Stornierte Buchungen in keiner Liste | Ein stornierter Gast reist nicht an und unterschreibt kein Blatt | 2026-11-09 |
+| „nacherfasst“ statt „hochgeladen“ als Art | Einheitlich mit „Gästeblätter nacherfassen“ | 2026-11-09 |
+| Filter „Buchungen ohne Gästeblatt“ = ohne Nummer, ab Ankunftstag | Künftige Buchungen sind noch nicht fällig | 2026-11-09 |
 | Ein Gästeblatt je Buchung, Hauptgast unterschreibt | Vom Nutzer so entschieden; Reisegruppen-Regel vorerst nicht anwendbar | 2026-11-08 |
 | Kein Gästeblatt bei „Wohnsitz angemeldet“ | Diese Personen melden ihren Wohnsitz an, keine Gästemeldung | 2026-11-08 |
 | Feld „Herkunftsland“ am Gast → „Staatsangehörigkeit“, Adress-Staat → „Herkunftsland“ | Begriffe wie auf dem amtlichen Formular; Daten passen bereits | 2026-11-08 |
@@ -807,6 +813,58 @@ PDF Seite 1
   Lint und Typprüfung grün; die Datenbank-Prüfung meldet nur die bekannte Auth-Warnung.
 
 **Production-ready:** JA (alle Fehler behoben).
+
+## Überarbeitung Liste „Gästeblätter“ (refine 2026-11-09)
+
+Rückmeldung nach dem Deploy von v1.45.0: Die Liste soll sich an der Gästeblattnummer ausrichten, auch Buchungen mit
+nacherfasster Nummer ohne PDF zeigen und einen klaren Filter für fehlende Gästeblätter haben. Ersetzt die Regeln zur Liste im
+Abschnitt „Menüpunkt „Gästeblätter““.
+
+### Regeln
+- **Hauptliste:** alle Buchungen des gewählten Kunden **mit Gästeblattnummer**.
+  - Sie gilt für Buchungen mit unterschriebenem bzw. nacherfasstem Blatt ebenso wie für Buchungen mit nacherfasster Nummer ohne PDF.
+  - Nicht enthalten: Optionen, Sperren, **stornierte Buchungen** und „Wohnsitz angemeldet“.
+- **Spalten**, von links:
+  1. **Lfd.-Nr.**: Link zum PDF, wenn ein aktuelles Blatt vorhanden ist, sonst nur die Nummer als Text.
+  2. **Buchung**: Buchungsnummer, Link zur Buchung.
+  3. **Hauptgast**: Name, Link zur **Gastseite** (Gäste-Datenbank); bei anonymisiertem Gast nur Text.
+  4. **Ankunft**.
+  5. **Abreise**.
+  6. **Wohnung**.
+  7. **Art**: „unterschrieben“, „nacherfasst“ (bisher „hochgeladen“) oder „kein PDF“.
+  - Die Spalten Marketing, Hinweise („Buchung geändert“) und der eigene PDF-Link entfallen.
+- **Sortierung:** absteigend nach der Zahl am Ende der Gästeblattnummer (0449054 vor 0449053 vor 0449001), bei gleicher Zahl nach dem Vorsatz; Groß-/Kleinschreibung zählt nicht.
+- **Filter:**
+  - **Monatsauswahl nach Ankunft**, Voreinstellung **„Alle Monate“** (vollständige Liste).
+  - **Wohnung**: „Alle Wohnungen“ oder eine Wohnung, gruppiert nach Objekt; archivierte wählbar und gekennzeichnet.
+  - **Suche** nach Name, Gästeblatt- und Buchungsnummer.
+  - Alle Filter sind kombinierbar.
+- **Schalter „Buchungen ohne Gästeblatt“** (bisher „Gästeblatt fehlt“): zeigt stattdessen die Buchungen **ohne Gästeblattnummer**.
+  - Nur Buchungen ab dem Ankunftstag (Ankunft ≤ heute), sortiert nach Ankunft, die neueste zuerst.
+  - Optionen, Sperren, stornierte Buchungen und „Wohnsitz angemeldet“ sind ausgenommen.
+  - Wohnung, Monat und Suche gelten auch hier.
+  - Spalten: Buchung, Hauptgast (Link zur Gastseite), Ankunft, Abreise, Wohnung.
+- **„nacherfasst“ statt „hochgeladen“** als Art des Blatts überall, wo sie angezeigt wird (Liste, Buchungsdetail: „Nacherfasst am …“). Der Knopf „Gästeblatt hochladen“ bleibt so.
+- **Handy:** Karten mit Nummer (bzw. Link zum PDF), Hauptgast (Link zur Gastseite), Zeitraum, Wohnung, Art und Buchungsnummer (Link). Keine Karte als Ganzes verlinkt (Safari-Regel).
+- **Stornierte Buchung mit Blatt oder Nummer:** erscheint in keiner der beiden Listen; das Blatt bleibt im Buchungsdetail sichtbar.
+
+### Acceptance Criteria
+- [ ] Angenommen Buchungen mit den Nummern 0449001, 0449054 und 0449053, wenn die Liste geöffnet wird, dann stehen sie in der Reihenfolge 0449054, 0449053, 0449001, und die Monatsauswahl steht auf „Alle Monate“
+- [ ] Angenommen eine Buchung mit unterschriebenem Blatt, dann ist ihre Nummer ein Link zum PDF und die Art „unterschrieben“; bei einem hochgeladenen Blatt „nacherfasst“
+- [ ] Angenommen eine Buchung mit nacherfasster Nummer ohne Blatt, dann erscheint sie mit der Nummer als Text und der Art „kein PDF“
+- [ ] Angenommen eine Zeile, dann führt die Buchungsnummer zur Buchung und der Hauptgast zur Gastseite
+- [ ] Angenommen eine stornierte Buchung, eine Option und eine Buchung mit „Wohnsitz angemeldet“ mit Nummer, dann erscheinen sie nicht
+- [ ] Angenommen zwei Wohnungen, wenn eine Wohnung gewählt wird, dann zeigt die Liste nur deren Buchungen; zusammen mit einem Monat nur die Buchungen dieser Wohnung mit Ankunft im Monat
+- [ ] Angenommen der Schalter „Buchungen ohne Gästeblatt“, dann erscheinen nur Buchungen ohne Nummer mit Ankunft bis heute, ohne Optionen, Sperren, Stornos und „Wohnsitz angemeldet“
+- [ ] Angenommen das Buchungsdetail mit hochgeladenem Blatt, dann steht dort „Nacherfasst am …“
+- [ ] Angenommen ein Handy, dann zeigt die Liste Karten ohne waagrechtes Scrollen
+
+### Edge Cases
+- Gleiche Zahl mit verschiedenem Vorsatz (A-0005 und B-0005): Reihenfolge nach Vorsatz absteigend
+- Nummer ohne Ziffer am Ende (Altbestand): nach allen Nummern mit Zahl, alphabetisch absteigend
+- Anonymisierter Hauptgast: Name „Anonymisiert“ ohne Link
+- Buchung ohne Gast (Altbestand): „–“
+- Ersetzte Blätter: nur das aktuelle Blatt zählt für Link und Art
 
 ## Tech Design (Solution Architect)
 
