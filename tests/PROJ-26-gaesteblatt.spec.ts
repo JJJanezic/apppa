@@ -1,0 +1,553 @@
+import AxeBuilder from '@axe-core/playwright'
+import { expect, type Page, test as base } from '@playwright/test'
+
+import { createTenant, createUser, deleteUser, type E2EUser, hasSupabaseEnv, service, signInAs } from './support/supabase'
+
+// PROJ-26: Gästeblatt (Meldewesen). Abläufe im Projekt „desktop“ (Vollbild in Tablet-Breite 1180 × 820), Layout auch auf
+// Tablet und Handy. Testdaten über die Datenbank; die Kunden verschwinden mit dem Löschen ihrer Inhaber, übrig gebliebene
+// Dateien entfernt die tägliche Bereinigung.
+
+const test = base.extend<{ users: (opts?: Parameters<typeof createUser>[0]) => Promise<E2EUser> }>({
+  users: async ({}, use) => {
+    const created: E2EUser[] = []
+    await use(async (opts) => {
+      const user = await createUser(opts)
+      created.push(user)
+      return user
+    })
+    for (const user of created) await deleteUser(user)
+  },
+})
+
+test.use({ storageState: { cookies: [], origins: [] } })
+test.skip(!hasSupabaseEnv, 'ohne Supabase-Zugang')
+
+type Users = (opts?: Parameters<typeof createUser>[0]) => Promise<E2EUser>
+const desktopOnly = () => test.skip(test.info().project.name !== 'desktop', 'Abläufe nur im Desktop-Projekt')
+const TABLET = { width: 1180, height: 820 }
+
+const TODAY = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Vienna' }).format(new Date())
+const day = (offset: number) => new Date(Date.parse(`${TODAY}T12:00:00Z`) + offset * 86_400_000).toISOString().slice(0, 10)
+let seq = 0
+
+const COMPLETE_AT = {
+  country: 'AT',
+  last_name: 'Huber',
+  first_name: 'Anna',
+  gender: 'female',
+  birth_date: '1980-05-01',
+  street: 'Hauptplatz 1',
+  postal_code: '6020',
+  city: 'Innsbruck',
+  address_country: 'AT',
+}
+
+async function setup(page: Page, users: Users, role: 'owner' | 'staff' = 'owner') {
+  const owner = await users({ displayName: 'Olga Owner' })
+  const staff = await users({ displayName: 'Sam Staff' })
+  const tenantId = await createTenant('QA26 Pichler', [
+    { user: owner, role: 'owner' },
+    { user: staff, role: 'staff' },
+  ])
+  const { data: property } = await service()
+    .from('properties')
+    .insert({ tenant_id: tenantId, name: 'Haus See', street: 'Seeweg 12', postal_code: '5340', city: 'St. Gilgen', municipality_code: '50330' })
+    .select('id')
+    .single()
+  const { data: apt, error } = await service()
+    .from('apartments')
+    .insert({ tenant_id: tenantId, property_id: property!.id, name: 'Top 1', max_guests: 6, price_cents: 10000 })
+    .select('id')
+    .single()
+  if (error) throw error
+  await signInAs(page, role === 'staff' ? staff : owner)
+  return { tenantId, apartmentId: apt.id, owner, staff }
+}
+
+async function addGuest(tenantId: string, over: Record<string, unknown> = {}) {
+  const { data, error } = await service().from('guests').insert({ tenant_id: tenantId, ...COMPLETE_AT, ...over }).select('id').single()
+  if (error) throw error
+  return data.id
+}
+
+async function addBooking(
+  tenantId: string,
+  apartmentId: string,
+  guestId: string,
+  over: { kind?: string; adults?: number; residence?: boolean; arrival?: string; companions?: { last_name: string; first_name: string; birth_date?: string }[] } = {}
+) {
+  const arrival = over.arrival ?? day(-seq * 6 - 1)
+  seq++
+  const kind = over.kind ?? 'booking'
+  const { data, error } = await service()
+    .from('bookings')
+    .insert({
+      tenant_id: tenantId,
+      apartment_id: apartmentId,
+      kind,
+      arrival,
+      planned_departure: day(30 + seq),
+      departure: day(30 + seq),
+      guest_id: guestId,
+      check_in: '15:00',
+      check_out: '10:00',
+      adults: over.adults ?? 1,
+      number_year: 2026,
+      number_seq: 900 + seq,
+      option_until: kind === 'option' ? day(20) : null,
+      residence_registered: over.residence ?? false,
+    })
+    .select('id, number')
+    .single()
+  if (error) throw error
+  await service().from('booking_amounts').insert({ id: data.id, tenant_id: tenantId, nights_cents: 30000 })
+  if (over.companions?.length) {
+    const { error: e } = await service()
+      .from('booking_companions')
+      .insert(over.companions.map((c, i) => ({ booking_id: data.id, tenant_id: tenantId, position: i + 1, birth_date: null, ...c })))
+    if (e) throw e
+  }
+  return data
+}
+
+async function draw(page: Page, id: string) {
+  const canvas = page.locator(`#${id}`)
+  await canvas.scrollIntoViewIfNeeded()
+  const box = (await canvas.boundingBox())!
+  await page.mouse.move(box.x + 40, box.y + 100)
+  await page.mouse.down()
+  for (let i = 1; i <= 12; i++) await page.mouse.move(box.x + 40 + i * 25, box.y + 100 + (i % 2 ? -30 : 30), { steps: 3 })
+  await page.mouse.up()
+}
+
+async function openSheet(page: Page, bookingId: string) {
+  await page.setViewportSize(TABLET)
+  await page.goto(`/gaesteblatt/${bookingId}`)
+  await expect(page.getByRole('heading', { name: 'Mitreisende im familiären Verbund' })).toBeVisible()
+  // Hydrierung abwarten (Unterschriftsfläche angebunden)
+  await page.waitForFunction(() => Object.keys(document.querySelector('canvas') ?? {}).length >= 0 && document.readyState === 'complete')
+  await page.waitForTimeout(500)
+}
+
+const saved = (page: Page) => expect(page.getByRole('status').filter({ hasText: 'Gespeichert' })).toBeVisible({ timeout: 10_000 })
+
+async function signAndFinish(page: Page, opts: { consent?: boolean } = {}) {
+  await draw(page, 'unterschrift-1')
+  await expect(page.getByText('Unterschrieben.')).toBeVisible()
+  await page.getByRole('button', { name: 'Weiter' }).click()
+  await expect(page.getByRole('heading', { name: 'Einwilligung in Marketing' })).toBeVisible()
+  if (opts.consent) await page.getByLabel('Ich willige ein.').check()
+  await draw(page, 'unterschrift-2')
+  await page.getByRole('button', { name: 'Fertig' }).click()
+  await page.waitForURL(/\/buchungen\/[^/?]+$/, { timeout: 30_000 })
+  await expect(page.getByText('Gästeblatt gespeichert.')).toBeVisible()
+}
+
+test.describe('Umbenennung', () => {
+  test('AC: Gastformular mit „Staatsangehörigkeit“ und „Herkunftsland“ in der Adresse; Gästeliste mit Spalte „Staatsangehörigkeit“', async ({ page, users }) => {
+    desktopOnly()
+    const { tenantId } = await setup(page, users)
+    await addGuest(tenantId, { country: 'DE' })
+    await page.goto('/gaeste')
+    await expect(page.getByRole('columnheader', { name: 'Staatsangehörigkeit' })).toBeVisible()
+    await expect(page.getByRole('cell', { name: 'Deutschland' })).toBeVisible()
+    await page.getByRole('button', { name: 'Gast anlegen' }).click()
+    const dialog = page.getByRole('dialog')
+    await expect(dialog.getByRole('combobox', { name: 'Staatsangehörigkeit' })).toBeVisible()
+    await expect(dialog.getByRole('combobox', { name: 'Herkunftsland' })).toBeVisible()
+    await expect(dialog.getByText('Staatsangehörigkeit des Gastes, für das Gästeblatt.')).toBeVisible()
+  })
+})
+
+test.describe('Abschnitt in der Buchung', () => {
+  test('AC: Buchung ohne Blatt zeigt „Noch kein Gästeblatt“ mit beiden Knöpfen; Option, Wohnsitz und ohne Gast', async ({ page, users }) => {
+    desktopOnly()
+    const { tenantId, apartmentId } = await setup(page, users, 'staff')
+    const guest = await addGuest(tenantId)
+    const booking = await addBooking(tenantId, apartmentId, guest)
+    await page.goto(`/buchungen/${booking.id}`)
+    await expect(page.getByText('Noch kein Gästeblatt.')).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Gästeblatt', exact: true })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Gästeblatt hochladen' })).toBeVisible()
+
+    for (const over of [{ kind: 'option' }, { residence: true }]) {
+      const b = await addBooking(tenantId, apartmentId, guest, over)
+      await page.goto(`/buchungen/${b.id}`)
+      await expect(page.getByRole('heading', { name: 'Aufenthalt' })).toBeVisible()
+      await expect(page.getByRole('heading', { name: 'Gästeblatt', exact: true })).toHaveCount(0)
+    }
+
+    // Buchungen haben immer einen Gast (Datenbank); gesperrt ist das Blatt bei anonymisiertem Gast, Hochladen geht
+    const anonymous = await addGuest(tenantId, { last_name: 'Anonym' })
+    const anonBooking = await addBooking(tenantId, apartmentId, anonymous)
+    expect((await service().rpc('anonymize_guest' as never, { p_guest_id: anonymous } as never)).error).toBeNull()
+    await page.goto(`/buchungen/${anonBooking.id}`)
+    await expect(page.getByRole('button', { name: 'Gästeblatt', exact: true })).toBeDisabled()
+    await expect(page.getByText('Der Gast wurde anonymisiert.')).toBeVisible()
+    await page.getByRole('button', { name: 'Gästeblatt hochladen' }).click()
+    await expect(page.getByRole('checkbox', { name: 'Marketing-Einwilligung liegt unterschrieben vor' })).toBeDisabled()
+  })
+})
+
+test.describe('Vollbild-Ansicht', () => {
+  test('AC: Pflichtfelder markiert, ergänzen speichert am Gast, Unterschrift erst danach; Mitarbeiter mit Einwilligung bis „Fertig“', async ({ page, users }) => {
+    desktopOnly()
+    test.setTimeout(90_000)
+    const { tenantId, apartmentId } = await setup(page, users, 'staff')
+    const guest = await addGuest(tenantId, { birth_date: null, postal_code: null, city: null })
+    const booking = await addBooking(tenantId, apartmentId, guest)
+    await openSheet(page, booking.id)
+
+    // ohne App-Menü, mit Kundenname und Fortschritt
+    await expect(page.getByRole('navigation', { name: 'Hauptnavigation' })).toHaveCount(0)
+    await expect(page.getByText('QA26 Pichler').first()).toBeVisible()
+    await expect(page.getByRole('list', { name: 'Fortschritt' })).toContainText('Meldedaten')
+    // Österreich: kein Reisedokument
+    await expect(page.getByRole('heading', { name: 'Reisedokument' })).toHaveCount(0)
+    await expect(page.getByText('Bitte zuerst alle markierten Felder ergänzen.')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Weiter' })).toBeDisabled()
+
+    // Geburtsdatum in der Zukunft wird nicht gespeichert
+    await page.getByLabel('Geburtsdatum').fill('2999-01-01')
+    await page.getByLabel('Familienname').click()
+    await expect(page.getByText('Das Geburtsdatum darf nicht in der Zukunft liegen.')).toBeVisible()
+
+    await page.getByLabel('Geburtsdatum').fill('1980-05-01')
+    await page.getByLabel('Postleitzahl').fill('6020')
+    await page.getByLabel('Familienname').click()
+    await expect(page.getByLabel('Ortsgemeinde')).toHaveValue('Innsbruck')
+    await page.getByLabel('Lfd.-Nr.').fill('2026/5')
+    await page.getByLabel('Familienname').click()
+    await page.waitForTimeout(1600)
+    await saved(page)
+    const { data: g } = await service().from('guests').select('birth_date, postal_code, city').eq('id', guest).single()
+    expect(g).toEqual({ birth_date: '1980-05-01', postal_code: '6020', city: 'Innsbruck' })
+    const { data: log } = await service().from('audit_log').select('actor_label').eq('record_id', guest).order('id', { ascending: false }).limit(1).single()
+    expect(log!.actor_label).toBe('Gästeblatt')
+
+    // Änderung nach Unterschrift 1 löscht sie
+    await draw(page, 'unterschrift-1')
+    await expect(page.getByRole('button', { name: 'Weiter' })).toBeEnabled()
+    await page.getByLabel('Straße/Gasse/Platz').fill('Hauptplatz 2')
+    await expect(page.getByText('Die Angaben wurden geändert. Bitte erneut unterschreiben.')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Weiter' })).toBeDisabled()
+    await page.getByLabel('Familienname').click()
+    await page.waitForTimeout(1600)
+    await saved(page)
+
+    // Seite 2: Kästchen nicht vorausgewählt, „Fertig“ erst nach Unterschrift 2; „Zurück“ behält Unterschrift 1
+    await draw(page, 'unterschrift-1')
+    await page.getByRole('button', { name: 'Weiter' }).click()
+    await expect(page.getByLabel('Ich willige ein.')).not.toBeChecked()
+    await expect(page.getByRole('button', { name: 'Fertig' })).toBeDisabled()
+    await page.getByRole('button', { name: 'Zurück' }).click()
+    await expect(page.getByText('Unterschrieben.')).toBeVisible()
+    await page.getByRole('button', { name: 'Weiter' }).click()
+    await page.getByLabel('Ich willige ein.').check()
+    await draw(page, 'unterschrift-2')
+    await page.getByRole('button', { name: 'Fertig' }).click()
+    await page.waitForURL(/\/buchungen\/[^/?]+$/, { timeout: 30_000 })
+    await expect(page.getByText('Gästeblatt gespeichert.')).toBeVisible()
+    await expect(page.getByText(/Unterschrieben am/)).toBeVisible()
+    await expect(page.getByText('erteilt', { exact: true })).toBeVisible()
+
+    const { data: sheet } = await service().from('guest_sheets').select('id, kind, sheet_number, marketing_consent, created_by').eq('booking_id', booking.id).single()
+    expect(sheet).toMatchObject({ kind: 'signed', sheet_number: '2026/5', marketing_consent: true })
+    const { data: consent } = await service().from('guests').select('marketing_consent_sheet_id').eq('id', guest).single()
+    expect(consent!.marketing_consent_sheet_id).toBe(sheet!.id)
+    const pdf = await page.request.get(`/api/gaesteblatt/${sheet!.id}/pdf`)
+    expect(pdf.status()).toBe(200)
+    expect(pdf.headers()['content-type']).toBe('application/pdf')
+    expect(pdf.headers()['cache-control']).toBe('no-store')
+  })
+
+  test('AC: ausländischer Gast mit Reisedokument; fehlende Mitreisende hinzufügen', async ({ page, users }) => {
+    desktopOnly()
+    test.setTimeout(90_000)
+    const { tenantId, apartmentId } = await setup(page, users)
+    const guest = await addGuest(tenantId, { country: 'IT', address_country: 'IT', postal_code: '39100', city: 'Bolzano' })
+    const booking = await addBooking(tenantId, apartmentId, guest, { adults: 3, companions: [{ last_name: 'Rossi', first_name: 'Luca', birth_date: '2016-07-09' }] })
+    await openSheet(page, booking.id)
+    await expect(page.getByRole('heading', { name: 'Reisedokument' })).toBeVisible()
+    await expect(page.getByText('Es fehlt noch 1 mitreisende Person.')).toBeVisible()
+    await page.getByRole('combobox', { name: 'Art' }).click()
+    await page.getByRole('option', { name: 'Reisepass' }).click()
+    await page.getByLabel('Nummer').fill('YA1234567')
+    await page.getByLabel('Ausstellungsdatum').fill('2020-02-01')
+    await page.getByLabel('Ausstellende Behörde').fill('Questura')
+    await page.getByRole('combobox', { name: 'Staat', exact: true }).click()
+    await page.getByRole('option', { name: 'Italien' }).click()
+    await page.getByRole('button', { name: 'Mitreisende hinzufügen' }).click()
+    const rows = page.getByRole('group', { name: /Mitreisende Person/ })
+    await rows.nth(1).getByLabel('Familienname').fill('Rossi')
+    await rows.nth(1).getByLabel('Vorname(n)').fill('Sara')
+    await rows.nth(1).getByLabel('Geburtsdatum').fill('2018-01-02')
+    await page.getByLabel('Lfd.-Nr.').click()
+    await page.waitForTimeout(1600)
+    await saved(page)
+    await expect(page.getByText('Bitte zuerst alle markierten Felder ergänzen.')).toHaveCount(0)
+    const { data: companions } = await service().from('booking_companions').select('first_name').eq('booking_id', booking.id).order('position')
+    expect(companions!.map((c) => c.first_name)).toEqual(['Luca', 'Sara'])
+    await signAndFinish(page)
+    const { data: sheet } = await service().from('guest_sheets').select('snapshot').eq('booking_id', booking.id).single()
+    const snap = sheet!.snapshot as { guest: { documentNumber: string }; companions: unknown[] }
+    expect(snap.guest.documentNumber).toBe('YA1234567')
+    expect(snap.companions).toHaveLength(2)
+  })
+
+  test('AC: „Abbrechen“ fragt nach; ergänzte Daten bleiben, es entsteht kein Blatt', async ({ page, users }) => {
+    desktopOnly()
+    const { tenantId, apartmentId } = await setup(page, users)
+    const guest = await addGuest(tenantId, { birth_date: null })
+    const booking = await addBooking(tenantId, apartmentId, guest)
+    await openSheet(page, booking.id)
+    await page.getByLabel('Geburtsdatum').fill('1980-05-01')
+    await page.getByLabel('Familienname').click()
+    await saved(page)
+    await page.getByRole('button', { name: 'Abbrechen' }).click()
+    await expect(page.getByRole('alertdialog')).toContainText('Ergänzte Daten bleiben gespeichert, Unterschriften nicht.')
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Abbrechen' }).click()
+    await page.waitForURL(/\/buchungen\//)
+    await expect(page.getByText('Noch kein Gästeblatt.')).toBeVisible()
+    const { data } = await service().from('guests').select('birth_date').eq('id', guest).single()
+    expect(data!.birth_date).toBe('1980-05-01')
+  })
+
+  test('Edge: anonymisierter Gast und Option führen zurück zur Buchung', async ({ page, users }) => {
+    desktopOnly()
+    const { tenantId, apartmentId } = await setup(page, users)
+    const anonymous = await addGuest(tenantId)
+    const anonBooking = await addBooking(tenantId, apartmentId, anonymous)
+    expect((await service().rpc('anonymize_guest' as never, { p_guest_id: anonymous } as never)).error).toBeNull()
+    await page.goto(`/gaesteblatt/${anonBooking.id}`)
+    await expect(page.getByText('Der Gast wurde anonymisiert. Ein Gästeblatt ist nicht möglich.')).toBeVisible()
+    const option = await addBooking(tenantId, apartmentId, await addGuest(tenantId), { kind: 'option' })
+    await page.goto(`/gaesteblatt/${option.id}`)
+    await expect(page.getByText(/kein Gästeblatt vorgesehen/)).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Zurück zur Buchung' })).toBeVisible()
+  })
+
+  test('Edge: gleichzeitig gespeichertes Blatt → „Verwerfen“ oder „Als neues Blatt speichern“', async ({ page, users }) => {
+    desktopOnly()
+    test.setTimeout(90_000)
+    const { tenantId, apartmentId } = await setup(page, users)
+    const booking = await addBooking(tenantId, apartmentId, await addGuest(tenantId))
+    await openSheet(page, booking.id)
+    // Auf einem anderen Gerät wurde inzwischen ein Papierblatt hochgeladen
+    const path = `${tenantId}/${crypto.randomUUID()}.pdf`
+    await service().storage.from('guest-sheets').upload(path, new Blob(['%PDF-1.4'], { type: 'application/pdf' }), { contentType: 'application/pdf' })
+    await service().from('guest_sheets').insert({ tenant_id: tenantId, booking_id: booking.id, kind: 'uploaded', pdf_path: path })
+    await draw(page, 'unterschrift-1')
+    await page.getByRole('button', { name: 'Weiter' }).click()
+    await draw(page, 'unterschrift-2')
+    await page.getByRole('button', { name: 'Fertig' }).click()
+    const dialog = page.getByRole('alertdialog')
+    await expect(dialog).toContainText('inzwischen ein Gästeblatt gespeichert')
+    await dialog.getByRole('button', { name: 'Als neues Blatt speichern' }).click()
+    await page.waitForURL(/\/buchungen\/[^/?]+$/, { timeout: 30_000 })
+    await expect(page.getByText(/Früheres Gästeblatt/)).toBeVisible()
+    const { data } = await service().from('guest_sheets').select('kind, replaced_at').eq('booking_id', booking.id).order('created_at')
+    expect(data!.map((s) => [s.kind, s.replaced_at !== null])).toEqual([
+      ['uploaded', true],
+      ['signed', false],
+    ])
+  })
+})
+
+test.describe('Nach der Unterschrift', () => {
+  test('AC: „Neu unterschreiben lassen“ mit Rückfrage; Hinweis nach geänderter Ankunft; Storno behält das Blatt', async ({ page, users }) => {
+    desktopOnly()
+    test.setTimeout(120_000)
+    const { tenantId, apartmentId } = await setup(page, users)
+    const booking = await addBooking(tenantId, apartmentId, await addGuest(tenantId))
+    await openSheet(page, booking.id)
+    await signAndFinish(page)
+
+    await page.getByRole('button', { name: 'Neu unterschreiben lassen' }).click()
+    await expect(page.getByRole('alertdialog')).toContainText('bleibt als „ersetzt“ erhalten')
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Neu unterschreiben lassen' }).click()
+    await page.waitForURL(/\/gaesteblatt\//)
+    await expect(page.getByText(/Mit „Fertig“ wird es ersetzt/)).toBeVisible()
+    await page.waitForTimeout(500)
+    await signAndFinish(page)
+    await expect(page.getByText('Früheres Gästeblatt (1)')).toBeVisible()
+
+    const { data: b } = await service().from('bookings').select('arrival').eq('id', booking.id).single()
+    await service().from('bookings').update({ arrival: new Date(Date.parse(`${b!.arrival}T12:00:00Z`) - 86_400_000).toISOString().slice(0, 10) }).eq('id', booking.id)
+    await page.reload()
+    await expect(page.getByText(/Buchung nach der Unterschrift geändert/)).toBeVisible()
+    await page.goto('/gaesteblaetter?monat=alle')
+    await expect(page.getByText('Buchung geändert').first()).toBeVisible()
+
+    await service().from('bookings').update({ cancelled_at: new Date().toISOString(), cancel_reason: 'QA' }).eq('id', booking.id)
+    await page.goto(`/buchungen/${booking.id}`)
+    await expect(page.getByText('Buchung storniert. Das Gästeblatt bleibt erhalten.')).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Gästeblatt ansehen' })).toBeVisible()
+  })
+})
+
+test.describe('Hochladen', () => {
+  test('AC: nur PDF; Hochladen ohne Pflichtfeld-Prüfung mit Einwilligung; Ersetzen mit Rückfrage', async ({ page, users }) => {
+    desktopOnly()
+    const { tenantId, apartmentId } = await setup(page, users, 'staff')
+    const guest = await addGuest(tenantId, { birth_date: null })
+    const booking = await addBooking(tenantId, apartmentId, guest)
+    await page.goto(`/buchungen/${booking.id}`)
+    await page.getByRole('button', { name: 'Gästeblatt hochladen' }).click()
+    const dialog = page.getByRole('dialog')
+    const file = dialog.locator('input[type=file]')
+    await file.setInputFiles({ name: 'blatt.jpg', mimeType: 'image/jpeg', buffer: Buffer.from('x') })
+    await expect(dialog.getByText('Bitte eine PDF-Datei wählen.')).toBeVisible()
+    await file.setInputFiles({ name: 'blatt.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4\n%%EOF\n') })
+    await dialog.getByLabel('Lfd.-Nr.').fill('17')
+    await dialog.getByLabel('Unterschrieben am').fill('2025-08-12')
+    await dialog.getByRole('checkbox', { name: 'Marketing-Einwilligung liegt unterschrieben vor' }).check()
+    await dialog.getByRole('button', { name: 'Hochladen' }).click()
+    await expect(page.getByText('Gästeblatt gespeichert.')).toBeVisible()
+    await expect(page.getByText(/Hochgeladen am .* von Sam Staff · unterschrieben am Di, 12\.08\.2025/)).toBeVisible()
+    const { data: g } = await service().from('guests').select('marketing_consent_at').eq('id', guest).single()
+    expect(new Date(g!.marketing_consent_at!).toISOString()).toBe('2025-08-11T22:00:00.000Z')
+    const { data: b } = await service().from('bookings').select('guest_sheet_number').eq('id', booking.id).single()
+    expect(b!.guest_sheet_number).toBe('17')
+
+    await page.getByRole('button', { name: 'Gästeblatt hochladen' }).click()
+    await expect(page.getByRole('alertdialog')).toContainText('Bestehendes Gästeblatt ersetzen?')
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Ersetzen' }).click()
+    await page.getByRole('dialog').locator('input[type=file]').setInputFiles({ name: 'neu.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4\n%%EOF\n') })
+    await page.getByRole('dialog').getByRole('button', { name: 'Hochladen' }).click()
+    await expect(page.getByText('Früheres Gästeblatt (1)')).toBeVisible()
+  })
+})
+
+test.describe('Liste „Gästeblätter“', () => {
+  test('AC: Leerzustand, Liste mit PDF und Buchung, „Gästeblatt fehlt“ ohne Wohnsitz-Buchungen, Suche', async ({ page, users }) => {
+    desktopOnly()
+    test.setTimeout(90_000)
+    const { tenantId, apartmentId } = await setup(page, users, 'staff')
+    await page.goto('/gaesteblaetter')
+    await expect(page.getByText('Noch keine Gästeblätter')).toBeVisible()
+
+    const guest = await addGuest(tenantId)
+    const done = await addBooking(tenantId, apartmentId, guest, { arrival: TODAY })
+    const missing = await addBooking(tenantId, apartmentId, await addGuest(tenantId, { last_name: 'Fehlt' }), { arrival: TODAY })
+    const residence = await addBooking(tenantId, apartmentId, await addGuest(tenantId, { last_name: 'Wohnsitz' }), { arrival: TODAY, residence: true })
+    await openSheet(page, done.id)
+    await page.getByLabel('Lfd.-Nr.').fill('L-99')
+    await page.getByLabel('Familienname').click()
+    await saved(page)
+    // BUG-1: Unterschrift direkt nach einer Eingabe geht verloren; bis zur Behebung kurz warten
+    await page.waitForTimeout(1600)
+    await signAndFinish(page)
+
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.goto('/gaesteblaetter')
+    await expect(page.getByText('1 Gästeblatt')).toBeVisible()
+    const row = page.getByRole('row').filter({ hasText: 'Huber, Anna' })
+    await expect(row.getByRole('link', { name: 'L-99' })).toHaveAttribute('href', /\/api\/gaesteblatt\/.+\/pdf/)
+    await expect(row.getByRole('link', { name: done.number! })).toHaveAttribute('href', `/buchungen/${done.id}`)
+    await expect(row).toContainText('unterschrieben')
+
+    await page.getByRole('switch', { name: 'Gästeblatt fehlt' }).click()
+    await expect(page).toHaveURL(/fehlt=1/)
+    await expect(page.getByRole('row').filter({ hasText: 'Fehlt' })).toBeVisible()
+    await expect(page.getByRole('row').filter({ hasText: 'Wohnsitz' })).toHaveCount(0)
+    await expect(page.getByRole('row').filter({ hasText: 'Huber' })).toHaveCount(0)
+    expect(missing.id && residence.id).toBeTruthy()
+
+    await page.getByRole('switch', { name: 'Gästeblatt fehlt' }).click()
+    await expect(page).not.toHaveURL(/fehlt=1/)
+    await expect(page.getByText('1 Gästeblatt')).toBeVisible()
+    await page.getByRole('searchbox', { name: 'Gästeblätter durchsuchen' }).fill('nicht-vorhanden')
+    await expect(page.getByText('Kein Gästeblatt passt zur Suche.')).toBeVisible()
+  })
+})
+
+test.describe('Einstellungen und Stammdaten', () => {
+  test('AC: Inhaber sieht Standardtexte, unbekannter Platzhalter und leerer Text werden abgelehnt, Zurücksetzen, Speichern', async ({ page, users }) => {
+    desktopOnly()
+    await setup(page, users)
+    await page.goto('/einstellungen/gaesteblatt')
+    await expect(page.getByRole('link', { name: 'Gästeblatt', exact: true })).toHaveAttribute('aria-current', 'page')
+    const privacy = page.getByRole('textbox', { name: 'Text Teil A' })
+    await expect(privacy).toContainText('Verantwortlich für die Verarbeitung')
+    await expect(page.getByText(/\{E-Mail\} ist in den Stammdaten nicht ausgefüllt/)).toBeVisible()
+
+    await privacy.click()
+    await page.keyboard.press('ControlOrMeta+End')
+    await page.keyboard.type(' {Gastname}')
+    await page.getByRole('button', { name: 'Texte speichern' }).click()
+    await expect(page.getByText('Unbekannter Platzhalter: {Gastname}')).toBeVisible()
+
+    await page.getByRole('button', { name: 'Auf Standard zurücksetzen' }).first().click()
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Zurücksetzen' }).click()
+    // BUG-2: Der Editor zeigt nach dem Zurücksetzen weiter den alten Text; gespeichert wird aber der Standard
+    await page.getByRole('button', { name: 'Texte speichern' }).click()
+    await expect(page.getByText('Texte gespeichert.')).toBeVisible()
+    await page.reload()
+    await expect(page.getByRole('textbox', { name: 'Text Teil A' })).not.toContainText('{Gastname}')
+
+    await page.goto('/einstellungen/stammdaten')
+    await page.getByLabel('E-Mail').fill('office@pichler.at')
+    await page.getByLabel('Telefon').fill('+43 512 123456')
+    await page.getByRole('button', { name: 'Speichern' }).click()
+    await expect(page.getByText('Kundendaten gespeichert.')).toBeVisible()
+    await page.goto('/einstellungen/gaesteblatt')
+    await expect(page.getByRole('textbox', { name: 'Text Teil A' })).toContainText('Verantwortlich')
+    // Mit dem Speichern steht auch der voreingestellte Staat in den Stammdaten: keine leeren Platzhalter mehr
+    await expect(page.getByText('Österreich, E-Mail: office@pichler.at, Telefon: +43 512 123456').first()).toBeVisible()
+    await expect(page.getByText(/ist in den Stammdaten nicht ausgefüllt/)).toHaveCount(0)
+  })
+
+  test('AC: Mitarbeiter sieht weder den Reiter noch die Seite', async ({ page, users }) => {
+    desktopOnly()
+    await setup(page, users, 'staff')
+    const response = await page.goto('/einstellungen/gaesteblatt')
+    expect(response?.status()).toBe(404)
+  })
+})
+
+test.describe('Sicherheit', () => {
+  test('PDF nur angemeldet und nur für den eigenen Kunden; Fertigstellen prüft Kunde und Eingaben', async ({ page, users, browser }) => {
+    desktopOnly()
+    test.setTimeout(90_000)
+    const { tenantId, apartmentId } = await setup(page, users)
+    const booking = await addBooking(tenantId, apartmentId, await addGuest(tenantId))
+    await openSheet(page, booking.id)
+    await signAndFinish(page)
+    const { data: sheet } = await service().from('guest_sheets').select('id').eq('booking_id', booking.id).single()
+
+    const anonymous = await browser.newContext()
+    const anonResponse = await anonymous.request.get(`http://localhost:3000/api/gaesteblatt/${sheet!.id}/pdf`, { maxRedirects: 0 })
+    expect([302, 307, 401]).toContain(anonResponse.status())
+    await anonymous.close()
+
+    const other = await users({ displayName: 'Fremd' })
+    await createTenant('QA26 Fremd', [{ user: other, role: 'owner' }])
+    const otherPage = await browser.newPage()
+    await signInAs(otherPage, other)
+    expect((await otherPage.request.get(`/api/gaesteblatt/${sheet!.id}/pdf`)).status()).toBe(404)
+    expect((await otherPage.goto(`/gaesteblatt/${booking.id}`))?.status()).toBe(404)
+    const forged = await otherPage.request.post('/api/gaesteblatt/fertig', {
+      data: { tenantId, bookingId: booking.id, bookingUpdatedAt: '', guestUpdatedAt: '', previousSheetId: null, marketingConsent: true, signature1: { image: 'data:image/png;base64,AA==', signedAt: new Date().toISOString() }, signature2: { image: 'data:image/png;base64,AA==', signedAt: new Date().toISOString() } },
+    })
+    expect(forged.status()).toBe(403)
+    const invalid = await page.request.post('/api/gaesteblatt/fertig', { data: { tenantId, bookingId: booking.id, signature1: { image: '<script>', signedAt: 'x' } } })
+    expect(invalid.status()).toBe(400)
+    await otherPage.close()
+  })
+})
+
+test.describe('Layout und Barrierefreiheit', () => {
+  test('Vollbild, Liste und Einstellungen ohne automatisch erkennbare WCAG-2.1-AA-Verstöße und ohne seitliches Scrollen', async ({ page, users }) => {
+    const { tenantId, apartmentId } = await setup(page, users)
+    const booking = await addBooking(tenantId, apartmentId, await addGuest(tenantId, { country: 'IT', birth_date: null }), { adults: 2 })
+    for (const path of [`/gaesteblatt/${booking.id}`, '/gaesteblaetter?fehlt=1', '/einstellungen/gaesteblatt', `/buchungen/${booking.id}`]) {
+      await page.goto(path)
+      await page.waitForLoadState('networkidle')
+      const axe = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze()
+      expect(axe.violations.map((v) => `${path}: ${v.id}`)).toEqual([])
+      const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
+      expect(overflow, path).toBeLessThanOrEqual(0)
+    }
+  })
+})

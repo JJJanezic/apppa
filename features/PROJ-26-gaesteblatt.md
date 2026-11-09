@@ -1,6 +1,6 @@
 # PROJ-26: Gästeblatt (Meldewesen)
 
-## Status: In Progress
+## Status: In Review
 **Created:** 2026-11-08
 **Last Updated:** 2026-11-09
 
@@ -584,7 +584,149 @@ Die Lesefunktion der Auswertung nimmt das Herkunftsland der Adresse des Hauptgas
 - **Für /deploy:** Migration vor dem Code einspielen. Ohne sie lädt die Seite „Stammdaten“ nicht (Spalten E-Mail/Telefon).
 
 ## QA Test Results
-_To be added by /qa_
+
+**Tested:** 2026-11-09
+**App URL:** http://localhost:3000 (gebauter Server, Supabase „apppa-dev“)
+**Tester:** QA Engineer (AI)
+**Browser:** Chrome (Desktop 1440, Vollbild 1180 × 820, Tablet 768 mit Touch, Handy 375). Firefox und Safari nicht gelaufen (optional, siehe Open Points); **kein Test auf einem echten iPad mit Stift**.
+
+### Acceptance Criteria Status
+
+#### Umbenennung
+- [x] Gastformular „Staatsangehörigkeit“ und „Herkunftsland“ (Adresse), Hinweistext; Daten unverändert (E2E)
+- [x] Gästeliste: Spalte „Staatsangehörigkeit“ (E2E)
+- [x] „Gästeherkunft“: Herkunftsland laut Adresse, sonst Staatsangehörigkeit (Code-Review, Statistik-Integrationstests grün)
+
+#### Abschnitt in der Buchung
+- [x] „Noch kein Gästeblatt“ mit „Gästeblatt“ und „Gästeblatt hochladen“; Mitarbeiter sieht beides (E2E)
+- [x] Kein Abschnitt bei Option und „Wohnsitz angemeldet“ (E2E); Sperren und Stornos ohne Blatt (Code-Review)
+- [x] Anonymisierter Gast: „Gästeblatt“ gesperrt mit Hinweis, Hochladen ohne Marketing-Häkchen (E2E). „Buchung ohne Gast“ gibt es nicht: Die Datenbank verlangt bei Buchungen immer einen Gast
+- [x] „Neu unterschreiben lassen“ mit Rückfrage, altes Blatt unter „Frühere Gästeblätter“ (E2E)
+
+#### Vollbild-Ansicht und Seite 1
+- [x] Ohne App-Menü, Kundenname, Fortschritt (E2E)
+- [x] Fehlende Pflichtfelder markiert, Unterschrift gesperrt mit Hinweis (E2E)
+- [x] Eingetipptes Feld wird am Gast gespeichert, Protokoll „Gästeblatt“ (E2E + Integration)
+- [x] Geburtsdatum in der Zukunft: Meldung, nicht gespeichert (E2E)
+- [x] Österreich ohne Reisedokument, Italien mit allen fünf Dokumentfeldern (E2E)
+- [x] „keine Angabe“ zählt als Geschlecht (Unit)
+- [x] Fehlende Mitreisende hinzufügen; Unterschrift erst bei vollständigen Mitreisenden (E2E)
+- [x] PLZ 6020 füllt „Innsbruck“ (E2E)
+- [x] Mitarbeiter korrigiert die Straße, gespeichert (E2E)
+- [x] Ankunft/Abreise nur lesen, tatsächliche Abreise leer (E2E)
+- [x] „Weiter“ gesperrt ohne Unterschrift; nach Änderung wird Unterschrift 1 gelöscht mit Hinweis (E2E)
+- [ ] BUG-1: Unterschrift kurz nach dem Verlassen eines Felds geht verloren (siehe unten)
+- [ ] Stift (iPad) und Finger (Handy) nicht auf echten Geräten geprüft; Maus am Desktop funktioniert (E2E)
+
+#### Seite 2 und Abschluss
+- [x] Teil A ohne Kästchen, Teil B mit Kästchen, nicht vorausgewählt; Platzhalter gefüllt (E2E, PDF-Test)
+- [x] „Fertig“ erst nach Unterschrift 2; „Zurück“ behält Unterschrift 1 (E2E)
+- [x] Mit Häkchen: Einwilligung am Gast mit Verweis aufs Blatt (E2E + Integration); ohne Häkchen keine Änderung (Integration)
+- [x] Rückkehr zur Buchung mit „Gästeblatt gespeichert“ und „Unterschrieben am …“ (E2E)
+- [x] PDF Seite 1 Meldedaten, Seite 2 Datenschutz mit Kästchen und Unterschriften (Render-Test, Bild geprüft)
+- [x] Eingefrorene Fassung: spätere Text- und Gaständerungen wirken nicht (Code-Review: Fassung wird beim Fertigstellen geschrieben, Ansicht nur daraus)
+- [x] „Abbrechen“ mit Rückfrage: ergänzte Daten bleiben, kein Blatt (E2E)
+
+#### Nachtrag Abreise und Änderungen
+- [x] Abreise-Nachtrag mit Person (Integration + PDF-Test); automatisch ab Abreisetag (Unit)
+- [x] Verschobene Ankunft → Hinweis in Buchung und Liste (E2E)
+- [x] Storno: Blatt bleibt, Hinweis (E2E)
+- [x] Hochgeladene Blätter ohne Nachtrag und Änderungshinweis (Code-Review)
+
+#### Hochladen
+- [x] PDF mit Lfd.-Nr. und Datum, Lfd.-Nr. an der Buchung (E2E)
+- [x] Andere Dateiart: Meldung (E2E); über 10 MB (Code-Review, Speicherbereich 10 MB)
+- [x] Ohne Pflichtfeld-Prüfung (E2E: Gast ohne Geburtsdatum)
+- [x] Einwilligung mit Unterschriftsdatum (E2E)
+- [x] Ersetzen mit Rückfrage (E2E)
+
+#### Menüpunkt „Gästeblätter“
+- [x] Menüpunkt für beide Rollen; Leerzustand (E2E)
+- [x] Zeile mit PDF-Link, Buchungslink, Art (E2E); ersetzte Blätter nicht in der Liste (Code-Review, Abfrage `replaced_at is null`)
+- [x] „Gästeblatt fehlt“ ohne „Wohnsitz angemeldet“ und ohne Buchungen mit Blatt (E2E)
+- [x] Suche ohne Treffer (E2E)
+- [x] Fremder Kunde: PDF 404, Vollbild 404 (E2E)
+
+#### Einstellungen → Gästeblatt
+- [x] Reiter nur für Inhaber, Mitarbeiter 404 (E2E)
+- [x] Standardtexte; unbekannter Platzhalter abgelehnt; Hinweis auf leere Stammdaten (E2E)
+- [x] Leerer Text abgelehnt (Unit + Integration)
+- [ ] BUG-2: „Auf Standard zurücksetzen“ zeigt den Standardtext nicht im Editor (gespeichert wird er aber)
+- [x] Stammdaten mit E-Mail und Telefon, erscheinen im Text (E2E)
+
+#### Aufbewahrung
+- [x] Gast mit Gästeblatt wird nur anonymisiert, Blatt bleibt (Integration)
+- [x] Buchungen lassen sich ohnehin nur stornieren (bestehende Regel); Gästeblätter nicht löschbar, auch nicht direkt (Integration)
+
+### Edge Cases Status
+- [x] Zwei Geräte gleichzeitig: Dialog „Verwerfen / Als neues Blatt speichern“, ersetzt das andere Blatt (E2E)
+- [x] Buchung/Gast inzwischen geändert: „Fertig“ lehnt ab (Integration P0975); Feld-Speichern mit Stand (Integration)
+- [x] Mehr Mitreisende als Personen: Unterschrift gesperrt (Unit), Datenbank lehnt ab (Integration)
+- [x] Viele Mitreisende im PDF (8, eine Seite; Render-Test)
+- [x] Staatsangehörigkeit Österreich: Dokumentbereich verschwindet (E2E)
+- [x] Anonymisierter Gast: Blatt gesperrt (E2E)
+- [x] Kundenwechsel in anderem Tab: Aktionen prüfen den Kunden des Blatts (Code-Review; „Fertig“ mit fremdem Kunden → 403, E2E)
+- [ ] BUG-3: Nach dem Anonymisieren zeigt ein unterschriebenes Blatt „Buchung nach der Unterschrift geändert“
+- [ ] BUG-4: Lösch-Dialog eines Gastes, an dem nur noch ein Gästeblatt hängt, kündigt „endgültig löschen“ an; tatsächlich wird anonymisiert
+
+### Security Audit Results
+- [x] Ohne Anmeldung: PDF-Schnittstelle leitet zur Anmeldung um (E2E)
+- [x] Fremder Kunde: PDF 404, Vollbild 404, gefälschtes „Fertig“ 403 (E2E); Lesesichten und Tabellen leer für fremde Kunden (Integration)
+- [x] Fertigstellen nur Service-Rolle; Mitglieder können `finish_guest_sheet` nicht aufrufen (Integration)
+- [x] Unterschriebene Blätter unveränderlich, auch für die Service-Rolle (Integration)
+- [x] Speicher: Mitglieder nur PDF im eigenen Ordner, keine Bilder, kein fremder Ordner, kein Lesen/Löschen (Integration)
+- [x] Ungültige Eingaben an „fertig“ → 400 (E2E); Fassung baut der Server aus der Datenbank, nicht aus Browserdaten (Code-Review)
+- [x] Mitarbeiter: nur Blatt-Felder am Gast (Integration: E-Mail abgelehnt)
+- [x] XSS: Datenschutz-Texte werden als Textknoten dargestellt (React), PDF ohne HTML (Code-Review)
+- [x] PDF-Antworten `no-store` (E2E)
+- [ ] Hinweis: keine eigene Ratenbegrenzung für „fertig“ und PDF; die Last begrenzt der PDF-Arbeitsprozess (3 gleichzeitig, 12 wartend). Nur angemeldete Mitglieder können aufrufen; für den Pilot vertretbar
+
+### Regression
+- [x] E2E: PROJ-7 (15), PROJ-48 (10), PROJ-28 (19; ein Test im Gesamtlauf ausgefallen, einzeln grün), Auszüge PROJ-8, -29, -37, -50 mit den umbenannten Feldern
+- [x] Integration: guests, companies, statistics, operator, team, bookings, rls, guest-sheets; alle Unit-Tests
+
+### Bugs Found
+
+#### BUG-1: Unterschrift 1 geht verloren, wenn man direkt nach einer Eingabe unterschreibt
+- **Severity:** High
+- **Steps to Reproduce:**
+  1. Gästeblatt öffnen, ein Feld ergänzen (z. B. Lfd.-Nr.), dann sofort auf die Unterschriftsfläche schreiben
+  2. Expected: „Unterschrieben.“, „Weiter“ aktiv
+  3. Actual: Die Unterschrift erscheint kurz und wird gelöscht („Die Angaben wurden geändert …“), „Weiter“ bleibt gesperrt
+- **Ursache:** `form.subscribe({ formState: { values: true } })` in `guest-sheet-signing.tsx` ruft den Rückruf bei jeder Zustandsmeldung des Formulars (z. B. Prüfung beim Verlassen des Felds), nicht nur bei geänderten Werten
+- **Priority:** Fix before deployment (die Unterschrift ist der Kern des Ablaufs; am Tablet wechselt man typischerweise direkt vom Feld zum Stift)
+
+#### BUG-2: „Auf Standard zurücksetzen“ ändert den Editor nicht
+- **Severity:** Medium
+- **Steps to Reproduce:** Einstellungen → Gästeblatt, Text ändern, „Auf Standard zurücksetzen“ bestätigen
+- **Expected:** Editor zeigt den Standardtext. **Actual:** Editor zeigt weiter den geänderten Text; gespeichert wird aber der Standard (nach Neuladen sichtbar). Tippt man danach im Editor, gilt wieder der alte Text
+- **Ursache:** Der Editor aus PROJ-39 übernimmt Werte von außen nicht
+- **Priority:** Fix before deployment
+
+#### BUG-3: Falscher Änderungshinweis nach dem Anonymisieren
+- **Severity:** Low
+- **Steps to Reproduce:** Buchung mit Mitreisenden unterschreiben lassen, Gast anonymisieren
+- **Actual:** Anonymisieren entfernt die Mitreisenden der Buchung; Blatt und Liste zeigen „Buchung nach der Unterschrift geändert“
+- **Priority:** Nice to have
+
+#### BUG-4: Lösch-Dialog kündigt „endgültig löschen“ an, obwohl anonymisiert wird
+- **Severity:** Low
+- **Steps to Reproduce:** Gast unterschreibt, Buchung wird einem anderen Gast zugeordnet, ersten Gast löschen
+- **Actual:** Dialog-Text „löschen“, Ergebnis „anonymisiert“ (Gästeblatt muss erhalten bleiben). Seltener Fall
+- **Priority:** Nice to have
+
+### Open Points (keine Fehler)
+- Test auf einem echten iPad mit Stift und einem Handy mit Finger (Scrollen beim Schreiben, Druck, Drehen)
+- Firefox und Safari nicht geprüft
+- Betreiber-Dialog „Kunde löschen“ zählt vorab nur Rechnungen; mit Gästeblättern kommt die Sperre erst beim Löschen (eigene Meldung)
+
+### Summary
+- **Acceptance Criteria:** 45 von 48 Prüfgruppen bestätigt; offen: BUG-1, BUG-2 und der Test auf echten Geräten (Stift/Finger)
+- **Bugs Found:** 4 total (0 critical, 1 high, 1 medium, 2 low)
+- **Security:** Pass
+- **Production Ready:** NO
+- **Recommendation:** BUG-1 und BUG-2 beheben, danach `/qa` für diese beiden und ein Test auf einem echten iPad
+
 
 ## Deployment
 _To be added by /deploy_
