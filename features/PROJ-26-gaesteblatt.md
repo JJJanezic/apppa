@@ -1,6 +1,6 @@
 # PROJ-26: Gästeblatt (Meldewesen)
 
-## Status: In Review
+## Status: Deployed
 **Created:** 2026-11-08
 **Last Updated:** 2026-11-09 (refine: iPad-Layout, rote Markierung, Ausweisbilder, E-Mail)
 
@@ -372,7 +372,7 @@ Rückmeldung vom ersten Einsatz am iPad (Bilder `docs/design/iPad-Gaesteblatt_01
 - `sheet-page-two.tsx`: Feld „E-Mail-Adresse“; gespeichert über `saveSheetGuest` in derselben Warteschlange wie Seite 1
 - `guest-sheet.ts`: `documentFrontPath`/`documentBackPath` als freiwillige Dokumentfelder; `validation/guest-sheet.ts`: `sheetEmailSchema`, Bildpfade
 - Migration `20261109081035_guest_sheets_email_images.sql` (in Dev): `save_guest_sheet_field` nimmt `document_front_path`, `document_back_path` und `email` (nur bei leerer E-Mail)
-- Tests: Integration 16 (neu: E-Mail nur bei leerer Adresse, Bild über das Blatt), E2E „Nachbesserung nach dem Deploy“ (3 Tests); alle 23 Gästeblatt-E2E-Tests, 966 Unit-Tests, Lint und Build grün. Auf einem echten iPad noch zu prüfen
+- Tests: Integration 16 (neu: E-Mail nur bei leerer Adresse, Bild über das Blatt), E2E „Nachbesserung nach dem Deploy“ (3 Tests); alle 23 Gästeblatt-E2E-Tests, 966 Unit-Tests, Lint und Build grün. Auf Staging am iPad vom Nutzer geprüft
 
 ## Tech Design (Solution Architect)
 
@@ -768,4 +768,5 @@ Die Lesefunktion der Auswertung nimmt das Herkunftsland der Adresse des Hauptgas
 - **Production:** https://app.apppa.at (2026-11-09), Migrationen eingespielt, Advisors nur „OTP-Ablauf“; Funktion vom Nutzer bestätigt
 - **Migrationen:** `20261109055811_guest_sheets.sql`, `20261109065600_guest_sheets_qa_fixes.sql`
 - **Kein** `config push`, keine neuen Umgebungsvariablen; neues npm-Paket `signature_pad` 5.1.4
-- **Rückmeldung nach dem Deploy (iPad):** Felder auf Seite 1 teils überlappend bzw. eng; Wunsch: E-Mail-Adresse auf Seite 2 erfassen, wenn der Hauptgast keine hat → Nacharbeit per `/refine PROJ-26`
+- **Nachbesserung ausgeliefert:** 2026-11-09, Stand `2f8929d`, Tag `v1.44.0-PROJ-26`, Staging und Production; Migration `20261109081035_guest_sheets_email_images.sql`; Advisors nur „OTP-Ablauf“
+- **Rückmeldung nach dem Deploy (iPad):** Felder auf Seite 1 teils überlappend bzw. eng; Wunsch: E-Mail-Adresse auf Seite 2 erfassen, wenn der Hauptgast keine hat → umgesetzt (Abschnitt „Nachbesserung nach dem Deploy“)
