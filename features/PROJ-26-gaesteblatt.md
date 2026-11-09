@@ -1,8 +1,8 @@
 # PROJ-26: Gästeblatt (Meldewesen)
 
-## Status: Deployed
+## Status: Planned
 **Created:** 2026-11-08
-**Last Updated:** 2026-11-09 (Liste „Gästeblätter“ überarbeitet, live seit v1.46.0)
+**Last Updated:** 2026-11-09 (Refine: Spalte „Unterschrieben am“ in der Liste, Gästeblattnummer in der Buchungsübersicht als PDF-Link)
 
 ## Dependencies
 - Requires: PROJ-4 (Kundenkonten & Rollen): Rollen Inhaber/Mitarbeiter, gewählter Kunde
@@ -311,6 +311,8 @@ Schlägt ein Teil fehl, wird nichts gespeichert, die Ansicht bleibt mit beiden U
 ### Product Decisions
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Spalte „Unterschrieben am“ an zweiter Stelle der Liste „Gästeblätter“, nur Datum; ohne Angabe „–“ statt Hochladedatum | Vom Nutzer gewünscht; Hochladedatum wäre kein Unterschriftsdatum (refine 2026-11-09) | 2026-11-09 |
+| Gästeblattnummer in der Buchungsübersicht als PDF-Link (neuer Tab), ohne Blatt Text; überall, wo die Buchungsliste erscheint | Schneller Zugriff auf das Blatt; gleiches Verhalten wie in der Liste „Gästeblätter“ | 2026-11-09 |
 | Liste „Gästeblätter“ nach Gästeblattnummer absteigend, Voreinstellung „Alle Monate“, Filter Wohnung | Vollständiges, lückenlos prüfbares Verzeichnis für Kontrollen (refine 2026-11-09) | 2026-11-09 |
 | Hauptliste = Buchungen mit Gästeblattnummer, auch ohne PDF; Nummer als Link zum PDF statt eigenem Knopf | Nacherfasste Nummern ohne Scan sollen sichtbar sein | 2026-11-09 |
 | Hauptgast verlinkt die Gastseite; Spalten Marketing/Hinweise entfallen | Vom Nutzer so gewünscht | 2026-11-09 |
@@ -924,6 +926,46 @@ Abschnitt „Menüpunkt „Gästeblätter““.
 - Firefox und Safari habe ich nicht gesondert geprüft.
 
 **Hinweis (kein Fehler):** Ein hochgeladenes PDF an einer Buchung **ohne** Gästeblattnummer erscheint unter „Buchungen ohne Gästeblatt“, nicht in der Hauptliste. Das entspricht der Regel „ohne Nummer = ohne Gästeblatt“; die Nummer lässt sich in der Buchung nacherfassen.
+
+## Unterschriftsdatum in der Liste, Gästeblattnummer als PDF-Link (refine 2026-11-09)
+
+Rückmeldung nach dem Deploy von v1.47.0: In der Liste „Gästeblätter“ soll sichtbar sein, wann das Blatt unterschrieben wurde,
+und in der Buchungsübersicht soll die Gästeblattnummer direkt das PDF öffnen. Ergänzt den Abschnitt „Überarbeitung Liste
+„Gästeblätter““.
+
+### Regeln
+- **Neue Spalte „Unterschrieben am“** in der Liste „Gästeblätter“ an zweiter Stelle, zwischen **Lfd.-Nr.** und **Buchung**.
+  - Am Tablet unterschriebenes Blatt: Datum der 2. Unterschrift (Abschluss des Blatts).
+  - Nacherfasstes Blatt: das im Dialog „Gästeblatt hochladen“ eingegebene Feld „Unterschrieben am“; ohne Angabe „–“ (kein Ersatz durch das Hochladedatum).
+  - Buchung mit Nummer, aber ohne Blatt („kein PDF“): „–“.
+  - Nur das Datum, ohne Uhrzeit, im App-Format „Mo, 09.11.2026“ (PROJ-31).
+  - Es zählt nur das aktuelle Blatt; ersetzte Blätter bleiben außer Betracht.
+  - Sortierung und Filter bleiben unverändert (nach Gästeblattnummer).
+  - **Handy:** Die Karten zeigen das Datum ebenfalls („Unterschrieben am …“); ohne Datum entfällt die Zeile.
+  - Die Liste „Buchungen ohne Gästeblatt“ bleibt ohne diese Spalte.
+- **Gästeblattnummer in der Buchungsübersicht als Link:** Die Zeile „Gästeblatt {Nummer}“ unter der Buchungsnummer.
+  - Mit aktuellem Blatt (unterschrieben oder nacherfasst) ist die Nummer ein Link auf das PDF; es öffnet in einem neuen Tab, wie in der Liste „Gästeblätter“.
+  - Ohne Blatt (nur nacherfasste Nummer) bleibt sie Text wie bisher.
+  - Gilt überall, wo diese Buchungsliste erscheint: Buchungsübersicht, Gastseite, Firmenseite; Tabelle und Handy-Karten.
+  - Eine daneben angezeigte Plattform-Nummer (Suchtreffer, PROJ-47) bleibt Text.
+  - Stornierte Buchungen mit Blatt: Link wie bei anderen Buchungen (die Buchungsübersicht zeigt sie weiterhin).
+  - Rechte wie beim PDF-Abruf bisher (Inhaber und Mitarbeiter des Kunden).
+
+### Acceptance Criteria
+- [ ] Angenommen ein am Tablet unterschriebenes Blatt, dann zeigt die Liste „Gästeblätter“ in der zweiten Spalte „Unterschrieben am“ das Datum der 2. Unterschrift ohne Uhrzeit
+- [ ] Angenommen ein nacherfasstes Blatt mit „Unterschrieben am“, dann steht dieses Datum in der Spalte; ohne Angabe „–“
+- [ ] Angenommen eine Buchung mit Nummer ohne Blatt, dann steht in der Spalte „–“
+- [ ] Angenommen ein Blatt wurde neu unterschrieben, dann zeigt die Spalte das Datum des aktuellen Blatts
+- [ ] Angenommen ein Handy, dann zeigt die Karte „Unterschrieben am …“, ohne waagrechtes Scrollen
+- [ ] Angenommen eine Buchung mit unterschriebenem oder nacherfasstem Blatt, dann ist die Gästeblattnummer in der Buchungsübersicht ein Link, der das PDF in einem neuen Tab öffnet
+- [ ] Angenommen eine Buchung mit nacherfasster Nummer ohne Blatt, dann ist die Gästeblattnummer Text
+- [ ] Angenommen die Buchungsliste auf der Gastseite oder der Firmenseite, dann verhält sich die Gästeblattnummer gleich
+- [ ] Angenommen eine Suche mit Treffer in der Plattform-Nummer, dann bleibt die Plattform-Nummer Text und die Gästeblattnummer daneben ein Link
+
+### Edge Cases
+- Uhrzeit der Unterschrift kurz nach Mitternacht: Das Datum richtet sich nach österreichischer Zeit, nicht nach UTC
+- Anonymisierter Gast: Datum und PDF-Link bleiben (das Blatt bleibt aufbewahrt)
+- Blatt an einer Buchung ohne Gästeblattnummer: in der Buchungsübersicht keine Nummer, also kein Link (Blatt im Buchungsdetail erreichbar)
 
 ## Tech Design (Solution Architect)
 
