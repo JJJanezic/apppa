@@ -203,6 +203,14 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-8 Manuelle Buchungen', () => {
       expect((await row(id)).guest_id).toBe(created[0].id)
     })
 
+    it('neuer Gast ohne Staatsangehörigkeit (booking.com meldet sie anfangs nicht, refine PROJ-7 2026-11-09)', async () => {
+      const apt = await apartment(tenantA, 'Ohne Land')
+      const newGuest = { last_name: `Booking ${runId}`, first_name: 'Ohne', country: null }
+      const id = savedId(await save(staffA, bookingInput(tenantA, apt, '', '2027-08-01', '2027-08-03', { guest_id: null, new_guest: newGuest })))
+      const { data: guest } = await service.from('guests').select('country').eq('id', (await row(id)).guest_id!).single()
+      expect(guest!.country).toBeNull()
+    })
+
     it('lehnt archivierte Wohnungen und anonymisierte Gäste für neue Buchungen ab', async () => {
       const apt = await apartment(tenantA, 'Archiv')
       const g = await guest(tenantA, 'Archivgast')

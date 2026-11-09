@@ -225,6 +225,15 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-26 Gästeblatt', () => {
       expect(log).toEqual({ actor_label: 'Gästeblatt', actor_id: staffUser.id })
     })
 
+    it('ohne Staatsangehörigkeit kein Blatt; nach dem Ergänzen über das Blatt möglich (refine PROJ-7 2026-11-09)', async () => {
+      const guest = await newGuest({ country: null, document_type: null, document_number: null, document_issued_on: null, document_authority: null, document_country: null })
+      const booking = await newBooking(guest)
+      expect((await finish(booking)).error?.code).toBe('P0974')
+      const s = await stamps(booking)
+      expect((await field(staff, booking, 'guest', { country: 'AT' }, s.guest)).error).toBeNull()
+      expect((await finish(booking)).error).toBeNull()
+    })
+
     it('nur Blatt-Felder, mit Stand; ungültige Werte und unvollständiges Dokument werden abgelehnt', async () => {
       const guest = await newGuest({ document_type: null, document_number: null, document_issued_on: null, document_authority: null, document_country: null })
       const booking = await newBooking(guest)

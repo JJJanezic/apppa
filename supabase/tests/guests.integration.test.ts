@@ -91,6 +91,13 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-7 Gäste-Datenbank', () => {
       expect(both.error).not.toBeNull()
     })
 
+    it('Staatsangehörigkeit optional (refine 2026-11-09): ohne Angabe gespeichert, leerer Text abgelehnt', async () => {
+      const { data, error } = await ownerA.from('guests').insert({ tenant_id: tenantA, last_name: `Ohne Land ${runId}` }).select('country').single()
+      expect(error).toBeNull()
+      expect(data!.country).toBeNull()
+      expect((await ownerA.from('guests').insert({ tenant_id: tenantA, last_name: 'X', country: '' })).error?.code).toBe('23514')
+    })
+
     it('schützt vor Überschreiben: Änderung mit veraltetem Stand trifft nichts', async () => {
       const g = await guest(ownerA, tenantA, { last_name: 'Stale', country: 'AT' })
       const first = await ownerA.from('guests').update({ note: 'eins' }).eq('id', g.id).eq('updated_at', g.updated_at).select('id')

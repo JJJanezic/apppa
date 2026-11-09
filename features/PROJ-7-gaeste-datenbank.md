@@ -255,6 +255,17 @@ Gästeblatt (PROJ-26), Seite 1
 - **Gästeblatt:** `needsTravelDocument` nur bei bekannter Staatsangehörigkeit außer Österreich. Fehlt sie, bleibt sie offene Pflichtangabe (rote Markierung, Unterschrift gesperrt).
 - **Tests:** Unit-Tests ergänzt (Validierung, `countryName`, Gästeblatt-Regel), 988 von 988 grün; Lint und Build grün.
 
+### Umsetzung Backend (2026-11-09)
+- **Migration** `20261109182316_guest_country_optional.sql` (in Dev): Die Spalte „Staatsangehörigkeit“ darf leer sein. Die Formatprüfung bleibt, leerer Text wird weiter abgelehnt.
+- **Schreibende Funktionen bleiben unverändert:** save_guest, save_booking mit neuem Gast, Rechnung nacherfassen, Zusammenführen und Feld-Speichern auf dem Gästeblatt. Sie übernehmen „keine Angabe“, weil die App leere Eingaben als `null` schickt. Abweichung vom Entwurf: Ein eigenes Umwandeln von leerem Text in den Funktionen war nicht nötig; leerer Text wird abgelehnt statt gespeichert.
+- **Zusammenführen:** Die Vorbelegung nimmt schon heute den vorhandenen Wert, wenn beim behaltenen Gast nichts eingetragen ist.
+- **Gästeblatt:** Die Pflichtprüfung (`guest_sheet_complete`) verlangt die Staatsangehörigkeit weiter.
+- **Gästeherkunft:** Gäste ohne beide Angaben erscheinen als `ZZ`, in der App „Unbekannt“.
+- **Tests:**
+  - Neu: Gast ohne Angabe gespeichert und leerer Text abgelehnt (Gäste), Buchung mit neuem Gast ohne Staatsangehörigkeit (Buchungen), ohne Staatsangehörigkeit kein Gästeblatt bzw. nach dem Ergänzen möglich (Gästeblatt).
+  - Gäste und Gästeblatt 31 von 31, Buchungen 33 von 33 grün.
+  - Die Datenbank-Prüfung meldet nur die bekannte Auth-Warnung.
+
 ## Tech Design (Solution Architect)
 
 ### Ausgangslage (bereits vorhanden)

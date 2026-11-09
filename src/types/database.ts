@@ -1198,7 +1198,7 @@ export type Database = {
           company_name: string | null
           company_postal_code: string | null
           company_vat_id: string | null
-          country: string
+          country: string | null
           created_at: string
           created_by: string | null
           document_authority: string | null
@@ -1247,7 +1247,7 @@ export type Database = {
           company_name?: string | null
           company_postal_code?: string | null
           company_vat_id?: string | null
-          country: string
+          country?: string | null
           created_at?: string
           created_by?: string | null
           document_authority?: string | null
@@ -1296,7 +1296,7 @@ export type Database = {
           company_name?: string | null
           company_postal_code?: string | null
           company_vat_id?: string | null
-          country?: string
+          country?: string | null
           created_at?: string
           created_by?: string | null
           document_authority?: string | null
