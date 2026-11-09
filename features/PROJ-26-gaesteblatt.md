@@ -1,6 +1,6 @@
 # PROJ-26: Gästeblatt (Meldewesen)
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-11-08
 **Last Updated:** 2026-11-09 (refine: Kennzahl und Gästeblattnummer je Gemeinde; Grundumfang und Nachbesserung live seit v1.44.0)
 
@@ -354,6 +354,14 @@ Schlägt ein Teil fehl, wird nichts gespeichert, die Ansicht bleibt mit beiden U
 | Umbenennung nur in den Beschriftungen, keine Spaltenänderung | Daten passen bereits; kein Risiko für bestehende Funktionen | 2026-11-08 |
 | Paket signature_pad | Bewährte Stift- und Fingereingabe mit Glättung, klein, MIT; Eigenbau in iPad-Safari fehleranfällig | 2026-11-08 |
 | Datenschutz-Texte in eigener Einstellungs-Tabelle je Kunde, leer = Standardtext | Standardtext bleibt in der App änderbar; Muster wie Rechnungs-Einstellungen | 2026-11-08 |
+| Kennzahlen und Nummernbereiche als eigene Tabellen je Kunde und Gemeinde | Mehrere Bereiche je Gemeinde mit Verlauf; Kennzahl bleibt ohne Objekt erhalten | 2026-11-09 |
+| Stand des Bereichs berechnet (erster offener = in Verwendung) statt gespeichert | Es kann nie zwei laufende Bereiche geben; Reihenfolge = Eingabe | 2026-11-09 |
+| Nummernvergabe in einer Datenbankfunktion mit Sperre, nur vom Server, vor dem PDF | Keine doppelten Nummern bei zwei Tablets; Nummer muss im PDF stehen | 2026-11-09 |
+| Vergebene Nummer bleibt an der Buchung, auch wenn das Fertigstellen danach scheitert | Erneutes „Fertig“ nutzt sie; keine Lücken | 2026-11-09 |
+| Nummernregel doppelt: App-Baustein für Prüfung/Vorschau, Datenbank maßgeblich, gemeinsame Testfälle | Sofortige Rückmeldung im Formular, Sicherheit beim Speichern | 2026-11-09 |
+| Freie Nummern per Zählung statt Aufzählung | Auch große Bereiche (z. B. 1–999999) bleiben schnell | 2026-11-09 |
+| „Gästeblattnummer“ nicht mitgeschickt = unverändert | Schalter aus darf vorhandene Nummern nicht löschen | 2026-11-09 |
+| Schalter „Gästeblätter nacherfassen“ als Spalte am Kunden | Gleiches Muster wie „Rechnungen nacherfassen“ | 2026-11-09 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
@@ -466,6 +474,159 @@ Klärung mit der Gemeinde: Kennzahl und laufende Gästeblattnummer werden **je K
 - Wohnung der Buchung wechselt vor dem Fertigstellen die Gemeinde → Nummer und Kennzahl der neuen Gemeinde
 - Gemeinde ohne Objekte mehr → Kennzahl und Bereiche bleiben gespeichert, ausgeblendet; kein Dashboard-Hinweis
 - Altbestand mit doppelten Nummern → bleibt unverändert, nur Hinweis bei Änderung
+
+### Tech Design der Erweiterung (Solution Architect, 2026-11-09)
+
+#### Ausgangslage
+- Die Buchung hat bereits das Textfeld „Gästeblattnummer“ (PROJ-30). Beim Speichern prüft die Datenbank auf doppelte Nummern und verlangt eine Bestätigung, also nur einen Hinweis. Diese Prüfung gilt heute für den ganzen Kunden.
+- „Fertig“ läuft über die Server-Schnittstelle `/api/gaesteblatt/fertig`, in dieser Reihenfolge:
+  1. Fassung zusammenstellen, mit der Nummer der Buchung.
+  2. PDF erzeugen.
+  3. Dateien ablegen.
+  4. In der Datenbank festschreiben.
+- Das Blatt speichert seine Nummer selbst (`sheet_number`). Die Fassung (Snapshot) friert alle Kopfangaben ein.
+- Muster für den Schalter: „Rechnungen nacherfassen“ ist ein Schalter am Kunden mit eigenem Abschnitt in den Einstellungen.
+- Objekte haben eine Gemeinde (Gemeindekennziffer und Name aus dem Gemeindeverzeichnis, PROJ-6).
+
+#### Oberfläche
+```
+Einstellungen → Stammdaten
++-- (bestehende Abschnitte)
++-- NEU Abschnitt „Kennzahlen je Gemeinde“ (eigenes Speichern, unabhängig vom Stammdaten-Formular)
+    +-- je Gemeinde mit Objekten: „Bad Ischl (40702)“ + Feld „Kennzahl“, Hinweis bei leerem Feld
+    +-- Leerzustand: „Noch keine Objekte – Kennzahlen gibt es je Gemeinde der Objekte.“
+
+Einstellungen → Gästeblatt
++-- NEU Abschnitt „Laufende Nummer je Gemeinde“
+|   +-- je Gemeinde eine Karte
+|       +-- Kopf: Gemeinde, Hinweis (frei / „Nur noch n Nummern frei“ / aufgebraucht / nicht festgelegt)
+|       +-- Tabelle der Bereiche: von, bis, Nächste Nummer, Stand, Aktionen (Bearbeiten, Löschen)
+|       +-- Knopf „Nummernbereich hinzufügen“ → Dialog (von, bis; beim ersten Bereich „Nächste Nummer“)
++-- NEU Abschnitt „Gästeblätter nacherfassen“ (Schalter mit Erklärung, wie bei Rechnungen)
++-- (bestehende Datenschutz-Texte)
+
+Buchungsdetail → Abschnitt „Gästeblatt“
++-- NEU Hinweis Nummern (Frühwarnung bzw. „kein Nummernbereich“/„aufgebraucht“)
++-- Knopf „Gästeblatt“: gesperrt, wenn keine Nummer verfügbar und die Buchung keine hat
++-- „Gästeblatt hochladen“ nur bei „nacherfassen“ ein; Dialog ohne Nummernfeld, Nummer nur lesen
+
+Buchungsformular
++-- Feld „Gästeblattnummer“ nur bei „nacherfassen“ ein; Doppelt-Hinweis nur innerhalb derselben Gemeinde
+
+Vollbild-Gästeblatt, Seite 1, Kopf
++-- „Lfd.-Nr.“: vorhandene Nummer oder „wird beim Abschluss vergeben“ (nur lesen, kein Eingabefeld mehr)
++-- „Kennzahl“: Kennzahl der Gemeinde (nur lesen)
++-- Fehler bei „Fertig“: „Keine Gästeblattnummer verfügbar“ – Unterschriften bleiben, erneut „Fertig“ möglich
+
+Dashboard
++-- Kacheln
++-- NEU Hinweisblock „Gästeblattnummern“ (nur wenn etwas zu melden ist; Kundenname · Gemeinde: Hinweis)
++-- (übrige Abschnitte)
+
+PDF Seite 1
++-- Kennzahl im Kopf aus der Fassung
+```
+
+#### Datenmodell (in Worten)
+- **Kennzahlen:** eine neue Tabelle mit je einer Zeile pro Kunde und Gemeinde: Kunde, Gemeindekennziffer, Kennzahl (Text bis 30 Zeichen) und Änderungsstempel. Es kann für jede Kombination aus Kunde und Gemeinde nur eine Zeile geben. Die Zeilen bleiben erhalten, wenn das letzte Objekt in der Gemeinde verschwindet.
+- **Nummernbereiche:** eine neue Tabelle mit je einer Zeile pro Bereich. Sie enthält:
+  - Kunde und Gemeindekennziffer.
+  - Reihenfolge, nach dem Zeitpunkt der Eingabe.
+  - „von“ und „bis“ als Text.
+  - „Nächste Nummer“ als Text. Sie gilt nur für den Bereich in Verwendung; folgende Bereiche starten bei „von“.
+  - „Aufgebraucht am“, leer solange offen.
+  - Änderungsstempel.
+- **Stand eines Bereichs:**
+  - „aufgebraucht“, wenn „Aufgebraucht am“ gesetzt ist.
+  - „in Verwendung“ für den ersten offenen Bereich der Gemeinde.
+  - „folgt“ für alle weiteren offenen Bereiche.
+  - Der Stand wird berechnet, nicht gespeichert. So kann es nie zwei Bereiche „in Verwendung“ geben.
+- **Schalter:** eine neue Spalte „Gästeblätter nacherfassen“ am Kunden, neben „Rechnungen nacherfassen“, Standard aus. Die Migration schaltet ihn bei Kunden ein, die schon eine Gästeblattnummer an einer Buchung oder ein hochgeladenes Blatt haben.
+- **Fassung des Blatts:** Sie bekommt zusätzlich die Kennzahl. Die Nummer steht schon drin. Alte Fassungen ohne Kennzahl drucken das Feld leer.
+- **Buchung:** keine neue Spalte. Die vergebene Nummer steht weiter in „Gästeblattnummer“. Die Gemeinde ergibt sich aus Wohnung → Objekt.
+- Beide neuen Tabellen erhalten Mandanten-RLS nach dem bestehenden Muster. Mitglieder dürfen lesen, Mitarbeiter brauchen das für Hinweise und den gesperrten Knopf. Schreiben geht nur über Datenbankfunktionen für Inhaber und Betreiber. Alles läuft mit Änderungsprotokoll.
+
+#### Nummernregel an einer Stelle
+- Ein gemeinsamer Baustein in der App, `guest-sheet-numbering`, macht Folgendes:
+  - Er zerlegt eine Nummer in Vorsatz und Ziffern am Ende.
+  - Er zählt weiter und behält dabei die Stellenzahl.
+  - Er vergleicht Nummern ohne Rücksicht auf Groß- und Kleinschreibung.
+  - Er prüft Bereiche: gleicher Vorsatz, „von“ ≤ „bis“, keine Überschneidung, nächste Nummer im Bereich.
+- Er wird für die Prüfung in den Formularen, die Vorschau und die Unit-Tests genutzt.
+- Die Datenbank hat dieselbe Regel als eigene Funktion. Sie ist maßgeblich für Speichern und Vergabe. Gemeinsame Testfälle stellen sicher, dass beide gleich rechnen.
+- **Zugehörigkeit zu einem Bereich:** Eine Nummer liegt im Bereich, wenn ihr Vorsatz gleich ist (ohne Groß-/Kleinschreibung) und ihr Zahlenwert zwischen „von“ und „bis“ liegt.
+- **Belegt** ist eine Nummer, wenn eine andere Buchung derselben Gemeinde genau diese Nummer hat (ohne Groß-/Kleinschreibung).
+- **Freie Nummern einer Gemeinde** sind alle Nummern von der nächsten Nummer bis „bis“ im laufenden Bereich plus die Größe aller folgenden Bereiche. Davon werden die belegten Nummern in diesen Abschnitten abgezogen. Das wird per Zählung berechnet, ohne jede Nummer einzeln aufzuzählen, damit auch große Bereiche schnell bleiben.
+
+#### Vergabe beim „Fertig“
+- **Neue Reihenfolge der Schnittstelle:**
+  1. Berechtigung und Stand prüfen wie bisher.
+  2. Hat die Buchung keine Nummer, vergibt die Datenbank die nächste freie.
+  3. Danach Fassung inklusive Kennzahl zusammenstellen, PDF erzeugen, Dateien ablegen und festschreiben.
+- **Die Vergabe ist eine Datenbankfunktion**, die nur der Server aufruft (wie das Festschreiben). Sie arbeitet so:
+  1. Sie sperrt die Bereiche der Gemeinde für die Dauer des Schritts. Zwei Tablets bekommen so nie dieselbe Nummer.
+  2. Sie überspringt belegte Nummern.
+  3. Nach „bis“ markiert sie den Bereich als aufgebraucht und springt auf „von“ des nächsten Bereichs.
+  4. Sie schreibt die Nummer an die Buchung und setzt die nächste Nummer weiter.
+  5. Gibt es keine freie Nummer, meldet sie einen eigenen Fehlercode. Die Oberfläche zeigt dann „Keine Gästeblattnummer verfügbar“.
+- **Nummer bleibt an der Buchung, auch wenn danach etwas scheitert**, etwa das PDF oder die Ablage. Ein erneutes „Fertig“ nimmt dann diese Nummer, und es entsteht keine Lücke. Bei „Neu unterschreiben lassen“ hat die Buchung bereits eine Nummer, deshalb wird keine neue vergeben.
+- Das Protokoll schreibt die Vergabe als Änderung der Buchung „über Gästeblatt“.
+
+#### Nacherfassen und Hochladen
+- **Buchung speichern:**
+  - Fehlt das Feld im Formular, weil der Schalter aus ist, bleibt eine vorhandene Nummer unverändert. Die Datenbank behandelt „nicht mitgeschickt“ als „nicht ändern“, nicht als „löschen“.
+  - Die Doppelt-Prüfung mit Bestätigung bleibt, gilt aber nur noch innerhalb derselben Gemeinde.
+- **Hochladen:**
+  - Die Datenbankfunktion übernimmt die Nummer der Buchung und nimmt keine eigene Nummer mehr entgegen.
+  - Ist der Schalter aus, lehnt sie das Hochladen ab, eine Server-Prüfung zusätzlich zum ausgeblendeten Knopf.
+  - Hochladen zählt nie hoch.
+
+#### Hinweise und Dashboard
+- **Lesesicht „Nummernstand je Gemeinde“**: je Kunde und Gemeinde mit mindestens einer nicht archivierten Wohnung. Sie liefert:
+  - Gemeindename.
+  - Nächste Nummer.
+  - Anzahl freier Nummern.
+  - Zustand: frei, knapp (≤ 10), aufgebraucht, nicht festgelegt.
+  - Sie wird mit den Rechten der lesenden Person ausgewertet und zeigt deshalb nur Kunden, bei denen sie Mitglied ist.
+- **Dieselbe Sicht speist:**
+  - die Hinweise in Einstellungen → Gästeblatt,
+  - das Buchungsdetail (gesperrter Knopf, Hinweis),
+  - die Vollbild-Seite (Kopf),
+  - den Dashboard-Block. Dieser ist ein eigener, kleiner Abschnitt unter den Kacheln. Er folgt dem Kundenfilter und verlinkt für Inhaber mit Kundenwechsel wie die anderen Dashboard-Zeilen.
+
+#### Rechte
+- Kennzahlen, Bereiche und Schalter dürfen Inhaber und Betreiber ändern, wie die Stammdaten bzw. Einstellungen → Rechnungen.
+- Mitarbeiter sehen die Hinweise, und bei ihnen ist der Knopf ebenso gesperrt. Ändern können sie nichts.
+
+#### Abhängigkeiten
+- Keine neuen Pakete.
+
+#### Für /frontend und /backend
+- **Datenbank (eine Migration):**
+  - Tabellen für Kennzahlen und Nummernbereiche.
+  - Spalte am Kunden mit Startwerten.
+  - Funktionen: Kennzahlen speichern, Bereich anlegen/ändern/löschen, Schalter speichern, Nummer vergeben (nur Server), Lesesicht für den Nummernstand.
+  - Angepasst werden das Buchung-Speichern (fehlendes Feld = unverändert, Doppelt-Prüfung je Gemeinde), das Hochladen (Nummer aus der Buchung, Schalter) und die Kunden-Löschung durch den Betreiber (neue Tabellen mit löschen).
+- **Fertig-Schnittstelle:** Vergabe vor dem Erzeugen der Fassung; Kennzahl in die Fassung; neuer Fehler „keine Nummer“.
+- **Oberfläche:**
+  - Stammdaten-Abschnitt.
+  - Einstellungen-Abschnitte mit Dialog.
+  - Buchungsdetail: Hinweis und gesperrter Knopf.
+  - Upload-Dialog ohne Nummernfeld.
+  - Buchungsformular: Feld abhängig vom Schalter.
+  - Vollbild-Kopf nur lesen.
+  - Dashboard-Block.
+  - PDF-Kopf mit Kennzahl.
+- **Tests:**
+  - Unit: Nummernregel mit führenden Nullen, Vorsatz, Überlauf, Überschneidung.
+  - Integration:
+    - Vergabe mit Überspringen und Bereichswechsel.
+    - Gleichzeitige Vergabe.
+    - Keine Nummer.
+    - Hochladen bei Schalter aus.
+    - Buchung speichern ohne Feld.
+    - Rechte.
+  - E2E: die Akzeptanzkriterien oben.
 
 ## Tech Design (Solution Architect)
 
