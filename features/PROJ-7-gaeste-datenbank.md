@@ -279,7 +279,7 @@ Gästeblatt (PROJ-26), Seite 1
 **Sicherheit:** keine neuen Schreib- oder Lesewege. Leerer Text wird von der Datenbank abgelehnt (Integration).
 
 **Regression:**
-- Gäste-Datenbank E2E in allen Breiten grün (18 bestanden, 6 nur im Desktop-Projekt), Buchungen „Mitarbeiter“ 7 von 7, Gästeblatt 9 von 9, Auswertungen „Gästeherkunft“ grün.
+- Gäste-Datenbank E2E grün: übrige Tests in allen Projekten 14 bestanden (18 nur im Desktop-Projekt vorgesehen und in den anderen übersprungen), dazu 4 neue bzw. angepasste im Desktop-Projekt, Buchungen „Mitarbeiter“ 7 von 7, Gästeblatt 9 von 9, Auswertungen „Gästeherkunft“ grün.
 - Integration: Gäste und Gästeblatt 31 von 31, Buchungen 33 von 33. Unit 988 von 988.
 - Firefox und Safari nicht gesondert geprüft.
 
