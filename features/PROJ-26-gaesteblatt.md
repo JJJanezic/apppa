@@ -1,6 +1,6 @@
 # PROJ-26: Gästeblatt (Meldewesen)
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-11-08
 **Last Updated:** 2026-11-09
 
@@ -737,4 +737,10 @@ Die Lesefunktion der Auswertung nimmt das Herkunftsland der Adresse des Hauptgas
 
 
 ## Deployment
-_To be added by /deploy_
+
+**Ausgeliefert:** 2026-11-09, Stand `97753a5`, Tag `v1.43.0-PROJ-26`
+- **Staging:** https://staging.apppa.at (2026-11-09), Migrationen eingespielt, Advisors nur „OTP-Ablauf“
+- **Production:** https://app.apppa.at (2026-11-09), Migrationen eingespielt, Advisors nur „OTP-Ablauf“; Funktion vom Nutzer bestätigt
+- **Migrationen:** `20261109055811_guest_sheets.sql`, `20261109065600_guest_sheets_qa_fixes.sql`
+- **Kein** `config push`, keine neuen Umgebungsvariablen; neues npm-Paket `signature_pad` 5.1.4
+- **Rückmeldung nach dem Deploy (iPad):** Felder auf Seite 1 teils überlappend bzw. eng; Wunsch: E-Mail-Adresse auf Seite 2 erfassen, wenn der Hauptgast keine hat → Nacharbeit per `/refine PROJ-26`
