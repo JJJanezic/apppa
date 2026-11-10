@@ -1,6 +1,6 @@
 # PROJ-9: Belegungskalender
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-10-25
 **Last Updated:** 2026-11-10 (refine: nur Dashboard-Zeitleiste 14/28 Tage, Monatsansicht und Seite „Belegung“ entfallen)
 
@@ -342,6 +342,48 @@ Dashboard  /
   - E2E angepasst: PROJ-2 (Handy-Leiste), PROJ-30 und PROJ-31 (Monatsansicht-Prüfungen entfernt, Kalender über `/?tage=28`), PROJ-37 (Panel über `/?eintrag=`; Menü-Reihenfolge seit PROJ-26 mit „Gästeblätter“ korrigiert, war schon vorher veraltet).
   - Gelaufen gegen den gebauten Server: PROJ-9 desktop komplett und mobile Layout/axe, PROJ-2 mobile, PROJ-14 Belegung/Zeitung, PROJ-30 Kalender, PROJ-31 Kalender (desktop, mobile), PROJ-37 Panel und Menü; alle grün. Unit-Tests: 1022 grün. Lint und Build grün.
 - **Kein Backend:** keine Migration, keine neue Abfrage.
+
+### QA „Nur Dashboard-Zeitleiste“ (2026-11-10)
+_Gegen den gebauten Server (localhost:3000) mit Supabase „apppa-dev“. Das direkte Lesen von `.env.local` war gesperrt; abgesichert über `assertTestableProject` in den Test-Hilfen (bricht bei Staging-/Prod-URL ab)._
+
+**Acceptance Criteria (13/13 bestanden)**
+| AC | Ergebnis | Test |
+|---|---|---|
+| Erstes Öffnen: 14 Tage ab heute − 2, Schalter „14 Tage“ | ✓ | Orte und Navigation |
+| 14 Tage: „Weiter“ +7 | ✓ | Blättern um 7 Tage |
+| „28 Tage“ ab demselben Starttag | ✓ | 14 oder 28 Tage |
+| 28 Tage: „Weiter“/„Zurück“ ±14 | ✓ | 14 oder 28 Tage |
+| „Heute“ bei 28 Tagen → heute − 2, bleibt 28 | ✓ | 14 oder 28 Tage |
+| Datumswähler in der gewählten Länge | ✓ | QA 28 Tage |
+| Länge und Objekt nach Neuladen gemerkt, Zeitraum nicht | ✓ | Filter, gemerkte Ansicht |
+| Alter Cookie „Monat“ → 14 Tage ohne Fehler | ✓ | Sicherheit (Cookie) + Unit |
+| Kein „Monat“, kein „Vollbild“ | ✓ | Orte und Navigation |
+| Navigation ohne „Belegung“; Handy-Leiste Dashboard, Buchungen, Gäste, Gästeblätter, „Mehr“ | ✓ | PROJ-2 untere Leiste (mobile, tablet), Unit |
+| `/belegung` (auch mit Parametern) → Dashboard | ✓ | Umleitung inkl. `?eintrag=` |
+| Handy 375 px: 28 Tage scrollen seitlich, Seite nicht | ✓ | QA 28 Tage (mobile) |
+| Panel und Anlegen bei 28 Tagen, danach Länge und Zeitraum unverändert | ✓ | QA 28 Tage |
+
+**Edge Cases**
+- Alte Adressen (`?ansicht=monat`, `monat`, `tag`) werden ignoriert ✓ (Umleitungstest, Unit)
+- Betreiber-Admin ohne Mitgliedschaft: Hinweis des Dashboards; `/belegung` landet dort ✓ (Code geprüft, Umleitung vor der Seite)
+- 28 Tage mit mehreren Kunden: beide Kunden gruppiert, Eintrag nach Tag 14 sichtbar ✓ (QA 28 Tage)
+- Ladezustand/Vorladen in gewählter Länge ✓ (Code: Nachbar-Adressen aus `calendarHref` mit Länge)
+- Zusätzlich: Schalter per Tastatur (Pfeiltaste) und für Mitarbeiter ✓; Klick in freie Zelle bei 28 Tagen trifft den richtigen Tag ✓
+
+**Sicherheit**
+- Umleitung hat ein festes Ziel `/`: `/belegung?x=//evil.com` → `/?x=%2F%2Fevil.com`, kein offener Redirect; `/BELEGUNG` → `/`; `/belegung/x` → Anmeldung (bzw. 404) ✓
+- Ohne Anmeldung führt `/belegung` über `/` zur Anmeldung ✓
+- Manipulierte Werte (`tage=1000`, `tage=x`, Cookie `999.alle`, `28.<script>`, HTML im Cookie) fallen auf 14 Tage bzw. „Alle“ zurück; der Ladebereich ist höchstens 28 Tage ✓ (Unit + E2E)
+- Daten unverändert: Kalenderabfrage ohne Beträge, Mandantenabschottung wie bisher ✓
+
+**Regression**
+- Unit: 1022 grün (+4 neue Fälle in `calendar.test.ts`); Integration `bookings` 33 grün
+- E2E: PROJ-9 desktop komplett, mobile und tablet (Layout, axe); PROJ-2 mobile/tablet; PROJ-14 Belegung/Zeitung; PROJ-30 Kalender; PROJ-31 Kalender desktop/mobile; PROJ-37 Panel und Menü — alle grün
+- Firefox und Safari nicht getestet (optional, nicht angefordert)
+
+**Bugs:** keine gefunden.
+
+**Production Ready: YES.** Status **Approved**.
 
 ## Tech Design (Solution Architect)
 

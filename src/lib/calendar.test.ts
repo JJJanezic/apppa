@@ -76,6 +76,13 @@ describe('Zustand aus Adresse und Cookie', () => {
     expect(parseCalendarState({}, 'zeitleiste.alle', TODAY)).toMatchObject({ length: 14, property: null })
   })
 
+  it('manipulierte Cookie-Werte fallen auf 14 Tage und „Alle“ zurück (QA)', () => {
+    expect(parseCalendarState({}, '999.alle', TODAY)).toMatchObject({ length: 14, property: null })
+    expect(parseCalendarState({}, '28.<script>', TODAY)).toMatchObject({ length: 28, property: null })
+    expect(parseCalendarState({ tage: '1000' }, '28.alle', TODAY)).toMatchObject({ length: 28 })
+    expect(parseCalendarState({ tage: ['28', '14'] }, undefined, TODAY)).toMatchObject({ length: 28 })
+  })
+
   it('ignoriert ungültige und alte Adressangaben (ansicht, monat, tag)', () => {
     const state = parseCalendarState({ tage: '30', ab: '2026-02-30', ansicht: 'monat', monat: '2026-12', tag: '2026-12-03', objekt: 'x', eintrag: '1' }, 'kaputt', TODAY)
     expect(state).toEqual(parseCalendarState({}, undefined, TODAY))

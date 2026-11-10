@@ -317,6 +317,84 @@ test.describe('14 oder 28 Tage (refine 2026-11-10)', () => {
   })
 })
 
+test.describe('QA 28 Tage (refine 2026-11-10)', () => {
+  test('Datumswähler springt in der gewählten Länge; Panel und Anlegen lassen Länge und Zeitraum stehen', async ({ page, users }) => {
+    desktopOnly()
+    const { tenantId, signIn } = await setup(page, users)
+    await withCalendar(tenantId)
+    await signIn()
+    await open(page, '/?tage=28')
+    await page.getByRole('button', { name: /Datum wählen/ }).click()
+    await page.getByLabel('Springen zu').fill(day(-5))
+    await page.getByRole('button', { name: 'Anzeigen' }).click()
+    await expect(page).toHaveURL(new RegExp(`tage=28&ab=${day(-5)}`))
+    await expect(HEADER(page)).toHaveCount(28)
+    // Zeitraum in der Kopfzeile: erster bis letzter sichtbarer Tag
+    const last = `${day(22).slice(8, 10)}\\.${day(22).slice(5, 7)}\\.${day(22).slice(0, 4)}`
+    await expect(page.getByRole('button', { name: /Datum wählen/ })).toHaveAccessibleName(new RegExp(`– \\S+ ${last}\\. Datum wählen`))
+
+    await bar(page, 'Buchung', 'Lukas Brenner').click()
+    await expect(dialog(page).getByRole('heading', { name: 'Lukas Brenner' })).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(dialog(page)).toHaveCount(0)
+    await expect(page).toHaveURL(new RegExp(`tage=28&ab=${day(-5)}`))
+    await expect(HEADER(page)).toHaveCount(28)
+
+    // Anlegen per Klick in der 28-Tage-Zeitleiste: Tag unter dem Klick stimmt
+    const name = (await timeline(page).getByText('Top 2', { exact: true }).boundingBox())!
+    const area = (await timeline(page).locator('div.relative').first().boundingBox())!
+    // Tag +12 = Index 17 ab heute − 5
+    await page.mouse.click(area.x + ((17 + 0.5) / 28) * area.width, name.y + name.height / 2)
+    const form = page.getByRole('dialog', { name: 'Neue Buchung' })
+    await expect(form.getByLabel('Anreise', { exact: true })).toHaveValue(day(12))
+    await page.keyboard.press('Escape')
+    await expect(form).toHaveCount(0)
+    await expect(page).toHaveURL(new RegExp(`tage=28&ab=${day(-5)}`))
+  })
+
+  test('Schalter per Tastatur; Mitarbeiter sehen ihn ebenso', async ({ page, users }) => {
+    desktopOnly()
+    const { tenantId, signIn } = await setup(page, users, 'staff')
+    await withCalendar(tenantId)
+    await signIn()
+    await open(page)
+    const short = page.getByRole('tab', { name: '14 Tage' })
+    await short.focus()
+    await page.keyboard.press('ArrowRight')
+    await expect(page.getByRole('tab', { name: '28 Tage' })).toHaveAttribute('aria-selected', 'true')
+    await expect(page).toHaveURL(/tage=28/)
+    await expect(HEADER(page)).toHaveCount(28)
+  })
+
+  test('mehrere Kunden: 28 Tage zeigen beide Kunden gruppiert', async ({ page, users }) => {
+    desktopOnly()
+    const { tenantId, owner, signIn } = await setup(page, users)
+    await withCalendar(tenantId)
+    const second = await createTenant('QA9 Zweitkunde', [{ user: owner, role: 'owner' }])
+    const apt = await addApartment(second, await addProperty(second, 'Bergheim'), 'Berg 1')
+    await addEntry(second, apt, { guestId: await addGuest(second, 'Zweit', 'Zora'), arrival: day(16), departure: day(19) })
+    await signIn()
+    await open(page, '/?tage=28')
+    await expect(timeline(page).getByText('QA9 Zweitkunde', { exact: false }).first()).toBeVisible()
+    await expect(bar(page, 'Buchung', 'Zora Zweit')).toBeVisible()
+    await expect(bar(page, 'Buchung', 'Anna Huber')).toBeVisible()
+  })
+
+  test('Handy (375 px): 28 Tage scrollen seitlich, die Seite nicht', async ({ page, users }) => {
+    test.skip(test.info().project.name !== 'mobile', 'nur Handy')
+    const { tenantId, signIn } = await setup(page, users)
+    await withCalendar(tenantId)
+    await signIn()
+    await open(page, '/?tage=28')
+    await expect(HEADER(page)).toHaveCount(28)
+    expect(await timeline(page).evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0)
+    await timeline(page).getByText('Loft', { exact: true }).scrollIntoViewIfNeeded()
+    await timeline(page).evaluate((el) => el.scrollBy(600, 0))
+    await expect(timeline(page).getByText('Loft', { exact: true })).toBeInViewport()
+  })
+})
+
 test.describe('Detailpanel', () => {
   test('Klick auf einen Balken öffnet das volle Detail; Bearbeiten verschiebt den Balken, Ansicht und Zeitraum bleiben', async ({ page, users }) => {
     desktopOnly()
