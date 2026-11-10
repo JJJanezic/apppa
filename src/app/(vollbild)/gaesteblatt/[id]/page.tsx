@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { getLocale, getTranslations } from 'next-intl/server'
 
 import { GuestSheetSigning } from '@/components/guest-sheets/signing/guest-sheet-signing'
+import { IdReadingProvider } from '@/components/id-reading/id-reading-context'
 import { Button } from '@/components/ui/button'
 import { requireArea } from '@/lib/areas'
 import { bookingHref, todayIso } from '@/lib/bookings'
@@ -10,6 +11,7 @@ import { guestSheetExpected } from '@/lib/guest-sheet'
 import { canIssueSheet } from '@/lib/guest-sheet-numbering'
 import { getBookingNumbering } from '@/lib/guest-sheet-numbering-data'
 import { getSigningData } from '@/lib/guest-sheets-data'
+import { getIdReadingEnabled } from '@/lib/id-reading-data'
 
 type Params = Promise<{ id: string }>
 
@@ -24,11 +26,13 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function GuestSheetSigningPage({ params }: { params: Params }) {
   await requireArea('bookings')
   const { id } = await params
-  const [data, locale, t, numbering] = await Promise.all([
+  const [data, locale, t, numbering, idReading] = await Promise.all([
     getSigningData(id, await getLocale()),
     getLocale(),
     getTranslations('guestSheets.signing'),
     getBookingNumbering(id),
+    // „Ausweis auslesen“ (PROJ-51); die Vollbild-Seite hat den App-Rahmen nicht
+    getIdReadingEnabled(),
   ])
   // Ohne Nummernstand (Umgebung ohne Migration) nicht sperren
   const noNumber = numbering !== null && !canIssueSheet(data.booking.sheetNumber, numbering.state)
@@ -53,5 +57,9 @@ export default async function GuestSheetSigningPage({ params }: { params: Params
       </div>
     )
   }
-  return <GuestSheetSigning data={data} locale={locale} today={todayIso()} />
+  return (
+    <IdReadingProvider value={idReading}>
+      <GuestSheetSigning data={data} locale={locale} today={todayIso()} />
+    </IdReadingProvider>
+  )
 }

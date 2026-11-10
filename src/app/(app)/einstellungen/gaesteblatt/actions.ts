@@ -59,3 +59,23 @@ export async function saveGuestSheetTexts(input: {
   revalidatePath('/einstellungen/gaesteblatt')
   return { ok: true }
 }
+
+// Hinweis „Datenschutz-Text prüfen“ nach dem Freischalten von „Ausweis automatisch auslesen“ (PROJ-51) bestätigen; nur Inhaber
+export async function dismissIdReadingPrivacyHint(input: { tenantId: string }): Promise<ActionResult<undefined, Failure['error']>> {
+  const user = await getSessionUser()
+  if (!user || (await pendingMfaStep(user))) return fail('sessionExpired')
+  const { active } = await getTenantContext()
+  if (!active || active.id !== input?.tenantId) return fail('unknown')
+  if (active.role !== 'owner') return fail('ownerOnly')
+
+  const supabase = (await createClient()) as unknown as SupabaseClient
+  const { error } = await supabase.rpc('dismiss_id_reading_privacy_hint', { p_tenant_id: active.id })
+  if (error) {
+    if (isMissingRelation(error)) return fail('notImplemented')
+    const mapped = error.code ? DB_ERRORS[error.code] : undefined
+    if (!mapped) console.error('[ausweis] Hinweis bestätigen', error.code, error.message)
+    return fail(mapped ?? 'unknown')
+  }
+  revalidatePath('/einstellungen/gaesteblatt')
+  return { ok: true }
+}

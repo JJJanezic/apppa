@@ -105,6 +105,8 @@ export async function saveSheetGuest(input: {
   bookingId: string
   updatedAt: string
   values: Partial<SheetGuestInput & { email: string }>
+  // PROJ-51: Werte aus „Ausweis auslesen“ → Vermerk „Gästeblatt, aus Ausweis gelesen“ im Protokoll (wertet /backend aus)
+  fromIdDocument?: boolean
 }): Promise<ActionResult<{ updatedAt: string }, ErrorCode>> {
   const guard = await requireTenant(input?.tenantId)
   if (!guard.ok) return guard

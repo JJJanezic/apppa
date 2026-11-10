@@ -2,6 +2,7 @@ import { headers } from 'next/headers'
 import { notFound } from 'next/navigation'
 
 import { GuestSheetBackfillProvider } from '@/components/guest-sheets/guest-sheet-backfill-context'
+import { IdReadingProvider } from '@/components/id-reading/id-reading-context'
 import { AppSidebar } from '@/components/shell/app-sidebar'
 import { BottomNav } from '@/components/shell/bottom-nav'
 import { ShellProvider } from '@/components/shell/shell-context'
@@ -14,6 +15,7 @@ import { getBooking } from '@/lib/bookings-data'
 import { getCompany } from '@/lib/companies-data'
 import { getGuestSheetBackfill } from '@/lib/guest-sheet-numbering-data'
 import { getGuest } from '@/lib/guests-data'
+import { getIdReadingEnabled } from '@/lib/id-reading-data'
 import { getTenantDetail } from '@/lib/operator-data'
 import { getShellInfo, viewerOf } from '@/lib/shell'
 import { getVatStatusHistory } from '@/lib/vat-status-data'
@@ -55,34 +57,38 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const bookingPath = /^\/buchungen\/([^/]+)/.exec(path)
   if (bookingPath && isAreaAvailable('bookings', viewer)) await getBooking(bookingPath[1])
   // Kleinunternehmer-Status für die Umsatzsteuer-Angaben in Buchungen (PROJ-35/36), nur Inhaber
-  const [vatStatus, sheetBackfill] = await Promise.all([
+  const [vatStatus, sheetBackfill, idReading] = await Promise.all([
     getVatStatusHistory(),
     // Schalter „Gästeblätter nacherfassen“ für das Feld im Buchungsformular (PROJ-26)
     getGuestSheetBackfill(),
+    // „Ausweis auslesen“ im Gastformular (PROJ-51)
+    getIdReadingEnabled(),
   ])
 
   return (
     <ShellProvider value={shell}>
       <VatStatusProvider value={vatStatus}>
         <GuestSheetBackfillProvider value={sheetBackfill}>
-          <SidebarProvider
-            defaultOpen
-            keyboardShortcut={false}
-            // Seitenleiste ohne Schublade (unter 1024 px die untere Leiste): keine Handy-Erkennung, siehe sidebar.tsx
-            detectMobile={false}
-            // Breite wie im Entwurf; SidebarProvider setzt sonst 16rem per Inline-Style
-            style={{ '--sidebar-width': '236px' } as React.CSSProperties}
-            className="bg-ds-bg"
-          >
-            <AppSidebar wordmark={<Wordmark />} />
-            <main
-              id="inhalt"
-              className="flex min-w-0 max-w-[1520px] flex-1 flex-col gap-10 px-4 pb-28 pt-8 sm:px-8 lg:gap-[40px] lg:px-10 lg:pb-24 lg:pt-10"
+          <IdReadingProvider value={idReading}>
+            <SidebarProvider
+              defaultOpen
+              keyboardShortcut={false}
+              // Seitenleiste ohne Schublade (unter 1024 px die untere Leiste): keine Handy-Erkennung, siehe sidebar.tsx
+              detectMobile={false}
+              // Breite wie im Entwurf; SidebarProvider setzt sonst 16rem per Inline-Style
+              style={{ '--sidebar-width': '236px' } as React.CSSProperties}
+              className="bg-ds-bg"
             >
-              {children}
-            </main>
-            <BottomNav />
-          </SidebarProvider>
+              <AppSidebar wordmark={<Wordmark />} />
+              <main
+                id="inhalt"
+                className="flex min-w-0 max-w-[1520px] flex-1 flex-col gap-10 px-4 pb-28 pt-8 sm:px-8 lg:gap-[40px] lg:px-10 lg:pb-24 lg:pt-10"
+              >
+                {children}
+              </main>
+              <BottomNav />
+            </SidebarProvider>
+          </IdReadingProvider>
         </GuestSheetBackfillProvider>
       </VatStatusProvider>
     </ShellProvider>

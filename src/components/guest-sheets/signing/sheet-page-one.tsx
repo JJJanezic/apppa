@@ -6,6 +6,7 @@ import { useFieldArray, useFormContext, useWatch } from 'react-hook-form'
 
 import { CountryPicker } from '@/components/guests/country-picker'
 import { DocumentImageField } from '@/components/guests/document-image-field'
+import { IdReadingButton } from '@/components/id-reading/id-reading-button'
 import { PostalPlaceFields } from '@/components/guests/postal-place-fields'
 import { Button } from '@/components/ui/button'
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
@@ -15,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { formatDate } from '@/lib/format'
 import { needsTravelDocument, type SheetGaps } from '@/lib/guest-sheet'
 import { DOCUMENT_TYPES, GENDERS, LIMITS } from '@/lib/guests'
+import { ID_FIELDS, type IdCurrentValues, type IdField } from '@/lib/id-reading'
 import { cn } from '@/lib/utils'
 import type { SheetForm } from '@/components/guest-sheets/signing/sheet-form'
 
@@ -31,6 +33,8 @@ interface SheetPageOneProps {
   documentWaiting: boolean
   // Ausweisbilder beim Öffnen schon hinterlegt? Fehlende Seiten lassen sich auf dem Blatt aufnehmen
   imagesOnFile: { front: boolean; back: boolean }
+  // „Ausweis auslesen“ (PROJ-51): übernommene Werte werden sofort gespeichert
+  idReading: { tenantId: string; guestId: string; bookingId: string; onApply: (values: Partial<Record<IdField, string>>) => void }
 }
 
 // Fehlende Angabe: deutlich rot umrandet (Rückmeldung nach dem Deploy)
@@ -44,12 +48,13 @@ type TextName = Exclude<
 
 // Seite 1 „Meldedaten“ des Gästeblatts (PROJ-26): Aufbau wie das amtliche Gästeverzeichnisblatt (ohne Reisegruppen).
 // Fehlende Pflichtangaben sind markiert und per Tastatur ergänzbar.
-export function SheetPageOne({ tenantName, sheetNumber, establishmentNumber, stay, gaps, onCommit, documentWaiting, imagesOnFile }: SheetPageOneProps) {
+export function SheetPageOne({ tenantName, sheetNumber, establishmentNumber, stay, gaps, onCommit, documentWaiting, imagesOnFile, idReading }: SheetPageOneProps) {
   const t = useTranslations('guestSheets.signing')
   const tg = useTranslations('guests.gender')
   const tdt = useTranslations('guests.documentType')
-  const { control } = useFormContext<SheetForm>()
+  const { control, getValues } = useFormContext<SheetForm>()
   const country = useWatch({ control, name: 'country' })
+  const [frontPath, backPath] = useWatch({ control, name: ['documentFrontPath', 'documentBackPath'] })
   const companions = useFieldArray({ control, name: 'companions' })
   const missing = new Set<string>(gaps.guest)
   const mark = (name: string) => missing.has(name)
@@ -235,6 +240,19 @@ export function SheetPageOne({ tenantName, sheetNumber, establishmentNumber, sta
               </div>
             </div>
           )}
+          <IdReadingButton
+            tenantId={idReading.tenantId}
+            place="guestSheet"
+            guestId={idReading.guestId}
+            bookingId={idReading.bookingId}
+            frontPath={frontPath}
+            backPath={backPath}
+            current={() => {
+              const v = getValues()
+              return Object.fromEntries(ID_FIELDS.map((f) => [f, String(v[f] ?? '')])) as IdCurrentValues
+            }}
+            onApply={idReading.onApply}
+          />
           {documentWaiting && <p className="text-sm text-ds-neutral-800">{t('documentWaiting')}</p>}
         </section>
       )}

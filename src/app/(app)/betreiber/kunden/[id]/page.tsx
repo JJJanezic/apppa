@@ -8,6 +8,7 @@ import { InvoiceSettings } from '@/components/invoice-settings/invoice-settings'
 import { LetterheadSettings } from '@/components/letterhead/letterhead-settings'
 import { OperatorInvitations } from '@/components/operator/operator-invitations'
 import { OperatorLog } from '@/components/operator/operator-log'
+import { IdReadingSettingsForm } from '@/components/operator/id-reading-settings'
 import { OperatorMembers } from '@/components/operator/operator-members'
 import { OwnerInvitePanel } from '@/components/operator/owner-invite-panel'
 import { TenantDangerZone } from '@/components/operator/tenant-danger-zone'
@@ -18,6 +19,7 @@ import { TenantMasterDataForm } from '@/components/tenant/tenant-master-data-for
 import { requireArea } from '@/lib/areas'
 import { formatDate } from '@/lib/format'
 import { loadEstablishmentNumbers, loadSheetNumbering } from '@/lib/guest-sheet-numbering-data'
+import { loadIdReadingSettings, loadIdReadingUsage } from '@/lib/id-reading-data'
 import { loadInvoiceSettings } from '@/lib/invoice-settings-data'
 import { countRetainedInvoices } from '@/lib/invoices-data'
 import { loadLetterhead } from '@/lib/letterhead-data'
@@ -35,12 +37,14 @@ export default async function TenantDetailPage({ params }: { params: Params }) {
   await requireArea('operator')
   const { id } = await params
   const t = await getTranslations('operator')
-  const [tenant, invoiceSettings, letterhead, establishment, numbering] = await Promise.all([
+  const [tenant, invoiceSettings, letterhead, establishment, numbering, idReading, idReadingUsage] = await Promise.all([
     getTenantDetail(id),
     loadInvoiceSettings(id),
     loadLetterhead(id),
     loadEstablishmentNumbers(id),
     loadSheetNumbering(id),
+    loadIdReadingSettings(id),
+    loadIdReadingUsage(id),
   ])
   const deactivated = tenant.status === 'deactivated'
 
@@ -85,6 +89,17 @@ export default async function TenantDetailPage({ params }: { params: Params }) {
       <section className="flex flex-col gap-4">
         <h2 className="text-2xl">{t('guestSheetSettingsTitle')}</h2>
         <GuestSheetNumberingSections tenantId={tenant.id} data={numbering} level={3} readOnly={deactivated} />
+      </section>
+
+      <section className="flex flex-col gap-4">
+        <h2 className="text-2xl">{t('idReadingTitle')}</h2>
+        <IdReadingSettingsForm
+          key={`${idReading.enabled}:${idReading.dailyLimit}`}
+          tenantId={tenant.id}
+          settings={idReading}
+          usage={idReadingUsage}
+          readOnly={deactivated}
+        />
       </section>
 
       <section className="flex flex-col gap-4">

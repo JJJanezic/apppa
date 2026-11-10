@@ -1,6 +1,6 @@
 # PROJ-51: Ausweis automatisch auslesen
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-11-10
 **Last Updated:** 2026-11-10
 
@@ -308,6 +308,35 @@ Bausteine: vorhandene shadcn-Komponenten (Dialog, Table, RadioGroup, Switch, Inp
 ### H) Abhängigkeiten (Pakete)
 - `@anthropic-ai/bedrock-sdk`: offizieller Anthropic-Client für Claude auf Bedrock (signiert Anfragen mit dem AWS-Schlüssel). Beim Einbau auf saubere Peer-Abhängigkeiten prüfen (lokales `legacy-peer-deps`).
 - MRZ-Prüfung ohne Zusatzpaket: kleiner eigener Baustein (öffentlicher ICAO-Standard, gut testbar).
+
+## Implementation Notes (Frontend)
+
+**Gebaut (2026-11-10):**
+- **Knopf „Ausweis auslesen“** (`src/components/id-reading/id-reading-button.tsx`): erscheint nur bei eingeschalteter Funktion und mindestens einem Bild (auch frisch hochgeladen, noch ungespeichert); gesperrt, solange ein Bild hochlädt oder gelesen wird („Ausweis wird gelesen …“). Hinweis „Experimentell … Bitte jedes Ergebnis prüfen.“ Fehler als Meldung unter dem Knopf, alle Felder bleiben bearbeitbar. Wartet höchstens 60 s.
+- **Gegenüberstellung** (`id-reading-dialog.tsx`): eine Zeile je Angabe statt Tabelle (passt an Handy und Tablet ohne Querscrollen). Kennzeichen „Gleich“ (abgehakt), „Neu“, „Abweichung“ (rot), „Bitte prüfen“ (gelb), „Nicht gefunden“ („–“). Bei Neu/Abweichung/Unsicher Auswahl „Vorhanden“ ↔ „Vom Ausweis“ als Radio-Karten. Hinweis „Der Ausweis passt möglicherweise nicht zu diesem Gast.“ Knopf „N Angaben übernehmen“ bzw. „Nichts zu übernehmen“, „Abbrechen“. Datum als TT.MM.JJJJ, Länder mit Namen.
+- **Regeln** (`src/lib/id-reading.ts`, Tests `id-reading.test.ts`): `compareIdReading` (gleich ohne Groß-/Kleinschreibung, Dokument-ID ohne Leerzeichen; leer → vorausgewählt; Abweichung → vorausgewählt; unsicher → nicht vorausgewählt; fremder Ausweis = Nachname und Geburtsdatum weichen ab → bei Name und Geburtsdatum keine Vorauswahl), `nameCase` (Ausweis-Großbuchstaben → „Maria Theresia“, gemischte Schreibweise bleibt), `chosenValues`, Test-Leser `fakeIdReading`.
+- **Gastformular** (`guest-fields.tsx`, damit Gästeseite, neuer Gast im Buchungsformular, Rechnungsnacherfassung): Knopf unter den Bildern im Abschnitt „Reisedokument“. „Übernehmen“ schreibt in die Formularfelder (geprüft, „ungespeichert“) und setzt das neue Formularfeld `fromIdDocument`; gespeichert wird mit „Speichern“.
+- **Gästeblatt Seite 1** (`sheet-page-one.tsx`, `guest-sheet-signing.tsx`): Knopf im Bereich „Reisedokument“ (nur Nicht-Österreicher), auch für schon hinterlegte Bilder. „Übernehmen“ setzt die Werte und speichert sofort über die bestehende Warteschlange (Unterschrift 1 erlischt wie bei jeder Änderung; Reisedokument erst mit Art und Nummer). `saveSheetGuest` bekommt `fromIdDocument`, solange die übernommenen Werte nicht vollständig gespeichert sind.
+- **Schalter** im App-Rahmen und auf der Vollbild-Seite (`IdReadingProvider`, `getIdReadingEnabled`).
+- **Betreiber-Admin → Kunde**: Abschnitt „Ausweis automatisch auslesen (experimentell)“ vor „Mitglieder“ mit Schalter, Tageslimit (1–1.000, Standard 50) und Auslesungen laufender/letzter Monat (`src/components/operator/id-reading-settings.tsx`, Aktion `adminSaveIdReading`).
+- **Einstellungen → Gästeblatt**: einmaliger Hinweis „Datenschutz-Information prüfen“ mit „Verstanden“, nur bei eingeschalteter Funktion und eigenem Text in Teil A (`privacy-hint.tsx`, Aktion `dismissIdReadingPrivacyHint`).
+- **Schnittstelle** `POST /api/ausweis/auslesen` (Stand Frontend): prüft Sitzung, gewählten Kunden, Bildpfade im Ordner des Kunden und die Freischaltung; liefert mit dem **Test-Leser** (`ID_READING_FAKE=1`, nie in Produktion) die Gegenüberstellung, sonst „Diese Funktion wird gerade eingerichtet.“ Test-Leser: Nachname enthält „Fehler“ → nicht erreichbar, „Kein“ → kein Ausweis, „Unsicher“ → Dokument-ID unsicher; sonst Muster „Erika Mustermann“.
+- Texte: `messages/de.json` → `idReading.*`, `operator.idReadingTitle`.
+
+**Abweichung vom Tech Design:** Einstellungen je Kunde nicht als Spalten an `tenants`, sondern in einer **eigenen Tabelle** `id_reading_settings` (wie `guest_sheet_options`, QA BUG-6 aus PROJ-26: Umschalten soll nicht den Stand der Stammdaten ändern). Keine Zeile = aus.
+
+**Offen für /backend:** Satz im Datenschutz-Standardtext (Wortlaut legt der Nutzer fest, Open Question); neue Umgebungsvariablen in `.env.local.example` (`BEDROCK_ACCESS_KEY_ID`, `BEDROCK_SECRET_ACCESS_KEY`, `BEDROCK_REGION`, `BEDROCK_MODEL`, `ID_READING_FAKE`) – die Datei ist für Claude gesperrt, gemeinsam mit dem Nutzer.
+
+**Bis zur Migration:** Fehlt die Tabelle, ist die Funktion aus; mit `ID_READING_FAKE=1` (nur außerhalb der Produktion) gilt sie als eingeschaltet, damit die Oberfläche in Dev ansehbar ist. Speichern im Betreiber-Abschnitt und „Verstanden“ melden „Diese Funktion wird gerade eingerichtet.“
+
+**Vertrag für /backend** (Namen dürfen sich ändern, dann hier und im Code nachziehen)
+- Tabelle `id_reading_settings` (tenant_id PK → tenants on delete cascade, enabled bool default false, daily_limit int 1–1000 default 50, privacy_hint_seen_at timestamptz null, updated_at, updated_by); RLS: Mitglieder des Kunden und Betreiber lesen; Schreiben nur über Funktionen
+- `admin_set_id_reading(p_tenant_id, p_enabled, p_daily_limit)`: nur Betreiber-Admin mit 2FA, Protokoll; beim Einschalten `privacy_hint_seen_at` leeren (Hinweis erscheint neu)
+- `dismiss_id_reading_privacy_hint(p_tenant_id)`: nur Inhaber, setzt `privacy_hint_seen_at = now()`; deaktivierter Kunde P0016
+- `id_reading_usage(p_tenant_id)` → `this_month`, `last_month` (gezählte Auslesungen, Monat nach Wiener Zeit); nur Betreiber
+- Tabelle `id_readings` (Zähler und Protokoll, Tech Design C) und Funktion zum Vormerken mit Tageslimit (Service-Rolle)
+- Schnittstelle: Rolle je Stelle (Gastformular: Inhaber, Mitarbeiter nur ohne `guestId`; Gästeblatt: Inhaber und Mitarbeiter, Buchung des Kunden mit diesem Gast), Bild am Gast oder an keinem Gast, Vormerken/Abschließen, Bilder aus dem Speicher, Claude über Bedrock, MRZ-Prüfung, Aufbereitung zu `IdReadValues`, `compareIdReading`; Fehlercodes `ID_READING_ERRORS`
+- Herkunftsvermerk: `fromIdDocument` aus `GuestInput` (createGuest/updateGuest, neuer Gast in Buchung/Rechnung) → `app.source = 'Ausweis'`; aus `saveSheetGuest` → `'Gästeblatt, aus Ausweis gelesen'`
 
 ## QA Test Results
 _To be added by /qa_

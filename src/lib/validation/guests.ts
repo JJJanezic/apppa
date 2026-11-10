@@ -120,6 +120,8 @@ export const guestSchema = (t: T) =>
         .transform((v) => v || null),
       documentFrontPath: documentPath(t),
       documentBackPath: documentPath(t),
+      // PROJ-51: Werte aus „Ausweis auslesen“ übernommen → Vermerk „aus Ausweis gelesen“ im Änderungsprotokoll
+      fromIdDocument: z.boolean(),
     })
     // Sobald irgendeine Angabe des Dokuments oder ein Bild vorhanden ist, sind Art und Nummer Pflicht (Spec)
     .superRefine((v, ctx) => {
@@ -207,6 +209,7 @@ export const EMPTY_GUEST_INPUT: GuestInput = {
   documentCountry: '',
   documentFrontPath: '',
   documentBackPath: '',
+  fromIdDocument: false,
 }
 
 // Formularwerte eines bestehenden Gastes (Bearbeiten)
@@ -241,5 +244,6 @@ export function guestInput(g: Guest): GuestInput {
     documentCountry: g.documentCountry ?? '',
     documentFrontPath: g.documentFrontPath ?? '',
     documentBackPath: g.documentBackPath ?? '',
+    fromIdDocument: false,
   }
 }

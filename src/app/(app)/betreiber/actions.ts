@@ -1,12 +1,15 @@
 'use server'
 
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
 
 import type { ActionResult, CommonErrorCode } from '@/lib/auth/result'
 import { getSessionUser, pendingMfaStep, type SessionUser } from '@/lib/auth/session'
 import { type OperatorErrorCode, tenantHref } from '@/lib/operator'
 import { removeTenantDocuments } from '@/lib/guest-documents'
+import { ID_READING_LIMIT_MAX, ID_READING_LIMIT_MIN } from '@/lib/id-reading'
 import { removeTenantGuestSheets } from '@/lib/guest-sheet-files'
+import { isMissingRelation } from '@/lib/guest-sheets-data'
 import { removeTenantInvoices } from '@/lib/invoice-files'
 import { removeTenantReceipts } from '@/lib/payment-files'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -276,4 +279,29 @@ export async function adminPrepareLogoUpload(values: {
   if (tenant.status !== 'active') return { ok: false, error: 'tenantDeactivated' }
   const prepared = await prepareLogoUploadFor(values.tenantId)
   return prepared ? { ok: true, data: prepared } : { ok: false, error: 'unknown' }
+}
+
+// „Ausweis automatisch auslesen“ je Kunde (PROJ-51): Schalter und Tageslimit, nur Betreiber. Die Datenbankfunktion prüft
+// Admin + 2FA und schreibt das Protokoll; fehlt sie (Umgebung ohne Migration) → „wird gerade eingerichtet“.
+export async function adminSaveIdReading(values: { tenantId: string; enabled: boolean; dailyLimit: number }): Promise<Result> {
+  if (
+    !isId(values?.tenantId) ||
+    typeof values?.enabled !== 'boolean' ||
+    !Number.isInteger(values?.dailyLimit) ||
+    values.dailyLimit < ID_READING_LIMIT_MIN ||
+    values.dailyLimit > ID_READING_LIMIT_MAX
+  )
+    return fail('unknown')
+  const guard = await requireAdmin()
+  if (!guard.ok) return guard
+
+  const supabase = (await createClient()) as unknown as SupabaseClient
+  const { error } = await supabase.rpc('admin_set_id_reading', {
+    p_tenant_id: values.tenantId,
+    p_enabled: values.enabled,
+    p_daily_limit: values.dailyLimit,
+  })
+  if (error) return isMissingRelation(error) ? fail('notImplemented') : dbFail(error, 'Ausweis-Auslesen nicht gespeichert')
+  refresh(values.tenantId)
+  return { ok: true }
 }

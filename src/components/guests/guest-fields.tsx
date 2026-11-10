@@ -8,6 +8,8 @@ import { useFormContext, useWatch } from 'react-hook-form'
 import { CompanySection } from '@/components/companies/company-section'
 import { CountryPicker } from '@/components/guests/country-picker'
 import { DocumentImageField } from '@/components/guests/document-image-field'
+import { IdReadingButton } from '@/components/id-reading/id-reading-button'
+import { useShell } from '@/components/shell/shell-context'
 import { PostalPlaceFields } from '@/components/guests/postal-place-fields'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
@@ -29,6 +31,7 @@ import {
   MARKETING_NONE,
   MARKETING_SOURCES,
 } from '@/lib/guests'
+import { ID_FIELDS, type IdCurrentValues, type IdField } from '@/lib/id-reading'
 import type { GuestInput } from '@/lib/validation/guests'
 
 // Leerer Sprachwert im Select (Radix erlaubt keinen leeren String als Wert)
@@ -42,18 +45,21 @@ interface GuestFieldsProps {
   documentImages?: Guest['documentImages']
   // Firma des bearbeiteten Gastes: Bereich „Firma“ öffnet mit ihrer Karte (PROJ-50)
   company?: CompanySummary | null
+  // Bearbeiteter Gast (null = neuer Gast) für „Ausweis auslesen“ (PROJ-51)
+  guestId?: string | null
 }
 
 // Felder eines Gastes (PROJ-7). Wiederverwendbar: Gast-Panel und später das Buchungsformular (PROJ-8).
 // Muss innerhalb eines react-hook-form <Form> mit GuestInput-Werten stehen.
-export function GuestFields({ documentImages = {}, company = null }: GuestFieldsProps) {
+export function GuestFields({ documentImages = {}, company = null, guestId = null }: GuestFieldsProps) {
   const t = useTranslations('guests.panel')
   const tm = useTranslations('guests.marketing')
   const tg = useTranslations('guests.gender')
   const td = useTranslations('guests.document')
   const tdt = useTranslations('guests.documentType')
   const locale = useLocale()
-  const { control, getValues, formState } = useFormContext<GuestInput>()
+  const { tenant } = useShell()
+  const { control, getValues, setValue, formState } = useFormContext<GuestInput>()
   const marketing = useWatch({ control, name: 'marketing' })
   const [documentType, frontPath, backPath] = useWatch({ control, name: ['documentType', 'documentFrontPath', 'documentBackPath'] })
   const initial = formState.defaultValues
@@ -71,7 +77,14 @@ export function GuestFields({ documentImages = {}, company = null }: GuestFields
     Boolean(initial?.documentType && documentType && documentType !== initial.documentType) &&
     ((Boolean(initial?.documentFrontPath) && frontPath === initial?.documentFrontPath) ||
       (Boolean(initial?.documentBackPath) && backPath === initial?.documentBackPath))
-  const text = (name: keyof GuestInput, label: string, opts: { max: number; hint?: string; type?: string; autoComplete?: string; inputMode?: 'email' | 'tel' } ) => (
+  // „Ausweis auslesen“ (PROJ-51): gewählte Werte ins Formular; gespeichert wird wie immer mit „Speichern“
+  const applyIdValues = (values: Partial<Record<IdField, string>>) => {
+    for (const [field, value] of Object.entries(values) as [IdField, string][]) {
+      setValue(field, value as never, { shouldDirty: true, shouldValidate: true })
+    }
+    setValue('fromIdDocument', true, { shouldDirty: true })
+  }
+  const text = (name: Exclude<keyof GuestInput, 'fromIdDocument'>, label: string, opts: { max: number; hint?: string; type?: string; autoComplete?: string; inputMode?: 'email' | 'tel' } ) => (
     <FormField
       control={control}
       name={name}
@@ -336,6 +349,19 @@ export function GuestFields({ documentImages = {}, company = null }: GuestFields
             })}
           </div>
           <p className="text-[13px] text-ds-neutral-700">{td('imagesHint')}</p>
+          <IdReadingButton
+            tenantId={tenant.id}
+            place="guestForm"
+            guestId={guestId}
+            bookingId={null}
+            frontPath={frontPath}
+            backPath={backPath}
+            current={() => {
+              const v = getValues()
+              return Object.fromEntries(ID_FIELDS.map((f) => [f, String(v[f] ?? '')])) as IdCurrentValues
+            }}
+            onApply={applyIdValues}
+          />
         </CollapsibleContent>
       </Collapsible>
 

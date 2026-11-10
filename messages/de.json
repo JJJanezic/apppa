@@ -675,7 +675,8 @@
     },
     "masterDataTitle": "Stammdaten",
     "invoiceSettingsTitle": "Rechnungen",
-    "guestSheetSettingsTitle": "Gästeblatt"
+    "guestSheetSettingsTitle": "Gästeblatt",
+    "idReadingTitle": "Ausweis automatisch auslesen (experimentell)"
   },
   "apartments": {
     "title": "Wohnungen",
@@ -3788,6 +3789,69 @@
       "missing": "Kennzahl fehlt – wird auf dem Gästeblatt leer gedruckt.",
       "save": "Kennzahlen speichern",
       "saved": "Kennzahlen gespeichert."
+    }
+  },
+  "idReading": {
+    "button": "Ausweis auslesen",
+    "reading": "Ausweis wird gelesen …",
+    "experimental": "Experimentell: Die Angaben werden per KI vom Bild gelesen. Bitte jedes Ergebnis prüfen.",
+    "fields": {
+      "lastName": "Nachname",
+      "firstName": "Vorname",
+      "birthDate": "Geburtsdatum",
+      "gender": "Geschlecht",
+      "country": "Staatsangehörigkeit",
+      "documentType": "Art des Dokuments",
+      "documentNumber": "Dokument-ID",
+      "documentIssuedOn": "Ausstellungsdatum",
+      "documentAuthority": "Behörde",
+      "documentCountry": "Ausstellender Staat"
+    },
+    "state": {
+      "same": "Gleich",
+      "fill": "Neu",
+      "differs": "Abweichung",
+      "uncertain": "Bitte prüfen",
+      "missing": "Nicht gefunden"
+    },
+    "dialog": {
+      "title": "Angaben vom Ausweis",
+      "description": "Wähle je Angabe, welcher Wert gelten soll. Gespeichert wird erst mit „Übernehmen“.",
+      "otherPerson": "Der Ausweis passt möglicherweise nicht zu diesem Gast. Name und Geburtsdatum weichen ab und sind darum nicht vorausgewählt.",
+      "existing": "Vorhanden",
+      "fromId": "Vom Ausweis",
+      "notOnId": "nicht auf dem Ausweis",
+      "cancel": "Abbrechen",
+      "apply": "{count, plural, one {# Angabe übernehmen} other {# Angaben übernehmen}}",
+      "nothing": "Nichts zu übernehmen"
+    },
+    "errors": {
+      "sessionExpired": "Deine Sitzung ist abgelaufen. Bitte melde dich erneut an.",
+      "forbidden": "Das Auslesen ist für diesen Gast nicht möglich.",
+      "invalid": "Der Ausweis konnte gerade nicht gelesen werden. Bitte später erneut versuchen oder von Hand eintragen.",
+      "notEnabled": "Das Auslesen ist für diesen Kunden nicht freigeschaltet.",
+      "dailyLimit": "Das Tageslimit für das Auslesen ist erreicht. Bitte die Angaben von Hand eintragen.",
+      "noImage": "Bitte zuerst ein Bild des Ausweises hinzufügen.",
+      "noDocument": "Auf dem Bild wurde kein Ausweis erkannt. Bitte neu fotografieren.",
+      "unavailable": "Der Ausweis konnte gerade nicht gelesen werden. Bitte später erneut versuchen oder von Hand eintragen.",
+      "notReady": "Diese Funktion wird gerade eingerichtet.",
+      "unknown": "Der Ausweis konnte gerade nicht gelesen werden. Bitte später erneut versuchen oder von Hand eintragen."
+    },
+    "operator": {
+      "label": "Ausweis automatisch auslesen",
+      "hint": "Eingeschaltet: Im Gastformular und auf dem Gästeblatt gibt es „Ausweis auslesen“, sobald ein Ausweisbild vorhanden ist. Die Bilder gehen dabei an Claude (AWS Bedrock, EU). Ausgeschaltet: kein Knopf.",
+      "dailyLimit": "Tageslimit (Auslesungen pro Tag)",
+      "dailyLimitHint": "Gilt je Kalendertag (Wiener Zeit) für alle Personen dieses Kunden.",
+      "dailyLimitInvalid": "Bitte eine ganze Zahl von {min} bis {max} eingeben.",
+      "thisMonth": "Auslesungen laufender Monat",
+      "lastMonth": "Auslesungen letzter Monat",
+      "save": "Speichern",
+      "saved": "Einstellung gespeichert."
+    },
+    "privacyHint": {
+      "title": "Datenschutz-Information prüfen",
+      "text": "Für diesen Kunden ist „Ausweis automatisch auslesen“ eingeschaltet. Dabei werden Ausweisbilder an einen Auftragsverarbeiter übermittelt. Bitte prüfe, ob deine Datenschutz-Information (Teil A) das erwähnt.",
+      "dismiss": "Verstanden"
     }
   }
 }

@@ -21,6 +21,7 @@ import { Form } from '@/components/ui/form'
 import { bookingHref } from '@/lib/bookings'
 import { isDocumentField, SHEET_GUEST_FIELDS, sheetComplete, sheetGaps, type SheetGuestField } from '@/lib/guest-sheet'
 import type { SigningData } from '@/lib/guest-sheets-data'
+import type { IdField } from '@/lib/id-reading'
 import { cn } from '@/lib/utils'
 import { sheetCompanionSchema, sheetGuestSchema } from '@/lib/validation/guest-sheet'
 
@@ -78,6 +79,8 @@ export function GuestSheetSigning({ data }: GuestSheetSigningProps) {
   const saved = useRef<SheetForm>(initial)
   const stamps = useRef({ guest: guest.updatedAt, booking: data.booking.updatedAt })
   const queue = useRef<Promise<void>>(Promise.resolve())
+  // Werte aus „Ausweis auslesen“ übernommen (PROJ-51): die nächsten Speicherungen tragen den Vermerk im Protokoll
+  const fromIdDocument = useRef(false)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const sig1Ref = useRef<SignatureValue>(null)
   useEffect(() => {
@@ -120,11 +123,14 @@ export function GuestSheetSigning({ data }: GuestSheetSigningProps) {
           bookingId: data.booking.id,
           updatedAt: stamps.current.guest,
           values: Object.fromEntries(guestFields.map((f) => [f, v[f]])),
+          fromIdDocument: fromIdDocument.current,
         })
       )
       if (result.ok && result.data) {
         stamps.current.guest = result.data.updatedAt
         saved.current = { ...saved.current, ...Object.fromEntries(guestFields.map((f) => [f, v[f]])) }
+        // Vermerk gilt, bis auch das Reisedokument gespeichert ist (es wartet auf Art und Nummer)
+        if (!(documentDirty && !documentReady)) fromIdDocument.current = false
       } else failures.push(result.ok ? 'unknown' : result.error)
     }
     if (companionsDirty) {
@@ -334,6 +340,18 @@ export function GuestSheetSigning({ data }: GuestSheetSigningProps) {
               onCommit={() => void flush()}
               documentWaiting={documentWaiting}
               imagesOnFile={imagesOnFile}
+              idReading={{
+                tenantId: data.tenantId,
+                guestId: guest.id,
+                bookingId: data.booking.id,
+                onApply: (values) => {
+                  for (const [field, value] of Object.entries(values) as [IdField, string][]) {
+                    form.setValue(field, value as never, { shouldDirty: true, shouldValidate: true })
+                  }
+                  fromIdDocument.current = true
+                  void flush()
+                },
+              }}
             />
           </div>
         </Form>
