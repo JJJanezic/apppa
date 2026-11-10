@@ -2,6 +2,7 @@ import AxeBuilder from '@axe-core/playwright'
 import { expect, type Page, test as base } from '@playwright/test'
 
 import {
+  createInvitation,
   createTenant,
   createUser,
   deleteUser,
@@ -12,6 +13,7 @@ import {
   newPassword,
   service,
   signInAs,
+  signInAsAdmin,
   totp,
   typeCode,
 } from './support/supabase'
@@ -36,7 +38,7 @@ const test = base.extend<{ users: (opts?: Parameters<typeof createUser>[0]) => P
 })
 
 const loggedOut = { storageState: { cookies: [], origins: [] } }
-const isDesktopProject = (name: string) => name === 'desktop' || name === 'firefox'
+const isDesktopProject = (name: string) => ['desktop', 'firefox', 'safari'].includes(name)
 const alert = (page: Page) => page.getByRole('alert').filter({ hasNotText: /^$/ })
 
 // TOTP-Codes gelten 30 s; denselben Code nicht zweimal verwenden
@@ -506,6 +508,115 @@ test.describe('Abläufe', () => {
       const { count } = await service().from('tenants').select('id', { count: 'exact', head: true })
       if ((count ?? 0) > 0) expect(tenants ?? []).toHaveLength(0)
     })
+  })
+})
+
+test.describe('Seitenwechsel ohne Fehlerseite und neue Endpunkte (Bugfix 2026-11-10)', () => {
+  test.use(loggedOut)
+  test.skip(!hasSupabaseEnv, 'keine .env.local')
+  test.beforeEach(({}, testInfo) => test.skip(!isDesktopProject(testInfo.project.name), 'Abläufe nur im Desktop-Projekt'))
+  const ORIGIN = 'http://localhost:3000'
+  const post = (origin = ORIGIN) => ({ headers: { origin, 'content-type': 'application/json' }, maxRedirects: 0 })
+
+  test('Sitzung läuft während einer Aktion ab → Anmeldeseite mit Hinweis', async ({ browser, page, users }) => {
+    const user = await users()
+    await signInAs(page, user)
+    await page.goto('/konto')
+    await expect(page.getByLabel('Anzeigename')).toBeVisible()
+    // Zweite Sitzung meldet überall ab; die erste merkt es erst bei der nächsten Aktion
+    const other = await browser.newContext()
+    const otherPage = await other.newPage()
+    await signInAs(otherPage, user)
+    await otherPage.goto('/konto')
+    await otherPage.getByRole('button', { name: 'Überall abmelden' }).click()
+    await otherPage.getByRole('alertdialog').getByRole('button', { name: 'Überall abmelden' }).click()
+    await expect(otherPage).toHaveURL('/anmelden?grund=abgemeldet')
+    await other.close()
+
+    await page.getByLabel('Anzeigename').fill('Maria Huber')
+    await page.getByRole('button', { name: 'Namen speichern' }).click()
+    await expect(page).toHaveURL(/\/anmelden\?grund=sitzung-abgelaufen/)
+  })
+
+  test('Einstellungen ohne Unterseite: vollständiger Aufruf leitet zu den Stammdaten', async ({ page, users }) => {
+    const user = await users()
+    await createTenant('QA Einstellungen', [{ user, role: 'owner' }])
+    await signInAs(page, user)
+    await page.goto('/einstellungen')
+    await expect(page).toHaveURL('/einstellungen/stammdaten')
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+  })
+
+  test('Admin ohne Kunde lehnt die letzte Einladung ab → Betreiber-Bereich', async ({ page, users }) => {
+    const admin = await users({ displayName: 'Ada Admin', admin: true })
+    const owner = await users({ displayName: 'Olga Owner' })
+    const tenantId = await createTenant('QA Admin-Einladung', [{ user: owner, role: 'owner' }])
+    await createInvitation({ tenantId, email: admin.email, invitedBy: owner.id })
+    await signInAsAdmin(page, admin)
+    await page.goto('/')
+    await expect(page).toHaveURL('/')
+    await page.getByRole('button', { name: 'Ablehnen' }).click()
+    await expect(page).toHaveURL('/betreiber')
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+  })
+
+  test('Admin verlässt seinen letzten Kunden → Betreiber-Bereich', async ({ page, users }) => {
+    const admin = await users({ displayName: 'Ada Admin', admin: true })
+    const owner = await users({ displayName: 'Olga Owner' })
+    await createTenant('QA Admin verlässt', [{ user: owner, role: 'owner' }, { user: admin, role: 'staff' }])
+    await signInAsAdmin(page, admin)
+    await page.goto('/konto')
+    await page.getByRole('button', { name: '„QA Admin verlässt“ verlassen' }).click()
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Team verlassen' }).click()
+    await expect(page).toHaveURL('/betreiber')
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+  })
+
+  test('Dashboard leitet beim Seitenaufruf echt weiter; fremde Ziele und ein mitgeschickter Header wirken nicht', async ({ page, users }) => {
+    const user = await users()
+    await createTenant('QA Weiter', [{ user, role: 'owner' }])
+    await signInAs(page, user)
+    const api = page.request
+    const internal = await api.get('/?weiter=%2Fkonto', { maxRedirects: 0 })
+    expect(internal.status()).toBe(307)
+    expect(internal.headers().location).toBe('/konto')
+    for (const target of ['//evil.example', 'https://evil.example', '/\\evil.example', '/.//evil.example']) {
+      const res = await api.get(`/?weiter=${encodeURIComponent(target)}`, { maxRedirects: 0 })
+      expect(res.status(), target).toBe(200)
+    }
+    const spoofed = await api.get('/', { maxRedirects: 0, headers: { 'x-search': '?weiter=/konto' } })
+    expect(spoofed.status()).toBe(200)
+  })
+
+  test('Fremde Herkunft, unbekannte Schritte und falsche Methoden werden abgelehnt', async ({ request }) => {
+    for (const url of ['/api/anmeldung/anmelden', '/api/abmelden']) {
+      for (const origin of ['https://evil.example', 'null', 'http://localhost:3001']) {
+        expect((await request.post(url, { ...post(origin), data: {} })).status(), `${url} ${origin}`).toBe(403)
+      }
+      expect((await request.get(url, { maxRedirects: 0 })).status(), url).toBe(405)
+    }
+    for (const step of ['requestPasswordReset', 'startMfaEnrollment', 'constructor', '__proto__']) {
+      expect((await request.post(`/api/anmeldung/${step}`, { ...post(), data: {} })).status(), step).toBe(404)
+    }
+  })
+
+  test('Ohne Sitzung: Schritte melden keinen Erfolg, Abmelden bleibt harmlos', async ({ request }) => {
+    const call = async (url: string, data: object) => (await request.post(url, { ...post(), data })).json()
+    expect(await call('/api/anmeldung/code', { code: '123456' })).toEqual({ ok: false, error: 'sessionExpired' })
+    expect(await call('/api/anmeldung/einrichten', { code: '123456', factorId: 'x' })).toEqual({ ok: false, error: 'sessionExpired' })
+    expect(await call('/api/anmeldung/neues-passwort', { password: 'Abcdefgh1234', passwordRepeat: 'Abcdefgh1234' })).toEqual({ ok: false, error: 'linkInvalid' })
+    expect(await call('/api/anmeldung/link', { tokenHash: 'x', type: 'signup' })).toEqual({ ok: false, error: 'linkInvalid' })
+    expect(await call('/api/abmelden', {})).toEqual({ ok: true })
+    expect(await call('/api/abmelden', { alle: true })).toEqual({ ok: false, error: 'sessionExpired' })
+  })
+
+  test('Anmelden: Antwort ohne Schlüssel und nicht zwischenspeicherbar; fremdes Rücksprung-Ziel bleibt in der App', async ({ playwright, users }) => {
+    const user = await users()
+    const api = await playwright.request.newContext({ baseURL: ORIGIN })
+    const res = await api.post('/api/anmeldung/anmelden', { ...post(), data: { email: user.email, password: user.password, next: '//evil.example' } })
+    expect(await res.json()).toEqual({ ok: true, redirectTo: '/' })
+    expect(res.headers()['cache-control']).toBe('no-store')
+    await api.dispose()
   })
 })
 

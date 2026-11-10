@@ -478,6 +478,65 @@ Nach `eed7997` (BUG-1, 3, 4), `203c281` (Testfix) und `d31bf50` (BUG-2):
 - **Security:** Pass
 - **Production Ready:** YES
 - **Recommendation:** Freigeben. Vor dem Pilotstart die Mail-Zustellung klären (Quarantäne bei M365, Ruf der neuen Domain `apppa.at`) und den offenen Mail-Prüfpunkt abhaken
+## QA Test Results (Bugfix Firefox-Fehlerseite, 2026-11-10)
+
+**Tested:** 2026-11-10, Commit `aa5cde4`
+**App URL:** http://localhost:3000 (Produktions-Build; Safari gegen `npm run dev`), Supabase „apppa-dev“
+**Tester:** QA Engineer (AI)
+
+### Prüfpunkte
+- [x] Anmelden, Abmelden, 2FA-Code, 2FA einrichten, Einladung, neues Passwort, Mail-Link, „Überall abmelden“ in Firefox ohne Fehlerseite (PROJ-3 39/39)
+- [x] Gast, Rechnung, Sperre, Firma löschen in Firefox ohne Fehlerseite
+- [x] Einladung annehmen, Rolle abgeben, Team verlassen in Firefox ohne Fehlerseite (Inhaber und Mitarbeiter)
+- [x] Rücksprung `?weiter=` und Admin ohne Kunde beim vollständigen Seitenaufruf: echte Weiterleitung (307), keine Fehlerseite
+- [x] `/einstellungen` ohne Unterseite beim vollständigen Seitenaufruf in Firefox ohne Fehlerseite
+- [x] Safari: Anmelden mit Rücksprung, Abmelden, Überall abmelden, Einladung
+- [x] Handy und Tablet: Anmeldeseiten in allen Breiten; Abläufe nur Desktop-Breite
+- [ ] BUG-5: Admin ohne Kunde nach Ablehnen/Verlassen → Endlosschleife
+- [ ] BUG-6: Sitzung läuft während einer Aktion ab → Fehlerseite in Firefox
+
+### Security Audit Results
+- [x] Fremde Herkunft (`https://evil.example`, `null`, anderer Port) → 403 an beiden Endpunkten
+- [x] Nur freigegebene Schritte: `requestPasswordReset`, `startMfaEnrollment`, `constructor`, `__proto__` → 404; GET → 405
+- [x] Ohne Sitzung: `code`, `einrichten` → `sessionExpired`; `neues-passwort`, `link` → `linkInvalid`; „alle abmelden“ → `sessionExpired`
+- [x] Antwort beim Anmelden enthält nur `ok` und `redirectTo`, `cache-control: no-store`
+- [x] Open Redirect: `//evil`, `https://evil`, `/\evil`, `/.//evil` in `next` und `?weiter=` bleiben in der App
+- [x] Mitgeschickter Header `x-search` wirkt nicht (Proxy überschreibt ihn)
+- [x] Sperre nach 5 Fehlversuchen wirkt weiter über den neuen Endpunkt
+- Beobachtung (Code gelesen, nicht getestet): Route-Handler haben nicht die 1-MB-Grenze von Server-Aktionen, es gilt die Grenze von Vercel. Kein Bug
+
+### Bugs Found
+
+#### BUG-5: Endlosschleife im Betreiber-Bereich, wenn die Dashboard-Weiterleitung bei einer Aktualisierung greift
+- **Severity:** High (durch diesen Bugfix neu eingeführt, nicht ausgeliefert)
+- **Steps to Reproduce:**
+  1. Betreiber-Admin ohne eigenen Kunden mit genau einer offenen Einladung öffnet das Dashboard und klickt „Ablehnen“; oder Admin, der nur bei einem Kunden Mitglied ist, verlässt ihn über „Mein Konto“
+  2. Expected: Betreiber-Bereich wird angezeigt
+  3. Actual: Adresse `/betreiber`, aber kein Inhalt; rund 45 Anfragen `/betreiber?_rsc` in 3 Sekunden, ohne Ende. Chrome und Firefox
+- **Ursache:** `redirect()` im App-Rahmen gilt auch für Aktualisierungen innerhalb der App. Der Browser behält den Rahmen mit der Weiterleitung im Zwischenspeicher und löst sie auf `/betreiber` immer wieder aus. Gegenprobe ohne den Block: 0 Anfragen, Seite steht
+- **Vorschlag:** Im App-Rahmen nur bei vollständigem Seitenaufruf weiterleiten, erkennbar an `Accept: text/html` (den Header `rsc` entfernt Next.js aus `headers()` und im Proxy). Für Aktualisierungen bleibt die Weiterleitung in der Seite
+- **Tests:** „Admin ohne Kunde lehnt die letzte Einladung ab“, „Admin verlässt seinen letzten Kunden“
+
+#### BUG-6: Abgelaufene Sitzung während einer Aktion zeigt in Firefox kurz die Fehlerseite
+- **Severity:** Low (selten; endet richtig auf der Anmeldeseite mit Hinweis; bestand schon vor diesem Bugfix)
+- **Steps to Reproduce:**
+  1. In Firefox angemeldet „Mein Konto“ öffnen, in einem anderen Browser „Überall abmelden“
+  2. Im ersten Browser „Namen speichern“
+  3. Expected: Wechsel zur Anmeldeseite. Actual: vorher kurz „Da ist etwas schiefgelaufen.“
+- **Ursache:** Gleiche Art wie der Anlass: `callAction` wechselt die Seite, während die Antwort der Aktion noch läuft
+- **Test:** „Sitzung läuft während einer Aktion ab“
+
+### Regression
+- Chrome: PROJ-2, -3, -4, -5, -7, -8, -9, -14, -37, -50, Lösch-Tests aus PROJ-43 und -45 bestanden. Zwei wackelnde Tests ohne Bezug zur Änderung (PROJ-8 Blättern in der Buchungsliste, PROJ-37 Buchungssuche), bei Wiederholung grün
+- Vitest: Unit 1047/1047 (79 Dateien); Integration `auth`, `auth-flows` 12/12
+- Nicht gelaufen: übrige E2E-Dateien und übrige Integrationstests
+
+### Summary
+- **Bugs Found:** 2 (1 high, 1 low)
+- **Security:** Pass
+- **Production Ready:** NO (BUG-5)
+- **Recommendation:** BUG-5 beheben, dann erneut `/qa`
+
 ## Deployment
 _Stand 2026-10-25 (/deploy, erstes Release über Staging, Tag `v1.0.0`)_
 
