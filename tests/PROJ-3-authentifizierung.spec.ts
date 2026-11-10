@@ -446,6 +446,8 @@ test.describe('Abläufe', () => {
       await page.getByRole('button', { name: 'Einrichten' }).click()
       // Admin ohne eigenen Kunden startet im Betreiber-Bereich (PROJ-5)
       await expect(page).toHaveURL('/betreiber')
+      // Fertig laden lassen: page.goto mitten im Laden bricht die Antwort ab, Firefox zeigt dann kurz die Fehlerseite
+      await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
 
       // Zweites Gerät unter Mein Konto
       await page.goto('/konto')
@@ -577,14 +579,15 @@ test.describe('Seitenwechsel ohne Fehlerseite und neue Endpunkte (Bugfix 2026-11
     await createTenant('QA Weiter', [{ user, role: 'owner' }])
     await signInAs(page, user)
     const api = page.request
-    const internal = await api.get('/?weiter=%2Fkonto', { maxRedirects: 0 })
+    const html = { accept: 'text/html' }
+    const internal = await api.get('/?weiter=%2Fkonto', { maxRedirects: 0, headers: html })
     expect(internal.status()).toBe(307)
     expect(internal.headers().location).toBe('/konto')
     for (const target of ['//evil.example', 'https://evil.example', '/\\evil.example', '/.//evil.example']) {
-      const res = await api.get(`/?weiter=${encodeURIComponent(target)}`, { maxRedirects: 0 })
+      const res = await api.get(`/?weiter=${encodeURIComponent(target)}`, { maxRedirects: 0, headers: html })
       expect(res.status(), target).toBe(200)
     }
-    const spoofed = await api.get('/', { maxRedirects: 0, headers: { 'x-search': '?weiter=/konto' } })
+    const spoofed = await api.get('/', { maxRedirects: 0, headers: { ...html, 'x-search': '?weiter=/konto' } })
     expect(spoofed.status()).toBe(200)
   })
 

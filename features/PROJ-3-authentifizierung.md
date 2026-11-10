@@ -1,6 +1,6 @@
 # PROJ-3: Authentifizierung
 
-## Status: In Review
+## Status: Approved
 **Created:** 2026-10-15
 **Last Updated:** 2026-11-10
 
@@ -492,8 +492,8 @@ Nach `eed7997` (BUG-1, 3, 4), `203c281` (Testfix) und `d31bf50` (BUG-2):
 - [x] `/einstellungen` ohne Unterseite beim vollständigen Seitenaufruf in Firefox ohne Fehlerseite
 - [x] Safari: Anmelden mit Rücksprung, Abmelden, Überall abmelden, Einladung
 - [x] Handy und Tablet: Anmeldeseiten in allen Breiten; Abläufe nur Desktop-Breite
-- [ ] BUG-5: Admin ohne Kunde nach Ablehnen/Verlassen → Endlosschleife
-- [ ] BUG-6: Sitzung läuft während einer Aktion ab → Fehlerseite in Firefox
+- [x] BUG-5: Admin ohne Kunde nach Ablehnen/Verlassen → Endlosschleife (behoben, siehe Nachprüfung)
+- [x] BUG-6: Sitzung läuft während einer Aktion ab → Fehlerseite in Firefox (behoben, siehe Nachprüfung)
 
 ### Security Audit Results
 - [x] Fremde Herkunft (`https://evil.example`, `null`, anderer Port) → 403 an beiden Endpunkten
@@ -531,11 +531,22 @@ Nach `eed7997` (BUG-1, 3, 4), `203c281` (Testfix) und `d31bf50` (BUG-2):
 - Vitest: Unit 1047/1047 (79 Dateien); Integration `auth`, `auth-flows` 12/12
 - Nicht gelaufen: übrige E2E-Dateien und übrige Integrationstests
 
+### Nachprüfung (Re-Test 2026-11-10)
+- **BUG-5 behoben:** Der App-Rahmen leitet nur noch bei `Accept: text/html` weiter, bei Aktualisierungen innerhalb der App die Seite. Admin lehnt ab / verlässt den letzten Kunden: `/betreiber` wird angezeigt, Chrome, Firefox, Safari
+- **BUG-6 behoben:** `src/lib/supabase/proxy.ts` löscht bei einer Server-Aktion mit abgelaufener Sitzung keine Cookies in der Antwort; das erledigt der nächste Seitenaufruf. Damit baut Next.js die Seite nicht neu auf, es bleibt ein einziger Seitenwechsel mit Hinweis und Rücksprung-Ziel. Ein erster Versuch, im Browser auf das Ende der Antwort zu warten, wurde verworfen: Next.js leitete dann selbst weiter und der Hinweis ging verloren
+- **Firefox:** PROJ-3 komplett bestanden (ein Test nach Anpassung, siehe unten), Lösch- und Team-Abläufe 10/10
+- **Safari (`npm run dev`):** Abmelden, Überall abmelden, Einladung, abgelaufene Sitzung, beide Admin-Fälle bestanden; Anmelden mit Rücksprung 4/4 mit Warten auf die fertige Seite
+- **Chrome:** PROJ-3, -4 90/90; PROJ-5, -14 37/37
+- **Vitest:** Unit 1049/1049; Integration `auth`, `auth-flows` 12/12
+- **Test angepasst:** Der 2FA-Test wartet vor `page.goto` auf die fertige Seite; ein Seitenwechsel mitten im Laden zeigt in Firefox kurz die Fehlerseite (6/6 nach der Anpassung)
+- **Grenzen, kein Bug:** Wer in Firefox mitten im Laden einer Seite zu einer anderen Adresse springt, kann die Fehlerseite kurz sehen. Ebenso bei Gast/Rechnung/Sperre löschen, wenn der Proxy genau bei dieser Aktion den Zugangsschlüssel erneuert (Code gelesen, nicht nachgestellt). In Safari kann im Dev-Modus ein sehr früh getippter Text beim Initialisieren der Seite verloren gehen (Testlauf, kein Bezug zu dieser Änderung)
+- **Nicht gelaufen:** übrige E2E-Dateien und übrige Integrationstests; PROJ-2, -7, -8, -9, -37, -50 in Chrome liefen vor den beiden Korrekturen, die nur App-Rahmen und Proxy betreffen
+
 ### Summary
-- **Bugs Found:** 2 (1 high, 1 low)
+- **Bugs Found:** 2 (1 high, 1 low), beide behoben und nachgeprüft
 - **Security:** Pass
-- **Production Ready:** NO (BUG-5)
-- **Recommendation:** BUG-5 beheben, dann erneut `/qa`
+- **Production Ready:** YES
+- **Recommendation:** Freigeben. Auf Staging prüfen, dass Anmelden und Abmelden laufen (die neuen Endpunkte vergleichen die Herkunft mit der Adresse hinter Vercel)
 
 ## Deployment
 _Stand 2026-10-25 (/deploy, erstes Release über Staging, Tag `v1.0.0`)_
