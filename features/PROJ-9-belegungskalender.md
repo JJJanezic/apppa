@@ -1,6 +1,6 @@
 # PROJ-9: Belegungskalender
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-10-25
 **Last Updated:** 2026-11-10 (refine: nur Dashboard-Zeitleiste 14/28 Tage, Monatsansicht und Seite „Belegung“ entfallen)
 
@@ -764,4 +764,12 @@ _Stand 2026-10-26 (/deploy, Tag `v1.4.0`)_
 - **Production:** https://app.apppa.at (Vercel `apppa`, Supabase `ahclrqbhfpidxjzbpfgb`), Commit `07e9940`, 2026-10-26; vom Nutzer geprüft (Build „Ready“, Anmeldung, Kalender mit bestehenden Buchungen)
 - **Vor dem Release:** Lint, 362 Vitest-Tests (inkl. Integration gegen Dev) und Build grün; Secret-Scan des Release-Bereichs ohne Treffer
 - **Migrationen:** keine (Kalender liest die bestehenden Tabellen aus PROJ-8); kein `db push`, kein `config push`
+- Keine neuen Umgebungsvariablen
+
+_Stand 2026-11-10 (/deploy, Tag `v1.50.0-PROJ-9`): Nur Dashboard-Zeitleiste (refine 2026-11-10)_
+
+- **Staging:** https://staging.apppa.at, Commit `c15a824`, 2026-11-10; vom Nutzer anhand der Checkliste geprüft und freigegeben
+- **Production:** https://app.apppa.at, Commit `c15a824`, 2026-11-10; vom Nutzer geprüft (Build „Ready“, Anmeldung, Schalter 14/28 Tage, Umleitung `/belegung`, Menü ohne „Belegung“)
+- **Vor dem Release:** Lint, 1023 Unit-Tests und Build grün; Secret-Scan des Release-Bereichs ohne Treffer; Integration `bookings` in der QA grün (volle Integrations-Suite nicht gelaufen, kein Backend geändert)
+- **Migrationen:** keine; kein `db push`, kein `config push`
 - Keine neuen Umgebungsvariablen
