@@ -1,6 +1,6 @@
 # PROJ-9: Belegungskalender
 
-## Status: Deployed
+## Status: Architected
 **Created:** 2026-10-25
 **Last Updated:** 2026-11-10 (refine: nur Dashboard-Zeitleiste 14/28 Tage, Monatsansicht und Seite „Belegung“ entfallen)
 
@@ -230,6 +230,12 @@ Sie erscheinen nur, wenn sie im sichtbaren Zeitraum Einträge haben, und tragen 
 | Datumswähler: native Datumseingabe in einem Popover, keine Kalender-Bibliothek | Wie die Datumsfelder in PROJ-8; kein neues Paket | 2026-10-25 |
 | Freie Zellen nur per Maus/Touch, nicht in der Tab-Reihenfolge | Bei 50 Wohnungen × 28 Tagen wären es über 1.000 Tab-Stopps; Tastatur nutzt „Neue Buchung“ | 2026-10-25 |
 | „Belegt x/y“ zählt nur nicht archivierte Wohnungen (x und y) | Sonst könnte x größer als y werden; archivierte Wohnungen sind nicht mehr buchbar | 2026-10-25 |
+| Länge statt Ort bestimmt die Zeitleiste: „14 oder 28 Tage“ ersetzt „Dashboard oder Vollbild“; Schritt = halbe Länge | Nur noch ein Ort; Breite, Blättern und Ladebereich hängen allein an der gewählten Länge (Tech Design 2026-11-10) | 2026-11-10 |
+| Länge in der Adresse (`tage=14` bzw. `28`) und im bestehenden Cookie „apppa-belegung“ (Länge und Objekt) | Gleiches Muster wie bisher die Ansicht: Server kennt die Wahl beim ersten Laden, kein Umspringen; alte Cookie-Werte („zeitleiste“/„monat“) gelten als 14 Tage, das gemerkte Objekt bleibt (Tech Design 2026-11-10) | 2026-11-10 |
+| Umleitung `/belegung` → `/` in der Next-Konfiguration, dauerhaft, Adressangaben werden mitgegeben | Wie die Umleitung „Kunde“ → „Stammdaten“ (PROJ-38); ein offener Eintrag öffnet sich so auf dem Dashboard (Tech Design 2026-11-10) | 2026-11-10 |
+| Monatsansicht samt Rechenfunktionen und Texten wird gelöscht, nicht nur ausgeblendet | Kein toter Code; die Regeln sind in der Spec dokumentiert, falls sie je zurückkommen (Tech Design 2026-11-10) | 2026-11-10 |
+| Seiten-Aktualisierung nach Rechnung/Zahlung/Gutschrift richtet sich an `/` statt `/belegung` | Das Detailpanel des Kalenders zeigt Rechnungen und Zahlungen; es steht jetzt nur noch auf dem Dashboard (Tech Design 2026-11-10) | 2026-11-10 |
+| Keine Datenbankänderung, kein Backend-Schritt | Reiner Umbau der Oberfläche; die Kalenderabfrage bleibt, nur der Ladebereich folgt der Länge (Tech Design 2026-11-10) | 2026-11-10 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
@@ -249,7 +255,7 @@ Rückmeldung des Nutzers: Dashboard-Abschnitt und Seite „Belegung“ zeigen fa
   - Die Datumsangabe in der Kopfzeile zeigt den ganzen Zeitraum (erster bis letzter sichtbarer Tag).
   - Am Handy behält die Zeitleiste ihre Breite und scrollt seitlich, auch bei 28 Tagen. Die Spalte mit den Wohnungen bleibt stehen, die Seite scrollt nicht seitlich.
 - **Gemerkt je Gerät:** die Länge (14/28) und der Objektfilter. Der Zeitraum wird wie bisher nicht gemerkt. Hatte sich ein Gerät „Monat“ gemerkt, gilt die Zeitleiste mit 14 Tagen.
-- **Seite `/belegung` entfällt** samt Knopf „Vollbild“. Die Adresse leitet auf das Dashboard um, so funktionieren alte Lesezeichen weiter. Angehängte Angaben (z. B. ein offener Eintrag) gehen dabei verloren.
+- **Seite `/belegung` entfällt** samt Knopf „Vollbild“. Die Adresse leitet auf das Dashboard um, so funktionieren alte Lesezeichen weiter. Angehängte Angaben bleiben erhalten: Ein offener Eintrag (`?eintrag=…`) öffnet sich auf dem Dashboard, Angaben zur Monatsansicht werden ignoriert.
 - **Navigationspunkt „Belegung“ entfällt** in der Seitenleiste und am Handy. In der unteren Leiste am Handy rückt **„Gästeblätter“** nach. Reihenfolge: Dashboard, Buchungen, Gäste, Gästeblätter, „Mehr“.
 - Alles andere bleibt: Balken, Farben, Legende, Überschneidungen, Detailpanel, Anlegen per Klick, „Neue Buchung“, „Neue Sperre“, Objektfilter, archivierte Wohnungen, Rollen.
 - Die Mitarbeiter-Story „An- und Abreisen je Tag in der Monatsansicht“ entfällt. Dafür gibt es „Heute“ auf dem Dashboard (PROJ-14) und die Zeitleiste über 28 Tage.
@@ -274,6 +280,54 @@ Rückmeldung des Nutzers: Dashboard-Abschnitt und Seite „Belegung“ zeigen fa
 - **Betreiber-Admin ohne Mitgliedschaft:** Er sah unter `/belegung` einen Hinweis „Kein Kunde“. Künftig gilt der Hinweis des Dashboards.
 - **28 Tage mit sehr vielen Wohnungen:** Ladezeit wie bisher die Vollbild-Seite (unter 1 s für 50 Wohnungen), jetzt auch über mehrere Kunden.
 - **Ladezustand beim Blättern:** Die Nachbarzeiträume werden wie bisher in der gewählten Länge vorab geladen.
+
+### Tech Design der Änderung „Nur Dashboard-Zeitleiste“ (2026-11-10)
+
+**Ausgangslage:** Der Kalender ist ein gemeinsamer Baustein mit zwei Varianten: „Dashboard“ (14 Tage, schmalere Mindestbreite, Knopf „Vollbild“) und „Vollbild“ (28 Tage, breiter, große Überschrift). Beide haben die Ansichten Zeitleiste und Monat. Zustand (Ansicht, Start, Monat, Tag, Objekt, offener Eintrag) steht in der Adresse, Ansicht und Objekt zusätzlich im Cookie „apppa-belegung“.
+
+**A) Bausteine danach**
+```
+Dashboard  /
++-- Kacheln, Hinweise (unverändert)
++-- Abschnitt „Belegung“ (gemeinsamer Kalender, nur noch eine Form)
+|   +-- Kopfzeile: Überschrift „Belegung“, Schalter „14 Tage | 28 Tage“,
+|   |   Zurück · Zeitraum (Datumswähler) · Weiter · „Heute“
+|   +-- „Neue Buchung“ / „Neue Sperre“ (ohne „Vollbild“)
+|   +-- Objektfilter, Legende
+|   +-- Zeitleiste (Breite nach Länge: 14 Tage wie bisher Dashboard, 28 Tage wie bisher Vollbild)
+|   +-- Detailpanel, Formular „Neue Buchung“ (unverändert)
++-- Heute, Noch nicht abgerechnet, Offene Rechnungen, Ortstaxe (unverändert)
+
+/belegung  → Umleitung auf /
+```
+
+**Was entfällt**
+- Seite `/belegung` und der Navigationspunkt „Belegung“ (Seitenleiste und Handy)
+- Monatsansicht: Kacheln, Tagesliste, ihre Rechenfunktionen und Texte
+- Die Unterscheidung „Dashboard/Vollbild“ im Kalender und der Knopf „Vollbild“
+
+**Was sich ändert**
+- **Länge statt Ort:** Die Zeitleiste kennt nur noch die Länge 14 oder 28 Tage. Daraus folgen sichtbare Tage, Schrittweite beim Blättern (7 bzw. 14), Mindestbreite und der geladene Zeitraum.
+- **Schalter** an der Stelle von „Zeitleiste | Monat“, gleiche Bedienung (Tastatur, Screenreader wie bisher). Umschalten behält den Starttag.
+- **Adresse:** `?tage=28&ab=…&objekt=…`. Alte Angaben (`ansicht`, `monat`, `tag`) werden ignoriert.
+- **Gemerkte Wahl:** Das bestehende Cookie speichert Länge und Objekt. Alte Werte gelten als 14 Tage; das gemerkte Objekt bleibt.
+- **Handy-Leiste:** „Gästeblätter“ wird Hauptbereich. Reihenfolge Dashboard, Buchungen, Gäste, Gästeblätter.
+- **Umleitung** `/belegung` → `/` in der Next-Konfiguration, dauerhaft, mit allen Adressangaben.
+- **Aktualisierung:** Rechnungs-, Zahlungs- und Gutschrift-Aktionen frischen künftig `/` statt `/belegung` auf.
+
+**B) Daten:** keine Änderung. Die Kalenderabfrage aus PROJ-9/PROJ-14 bleibt, sie lädt nur den Zeitraum der gewählten Länge.
+
+**C) Rechte:** unverändert. Der Kalender war für alle Mitglieder sichtbar und bleibt es über das Dashboard.
+
+**D) Tests**
+- **Unit:** Zustand aus Adresse und Cookie (Länge 14/28, alte Werte, Schritt 7/14, Umschalten behält Start), Adressbau, Ladebereich; Navigation (kein „Belegung“, Handy-Leiste mit Gästeblätter). Tests der Monatsfunktionen entfallen.
+- **E2E PROJ-9:** Monats- und Vollbild-Tests entfallen bzw. werden auf das Dashboard mit 28 Tagen umgestellt; neu: Schalter, Blättern um 14, Merken, Umleitung inkl. `?eintrag=`.
+- **E2E anderer Features**, die `/belegung` aufrufen (PROJ-30, PROJ-31, PROJ-37): auf das Dashboard umstellen; Prüfungen, die nur die Monatsansicht betrafen (Datumsformate in Kacheln und Tagesliste), entfallen.
+- **PROJ-14:** Test „Vollbild-Seite zeigt nur den gewählten Kunden“ entfällt.
+
+**E) Pakete:** keine neuen.
+
+**F) Umfang:** nur `/frontend`, kein `/backend`.
 
 ## Tech Design (Solution Architect)
 
