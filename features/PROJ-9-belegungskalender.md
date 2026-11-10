@@ -2,7 +2,7 @@
 
 ## Status: Deployed
 **Created:** 2026-10-25
-**Last Updated:** 2026-10-26
+**Last Updated:** 2026-11-10 (refine: nur Dashboard-Zeitleiste 14/28 Tage, Monatsansicht und Seite „Belegung“ entfallen)
 
 ## Dependencies
 - Requires: PROJ-6 (Wohnungsverwaltung): Objekte, Wohnungen, archiviert
@@ -16,6 +16,8 @@ Inhaber und Mitarbeiter sehen auf einen Blick, welche Wohnung wann belegt ist. D
 - **Monat:** Kacheln je Tag mit Belegungsgrad, An- und Abreisen sowie Tagesliste
 
 Ein Klick auf einen Eintrag öffnet das vollständige Buchungs- bzw. Sperrendetail in einem Seitenpanel. Ein Klick auf einen freien Tag legt eine neue Buchung an.
+
+> **Geändert durch refine 2026-11-10:** Monatsansicht, Vollbild-Seite `/belegung` und Navigationspunkt „Belegung“ entfallen. Der Kalender steht nur noch auf dem Dashboard, als Zeitleiste mit Schalter „14 Tage | 28 Tage“. Was davon abweicht, steht im Abschnitt „Nur Dashboard-Zeitleiste mit 14 oder 28 Tagen (refine 2026-11-10)“ und geht den Abschnitten oben vor.
 
 ## User Stories
 - Als **Inhaber** möchte ich auf dem Dashboard sehen, welche Wohnungen in den nächsten zwei Wochen belegt sind, damit ich Lücken und Wechseltage sofort erkenne.
@@ -108,6 +110,7 @@ Sie erscheinen nur, wenn sie im sichtbaren Zeitraum Einträge haben, und tragen 
 - **Live-Aktualisierung**, wenn eine andere Person gleichzeitig ändert: Der Kalender lädt beim Öffnen, Blättern und nach eigenen Änderungen neu
 - **Kalender-Abo (iCal):** PROJ-17
 - **Auslastung in Prozent/Statistik:** PROJ-18
+- **Monatsansicht mit Tageskacheln und Vollbild-Seite `/belegung`:** entfernt (refine 2026-11-10)
 
 ## Acceptance Criteria
 
@@ -206,6 +209,12 @@ Sie erscheinen nur, wenn sie im sichtbaren Zeitraum Einträge haben, und tragen 
 | Ansicht und Filter je Gerät gemerkt, Zeitraum nicht | Kalender soll immer bei heute öffnen; die bevorzugte Ansicht bleibt | 2026-10-25 |
 | Mitarbeiter dürfen den Standardpreis der Wohnungen im Seiten-Payload erhalten | Vom Nutzer bei der QA entschieden: keine Buchungsbeträge, in der Oberfläche nicht sichtbar; Verhalten wie seit PROJ-8 | 2026-10-26 |
 | Kein Preis auf Balken und Kacheln | Mitarbeiter dürfen keine Preise sehen (PROJ-8); der Preis steht im Panel für Inhaber | 2026-10-25 |
+| Monatsansicht (Tageskacheln, Tagesliste) entfällt; löst „Zwei Ansichten wie Entwurf“ ab | Vom Nutzer entschieden: Die Kacheln bringen keinen Nutzen; An- und Abreisen des Tages stehen in „Heute“ (PROJ-14), Monatslisten in der Buchungsübersicht, Wechseltage zeigt die Zeitleiste besser (refine 2026-11-10) | 2026-11-10 |
+| Vollbild-Seite `/belegung` und Navigationspunkt „Belegung“ entfallen; Kalender nur auf dem Dashboard | Vom Nutzer entschieden: Mit 28 Tagen auf dem Dashboard ist die Seite überflüssig; außerdem verschwindet die Abweichung „Dashboard mehrere Kunden, Seite nur der gewählte“ (refine 2026-11-10) | 2026-11-10 |
+| Schalter „14 Tage \| 28 Tage“, Standard 14 Tage, fortlaufend ab heute − 2 | Vom Nutzer entschieden; Bezeichnung bewusst in Tagen, nicht „Monat“ oder „4 Wochen“; fortlaufend statt Kalendermonat, damit auch am Monatsende die kommenden Wochen sichtbar sind (refine 2026-11-10) | 2026-11-10 |
+| Blättern um 7 Tage bei 14 Tagen, um 14 Tage bei 28 Tagen | Vom Nutzer entschieden; jeweils halber Zeitraum, die Überlappung erhält die Orientierung (refine 2026-11-10) | 2026-11-10 |
+| Untere Leiste am Handy: „Gästeblätter“ übernimmt den Platz von „Belegung“ | Vom Nutzer gewählt; das Gästeblatt wird vor Ort beim Check-in gebraucht (refine 2026-11-10) | 2026-11-10 |
+| `/belegung` leitet auf das Dashboard um | Alte Lesezeichen und Startbildschirm-Symbole funktionieren weiter (refine 2026-11-10) | 2026-11-10 |
 
 ### Technical Decisions
 <!-- Added by /architecture -->
@@ -224,6 +233,47 @@ Sie erscheinen nur, wenn sie im sichtbaren Zeitraum Einträge haben, und tragen 
 
 ---
 <!-- Sections below are added by subsequent skills -->
+
+## Nur Dashboard-Zeitleiste mit 14 oder 28 Tagen (refine 2026-11-10)
+
+Rückmeldung des Nutzers: Dashboard-Abschnitt und Seite „Belegung“ zeigen fast dasselbe, unterscheiden sich aber bei den Kunden (Dashboard: alle Kunden im Filter; Seite: nur der gewählte Kunde). Die Monatsansicht mit Tageskacheln bringt keinen Nutzen. Deshalb gibt es künftig nur noch die Zeitleiste auf dem Dashboard, umschaltbar zwischen 14 und 28 Tagen.
+
+### Regeln
+- **Ein Ort:** Der Kalender steht nur noch auf dem Dashboard (`/`), Abschnitt „Belegung“. Alles aus PROJ-14 gilt weiter (Kundenfilter, Gruppen je Kunde, Wechsel zum Kunden vor Aktionen).
+- **Monatsansicht entfällt:** keine Tageskacheln, kein „belegt x/y“, keine Tagesliste. Der Umschalter „Zeitleiste | Monat“ wird ersetzt.
+- **Schalter „14 Tage | 28 Tage“** an der Stelle des bisherigen Umschalters, Standard **14 Tage**.
+  - Zeitraum fortlaufend; beim Öffnen und nach „Heute“ beginnt er bei **heute − 2 Tage**, bei beiden Längen.
+  - **Blättern:** Zurück/Weiter um **7 Tage** bei 14 Tagen, um **14 Tage** bei 28 Tagen.
+  - **Umschalten** behält den Starttag: Aus 14 Tagen ab dem 08.11. werden 28 Tage ab dem 08.11.
+  - **Datumswähler** bleibt: Der Zeitraum beginnt am gewählten Tag, in der gewählten Länge.
+  - Die Datumsangabe in der Kopfzeile zeigt den ganzen Zeitraum (erster bis letzter sichtbarer Tag).
+  - Am Handy behält die Zeitleiste ihre Breite und scrollt seitlich, auch bei 28 Tagen. Die Spalte mit den Wohnungen bleibt stehen, die Seite scrollt nicht seitlich.
+- **Gemerkt je Gerät:** die Länge (14/28) und der Objektfilter. Der Zeitraum wird wie bisher nicht gemerkt. Hatte sich ein Gerät „Monat“ gemerkt, gilt die Zeitleiste mit 14 Tagen.
+- **Seite `/belegung` entfällt** samt Knopf „Vollbild“. Die Adresse leitet auf das Dashboard um, so funktionieren alte Lesezeichen weiter. Angehängte Angaben (z. B. ein offener Eintrag) gehen dabei verloren.
+- **Navigationspunkt „Belegung“ entfällt** in der Seitenleiste und am Handy. In der unteren Leiste am Handy rückt **„Gästeblätter“** nach. Reihenfolge: Dashboard, Buchungen, Gäste, Gästeblätter, „Mehr“.
+- Alles andere bleibt: Balken, Farben, Legende, Überschneidungen, Detailpanel, Anlegen per Klick, „Neue Buchung“, „Neue Sperre“, Objektfilter, archivierte Wohnungen, Rollen.
+- Die Mitarbeiter-Story „An- und Abreisen je Tag in der Monatsansicht“ entfällt. Dafür gibt es „Heute“ auf dem Dashboard (PROJ-14) und die Zeitleiste über 28 Tage.
+
+### Acceptance Criteria
+- [ ] Angenommen ein Inhaber oder Mitarbeiter öffnet das Dashboard zum ersten Mal auf einem Gerät, dann zeigt die Belegung die Zeitleiste über 14 Tage ab heute − 2, und der Schalter steht auf „14 Tage“
+- [ ] Angenommen die Belegung zeigt 14 Tage, wenn der Nutzer „Weiter“ klickt, dann beginnt der Zeitraum 7 Tage später
+- [ ] Angenommen der Nutzer wählt „28 Tage“, dann zeigt die Zeitleiste 28 Tage ab demselben Starttag
+- [ ] Angenommen die Belegung zeigt 28 Tage, wenn der Nutzer „Weiter“ bzw. „Zurück“ klickt, dann verschiebt sich der Zeitraum um 14 Tage
+- [ ] Angenommen die Belegung zeigt 28 Tage und ist weitergeblättert, wenn der Nutzer „Heute“ klickt, dann beginnt sie wieder bei heute − 2, weiterhin mit 28 Tagen
+- [ ] Angenommen der Nutzer wählt im Datumswähler einen Tag, dann beginnt der Zeitraum an diesem Tag in der gewählten Länge
+- [ ] Angenommen der Nutzer hat „28 Tage“ und ein Objekt gewählt, wenn er das Dashboard neu lädt, dann sind beide auf diesem Gerät noch gewählt, und der Zeitraum beginnt wieder bei heute − 2
+- [ ] Angenommen ein Gerät hatte die Monatsansicht gemerkt, wenn das Dashboard geöffnet wird, dann erscheint die Zeitleiste mit 14 Tagen ohne Fehler
+- [ ] Angenommen die Belegung auf dem Dashboard, dann gibt es weder eine Umschaltung auf „Monat“ noch einen Knopf „Vollbild“
+- [ ] Angenommen ein Inhaber oder Mitarbeiter ist angemeldet, dann zeigt die Navigation keinen Punkt „Belegung“, und am Handy enthält die untere Leiste Dashboard, Buchungen, Gäste, Gästeblätter und „Mehr“
+- [ ] Angenommen jemand ruft `/belegung` auf (auch mit Parametern), dann landet er auf dem Dashboard
+- [ ] Angenommen die Belegung zeigt 28 Tage am Handy (375 px), dann scrollt die Zeitleiste seitlich, die Wohnungsspalte bleibt stehen und die Seite scrollt nicht seitlich
+- [ ] Angenommen die Belegung zeigt 28 Tage, wenn der Nutzer einen Balken anklickt oder in eine freie Zelle klickt, dann öffnet sich das Detailpanel bzw. „Neue Buchung“ wie bisher, und nach dem Schließen sind Länge und Zeitraum unverändert
+
+### Edge Cases
+- **Alte Adressen mit Monatsangaben** (z. B. Lesezeichen auf `/?view=month`): werden ignoriert, die Zeitleiste mit der gemerkten Länge erscheint.
+- **Betreiber-Admin ohne Mitgliedschaft:** Er sah unter `/belegung` einen Hinweis „Kein Kunde“. Künftig gilt der Hinweis des Dashboards.
+- **28 Tage mit sehr vielen Wohnungen:** Ladezeit wie bisher die Vollbild-Seite (unter 1 s für 50 Wohnungen), jetzt auch über mehrere Kunden.
+- **Ladezustand beim Blättern:** Die Nachbarzeiträume werden wie bisher in der gewählten Länge vorab geladen.
 
 ## Tech Design (Solution Architect)
 
