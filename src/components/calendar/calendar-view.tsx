@@ -1,44 +1,39 @@
 'use client'
 
-import { ArrowsOut, CaretLeft, CaretRight } from '@phosphor-icons/react'
-import Link from 'next/link'
+import { CaretLeft, CaretRight } from '@phosphor-icons/react'
 import { useRouter } from 'next/navigation'
-import { useFormatter, useTranslations } from 'next-intl'
+import { useTranslations } from 'next-intl'
 import { useEffect, useRef, useState, useTransition } from 'react'
 import { toast } from 'sonner'
 
 import { BookingPanel } from '@/components/bookings/booking-panel'
 import { NewBookingButtons } from '@/components/bookings/new-booking-buttons'
 import { submitTenantSwitch } from '@/components/dashboard/row-target'
-import { CalendarMonth } from '@/components/calendar/calendar-month'
 import { CalendarTimeline } from '@/components/calendar/calendar-timeline'
 import { LEGEND_CLASSES } from '@/components/calendar/entry-style'
 import { DateJump } from '@/components/date-jump'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { addDays, type BookableApartment, shiftMonth } from '@/lib/bookings'
+import { addDays, type BookableApartment } from '@/lib/bookings'
 import {
   CALENDAR_COOKIE,
-  CALENDAR_PATH,
+  CALENDAR_LENGTHS,
   type CalendarApartment,
   calendarCookieValue,
   calendarDays,
   type CalendarEntry,
   calendarHref,
+  type CalendarLength,
   calendarProperties,
   type CalendarState,
-  type CalendarVariant,
-  type CalendarView as View,
-  TIMELINE_DAYS,
   TIMELINE_LEAD,
-  TIMELINE_STEP,
+  timelineStep,
   visibleApartments,
 } from '@/lib/calendar'
 import { formatDate, formatPeriod } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 interface CalendarViewProps {
-  variant: CalendarVariant
   state: CalendarState
   today: string
   apartments: CalendarApartment[]
@@ -54,24 +49,17 @@ interface CalendarViewProps {
   activeTenantId: string | null
 }
 
-const noon = (iso: string) => new Date(`${iso}T12:00:00`)
-
-// Ansicht und Objekt je Gerät merken (gemeinsam für Dashboard und Vollbild)
-function remember(view: View, property: string | null) {
-  document.cookie = `${CALENDAR_COOKIE}=${calendarCookieValue(view, property)}; path=/; max-age=${365 * 24 * 60 * 60}; samesite=lax`
+// Länge und Objekt je Gerät merken
+function remember(length: CalendarLength, property: string | null) {
+  document.cookie = `${CALENDAR_COOKIE}=${calendarCookieValue(length, property)}; path=/; max-age=${365 * 24 * 60 * 60}; samesite=lax`
 }
 
-// Belegungskalender (PROJ-9): Kopfzeile, Objektfilter, Legende, Zeitleiste bzw. Monat. Zeitraum, Ansicht, Filter
-// und offener Eintrag stehen in der Adresse; der Server lädt die Daten des Bereichs.
-export function CalendarView({ variant, state, today, apartments, entries, bookable, owner, panel, missingEntry, activeTenantId }: CalendarViewProps) {
+// Belegungskalender (PROJ-9) auf dem Dashboard: Kopfzeile mit „14 Tage | 28 Tage“, Objektfilter, Legende, Zeitleiste.
+// Länge, Zeitraum, Filter und offener Eintrag stehen in der Adresse; der Server lädt die Daten des Bereichs.
+export function CalendarView({ state, today, apartments, entries, bookable, owner, panel, missingEntry, activeTenantId }: CalendarViewProps) {
   const t = useTranslations('calendar')
-  const format = useFormatter()
   const router = useRouter()
   const [pending, startTransition] = useTransition()
-  // Gewählter Tag der Monatsansicht: nur im Browser, die Adresse wird ohne Neuladen nachgeführt.
-  // Gilt nur, solange der Server denselben Ausgangstag liefert (nach dem Blättern wieder dessen Tag).
-  const [picked, setPicked] = useState<{ base: string; day: string } | null>(null)
-  const day = picked?.base === state.day ? picked.day : state.day
   // Vorbelegt aus der Adresse (?neu=…), wenn die Wohnung zum gewählten Kunden gehört (nach dem Kundenwechsel, PROJ-14)
   const [createAt, setCreateAt] = useState<{ apartmentId: string; arrival: string } | null>(() =>
     state.create && bookable.some((a) => a.id === state.create?.apartmentId && !a.archived) ? state.create : null
@@ -79,7 +67,7 @@ export function CalendarView({ variant, state, today, apartments, entries, booka
 
   const properties = calendarProperties(apartments)
   const property = properties.some((p) => p.id === state.property) ? state.property : null
-  const current: CalendarState = { ...state, day, property, create: null }
+  const current: CalendarState = { ...state, property, create: null }
   const shown = visibleApartments(apartments, entries, property)
   const shownIds = new Set(shown.map((a) => a.id))
   const shownEntries = entries.filter((e) => shownIds.has(e.apartmentId))
@@ -90,8 +78,8 @@ export function CalendarView({ variant, state, today, apartments, entries, booka
   const showButtons = canCreate && onlyActiveTenant
   // Anlegen per Klick auch in Zeilen anderer Kunden (wechselt vorher)
   const canCreateInRows = canCreate || apartments.some((a) => a.tenantId !== activeTenantId && !a.archived)
-  const count = TIMELINE_DAYS[variant]
-  const closeHref = calendarHref(variant, { ...current, entry: null })
+  const count = state.length
+  const closeHref = calendarHref({ ...current, entry: null })
 
   // Zuletzt angeforderter Zustand, solange der Server noch lädt: Schnelles Blättern zählt jeden Klick (QA BUG-2)
   const requested = useRef<CalendarState | null>(null)
@@ -99,19 +87,16 @@ export function CalendarView({ variant, state, today, apartments, entries, booka
     requested.current = null
   }, [state])
 
-  const href = (patch: Partial<CalendarState>) => calendarHref(variant, { ...current, entry: null, ...patch })
+  const href = (patch: Partial<CalendarState>) => calendarHref({ ...current, entry: null, ...patch })
   function go(patch: Partial<CalendarState>) {
     const target: CalendarState = { ...(requested.current ?? current), entry: null, ...patch }
     requested.current = target
-    startTransition(() => router.push(calendarHref(variant, target), { scroll: false }))
+    startTransition(() => router.push(calendarHref(target), { scroll: false }))
   }
 
-  // Eine Woche bzw. einen Monat weiter oder zurück
-  const step = (from: CalendarState, dir: 1 | -1): Partial<CalendarState> =>
-    from.view === 'timeline'
-      ? { start: addDays(from.start, dir * TIMELINE_STEP) }
-      : { month: shiftMonth(from.month, dir), day: `${shiftMonth(from.month, dir)}-01` }
-  const todayPatch = state.view === 'timeline' ? { start: addDays(today, -TIMELINE_LEAD) } : { month: today.slice(0, 7), day: today }
+  // Um den halben Zeitraum weiter oder zurück (7 bzw. 14 Tage)
+  const step = (from: CalendarState, dir: 1 | -1): Partial<CalendarState> => ({ start: addDays(from.start, dir * timelineStep(from.length)) })
+  const todayPatch = { start: addDays(today, -TIMELINE_LEAD) }
   const prevHref = href(step(current, -1))
   const nextHref = href(step(current, 1))
 
@@ -124,7 +109,7 @@ export function CalendarView({ variant, state, today, apartments, entries, booka
   // Eintrag öffnen; gehört er zu einem anderen Kunden, vorher wechseln (Ziel: derselbe Kalender mit offenem Eintrag)
   function open(id: string) {
     const entry = entries.find((e) => e.id === id)
-    if (entry && entry.tenantId !== activeTenantId) submitTenantSwitch(entry.tenantId, calendarHref(variant, { ...current, entry: id }))
+    if (entry && entry.tenantId !== activeTenantId) submitTenantSwitch(entry.tenantId, calendarHref({ ...current, entry: id }))
     else go({ entry: id })
   }
 
@@ -132,7 +117,7 @@ export function CalendarView({ variant, state, today, apartments, entries, booka
   function createIn(apartmentId: string, arrival: string) {
     const apartment = apartments.find((a) => a.id === apartmentId)
     if (apartment && apartment.tenantId !== activeTenantId)
-      submitTenantSwitch(apartment.tenantId, calendarHref(variant, { ...current, entry: null, create: { apartmentId, arrival } }))
+      submitTenantSwitch(apartment.tenantId, calendarHref({ ...current, entry: null, create: { apartmentId, arrival } }))
     else if (canCreate) setCreateAt({ apartmentId, arrival })
   }
 
@@ -148,53 +133,43 @@ export function CalendarView({ variant, state, today, apartments, entries, booka
     router.replace(closeHref, { scroll: false })
   }, [missingEntry, closeHref, router, t])
 
-  function setView(view: string) {
-    if (view !== 'timeline' && view !== 'month') return
-    remember(view, property)
-    go({ view })
+  // Umschalten behält den Starttag
+  function setLength(value: string) {
+    const length = CALENDAR_LENGTHS.find((l) => String(l) === value)
+    if (!length) return
+    remember(length, property)
+    go({ length })
   }
 
   function setProperty(id: string | null) {
-    remember(state.view, id)
+    remember(state.length, id)
     go({ property: id })
   }
 
-  function selectDay(date: string) {
-    setPicked({ base: state.day, day: date })
-    window.history.replaceState(null, '', calendarHref(variant, { ...current, day: date, entry: null }))
-  }
-
   function jump(date: string) {
-    go(state.view === 'timeline' ? { start: date } : { month: date.slice(0, 7), day: date })
+    go({ start: date })
   }
 
-  // Zeitleiste: „So, 25.10.2026 – Sa, 07.11.2026“ (PROJ-31); Monat bleibt „Oktober 2026“
-  const periodLabel =
-    state.view === 'timeline'
-      ? formatPeriod(state.start, addDays(state.start, count - 1))
-      : // eslint-disable-next-line no-restricted-syntax -- Ausnahme PROJ-31: Monatsüberschrift
-        format.dateTime(noon(`${state.month}-01`), { month: 'long', year: 'numeric' })
+  // „So, 25.10.2026 – Sa, 07.11.2026“ (PROJ-31)
+  const periodLabel = formatPeriod(state.start, addDays(state.start, count - 1))
   // Sichtbar bricht der Zeitraum nur am „–“ um, nie innerhalb eines Datums (QA PROJ-31 BUG-2)
   const keepTogether = (text: string) => text.replaceAll(' ', '\u00a0')
-  const periodVisible =
-    state.view === 'timeline' ? `${keepTogether(formatDate(state.start))} – ${keepTogether(formatDate(addDays(state.start, count - 1)))}` : periodLabel
-  const Heading = variant === 'full' ? 'h1' : 'h2'
+  const periodVisible = `${keepTogether(formatDate(state.start))} – ${keepTogether(formatDate(addDays(state.start, count - 1)))}`
 
   return (
     <section aria-labelledby="belegung-titel" className="min-w-0">
       {/* Der Kalenderkörper ist der Inhalt des gewählten Tabs, damit „aria-controls“ auf ihn zeigt (QA BUG-1) */}
-      <Tabs value={state.view} onValueChange={setView} className="flex min-w-0 flex-col gap-3">
+      <Tabs value={String(state.length)} onValueChange={setLength} className="flex min-w-0 flex-col gap-3">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
-          <Heading id="belegung-titel" className={variant === 'full' ? 'text-[34px] leading-[1.05] sm:text-[42px]' : 'text-2xl'}>
+          <h2 id="belegung-titel" className="text-2xl">
             {t('title')}
-          </Heading>
-          <TabsList aria-label={t('viewLabel')}>
-            <TabsTrigger value="timeline" className="min-h-9">
-              {t('view.timeline')}
-            </TabsTrigger>
-            <TabsTrigger value="month" className="min-h-9">
-              {t('view.month')}
-            </TabsTrigger>
+          </h2>
+          <TabsList aria-label={t('lengthLabel')}>
+            {CALENDAR_LENGTHS.map((length) => (
+              <TabsTrigger key={length} value={String(length)} className="min-h-9">
+                {t('length', { days: length })}
+              </TabsTrigger>
+            ))}
           </TabsList>
           <div className="flex items-center gap-1 sm:ml-auto">
             <Button variant="ghost" size="icon" className="size-11" onClick={() => go(step(requested.current ?? current, -1))} aria-label={t('prev')}>
@@ -218,17 +193,9 @@ export function CalendarView({ variant, state, today, apartments, entries, booka
           </div>
         </div>
 
-        {(showButtons || variant === 'dashboard') && (
+        {showButtons && (
           <div className="flex flex-wrap items-center gap-3">
-            {showButtons && <NewBookingButtons apartments={bookable} owner={owner} today={today} afterCreate="refresh" />}
-            {variant === 'dashboard' && (
-              <Button asChild variant="ghost" className="min-h-11 sm:ml-auto">
-                <Link href={CALENDAR_PATH.full}>
-                  <ArrowsOut size={18} aria-hidden="true" />
-                  {t('fullscreen')}
-                </Link>
-              </Button>
-            )}
+            <NewBookingButtons apartments={bookable} owner={owner} today={today} afterCreate="refresh" />
           </div>
         )}
 
@@ -257,30 +224,17 @@ export function CalendarView({ variant, state, today, apartments, entries, booka
           </ul>
         </div>
 
-        <TabsContent value={state.view} aria-busy={pending} className={cn('mt-0 transition-opacity', pending && 'opacity-60')}>
+        <TabsContent value={String(state.length)} aria-busy={pending} className={cn('mt-0 transition-opacity', pending && 'opacity-60')}>
           {pending && <span className="sr-only">{t('loading')}</span>}
-          {state.view === 'timeline' ? (
-            <CalendarTimeline
-              variant={variant}
-              days={calendarDays(state.start, count, today)}
-              apartments={shown}
-              entries={shownEntries}
-              selected={state.entry}
-              onOpen={open}
-              onCreate={canCreateInRows ? createIn : null}
-            />
-          ) : (
-            <CalendarMonth
-              month={state.month}
-              day={day}
-              today={today}
-              apartments={shown}
-              entries={shownEntries}
-              selected={state.entry}
-              onSelectDay={selectDay}
-              onOpen={open}
-            />
-          )}
+          <CalendarTimeline
+            length={state.length}
+            days={calendarDays(state.start, count, today)}
+            apartments={shown}
+            entries={shownEntries}
+            selected={state.entry}
+            onOpen={open}
+            onCreate={canCreateInRows ? createIn : null}
+          />
         </TabsContent>
       </Tabs>
 

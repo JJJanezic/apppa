@@ -6,12 +6,12 @@ import { Fragment } from 'react'
 
 import { barClasses } from '@/components/calendar/entry-style'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { type CalendarApartment, type CalendarDay, type CalendarEntry, type CalendarVariant, dayAt, layoutRow } from '@/lib/calendar'
+import { type CalendarApartment, type CalendarDay, type CalendarEntry, type CalendarLength, dayAt, layoutRow } from '@/lib/calendar'
 import { formatDate, formatDayOfMonth, formatNumber, formatWeekday } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 interface CalendarTimelineProps {
-  variant: CalendarVariant
+  length: CalendarLength
   days: CalendarDay[]
   apartments: CalendarApartment[]
   entries: CalendarEntry[]
@@ -29,12 +29,13 @@ const PAD = 6
 
 // Spalten der Tage; feste Klassen, damit Tailwind sie findet
 const DAY_COLUMNS: Record<number, string> = { 14: 'grid-cols-[repeat(14,minmax(0,1fr))]', 28: 'grid-cols-[repeat(28,minmax(0,1fr))]' }
-const MIN_WIDTH: Record<CalendarVariant, string> = { dashboard: 'min-w-[680px] sm:min-w-[860px]', full: 'min-w-[1100px]' }
+// Mindestbreite je Länge: bei 28 Tagen breiter, damit die Tageszahlen lesbar bleiben (am Handy seitlich scrollbar)
+const MIN_WIDTH: Record<CalendarLength, string> = { 14: 'min-w-[680px] sm:min-w-[860px]', 28: 'min-w-[1100px]' }
 const pct = (fraction: number) => `${fraction * 100}%`
 
 // Zeitleiste (PROJ-9): Zeile je Wohnung, Balken in Kanalfarbe, Überschneidungen untereinander.
 // Am Handy scrollt nur dieser Bereich seitlich; die Namensspalte bleibt stehen.
-export function CalendarTimeline({ variant, days, apartments, entries, selected, onOpen, onCreate }: CalendarTimelineProps) {
+export function CalendarTimeline({ length, days, apartments, entries, selected, onOpen, onCreate }: CalendarTimelineProps) {
   const t = useTranslations('calendar')
   const tb = useTranslations('bookings')
   const count = days.length
@@ -60,7 +61,7 @@ export function CalendarTimeline({ variant, days, apartments, entries, selected,
     <TooltipProvider delayDuration={300}>
       {/* Ohne eigenen Seitenabstand: Die stehende Namensspalte beginnt am Rand des Scrollbereichs (QA BUG-4) */}
       <div role="region" aria-label={t('gridLabel')} tabIndex={0} className="overflow-x-auto">
-        <div className={cn('flex flex-col', MIN_WIDTH[variant])}>
+        <div className={cn('flex flex-col', MIN_WIDTH[length])}>
           <div className="grid grid-cols-[7.5rem_minmax(0,1fr)] sm:grid-cols-[12.5rem_minmax(0,1fr)]">
             <div className="sticky left-0 z-20 bg-ds-bg px-1 pb-2 text-[13px] text-ds-neutral-700">
               <span className="sr-only">{t('apartmentColumn')}</span>

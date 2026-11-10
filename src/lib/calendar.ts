@@ -1,20 +1,20 @@
 // Belegungskalender (PROJ-9): Typen und reine Regeln für Browser und Server.
 // Lesefunktion: src/lib/calendar-data.ts (nur Server), Oberfläche: src/components/calendar/.
 
-import { addDays, type BlockReason, type BookingChannel, type BookingKind, type BookingSource, currentMonth, isIsoDate, monthRange, nightsBetween } from '@/lib/bookings'
+import { addDays, type BlockReason, type BookingChannel, type BookingKind, type BookingSource, isIsoDate, nightsBetween } from '@/lib/bookings'
 
-export type CalendarView = 'timeline' | 'month'
-// Dashboard-Abschnitt oder Vollbild-Seite /belegung
-export type CalendarVariant = 'dashboard' | 'full'
-
-export const TIMELINE_DAYS: Record<CalendarVariant, number> = { dashboard: 14, full: 28 }
-// Blättern um eine Woche; beim Öffnen beginnt die Zeitleiste zwei Tage vor heute (Entwurf)
-export const TIMELINE_STEP = 7
+// Sichtbare Tage der Zeitleiste (refine 2026-11-10: Schalter „14 Tage | 28 Tage“ auf dem Dashboard)
+export type CalendarLength = 14 | 28
+export const CALENDAR_LENGTHS: readonly CalendarLength[] = [14, 28]
+export const DEFAULT_LENGTH: CalendarLength = 14
+// Blättern um den halben Zeitraum (7 bzw. 14 Tage); beim Öffnen beginnt die Zeitleiste zwei Tage vor heute (Entwurf)
+export const timelineStep = (length: CalendarLength) => length / 2
 export const TIMELINE_LEAD = 2
 
-export const CALENDAR_PATH: Record<CalendarVariant, string> = { dashboard: '/', full: '/belegung' }
+// Der Kalender steht nur noch auf dem Dashboard; /belegung leitet dorthin um (next.config.ts)
+export const CALENDAR_PATH = '/'
 
-// Ansicht und Objektfilter je Gerät (Cookie, gemeinsam für Dashboard und Vollbild)
+// Länge und Objektfilter je Gerät
 export const CALENDAR_COOKIE = 'apppa-belegung'
 
 // tenantName nur auf dem Dashboard mit mehreren Kunden (PROJ-14): Gruppenkopf je Kunde; sonst null
@@ -41,7 +41,7 @@ export type CalendarEntry = {
   // ISO-Datum; die Abreise ist nicht mehr belegt (Wechseltag)
   arrival: string
   departure: string
-  // Nachname für den Balken, voller Name für Tooltip und Tagesliste; null bei Sperren
+  // Nachname für den Balken, voller Name für den Tooltip; null bei Sperren
   guestLastName: string | null
   guestName: string | null
   persons: number
@@ -49,12 +49,9 @@ export type CalendarEntry = {
 }
 
 export type CalendarState = {
-  view: CalendarView
+  length: CalendarLength
   // Erster Tag der Zeitleiste
   start: string
-  // JJJJ-MM der Monatsansicht und darin gewählter Tag
-  month: string
-  day: string
   // Objektfilter; null = alle
   property: string | null
   // Offener Eintrag im Detailpanel
@@ -64,28 +61,22 @@ export type CalendarState = {
 }
 
 const UUID = /^[0-9a-f-]{36}$/i
-const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/
-
-// Adresswerte (deutsch) ↔ interne Werte
-const VIEW_PARAM: Record<CalendarView, string> = { timeline: 'zeitleiste', month: 'monat' }
 const ALL_PROPERTIES = 'alle'
-const viewFromParam = (value: string): CalendarView | null =>
-  (Object.entries(VIEW_PARAM) as [CalendarView, string][]).find(([, v]) => v === value)?.[0] ?? null
+const lengthFrom = (value: string): CalendarLength | null => CALENDAR_LENGTHS.find((l) => String(l) === value) ?? null
 
-// Cookie „zeitleiste.alle“ bzw. „monat.<Objekt-ID>“
-export const calendarCookieValue = (view: CalendarView, property: string | null) => `${VIEW_PARAM[view]}.${property ?? ALL_PROPERTIES}`
+// Cookie „14.alle“ bzw. „28.<Objekt-ID>“; ältere Werte („zeitleiste.…“, „monat.…“) liefern nur das Objekt
+export const calendarCookieValue = (length: CalendarLength, property: string | null) => `${length}.${property ?? ALL_PROPERTIES}`
 
-function parseCookie(value: string | undefined): { view: CalendarView | null; property: string | null | undefined } {
-  const [view, property] = (value ?? '').split('.')
+function parseCookie(value: string | undefined): { length: CalendarLength | null; property: string | null | undefined } {
+  const [length, property] = (value ?? '').split('.')
   return {
-    view: viewFromParam(view ?? ''),
+    length: lengthFrom(length ?? ''),
     property: property === ALL_PROPERTIES ? null : property && UUID.test(property) ? property : undefined,
   }
 }
 
-const sameMonth = (iso: string, month: string) => iso.slice(0, 7) === month
-
-// Zustand aus Adresse (?ansicht, ab, monat, tag, objekt, eintrag) und Cookie; die Adresse gewinnt, ungültige Werte zählen nicht
+// Zustand aus Adresse (?tage, ab, objekt, eintrag, neu) und Cookie; die Adresse gewinnt, ungültige und alte Werte
+// (ansicht, monat, tag der früheren Monatsansicht) zählen nicht
 export function parseCalendarState(
   params: Record<string, string | string[] | undefined>,
   cookie: string | undefined,
@@ -95,43 +86,33 @@ export function parseCalendarState(
   const remembered = parseCookie(cookie)
   const objekt = first(params.objekt)
   const ab = first(params.ab)
-  const tag = first(params.tag)
-  const monat = first(params.monat)
   const eintrag = first(params.eintrag)
   // „neu=<Wohnung>_<Anreise>“
   const [neuApartment, neuArrival] = first(params.neu).split('_')
 
-  const month = MONTH.test(monat) ? monat : isIsoDate(tag) ? tag.slice(0, 7) : currentMonth(today)
   return {
-    view: viewFromParam(first(params.ansicht)) ?? remembered.view ?? 'timeline',
+    length: lengthFrom(first(params.tage)) ?? remembered.length ?? DEFAULT_LENGTH,
     start: isIsoDate(ab) ? ab : addDays(today, -TIMELINE_LEAD),
-    month,
-    day: isIsoDate(tag) && sameMonth(tag, month) ? tag : sameMonth(today, month) ? today : `${month}-01`,
     property: objekt === ALL_PROPERTIES ? null : UUID.test(objekt) ? objekt : (remembered.property ?? null),
     entry: UUID.test(eintrag) ? eintrag : null,
     create: UUID.test(neuApartment ?? '') && isIsoDate(neuArrival ?? '') ? { apartmentId: neuApartment, arrival: neuArrival } : null,
   }
 }
 
-// Adresse des Kalenders; Ansicht und Objekt stehen immer drin, damit die Adresse für sich allein gilt
-export function calendarHref(variant: CalendarVariant, state: CalendarState): string {
+// Adresse des Kalenders; Länge und Objekt stehen immer drin, damit die Adresse für sich allein gilt
+export function calendarHref(state: CalendarState): string {
   const params = new URLSearchParams()
-  params.set('ansicht', VIEW_PARAM[state.view])
-  if (state.view === 'timeline') params.set('ab', state.start)
-  else {
-    params.set('monat', state.month)
-    params.set('tag', state.day)
-  }
+  params.set('tage', String(state.length))
+  params.set('ab', state.start)
   params.set('objekt', state.property ?? ALL_PROPERTIES)
   if (state.entry) params.set('eintrag', state.entry)
   if (state.create) params.set('neu', `${state.create.apartmentId}_${state.create.arrival}`)
-  return `${CALENDAR_PATH[variant]}?${params.toString()}`
+  return `${CALENDAR_PATH}?${params.toString()}`
 }
 
 // Geladener Bereich: Einträge mit Anreise vor `to` und Abreise ab `from` (auch Abreisen am ersten Tag sind sichtbar)
-export function calendarRange(state: CalendarState, variant: CalendarVariant): { from: string; to: string } {
-  if (state.view === 'timeline') return { from: state.start, to: addDays(state.start, TIMELINE_DAYS[variant]) }
-  return monthRange(state.month)
+export function calendarRange(state: CalendarState): { from: string; to: string } {
+  return { from: state.start, to: addDays(state.start, state.length) }
 }
 
 // ---- Wohnungen und Objekte ------------------------------------------------------------------
@@ -206,49 +187,4 @@ export function layoutRow(entries: CalendarEntry[], from: string, days: number):
 export function dayAt(fraction: number, from: string, days: number): string {
   const index = Math.min(days - 1, Math.max(0, Math.floor(fraction * days)))
   return addDays(from, index)
-}
-
-// ---- Monatsansicht --------------------------------------------------------------------------
-
-export type MonthCell = CalendarDay & {
-  // Wohnungen mit Buchung, Option oder Sperre in dieser Nacht / alle aktiven Wohnungen (archivierte zählen nicht)
-  occupied: number
-  total: number
-  // Buchungen und Optionen (ohne Sperren)
-  arrivals: number
-  departures: number
-}
-
-export function monthCells(
-  month: string,
-  apartments: CalendarApartment[],
-  entries: CalendarEntry[],
-  today: string
-): { leadBlanks: number; cells: MonthCell[] } {
-  const { from, to } = monthRange(month)
-  const active = new Set(apartments.filter((a) => !a.archived).map((a) => a.id))
-  const shown = new Set(apartments.map((a) => a.id))
-  const own = entries.filter((e) => shown.has(e.apartmentId))
-  const guests = own.filter((e) => e.kind !== 'block')
-  const cells = calendarDays(from, nightsBetween(from, to), today).map((day) => {
-    const occupied = new Set(own.filter((e) => active.has(e.apartmentId) && e.arrival <= day.date && day.date < e.departure).map((e) => e.apartmentId))
-    return {
-      ...day,
-      occupied: occupied.size,
-      total: active.size,
-      arrivals: guests.filter((e) => e.arrival === day.date).length,
-      departures: guests.filter((e) => e.departure === day.date).length,
-    }
-  })
-  return { leadBlanks: weekdayIndex(from), cells }
-}
-
-export type DayItem = { entry: CalendarEntry; tag: 'arrival' | 'departure' | 'until' }
-
-// Tagesliste: Einträge, die in der Nacht belegen oder an diesem Tag abreisen
-export function dayItems(day: string, entries: CalendarEntry[]): DayItem[] {
-  return entries
-    .filter((e) => (e.arrival <= day && day < e.departure) || e.departure === day)
-    .sort((a, b) => a.arrival.localeCompare(b.arrival) || a.departure.localeCompare(b.departure))
-    .map((entry) => ({ entry, tag: entry.arrival === day ? 'arrival' : entry.departure === day ? 'departure' : 'until' }))
 }

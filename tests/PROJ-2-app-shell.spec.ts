@@ -90,6 +90,8 @@ test.describe('Handy und Tablet hochkant', () => {
     await expect(bottom.getByRole('link', { name: 'Dashboard' })).toBeVisible()
     await expect(bottom.getByRole('button', { name: 'Mehr' })).toBeVisible()
     await expect(page.getByRole('navigation', { name: 'Hauptnavigation' })).toBeHidden()
+    // PROJ-9 refine 2026-11-10: „Belegung“ entfällt, „Gästeblätter“ rückt in die Leiste
+    await expect(bottom.getByRole('link')).toHaveText(['Dashboard', 'Buchungen', 'Gäste', 'Gästeblätter'])
   })
 
   test('„Mehr“ zeigt Kunde, Benutzermenü und Sync-Status', async ({ page }) => {

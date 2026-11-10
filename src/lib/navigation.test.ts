@@ -23,25 +23,25 @@ const item = (id: NavItem['id'], over: Partial<NavItem> = {}): NavItem => ({
 describe('Navigationsliste', () => {
   it('enthält alle Bereiche aus dem Entwurf in dessen Reihenfolge', () => {
     expect(NAV_ITEMS.map((i) => i.id)).toEqual([
-      'dashboard', 'calendar', 'bookings', 'guests', 'guestSheets', 'invoices', 'payments', 'reports', 'tax', 'channels', 'settings', 'operator',
+      'dashboard', 'bookings', 'guests', 'guestSheets', 'invoices', 'payments', 'reports', 'tax', 'channels', 'settings', 'operator',
     ])
   })
 
-  it('zeigt derzeit Dashboard, Belegung (PROJ-9), Buchungen (PROJ-8) und Gäste (PROJ-7) und für Inhaber Auswertungen (PROJ-18), Ortstaxe (PROJ-16) und Einstellungen (PROJ-4)', () => {
-    expect(visibleNavItems('owner').map((i) => i.id)).toEqual(['dashboard', 'calendar', 'bookings', 'guests', 'guestSheets', 'invoices', 'payments', 'reports', 'tax', 'settings'])
-    expect(visibleNavItems('staff').map((i) => i.id)).toEqual(['dashboard', 'calendar', 'bookings', 'guests', 'guestSheets', 'invoices', 'payments'])
+  it('zeigt derzeit Dashboard, Buchungen (PROJ-8) und Gäste (PROJ-7) und für Inhaber Auswertungen (PROJ-18), Ortstaxe (PROJ-16) und Einstellungen (PROJ-4)', () => {
+    expect(visibleNavItems('owner').map((i) => i.id)).toEqual(['dashboard', 'bookings', 'guests', 'guestSheets', 'invoices', 'payments', 'reports', 'tax', 'settings'])
+    expect(visibleNavItems('staff').map((i) => i.id)).toEqual(['dashboard', 'bookings', 'guests', 'guestSheets', 'invoices', 'payments'])
   })
 
   it('zeigt den Betreiber-Bereich nur dem Admin, unabhängig von der Rolle (PROJ-5)', () => {
-    expect(visibleNavItems({ role: 'staff', isAdmin: true }).map((i) => i.id)).toEqual(['dashboard', 'calendar', 'bookings', 'guests', 'guestSheets', 'invoices', 'payments', 'operator'])
-    expect(visibleNavItems({ role: 'owner', isAdmin: true }).map((i) => i.id)).toEqual(['dashboard', 'calendar', 'bookings', 'guests', 'guestSheets', 'invoices', 'payments', 'reports', 'tax', 'settings', 'operator'])
+    expect(visibleNavItems({ role: 'staff', isAdmin: true }).map((i) => i.id)).toEqual(['dashboard', 'bookings', 'guests', 'guestSheets', 'invoices', 'payments', 'operator'])
+    expect(visibleNavItems({ role: 'owner', isAdmin: true }).map((i) => i.id)).toEqual(['dashboard', 'bookings', 'guests', 'guestSheets', 'invoices', 'payments', 'reports', 'tax', 'settings', 'operator'])
     expect(visibleNavItems({ role: 'owner', isAdmin: false }).map((i) => i.id)).not.toContain('operator')
     expect(isAreaAvailable('operator', 'owner')).toBe(false)
     expect(isAreaAvailable('operator', { role: 'staff', isAdmin: true })).toBe(true)
   })
 
   it('blendet nicht fertige Bereiche aus', () => {
-    const items = [item('dashboard'), item('calendar', { ready: false })]
+    const items = [item('dashboard'), item('channels', { ready: false })]
     expect(visibleNavItems('owner', items).map((i) => i.id)).toEqual(['dashboard'])
   })
 
@@ -71,26 +71,26 @@ describe('Navigationsliste', () => {
 describe('Handy-Navigation', () => {
   it('nimmt höchstens 4 Hauptbereiche in die untere Leiste, der Rest kommt unter „Mehr“', () => {
     const items = [
-      item('dashboard'), item('calendar'), item('bookings'), item('guests'), item('payments'),
+      item('dashboard'), item('bookings'), item('guests'), item('guestSheets'), item('payments'),
       item('settings', { mobile: 'more' }),
     ]
     const { primary, more } = mobileNav('owner', items)
-    expect(primary.map((i) => i.id)).toEqual(['dashboard', 'calendar', 'bookings', 'guests'])
+    expect(primary.map((i) => i.id)).toEqual(['dashboard', 'bookings', 'guests', 'guestSheets'])
     expect(more.map((i) => i.id)).toEqual(['payments', 'settings'])
   })
 
   it('lässt keine leeren Plätze, wenn weniger Bereiche freigegeben sind', () => {
-    const items = [item('dashboard'), item('calendar', { ready: false }), item('tax', { mobile: 'more' })]
+    const items = [item('dashboard'), item('channels', { ready: false }), item('tax', { mobile: 'more' })]
     const { primary, more } = mobileNav('owner', items)
     expect(primary.map((i) => i.id)).toEqual(['dashboard'])
     expect(more.map((i) => i.id)).toEqual(['tax'])
   })
 
-  it('entspricht mit allen fertigen Bereichen dem Entwurf', () => {
+  it('Dashboard, Buchungen, Gäste, Gästeblätter; „Belegung“ entfällt (PROJ-9 refine 2026-11-10)', () => {
     const allReady = NAV_ITEMS.map((i) => ({ ...i, ready: true }))
     const { primary, more } = mobileNav('owner', allReady)
-    expect(primary.map((i) => i.id)).toEqual(['dashboard', 'calendar', 'bookings', 'guests'])
-    expect(more.map((i) => i.id)).toEqual(['guestSheets', 'invoices', 'payments', 'reports', 'tax', 'channels', 'settings'])
+    expect(primary.map((i) => i.id)).toEqual(['dashboard', 'bookings', 'guests', 'guestSheets'])
+    expect(more.map((i) => i.id)).toEqual(['invoices', 'payments', 'reports', 'tax', 'channels', 'settings'])
     expect(mobileNav({ role: 'owner', isAdmin: true }, allReady).more.map((i) => i.id)).toContain('operator')
   })
 })
@@ -98,7 +98,7 @@ describe('Handy-Navigation', () => {
 describe('Erreichbarkeit und aktiver Punkt', () => {
   it('nicht fertige Bereiche sind nicht erreichbar', () => {
     expect(isAreaAvailable('dashboard', 'owner')).toBe(true)
-    expect(isAreaAvailable('calendar', 'staff')).toBe(true)
+    expect(isAreaAvailable('guestSheets', 'staff')).toBe(true)
     expect(isAreaAvailable('channels', 'owner')).toBe(false)
     expect(isAreaAvailable('reports', 'owner')).toBe(true)
     expect(isAreaAvailable('reports', 'staff')).toBe(false)
@@ -128,7 +128,6 @@ describe('Rücksprung-Ziele nach der Anmeldung', () => {
     expect(isPathAvailable('/betreiber', admin)).toBe(true)
     expect(isPathAvailable('/einstellungen/team', 'owner')).toBe(true)
     expect(isPathAvailable('/betreiber', 'owner')).toBe(false)
-    expect(isPathAvailable('/belegung', 'staff')).toBe(true)
     expect(isPathAvailable('/kanaele', 'owner')).toBe(false)
     expect(isPathAvailable('/auswertungen', 'owner')).toBe(true)
     expect(isPathAvailable('/auswertungen', 'staff')).toBe(false)

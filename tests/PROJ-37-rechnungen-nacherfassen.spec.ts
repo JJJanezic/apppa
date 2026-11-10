@@ -228,7 +228,9 @@ test.describe('Menüpunkt und Liste', () => {
     if (project === 'tablet') return
     const links = await page.getByRole('navigation', { name: 'Hauptnavigation' }).getByRole('link').allInnerTexts()
     const names = links.map((l) => l.trim())
-    expect(names.indexOf('Rechnungen')).toBe(names.indexOf('Gäste') + 1)
+    // Seit PROJ-26 stehen „Gästeblätter“ zwischen „Gäste“ und „Rechnungen“
+    expect(names.indexOf('Gästeblätter')).toBe(names.indexOf('Gäste') + 1)
+    expect(names.indexOf('Rechnungen')).toBe(names.indexOf('Gästeblätter') + 1)
     // Seit PROJ-45 steht „Zahlungen“ zwischen „Rechnungen“ und „Einstellungen“
     expect(names.indexOf('Zahlungen')).toBe(names.indexOf('Rechnungen') + 1)
   })
@@ -595,7 +597,7 @@ test.describe('Bearbeiten, Löschen, Buchungsdetail', () => {
     expect((await invoiceRow(first))!.total_cents).toBe(20000)
 
     // Kalender-Panel
-    await page.goto(`/belegung?eintrag=${booking.id}`)
+    await page.goto(`/?eintrag=${booking.id}`)
     await ready(page)
     await expect(panel(page).getByRole('link', { name: '2026-0011' })).toBeVisible()
     await expect(panel(page).getByRole('link', { name: '2026-0012' })).toBeVisible()

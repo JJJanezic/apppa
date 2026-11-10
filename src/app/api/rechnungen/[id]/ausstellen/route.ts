@@ -119,7 +119,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   revalidatePath(invoiceHref(id))
   revalidatePath(bookingHref(state.view.booking.id))
   revalidatePath('/buchungen')
-  revalidatePath('/belegung')
+  revalidatePath('/')
   revalidatePath('/einstellungen/rechnungen')
   return answer({ ok: true, id: data as string })
 }

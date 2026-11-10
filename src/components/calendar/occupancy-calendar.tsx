@@ -11,27 +11,26 @@ import { EmptyState } from '@/components/empty-state'
 import { Button } from '@/components/ui/button'
 import { todayIso } from '@/lib/bookings'
 import { findBooking, getBookableApartments } from '@/lib/bookings-data'
-import { CALENDAR_COOKIE, calendarHref, calendarRange, type CalendarVariant, parseCalendarState } from '@/lib/calendar'
+import { CALENDAR_COOKIE, calendarHref, calendarRange, parseCalendarState } from '@/lib/calendar'
 import { getCalendarData } from '@/lib/calendar-data'
 import { getTenantContext } from '@/lib/tenant'
 
 interface OccupancyCalendarProps {
-  variant: CalendarVariant
   searchParams: Record<string, string | string[] | undefined>
-  // Dashboard (PROJ-14): Kunden im Filter; ohne Angabe nur der gewählte Kunde (Vollbild-Seite)
+  // Dashboard (PROJ-14): Kunden im Filter; ohne Angabe nur der gewählte Kunde
   tenants?: readonly { id: string; name: string }[]
 }
 
-// Belegungskalender (PROJ-9) auf dem Dashboard und der Vollbild-Seite: liest Zustand aus Adresse und Cookie,
+// Belegungskalender (PROJ-9) auf dem Dashboard: liest Zustand aus Adresse und Cookie,
 // lädt die Einträge des Bereichs (ohne Beträge) und bei offenem Eintrag dessen Detail (Preis nur für Inhaber).
-export async function OccupancyCalendar({ variant, searchParams, tenants }: OccupancyCalendarProps) {
+export async function OccupancyCalendar({ searchParams, tenants }: OccupancyCalendarProps) {
   const { active } = await getTenantContext()
   if (!active) return null
   const owner = active.role === 'owner'
   const today = todayIso()
   const state = parseCalendarState(searchParams, (await cookies()).get(CALENDAR_COOKIE)?.value, today)
   const [data, bookable, booking] = await Promise.all([
-    getCalendarData(calendarRange(state, variant), tenants),
+    getCalendarData(calendarRange(state), tenants),
     getBookableApartments(),
     state.entry ? findBooking(state.entry) : Promise.resolve(null),
   ])
@@ -56,7 +55,7 @@ export async function OccupancyCalendar({ variant, searchParams, tenants }: Occu
     )
   }
 
-  const closeHref = calendarHref(variant, { ...state, entry: null })
+  const closeHref = calendarHref({ ...state, entry: null })
   const panel = booking && (
     <EntryPanel
       key={booking.id}
@@ -70,7 +69,7 @@ export async function OccupancyCalendar({ variant, searchParams, tenants }: Occu
         owner={owner}
         today={today}
         layout="panel"
-        conflictHref={(id) => calendarHref(variant, { ...state, entry: id })}
+        conflictHref={(id) => calendarHref({ ...state, entry: id })}
         closeHref={closeHref}
       />
     </EntryPanel>
@@ -78,7 +77,6 @@ export async function OccupancyCalendar({ variant, searchParams, tenants }: Occu
 
   return (
     <CalendarView
-      variant={variant}
       state={state}
       today={today}
       apartments={data.apartments}

@@ -1,6 +1,6 @@
 # PROJ-9: Belegungskalender
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-10-25
 **Last Updated:** 2026-11-10 (refine: nur Dashboard-Zeitleiste 14/28 Tage, Monatsansicht und Seite „Belegung“ entfallen)
 
@@ -328,6 +328,20 @@ Dashboard  /
 **E) Pakete:** keine neuen.
 
 **F) Umfang:** nur `/frontend`, kein `/backend`.
+
+### Umsetzung Frontend (2026-11-10)
+- **Regeln** (`src/lib/calendar.ts`): Länge `14 | 28` statt Variante und Ansicht, Schritt = halbe Länge, Adresse `/?tage=…&ab=…&objekt=…`, Cookie `14.alle` bzw. `28.<Objekt>`; alte Werte (`zeitleiste.…`, `monat.…`, `ansicht`, `monat`, `tag`) werden ignoriert, das gemerkte Objekt bleibt. Monatsfunktionen (`monthCells`, `dayItems`) entfernt.
+- **Kalender** (`calendar-view.tsx`): Reiter „14 Tage | 28 Tage“ (shadcn `Tabs`) an der Stelle von „Zeitleiste | Monat“, Überschrift immer `h2`, Knopf „Vollbild“ entfernt. `calendar-timeline.tsx` richtet die Mindestbreite nach der Länge (14: wie bisher Dashboard, 28: wie bisher Vollbild). `calendar-month.tsx` gelöscht.
+- **Seite** `src/app/(app)/belegung/` gelöscht; Umleitung `/belegung` → `/` (308) in `next.config.ts`, Adressangaben gehen mit.
+- **Navigation:** Punkt „Belegung“ samt Icon und Text entfernt; „Gästeblätter“ ist Hauptbereich am Handy (Dashboard, Buchungen, Gäste, Gästeblätter).
+- **Texte:** `calendar.lengthLabel`, `calendar.length` neu; Texte der Monatsansicht, „Vollbild“ und `nav.calendar` entfernt.
+- **Aktualisierung:** Rechnung ausstellen, Gutschrift, Rechnung nacherfassen und Zahlungen frischen `/` statt `/belegung` auf.
+- **Tests:**
+  - Unit: `calendar.test.ts` (Länge, Cookie inkl. alter Werte, Adresse, Bereich, Schritt), `navigation.test.ts` (ohne „Belegung“, Handy-Leiste mit Gästeblätter).
+  - E2E PROJ-9: Monats- und Vollbild-Tests ersetzt durch Umleitung, Schalter, Blättern um 14, Einträge außerhalb von 14 Tagen, Merken nach Neuladen. Leerzustand-Test auf dem Dashboard mit `.first()` (auch „Ortstaxe“ verlinkt zu den Wohnungen).
+  - E2E angepasst: PROJ-2 (Handy-Leiste), PROJ-30 und PROJ-31 (Monatsansicht-Prüfungen entfernt, Kalender über `/?tage=28`), PROJ-37 (Panel über `/?eintrag=`; Menü-Reihenfolge seit PROJ-26 mit „Gästeblätter“ korrigiert, war schon vorher veraltet).
+  - Gelaufen gegen den gebauten Server: PROJ-9 desktop komplett und mobile Layout/axe, PROJ-2 mobile, PROJ-14 Belegung/Zeitung, PROJ-30 Kalender, PROJ-31 Kalender (desktop, mobile), PROJ-37 Panel und Menü; alle grün. Unit-Tests: 1022 grün. Lint und Build grün.
+- **Kein Backend:** keine Migration, keine neue Abfrage.
 
 ## Tech Design (Solution Architect)
 

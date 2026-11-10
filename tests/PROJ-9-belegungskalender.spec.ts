@@ -1,10 +1,9 @@
 import AxeBuilder from '@axe-core/playwright'
 import { expect, type Page, test as base } from '@playwright/test'
 
-import { deDate, re } from './support/format'
 import { createTenant, createUser, deleteUser, type E2EUser, hasSupabaseEnv, service, signInAs } from './support/supabase'
 
-// PROJ-9: Belegungskalender. Abläufe nur im Projekt „desktop“, Layout und Barrierefreiheit in allen Breiten.
+// PROJ-9: Belegungskalender (seit refine 2026-11-10 nur auf dem Dashboard, 14 oder 28 Tage). Abläufe nur im Projekt „desktop“, Layout und Barrierefreiheit in allen Breiten.
 // Testdaten werden über die Datenbank angelegt, relativ zu heute (Wien); die Kunden verschwinden mit ihren Inhabern.
 
 const test = base.extend<{ users: (opts?: Parameters<typeof createUser>[0]) => Promise<E2EUser> }>({
@@ -32,13 +31,6 @@ function day(offset: number, from = TODAY) {
   d.setUTCDate(d.getUTCDate() + offset)
   return d.toISOString().slice(0, 10)
 }
-// Erster Tag des nächsten Monats: Monatsansicht mit festen Zahlen
-const NEXT_MONTH = (() => {
-  const d = new Date(`${TODAY.slice(0, 7)}-01T12:00:00Z`)
-  d.setUTCMonth(d.getUTCMonth() + 1)
-  return d.toISOString().slice(0, 7)
-})()
-const inMonth = (n: number) => `${NEXT_MONTH}-${String(n).padStart(2, '0')}`
 
 async function setup(page: Page, users: Users, role: 'owner' | 'staff' = 'owner') {
   const owner = await users({ displayName: 'Olga Owner' })
@@ -151,6 +143,8 @@ const bar = (page: Page, kind: 'Buchung' | 'Option' | 'Sperre', name: string) =>
   page.getByRole('button', { name: new RegExp(`^${kind}: ${name},`) })
 const timeline = (page: Page) => page.getByRole('region', { name: /Belegung je Wohnung/ })
 const dialog = (page: Page) => page.getByRole('dialog')
+// Kopf der Zeitleiste: eine Spalte je Tag
+const HEADER = (page: Page) => timeline(page).locator('div.grid').first().locator('> div').nth(1).locator('> div')
 
 async function open(page: Page, path = '/') {
   await page.goto(path)
@@ -171,25 +165,35 @@ test.beforeEach(() => {
 })
 
 test.describe('Orte und Navigation', () => {
-  test('Dashboard zeigt die Zeitleiste über 14 Tage ab heute − 2, Navigation und Vollbild über 28 Tage', async ({ page, users }) => {
+  test('Dashboard zeigt die Zeitleiste über 14 Tage ab heute − 2; kein Menüpunkt „Belegung“, kein „Monat“, kein „Vollbild“', async ({ page, users }) => {
     desktopOnly()
     const { tenantId, signIn } = await setup(page, users)
     await withCalendar(tenantId)
     await signIn()
     await open(page)
     await expect(page.getByRole('heading', { level: 2, name: 'Belegung' })).toBeVisible()
-    await expect(page.getByRole('tab', { name: 'Zeitleiste' })).toHaveAttribute('aria-selected', 'true')
+    await expect(page.getByRole('tab', { name: '14 Tage' })).toHaveAttribute('aria-selected', 'true')
     // 14 Spalten: Wochentag + Tageszahl je Tag im Kopf
-    const header = timeline(page).locator('div.grid').first().locator('> div').nth(1).locator('> div')
+    const header = HEADER(page)
     await expect(header).toHaveCount(14)
     await expect(header.first()).toContainText(String(Number(day(-2).slice(8))))
-    await expect(page.getByRole('navigation', { name: 'Hauptnavigation' }).getByRole('link', { name: 'Belegung' })).toBeVisible()
+    await expect(page.getByRole('navigation', { name: 'Hauptnavigation' }).getByRole('link', { name: 'Belegung' })).toHaveCount(0)
+    await expect(page.getByRole('tab', { name: 'Monat' })).toHaveCount(0)
+    await expect(page.getByRole('link', { name: 'Vollbild' })).toHaveCount(0)
+  })
 
-    await page.getByRole('link', { name: 'Vollbild' }).click()
-    await expect(page).toHaveURL(/\/belegung$/)
-    await expect(page.getByRole('heading', { level: 1, name: 'Belegung' })).toBeVisible()
-    await expect(timeline(page).locator('div.grid').first().locator('> div').nth(1).locator('> div')).toHaveCount(28)
-    await expect(page).toHaveTitle('Belegung · apppa')
+  test('/belegung leitet auf das Dashboard um, ein offener Eintrag geht mit (refine 2026-11-10)', async ({ page, users }) => {
+    desktopOnly()
+    const { tenantId, signIn } = await setup(page, users)
+    const { entries } = await withCalendar(tenantId)
+    await signIn()
+    await page.goto('/belegung?ansicht=monat&monat=2026-10')
+    await expect(page).toHaveURL(/\/\?ansicht=monat/)
+    await ready(page)
+    await expect(page.getByRole('tab', { name: '14 Tage' })).toHaveAttribute('aria-selected', 'true')
+    await page.goto(`/belegung?eintrag=${entries.brenner.id}`)
+    await ready(page)
+    await expect(dialog(page).getByRole('heading', { name: 'Lukas Brenner' })).toBeVisible()
   })
 })
 
@@ -276,58 +280,40 @@ test.describe('Zeitleiste', () => {
   })
 })
 
-test.describe('Monatsansicht', () => {
-  async function monthData(tenantId: string) {
-    const p = await addProperty(tenantId, 'Haus Monat')
-    const a = await addApartment(tenantId, p, 'A')
-    const b = await addApartment(tenantId, p, 'B')
-    const c = await addApartment(tenantId, p, 'C')
-    const d = await addApartment(tenantId, p, 'D', { archived_at: new Date().toISOString() })
-    await addEntry(tenantId, a, { guestId: await addGuest(tenantId, 'Anders', 'Ann'), arrival: inMonth(3), departure: inMonth(6) })
-    await addEntry(tenantId, b, { kind: 'block', arrival: inMonth(3), departure: inMonth(5) })
-    await addEntry(tenantId, c, { kind: 'option', guestId: await addGuest(tenantId, 'Chen', 'Cai'), arrival: inMonth(5), departure: inMonth(7), optionUntil: inMonth(1) })
-    await addEntry(tenantId, d, { guestId: await addGuest(tenantId, 'Dorn', 'Didi'), arrival: inMonth(3), departure: inMonth(4) })
-  }
-  const cell = (page: Page, n: number, x: number, y: number, an: number, ab: number) =>
-    page.getByRole('button', { name: new RegExp(`^${re(deDate(inMonth(n)))}: ${x} von ${y} belegt, ${an} Anreisen, ${ab} Abreisen$`) })
-
-  test('Kacheln zählen Buchungen, Optionen und Sperren (ohne archivierte Wohnungen); An/Ab ohne Sperren; Tagesliste', async ({ page, users }) => {
+test.describe('14 oder 28 Tage (refine 2026-11-10)', () => {
+  test('„28 Tage“ behält den Start, blättert um 14 Tage; „Heute“ bleibt bei 28 Tagen', async ({ page, users }) => {
     desktopOnly()
     const { tenantId, signIn } = await setup(page, users)
-    await monthData(tenantId)
+    await withCalendar(tenantId)
     await signIn()
-    await open(page, `/?ansicht=monat&monat=${NEXT_MONTH}`)
-    await expect(page.getByRole('tab', { name: 'Monat' })).toHaveAttribute('aria-selected', 'true')
-    await expect(cell(page, 1, 0, 3, 0, 0)).toHaveAttribute('aria-pressed', 'true')
-    await expect(cell(page, 3, 2, 3, 2, 0)).toContainText('2/3')
-    await expect(cell(page, 4, 2, 3, 0, 1)).toBeVisible()
-    await expect(cell(page, 5, 2, 3, 1, 0)).toBeVisible()
-    await expect(cell(page, 6, 1, 3, 0, 1)).toBeVisible()
-    await expect(page.getByText('Keine Belegung an diesem Tag.')).toBeVisible()
-
-    await cell(page, 5, 2, 3, 1, 0).click()
-    await expect(cell(page, 5, 2, 3, 1, 0)).toHaveAttribute('aria-pressed', 'true')
-    await expect(page).toHaveURL(new RegExp(`tag=${inMonth(5)}`))
-    const list = page.locator('section[aria-live="polite"]')
-    await expect(list.getByRole('button')).toHaveCount(3)
-    await expect(list.getByRole('button', { name: /Ann Anders.*bis/ })).toBeVisible()
-    await expect(list.getByRole('button', { name: /Eigennutzung.*Abreise/ })).toBeVisible()
-    await expect(list.getByRole('button', { name: /Option · Cai Chen.*Anreise/ })).toBeVisible()
-    await list.getByRole('button', { name: /Ann Anders/ }).click()
-    await expect(dialog(page).getByRole('heading', { name: 'Ann Anders' })).toBeVisible()
+    await open(page)
+    await page.getByRole('button', { name: 'Weiter' }).click()
+    await expect(page).toHaveURL(new RegExp(`ab=${day(5)}`))
+    await page.getByRole('tab', { name: '28 Tage' }).click()
+    await expect(page).toHaveURL(new RegExp(`tage=28&ab=${day(5)}`))
+    await expect(HEADER(page)).toHaveCount(28)
+    await expect(page.getByRole('tab', { name: '28 Tage' })).toHaveAttribute('aria-selected', 'true')
+    await page.getByRole('button', { name: 'Weiter' }).click()
+    await expect(page).toHaveURL(new RegExp(`ab=${day(19)}`))
+    await page.getByRole('button', { name: 'Zurück' }).click()
+    await page.getByRole('button', { name: 'Zurück' }).click()
+    await expect(page).toHaveURL(new RegExp(`ab=${day(-9)}`))
+    await page.getByRole('button', { name: 'Heute' }).click()
+    await expect(page).toHaveURL(new RegExp(`tage=28&ab=${day(-2)}`))
+    await expect(HEADER(page)).toHaveCount(28)
   })
 
-  test('Blättern monatsweise; Klick auf einen Tag lädt nicht neu', async ({ page, users }) => {
+  test('28 Tage zeigen Einträge, die bei 14 Tagen außerhalb liegen', async ({ page, users }) => {
     desktopOnly()
     const { tenantId, signIn } = await setup(page, users)
-    await monthData(tenantId)
+    const { see } = await withCalendar(tenantId)
+    const top = await addApartment(tenantId, see, 'Top 9')
+    await addEntry(tenantId, top, { guestId: await addGuest(tenantId, 'Spät', 'Susi'), arrival: day(18), departure: day(20) })
     await signIn()
-    await open(page, '/?ansicht=monat')
-    await page.getByRole('button', { name: 'Weiter' }).click()
-    await expect(page).toHaveURL(new RegExp(`monat=${NEXT_MONTH}`))
-    await page.evaluate(() => ((window as unknown as { __marker: boolean }).__marker = true))
-    await cell(page, 3, 2, 3, 2, 0).click()
-    expect(await page.evaluate(() => (window as unknown as { __marker?: boolean }).__marker)).toBe(true)
+    await open(page)
+    await expect(bar(page, 'Buchung', 'Susi Spät')).toHaveCount(0)
+    await page.getByRole('tab', { name: '28 Tage' }).click()
+    await expect(bar(page, 'Buchung', 'Susi Spät')).toBeVisible()
   })
 })
 
@@ -482,7 +468,7 @@ test.describe('Anlegen per Klick', () => {
 })
 
 test.describe('Filter, gemerkte Ansicht und archivierte Wohnungen', () => {
-  test('Objekt-Chips filtern; Ansicht und Filter bleiben nach Neuladen und im Vollbild, der Zeitraum nicht', async ({ page, users }) => {
+  test('Objekt-Chips filtern; Länge und Filter bleiben nach Neuladen, der Zeitraum nicht', async ({ page, users }) => {
     desktopOnly()
     const { tenantId, signIn } = await setup(page, users)
     await withCalendar(tenantId)
@@ -494,19 +480,17 @@ test.describe('Filter, gemerkte Ansicht und archivierte Wohnungen', () => {
     await expect(chips.getByRole('button', { name: 'Stadthaus' })).toHaveAttribute('aria-pressed', 'true')
     await expect(timeline(page).getByText('Top 1', { exact: true })).toHaveCount(0)
     await expect(timeline(page).getByText('Loft', { exact: true })).toBeVisible()
-    await page.getByRole('tab', { name: 'Monat' }).click()
-    await expect(page).toHaveURL(/ansicht=monat/)
-    // Monat: x/y zählt nur „Loft“ (Alt ist archiviert)
-    await expect(page.getByRole('button', { name: /: 1 von 1 belegt/ }).first()).toBeVisible()
+    await page.getByRole('tab', { name: '28 Tage' }).click()
+    await expect(page).toHaveURL(/tage=28/)
+    await page.getByRole('button', { name: 'Weiter' }).click()
+    await expect(page).toHaveURL(new RegExp(`ab=${day(12)}`))
 
     await page.goto('/')
     await ready(page)
-    await expect(page.getByRole('tab', { name: 'Monat' })).toHaveAttribute('aria-selected', 'true')
+    await expect(page.getByRole('tab', { name: '28 Tage' })).toHaveAttribute('aria-selected', 'true')
+    await expect(HEADER(page)).toHaveCount(28)
     await expect(page.getByRole('group', { name: 'Objekt' }).getByRole('button', { name: 'Stadthaus' })).toHaveAttribute('aria-pressed', 'true')
-    await page.getByRole('link', { name: 'Vollbild' }).click()
-    await expect(page.getByRole('heading', { level: 1, name: 'Belegung' })).toBeVisible()
-    await expect(page.getByRole('tab', { name: 'Monat' })).toHaveAttribute('aria-selected', 'true')
-    await expect(page.getByRole('group', { name: 'Objekt' }).getByRole('button', { name: 'Stadthaus' })).toHaveAttribute('aria-pressed', 'true')
+    await expect(HEADER(page).first()).toContainText(String(Number(day(-2).slice(8))))
   })
 
   test('nur ein Objekt: keine Chips; archivierte Wohnung nur mit Eintrag und mit Hinweis', async ({ page, users }) => {
@@ -546,22 +530,23 @@ test.describe('Filter, gemerkte Ansicht und archivierte Wohnungen', () => {
     desktopOnly()
     const { tenantId, signIn } = await setup(page, users)
     await signIn()
-    await page.goto('/belegung')
+    await page.goto('/')
     await ready(page)
     await expect(page.getByRole('heading', { name: 'Noch keine Wohnung' })).toBeVisible()
-    await page.locator('main a[href="/einstellungen/wohnungen"]').click()
+    // Leerzustand der Belegung steht vor dem Link im Abschnitt „Ortstaxe“ (PROJ-14)
+    await page.locator('main a[href="/einstellungen/wohnungen"]').first().click()
     await expect(page).toHaveURL(/\/einstellungen\/wohnungen/)
     await addApartment(tenantId, await addProperty(tenantId, 'Leerhaus'), 'Leer 1')
-    await open(page, '/belegung')
+    await open(page, '/')
     await expect(timeline(page).getByText('Leer 1', { exact: true })).toBeVisible()
     await expect(timeline(page).getByRole('button')).toHaveCount(0)
   })
 })
 
 test.describe('Sicherheit', () => {
-  test('ohne Anmeldung führt /belegung zur Anmeldung', async ({ page }) => {
+  test('ohne Anmeldung führt /belegung (Umleitung aufs Dashboard) zur Anmeldung', async ({ page }) => {
     desktopOnly()
-    await page.goto('/belegung?ansicht=monat')
+    await page.goto('/belegung?tage=28')
     await expect(page).toHaveURL(/\/anmelden/)
   })
 
@@ -575,13 +560,14 @@ test.describe('Sicherheit', () => {
     await signIn()
     let dialogs = 0
     page.on('dialog', () => dialogs++)
+    // Alter Cookie-Wert der Monatsansicht mit fremder Objekt-ID: 14 Tage, „Alle“
     await page.context().addCookies([{ name: 'apppa-belegung', value: 'monat.11111111-1111-4111-8111-111111111111', url: 'http://localhost:3000' }])
     await open(page)
-    await expect(page.getByRole('tab', { name: 'Monat' })).toHaveAttribute('aria-selected', 'true')
+    await expect(page.getByRole('tab', { name: '14 Tage' })).toHaveAttribute('aria-selected', 'true')
     await expect(page.getByRole('group', { name: 'Objekt' }).getByRole('button', { name: 'Alle' })).toHaveAttribute('aria-pressed', 'true')
     await page.context().addCookies([{ name: 'apppa-belegung', value: '"><script>alert(1)</script>', url: 'http://localhost:3000' }])
-    await open(page, '/?objekt=<script>&ab=nicht-datum&ansicht=x')
-    await expect(page.getByRole('tab', { name: 'Zeitleiste' })).toHaveAttribute('aria-selected', 'true')
+    await open(page, '/?objekt=<script>&ab=nicht-datum&tage=x')
+    await expect(page.getByRole('tab', { name: '14 Tage' })).toHaveAttribute('aria-selected', 'true')
     await expect(timeline(page).getByText('Top <b>3</b>', { exact: true })).toBeVisible()
     await expect(page.getByRole('group', { name: 'Objekt' }).getByRole('button', { name: 'Haus <i>X</i>' })).toBeVisible()
     await expect(page.getByRole('button', { name: /^Buchung: Eve <img src=x/ })).toBeVisible()
@@ -615,8 +601,7 @@ test.describe('Layout und Barrierefreiheit', () => {
     await expect(bar(page, 'Buchung', 'Petra Wallner').locator('span')).toBeInViewport()
   })
 
-
-  test('Zeitleiste, Monat und Panel ohne axe-Verstöße; die Seite scrollt nicht seitlich', async ({ page, users }) => {
+  test('14 Tage, 28 Tage und Panel ohne axe-Verstöße; die Seite scrollt nicht seitlich', async ({ page, users }) => {
     const { tenantId, signIn } = await setup(page, users)
     await withCalendar(tenantId)
     await signIn()
@@ -627,7 +612,7 @@ test.describe('Layout und Barrierefreiheit', () => {
       expect(overflow, label).toBeLessThanOrEqual(0)
     }
     await open(page)
-    await check('Zeitleiste')
+    await check('14 Tage')
     // Zeitleiste ist in sich seitlich scrollbar, wenn sie nicht passt
     const fits = await timeline(page).evaluate((el) => el.scrollWidth <= el.clientWidth)
     if (!fits) {
@@ -635,8 +620,8 @@ test.describe('Layout und Barrierefreiheit', () => {
       await timeline(page).evaluate((el) => el.scrollBy(300, 0))
       await expect(timeline(page).getByText('Top 1', { exact: true })).toBeInViewport()
     }
-    await open(page, '/belegung?ansicht=monat')
-    await check('Monat')
+    await open(page, '/?tage=28')
+    await check('28 Tage')
     await open(page, '/')
     await bar(page, 'Buchung', 'Anna Huber').click()
     await expect(dialog(page).getByRole('heading', { name: 'Anna Huber' })).toBeVisible()

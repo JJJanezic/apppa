@@ -10,7 +10,6 @@ export type Viewer = { role: Role; isAdmin: boolean; ownsAny?: boolean }
 
 export type NavItemId =
   | 'dashboard'
-  | 'calendar'
   | 'bookings'
   | 'guests'
   | 'guestSheets'
@@ -40,11 +39,10 @@ const OWNER: readonly Role[] = ['owner']
 
 export const NAV_ITEMS: readonly NavItem[] = [
   { id: 'dashboard', href: '/', roles: ALL, ready: true, mobile: 'primary' },
-  { id: 'calendar', href: '/belegung', roles: ALL, ready: true, mobile: 'primary' },
   { id: 'bookings', href: '/buchungen', roles: ALL, ready: true, mobile: 'primary' },
   { id: 'guests', href: '/gaeste', roles: ALL, ready: true, mobile: 'primary' },
-  // PROJ-26: Gästeblätter für Inhaber und Mitarbeiter, am Handy unter „Mehr“
-  { id: 'guestSheets', href: '/gaesteblaetter', roles: ALL, ready: true, mobile: 'more' },
+  // PROJ-26: Gästeblätter für Inhaber und Mitarbeiter; am Handy in der unteren Leiste statt „Belegung“ (PROJ-9 refine 2026-11-10)
+  { id: 'guestSheets', href: '/gaesteblaetter', roles: ALL, ready: true, mobile: 'primary' },
   // PROJ-37: Rechnungen für Inhaber und Mitarbeiter, am Handy unter „Mehr“
   { id: 'invoices', href: '/rechnungen', roles: ALL, ready: true, mobile: 'more' },
   // PROJ-45: Zahlungen für Inhaber und Mitarbeiter (Mitarbeiter erfassen Zahlungen), am Handy unter „Mehr“

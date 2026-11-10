@@ -9,10 +9,10 @@ import {
   calendarProperties,
   calendarRange,
   dayAt,
-  dayItems,
+  DEFAULT_LENGTH,
   layoutRow,
-  monthCells,
   parseCalendarState,
+  timelineStep,
   visibleApartments,
   weekdayIndex,
 } from '@/lib/calendar'
@@ -50,16 +50,9 @@ const entry = (id: string, arrival: string, departure: string, extra: Partial<Ca
 })
 
 describe('Zustand aus Adresse und Cookie', () => {
-  it('ohne Angaben: Zeitleiste ab heute − 2, aktueller Monat, heute gewählt, alle Objekte', () => {
-    expect(parseCalendarState({}, undefined, TODAY)).toEqual({
-      view: 'timeline',
-      start: '2026-10-24',
-      month: '2026-10',
-      day: TODAY,
-      property: null,
-      entry: null,
-      create: null,
-    })
+  it('ohne Angaben: 14 Tage ab heute − 2, alle Objekte', () => {
+    expect(DEFAULT_LENGTH).toBe(14)
+    expect(parseCalendarState({}, undefined, TODAY)).toEqual({ length: 14, start: '2026-10-24', property: null, entry: null, create: null })
   })
 
   it('„neu“ öffnet das Formular vorbelegt (PROJ-14), ungültige Werte zählen nicht', () => {
@@ -67,48 +60,48 @@ describe('Zustand aus Adresse und Cookie', () => {
     expect(parseCalendarState({ neu: `${P1}_2026-02-30` }, undefined, TODAY).create).toBeNull()
     expect(parseCalendarState({ neu: 'x_2026-11-02' }, undefined, TODAY).create).toBeNull()
     const state = parseCalendarState({}, undefined, TODAY)
-    expect(calendarHref('dashboard', { ...state, create: { apartmentId: P1, arrival: '2026-11-02' } })).toBe(`/?ansicht=zeitleiste&ab=2026-10-24&objekt=alle&neu=${P1}_2026-11-02`)
+    expect(calendarHref({ ...state, create: { apartmentId: P1, arrival: '2026-11-02' } })).toBe(`/?tage=14&ab=2026-10-24&objekt=alle&neu=${P1}_2026-11-02`)
   })
 
-  it('Cookie liefert Ansicht und Objekt, die Adresse gewinnt', () => {
-    const cookie = calendarCookieValue('month', P1)
-    expect(parseCalendarState({}, cookie, TODAY)).toMatchObject({ view: 'month', property: P1 })
-    expect(parseCalendarState({ ansicht: 'zeitleiste', objekt: 'alle' }, cookie, TODAY)).toMatchObject({ view: 'timeline', property: null })
+  it('Cookie liefert Länge und Objekt, die Adresse gewinnt', () => {
+    const cookie = calendarCookieValue(28, P1)
+    expect(cookie).toBe(`28.${P1}`)
+    expect(parseCalendarState({}, cookie, TODAY)).toMatchObject({ length: 28, property: P1 })
+    expect(parseCalendarState({ tage: '14', objekt: 'alle' }, cookie, TODAY)).toMatchObject({ length: 14, property: null })
     expect(parseCalendarState({ objekt: P2 }, cookie, TODAY)).toMatchObject({ property: P2 })
   })
 
-  it('ignoriert ungültige Werte', () => {
-    const state = parseCalendarState({ ansicht: 'jahr', ab: '2026-02-30', monat: '2026-13', tag: 'x', objekt: 'x', eintrag: '1' }, 'kaputt', TODAY)
+  it('alte Cookie-Werte der Monatsansicht: 14 Tage, das gemerkte Objekt bleibt (refine 2026-11-10)', () => {
+    expect(parseCalendarState({}, `monat.${P1}`, TODAY)).toMatchObject({ length: 14, property: P1 })
+    expect(parseCalendarState({}, 'zeitleiste.alle', TODAY)).toMatchObject({ length: 14, property: null })
+  })
+
+  it('ignoriert ungültige und alte Adressangaben (ansicht, monat, tag)', () => {
+    const state = parseCalendarState({ tage: '30', ab: '2026-02-30', ansicht: 'monat', monat: '2026-12', tag: '2026-12-03', objekt: 'x', eintrag: '1' }, 'kaputt', TODAY)
     expect(state).toEqual(parseCalendarState({}, undefined, TODAY))
   })
 
-  it('Tag außerhalb des Monats fällt auf den Monatsersten (oder heute im aktuellen Monat)', () => {
-    expect(parseCalendarState({ monat: '2026-12', tag: '2026-10-03' }, undefined, TODAY)).toMatchObject({ month: '2026-12', day: '2026-12-01' })
-    expect(parseCalendarState({ monat: '2026-10' }, undefined, TODAY)).toMatchObject({ day: TODAY })
-    expect(parseCalendarState({ tag: '2026-11-05' }, undefined, TODAY)).toMatchObject({ month: '2026-11', day: '2026-11-05' })
-  })
-
-  it('Adresse enthält Ansicht und Objekt immer, Eintrag nur wenn offen', () => {
+  it('Adresse enthält Länge, Start und Objekt immer, Eintrag nur wenn offen', () => {
     const state = parseCalendarState({}, undefined, TODAY)
-    expect(calendarHref('dashboard', state)).toBe('/?ansicht=zeitleiste&ab=2026-10-24&objekt=alle')
-    expect(calendarHref('full', { ...state, view: 'month', property: P1, entry: ENTRY })).toBe(
-      `/belegung?ansicht=monat&monat=2026-10&tag=${TODAY}&objekt=${P1}&eintrag=${ENTRY}`
-    )
-    expect(parseCalendarState(Object.fromEntries(new URLSearchParams(calendarHref('full', { ...state, entry: ENTRY }).split('?')[1])), undefined, TODAY)).toEqual({
+    expect(calendarHref(state)).toBe('/?tage=14&ab=2026-10-24&objekt=alle')
+    expect(calendarHref({ ...state, length: 28, property: P1, entry: ENTRY })).toBe(`/?tage=28&ab=2026-10-24&objekt=${P1}&eintrag=${ENTRY}`)
+    expect(parseCalendarState(Object.fromEntries(new URLSearchParams(calendarHref({ ...state, length: 28, entry: ENTRY }).split('?')[1])), undefined, TODAY)).toEqual({
       ...state,
+      length: 28,
       entry: ENTRY,
     })
   })
 })
 
-describe('Bereich je Ansicht', () => {
+describe('Bereich und Blättern je Länge', () => {
   const state = parseCalendarState({}, undefined, TODAY)
-  it('Zeitleiste 14 bzw. 28 Tage', () => {
-    expect(calendarRange(state, 'dashboard')).toEqual({ from: '2026-10-24', to: '2026-11-07' })
-    expect(calendarRange(state, 'full')).toEqual({ from: '2026-10-24', to: '2026-11-21' })
+  it('14 bzw. 28 Tage ab dem Start', () => {
+    expect(calendarRange(state)).toEqual({ from: '2026-10-24', to: '2026-11-07' })
+    expect(calendarRange({ ...state, length: 28 })).toEqual({ from: '2026-10-24', to: '2026-11-21' })
   })
-  it('Monat vom Ersten bis zum Ersten des Folgemonats', () => {
-    expect(calendarRange({ ...state, view: 'month', month: '2026-12' }, 'dashboard')).toEqual({ from: '2026-12-01', to: '2027-01-01' })
+  it('blättert um 7 bzw. 14 Tage', () => {
+    expect(timelineStep(14)).toBe(7)
+    expect(timelineStep(28)).toBe(14)
   })
 })
 
@@ -187,55 +180,5 @@ describe('Zeitleiste', () => {
     expect(dayAt(0, '2026-10-24', 14)).toBe('2026-10-24')
     expect(dayAt(0.5, '2026-10-24', 14)).toBe('2026-10-31')
     expect(dayAt(1, '2026-10-24', 14)).toBe('2026-11-06')
-  })
-})
-
-describe('Monatsansicht', () => {
-  const apartments = [apt('a1'), apt('a2'), apt('a3'), apt('alt', { archived: true })]
-  const entries = [
-    entry('b1', '2026-10-01', '2026-10-05'),
-    entry('s1', '2026-10-03', '2026-10-06', { apartmentId: 'a2', kind: 'block', guestLastName: null, guestName: null, persons: 0, blockReason: 'owner_use' }),
-    entry('o1', '2026-10-03', '2026-10-04', { apartmentId: 'a3', kind: 'option' }),
-    entry('alt1', '2026-10-03', '2026-10-10', { apartmentId: 'alt' }),
-    entry('vorher', '2026-09-28', '2026-10-01', { apartmentId: 'a3' }),
-  ]
-
-  it('Raster beginnt am Montag', () => {
-    expect(monthCells('2026-10', apartments, entries, TODAY).leadBlanks).toBe(3)
-    expect(monthCells('2026-10', apartments, entries, TODAY).cells).toHaveLength(31)
-  })
-
-  it('belegt x/y zählt Buchungen, Optionen und Sperren, ohne archivierte Wohnungen', () => {
-    const third = monthCells('2026-10', apartments, entries, TODAY).cells[2]
-    expect([third.date, third.occupied, third.total]).toEqual(['2026-10-03', 3, 3])
-    const fifth = monthCells('2026-10', apartments, entries, TODAY).cells[4]
-    expect([fifth.occupied, fifth.total]).toEqual([1, 3])
-  })
-
-  it('An/Ab ohne Sperren; Abreise am Monatsersten zählt', () => {
-    const cells = monthCells('2026-10', apartments, entries, TODAY).cells
-    expect([cells[0].arrivals, cells[0].departures]).toEqual([1, 1])
-    expect([cells[2].arrivals, cells[2].departures]).toEqual([2, 0])
-    expect([cells[5].arrivals, cells[5].departures]).toEqual([0, 0])
-  })
-
-  it('Objektfilter: nur übergebene Wohnungen zählen', () => {
-    const cell = monthCells('2026-10', [apt('a1')], entries, TODAY).cells[2]
-    expect([cell.occupied, cell.total, cell.arrivals]).toEqual([1, 1, 0])
-  })
-
-  it('Tagesliste mit Anreise, Abreise und „bis“', () => {
-    expect(dayItems('2026-10-03', entries).map((i) => [i.entry.id, i.tag])).toEqual([
-      ['b1', 'until'],
-      ['o1', 'arrival'],
-      ['s1', 'arrival'],
-      ['alt1', 'arrival'],
-    ])
-    expect(dayItems('2026-10-05', entries).map((i) => [i.entry.id, i.tag])).toEqual([
-      ['b1', 'departure'],
-      ['s1', 'until'],
-      ['alt1', 'until'],
-    ])
-    expect(dayItems('2026-10-20', entries)).toEqual([])
   })
 })

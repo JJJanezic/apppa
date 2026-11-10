@@ -3,7 +3,6 @@
 import {
   Bank,
   Buildings,
-  CalendarDots,
   ChartLineUp,
   DotsThreeOutline,
   GearSix,
@@ -22,7 +21,6 @@ import type { NavItemId } from '@/lib/navigation'
 // Icons wie im Entwurf (Phosphor, Duotone)
 const ICONS: Record<NavItemId | 'more', Icon> = {
   dashboard: SquaresFour,
-  calendar: CalendarDots,
   bookings: Notebook,
   guests: UsersThree,
   guestSheets: Signature,

@@ -169,19 +169,8 @@ test.describe('Datum', () => {
     await expect(page.getByRole('table').getByText('Option bis Do, 05.11.2037')).toBeVisible()
 
     // Kalender: Detail des Eintrags zeigt „Option gilt bis“ im Standardformat
-    await open(page, `/belegung?ansicht=monat&monat=2037-10&tag=${FUTURE_ARRIVAL}&eintrag=${option.id}`)
+    await open(page, `/?ab=${FUTURE_ARRIVAL}&eintrag=${option.id}`)
     await expect(page.getByRole('dialog').getByText('Do, 05.11.2037').first()).toBeVisible()
-  })
-
-  test('AC: Tagesliste der Monatsansicht: Tag und „bis …“ im Standardformat', async ({ page, users }) => {
-    desktopOnly()
-    const { tenantId } = await setup(page, users)
-    const apt = await addApartment(tenantId)
-    await addBooking(tenantId, apt, { guestId: await addGuest(tenantId, 'Huber', 'Anna'), arrival: ARRIVAL, departure: DEPARTURE })
-
-    await open(page, '/belegung?ansicht=monat&monat=2026-10&tag=2026-10-30')
-    await expect(page.getByRole('heading', { name: 'Fr, 30.10.2026' })).toBeVisible()
-    await expect(page.getByText('bis Di, 03.11.2026')).toBeVisible()
   })
 
   test('AC: Überschneidungs-Warnung im Formular und Hinweis im Detail nennen die andere Buchung im Standardformat', async ({ page, users }) => {
@@ -250,15 +239,13 @@ test.describe('Datum', () => {
     await expect(page.getByText(`${deDate(viennaDay(at))}, ${viennaTime(at)}`).first()).toBeVisible()
   })
 
-  test('AC: Monatsüberschrift bleibt „Oktober 2026“ in Buchungsliste und Kalender', async ({ page, users }) => {
+  test('AC: Monatsüberschrift bleibt „Oktober 2026“ in der Buchungsliste', async ({ page, users }) => {
     desktopOnly()
     const { tenantId } = await setup(page, users)
     const apt = await addApartment(tenantId)
     await addBooking(tenantId, apt, { guestId: await addGuest(tenantId, 'Huber', 'Anna'), arrival: ARRIVAL, departure: DEPARTURE })
     await open(page, '/buchungen?monat=2026-10')
     await expect(page.getByRole('button', { name: /^Oktober 2026\./ })).toBeVisible()
-    await open(page, '/belegung?ansicht=monat&monat=2026-10')
-    await expect(page.getByText('Oktober 2026').first()).toBeVisible()
   })
 })
 
@@ -324,8 +311,8 @@ test.describe('Belegungskalender', () => {
     const guest = await addGuest(tenantId, 'Huber', 'Anna')
     await addBooking(tenantId, apt, { guestId: guest, arrival: ARRIVAL, departure: DEPARTURE })
 
-    await open(page, '/belegung?ansicht=zeitleiste&ab=2026-10-25')
-    // Desktop zeigt vier Wochen ab dem gewählten Tag
+    await open(page, '/?tage=28&ab=2026-10-25')
+    // 28 Tage ab dem gewählten Tag
     await expect(page.getByRole('button', { name: /^So, 25\.10\.2026 – Sa, 21\.11\.2026\. Datum wählen/ })).toBeVisible()
     await expect(page.getByRole('button', { name: /^Buchung: Anna Huber,/ })).toHaveAccessibleName(
       /Mi, 28\.10\.2026 bis Di, 03\.11\.2026$/
@@ -341,21 +328,12 @@ test.describe('Belegungskalender', () => {
     expect(overflowing).toEqual([])
   })
 
-  test('AC: Monatskästchen ohne Überlauf, Beschriftung für Screenreader im Standardformat', async ({ page, users }) => {
-    test.skip(test.info().project.name === 'tablet', 'Desktop und Handy genügen')
-    const { tenantId } = await setup(page, users)
-    await addApartment(tenantId)
-    await open(page, '/belegung?ansicht=monat&monat=2026-10')
-    await expect(page.getByRole('button', { name: /^Mi, 28\.10\.2026: / })).toBeVisible()
-    await noHorizontalScroll(page)
-  })
-
   test('AC: Zeitleiste auf dem Handy ohne seitliches Scrollen der Seite', async ({ page, users }) => {
     only('mobile')
     const { tenantId } = await setup(page, users)
     const apt = await addApartment(tenantId)
     await addBooking(tenantId, apt, { guestId: await addGuest(tenantId, 'Huber', 'Anna'), arrival: ARRIVAL, departure: DEPARTURE })
-    await open(page, '/belegung?ansicht=zeitleiste&ab=2026-10-25')
+    await open(page, '/?tage=28&ab=2026-10-25')
     const period = page.getByRole('button', { name: /^So, 25\.10\.2026 – .*Datum wählen/ })
     // Umbruch nur am „–“, nie innerhalb eines Datums (QA BUG-2)
     await expect(period).toHaveText(/^So,\u00a025\.10\.2026 – Sa,\u00a021\.11\.2026$/)

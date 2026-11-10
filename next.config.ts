@@ -17,9 +17,14 @@ export const securityHeaders = [
 const nextConfig: NextConfig = {
   // PROJ-41: Der PDF-Arbeitsprozess liegt außerhalb des Next-Builds; Datei und Schriften müssen mit in die Serverfunktionen
   outputFileTracingIncludes: { "/api/**": ["./src/lib/invoice-pdf/fonts/**", "./pdf-worker-build/**"] },
-  // PROJ-38: Reiter „Kunde“ heißt jetzt „Stammdaten“; alte Lesezeichen (auch mit Zusätzen in der Adresse) leiten weiter
+  // PROJ-38: Reiter „Kunde“ heißt jetzt „Stammdaten“; alte Lesezeichen (auch mit Zusätzen in der Adresse) leiten weiter.
+  // PROJ-9 (refine 2026-11-10): Die Seite „Belegung“ entfällt, der Kalender steht nur noch auf dem Dashboard;
+  // Zusätze wie ?eintrag= gehen mit und öffnen dort das Detailpanel.
   async redirects() {
-    return [{ source: "/einstellungen/kunde", destination: "/einstellungen/stammdaten", permanent: true }];
+    return [
+      { source: "/einstellungen/kunde", destination: "/einstellungen/stammdaten", permanent: true },
+      { source: "/belegung", destination: "/", permanent: true },
+    ];
   },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];

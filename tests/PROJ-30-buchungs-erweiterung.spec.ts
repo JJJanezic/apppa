@@ -475,11 +475,6 @@ test.describe('Gästeblattnummer, Wohnsitz und Quelle', () => {
     await expect(page.getByRole('button', { name: /^Option: Otto Option,/ })).toHaveCSS('border-top-color', 'rgb(0, 103, 134)')
     await expect(page.getByRole('button', { name: /^Buchung: Ines Insta,/ })).toHaveClass(/bg-ds-neutral-800/)
     await expect(page.getByRole('list', { name: 'Legende' }).getByText('booking.com')).toBeVisible()
-
-    // Vollbild, Monatsansicht und Tagesliste
-    await page.goto(`/belegung?ansicht=monat&monat=${month(TODAY)}&tag=${TODAY}`)
-    await ready(page)
-    await expect(page.getByRole('list', { name: 'Legende' }).getByText('booking.com')).toBeVisible()
   })
 })
 

@@ -71,7 +71,7 @@ const revalidate = (invoiceIds: (string | null | undefined)[], bookingIds: (stri
   revalidatePath('/rechnungen')
   for (const id of new Set(invoiceIds)) if (id) revalidatePath(`/rechnungen/${id}`)
   for (const id of new Set(bookingIds)) if (id) revalidatePath(`/buchungen/${id}`)
-  revalidatePath('/belegung')
+  revalidatePath('/')
 }
 
 // Hinweise vor dem Speichern: Überzahlung um … Cent, gleiche Zahlung vom … schon erfasst, Rückzahlung über dem Guthaben

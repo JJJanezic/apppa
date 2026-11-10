@@ -110,7 +110,7 @@ async function DashboardBody({ scope, today, params }: { scope: DashboardScope; 
         <GuestSheetNumberAlerts scope={scope} />
       </Suspense>
       <div className="min-w-0">
-        <OccupancyCalendar variant="dashboard" searchParams={params} tenants={tenants} />
+        <OccupancyCalendar searchParams={params} tenants={tenants} />
       </div>
       <div className="grid items-start gap-8 sm:grid-cols-[repeat(auto-fit,minmax(260px,1fr))]">
         <Suspense fallback={<SectionSkeleton title={t('today.title')} />}>

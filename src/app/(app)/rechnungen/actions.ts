@@ -118,7 +118,7 @@ const revalidate = (input: { id?: string; bookingIds?: (string | null | undefine
   for (const b of new Set(input.bookingIds ?? [])) if (b) revalidatePath(`/buchungen/${b}`)
   // Spalte „Rechnungen“ und Filter „Rechnung“ der Buchungsübersicht
   revalidatePath('/buchungen')
-  revalidatePath('/belegung')
+  revalidatePath('/')
 }
 
 // Doppelte Nummer: Datum der vorhandenen Rechnung für die Meldung „Rechnung vom …“
