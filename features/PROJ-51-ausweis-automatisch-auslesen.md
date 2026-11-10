@@ -1,0 +1,198 @@
+# PROJ-51: Ausweis automatisch auslesen
+
+## Status: Planned
+**Created:** 2026-11-10
+**Last Updated:** 2026-11-10
+
+## Dependencies
+- Requires: PROJ-7 (Gäste-Datenbank): Name, Geburtsdatum, Staatsangehörigkeit, Länderliste
+- Requires: PROJ-29 (Gast-Erweiterung): Reisedokument mit Art, Dokument-ID, Ausstellungsdatum, Behörde, Staat; Bilder Vorder- und Rückseite; Geschlecht
+- Requires: PROJ-26 (Gästeblatt): Seite 1 mit Bereich „Reisedokument“ und Bildaufnahme, Speichern einzelner Blatt-Felder auch durch Mitarbeiter, Datenschutz-Standardtext
+- Requires: PROJ-5 (Betreiber-Admin): Freischaltung je Kunde und Verbrauchsanzeige
+
+## Überblick
+Beim Check-in liegen meist nur die Namen des Gastes vor. Bei Gästen mit ausländischer Staatsangehörigkeit wird der Ausweis fotografiert und die Dokumentdaten werden von Hand eingetippt. Neu liest die App auf Knopfdruck die Bilder des Ausweises mit einem KI-Dienst aus. Danach zeigt sie eine Gegenüberstellung mit den vorhandenen Gastdaten. Übernommen wird erst nach Bestätigung.
+
+Die Funktion ist **experimentell**. Der Betreiber schaltet sie je Kunde frei, ein Tageslimit begrenzt die Kosten. Den Zugang zum KI-Dienst stellt der Betreiber, und er liegt nur auf dem Server. Kunden sehen ihn nie und können ihn nur über diese eine Funktion nutzen.
+
+### Ausgelesene Angaben
+| Angabe | Ziel am Gast | Hinweise |
+|---|---|---|
+| Art des Dokuments | Reisedokument: Art | Nur „Reisepass“, „Personalausweis“, „Führerschein“. Ausländische Identitätskarten gelten als „Personalausweis“. Andere Dokumente (z. B. Aufenthaltstitel) ergeben keinen Vorschlag |
+| Dokument-ID | Reisedokument: Dokument-ID | ohne Leerzeichen, höchstens 30 Zeichen |
+| Ausstellungsdatum | Reisedokument: Ausstellungsdatum | nicht in der Zukunft |
+| Ausstellende Behörde | Reisedokument: Behörde | wie aufgedruckt in lateinischer Schrift, höchstens 100 Zeichen |
+| Ausstellender Staat | Reisedokument: Staat | aus der Länderliste (PROJ-7) |
+| Nachname | Nachname | lateinische Schreibweise des Ausweises |
+| Vorname(n) | Vorname | alle Vornamen wie auf dem Ausweis |
+| Geburtsdatum | Geburtsdatum | nicht in der Zukunft, nicht vor 1900 |
+| Geschlecht | Geschlecht | nur weiblich/männlich. „X“ oder nicht angegeben ergibt keinen Vorschlag |
+| Staatsangehörigkeit | Staatsangehörigkeit | aus der Länderliste (PROJ-7) |
+
+Ausgelesen wird nur für den **Hauptgast**. Die Bilder sind die bereits gespeicherten Ausweisbilder des Gastes (PROJ-29). Vorder- und Rückseite werden in einem Durchgang gelesen.
+
+### Wo und für wen
+| Stelle | Wer | Wann sichtbar |
+|---|---|---|
+| Gästeblatt, Seite 1, Bereich „Reisedokument“ (PROJ-26) | Inhaber und Mitarbeiter | Kunde freigeschaltet, Bereich „Reisedokument“ wird angezeigt (Staatsangehörigkeit nicht Österreich) und mindestens ein Ausweisbild des Gastes ist vorhanden, auch ein auf dem Blatt aufgenommenes |
+| Gastformular, Abschnitt „Reisedokument“ (Gästeseite, neuer Gast im Buchungsformular, Rechnungsnacherfassung) | wer dort Reisedokument und Bilder bearbeiten darf (PROJ-29): Inhaber; Mitarbeiter nur beim neuen Gast im Buchungsformular | Kunde freigeschaltet und mindestens ein Ausweisbild vorhanden, unabhängig von der Staatsangehörigkeit |
+
+### Ablauf
+1. Knopf **„Ausweis auslesen“** drücken. Die App zeigt „Ausweis wird gelesen …“, der Knopf ist so lange gesperrt.
+2. Es öffnet sich die Gegenüberstellung mit einer Zeile je Angabe: **Feld | Vorhanden | Vom Ausweis | Auswahl**.
+   - **Gleich:** abgehakt, nichts zu tun.
+   - **Feld leer, Ausweis hat einen Wert:** Ausweiswert vorausgewählt.
+   - **Abweichung:** rot markiert, **Ausweiswert vorausgewählt**. Der vorhandene Wert ist per Klick wählbar.
+   - **Unsicher** (schlecht lesbar oder Prüfung fehlgeschlagen, z. B. Prüfziffer der maschinenlesbaren Zone): gelb mit „Bitte prüfen“, **nicht vorausgewählt**, mit einem Klick trotzdem übernehmbar.
+   - **Nicht gefunden:** „–“, der vorhandene Wert bleibt.
+3. **„Übernehmen“** speichert die gewählten Werte am Gast. **„Abbrechen“** verwirft das Ergebnis, es wird nichts gespeichert.
+4. Übernommene Werte erscheinen im Formular bzw. auf dem Blatt. Im Änderungsprotokoll stehen sie mit dem Vermerk „aus Ausweis gelesen“.
+
+Im Gastformular füllt „Übernehmen“ nur die Formularfelder. Gespeichert wird wie bisher mit „Speichern“. Auf dem Gästeblatt wird sofort gespeichert, wie bei jedem Blatt-Feld (PROJ-26). Eine bereits geleistete Unterschrift 1 wird dabei gelöscht, wie bei jeder Änderung.
+
+### Freischaltung und Verbrauch (Betreiber)
+- Im Betreiber-Admin hat jeder Kunde den Schalter **„Ausweis automatisch auslesen (experimentell)“**, Standard aus.
+- **Tageslimit** je Kunde, Standard 50 Auslesungen pro Tag (Wiener Zeit), vom Betreiber änderbar.
+- Anzeige je Kunde: Anzahl Auslesungen im laufenden und im letzten Monat.
+- Gezählt wird jede Auslesung, die den KI-Dienst erreicht hat, auch ohne Übernahme. Fehlgeschlagene Verbindungen zählen nicht.
+- Inhaber und Mitarbeiter sehen weder Schalter noch Zähler. Bei abgeschalteter Funktion gibt es keinen Knopf.
+
+### Datenschutz
+- Der Standardtext der Datenschutz-Information (Einstellungen → Gästeblatt, Teil A) bekommt einen Satz, dass Ausweisbilder zum Auslesen der Angaben an einen Auftragsverarbeiter übermittelt werden. Den genauen Wortlaut legt der Nutzer fest.
+- Eigene, geänderte Texte der Kunden bleiben unverändert. Beim Freischalten sieht der Inhaber in Einstellungen → Gästeblatt einmalig den Hinweis, seinen Text zu prüfen.
+- Das Ergebnis der Auslesung wird in der App nicht gespeichert, nur die übernommenen Werte. Protokolliert werden Zeitpunkt, Person, Gast und Erfolg, ohne die gelesenen Werte.
+
+## User Stories
+- Als **Mitarbeiter** möchte ich beim Check-in den Ausweis eines ausländischen Gastes fotografieren und die Angaben auf Knopfdruck auslesen lassen, damit ich sie nicht am Tablet abtippen muss.
+- Als **Inhaber** möchte ich sehen, wo der Ausweis von den gespeicherten Gastdaten abweicht, zum Beispiel bei einem zweiten Vornamen, damit das Gästeblatt die amtlich richtigen Angaben enthält.
+- Als **Inhaber** möchte ich, dass ohne meine Bestätigung nichts überschrieben wird, damit ein Lesefehler keine richtigen Daten zerstört.
+- Als **Inhaber** möchte ich auch bei einem Ausweisbild, das ich nachträglich im Gastformular hochlade, die Angaben auslesen lassen, damit ich Altfälle schnell nachtragen kann.
+- Als **Betreiber** möchte ich die Funktion je Kunde freischalten und die Zahl der Auslesungen sehen, damit ich das Experiment und die Kosten im Griff habe.
+- Als **Betreiber** möchte ich, dass der Zugang zum KI-Dienst nur auf dem Server liegt und nur für diese Funktion genutzt werden kann, damit er nicht missbraucht wird.
+
+## Out of Scope
+- **Mitreisende:** Für sie gibt es kein Reisedokument (PROJ-29, PROJ-26)
+- **Adresse vom Ausweis** (z. B. Rückseite des deutschen Personalausweises): später möglich, nicht in diesem Schritt
+- **Ablaufdatum („gültig bis“) und Echtheitsprüfung des Ausweises:** nicht vorgesehen (PROJ-29 kennt kein Ablaufdatum)
+- **Automatisches Auslesen ohne Klick** nach jedem Bild: bewusst nicht, siehe Entscheidungen
+- **Weitere Dokumentarten** (Aufenthaltstitel, Visum): kein Vorschlag, die Art bleibt Handeingabe
+- **Kosten in Euro je Kunde und Weiterverrechnung:** nur die Anzahl, die Abrechnung läuft außerhalb der App (PRD)
+- **Schalter oder Zähler für Inhaber:** nur Betreiber
+- **Speichern des vollständigen Ausleseergebnisses** in der App
+- **Auslesen ohne vorhandenes Ausweisbild**, etwa Live-Kamera mit laufender Erkennung
+- **Eigener KI-Zugang je Kunde:** Es gibt nur den Zugang des Betreibers
+
+## Acceptance Criteria
+
+### Freischaltung und Sichtbarkeit
+- [ ] Angenommen ein Kunde ist nicht freigeschaltet, wenn ein Nutzer Gastformular oder Gästeblatt öffnet, dann gibt es keinen Knopf „Ausweis auslesen“
+- [ ] Angenommen der Betreiber öffnet einen Kunden im Betreiber-Admin, wenn er den Schalter „Ausweis automatisch auslesen (experimentell)“ einschaltet, dann sehen die Nutzer dieses Kunden den Knopf, sobald ein Ausweisbild vorhanden ist; der Schalter steht bei neuen Kunden auf aus
+- [ ] Angenommen ein Inhaber oder Mitarbeiter, wenn er Einstellungen oder Betreiber-Admin aufruft, dann sieht er weder Schalter noch Tageslimit noch Zähler
+- [ ] Angenommen ein freigeschalteter Kunde und ein Gast ohne Ausweisbild, wenn der Abschnitt „Reisedokument“ angezeigt wird, dann gibt es keinen Knopf „Ausweis auslesen“
+- [ ] Angenommen ein Gästeblatt eines österreichischen Gastes, wenn Seite 1 angezeigt wird, dann gibt es keinen Bereich „Reisedokument“ und keinen Knopf
+- [ ] Angenommen ein Gästeblatt eines deutschen Gastes ohne gespeicherte Bilder, wenn auf dem Blatt die Vorderseite aufgenommen wird, dann erscheint der Knopf „Ausweis auslesen“
+- [ ] Angenommen ein Mitarbeiter öffnet einen bestehenden Gast im Gast-Detail, wenn er den Abschnitt „Reisedokument“ ansieht, dann gibt es keinen Knopf (er darf das Reisedokument dort nicht ändern, PROJ-29)
+- [ ] Angenommen ein Mitarbeiter legt im Buchungsformular einen neuen Gast an und lädt ein Ausweisbild hoch, wenn der Kunde freigeschaltet ist, dann kann er „Ausweis auslesen“ verwenden
+
+### Auslesen und Gegenüberstellung
+- [ ] Angenommen ein Gast mit Bildern von Vorder- und Rückseite, wenn „Ausweis auslesen“ gedrückt wird, dann werden beide Seiten in einem Durchgang gelesen und es zählt eine Auslesung
+- [ ] Angenommen das Auslesen läuft, wenn der Nutzer wartet, dann zeigt die App „Ausweis wird gelesen …“ und der Knopf ist gesperrt
+- [ ] Angenommen ein Gast „Muster, Maria“ ohne Geburtsdatum und ohne Reisedokument, wenn ein Reisepass „Muster, Maria Theresia“, geboren 12.03.1985, gelesen wird, dann zeigt die Gegenüberstellung den Vornamen als rot markierte Abweichung mit vorausgewähltem Ausweiswert, das Geburtsdatum und alle Dokumentangaben als vorausgewählte Ausweiswerte und den Nachnamen als gleich (abgehakt)
+- [ ] Angenommen eine Abweichung ist vorausgewählt, wenn der Nutzer den vorhandenen Wert anklickt, dann wird beim Übernehmen der vorhandene Wert behalten
+- [ ] Angenommen ein Wert ist unsicher, wenn die Gegenüberstellung erscheint, dann steht er gelb mit „Bitte prüfen“ und ist nicht vorausgewählt; nach einem Klick wird er übernommen
+- [ ] Angenommen eine Angabe ist auf dem Ausweis nicht zu finden, wenn die Gegenüberstellung erscheint, dann steht dort „–“ und der vorhandene Wert bleibt
+- [ ] Angenommen eine Schweizer Identitätskarte, wenn sie gelesen wird, dann wird als Art „Personalausweis“ vorgeschlagen
+- [ ] Angenommen ein Aufenthaltstitel, wenn er gelesen wird, dann gibt es für die Art keinen Vorschlag; die übrigen gelesenen Angaben werden angezeigt
+- [ ] Angenommen ein Ausweis mit Geschlecht „X“, wenn er gelesen wird, dann gibt es für das Geschlecht keinen Vorschlag
+- [ ] Angenommen ein gelesenes Ausstellungs- oder Geburtsdatum liegt in der Zukunft (bzw. vor 1900), wenn die Gegenüberstellung erscheint, dann ist der Wert unsicher markiert und nicht vorausgewählt
+- [ ] Angenommen der Ausweis nennt Staat und Staatsangehörigkeit (z. B. „D“ / „DEUTSCH“), wenn die Gegenüberstellung erscheint, dann werden sie als Länder der Länderliste angezeigt („Deutschland“)
+- [ ] Angenommen eine gelesene Dokument-ID enthält Leerzeichen, wenn sie angezeigt wird, dann ist sie ohne Leerzeichen; ist sie länger als 30 Zeichen, ist sie unsicher markiert
+
+### Übernehmen
+- [ ] Angenommen die Gegenüberstellung im Gastformular, wenn „Übernehmen“ gedrückt wird, dann stehen die gewählten Werte in den Formularfeldern und erst „Speichern“ speichert sie
+- [ ] Angenommen die Gegenüberstellung auf dem Gästeblatt, wenn „Übernehmen“ gedrückt wird, dann werden die gewählten Werte sofort am Gast gespeichert und die Statusanzeige zeigt „Gespeichert“
+- [ ] Angenommen auf dem Gästeblatt ist Unterschrift 1 schon geleistet, wenn Werte übernommen werden, die etwas ändern, dann wird Unterschrift 1 gelöscht (wie bei jeder Änderung, PROJ-26)
+- [ ] Angenommen die Gegenüberstellung, wenn „Abbrechen“ gedrückt wird, dann wird nichts geändert und nichts gespeichert
+- [ ] Angenommen Werte wurden übernommen und gespeichert, wenn das Änderungsprotokoll angesehen wird, dann stehen die Änderungen mit Person, Zeitpunkt und dem Vermerk „aus Ausweis gelesen“
+- [ ] Angenommen ein Mitarbeiter auf dem Gästeblatt, wenn er Werte übernimmt, dann werden nur Felder gespeichert, die er auf dem Blatt ändern darf (PROJ-26)
+
+### Limit und Zähler
+- [ ] Angenommen ein Kunde hat das Tageslimit erreicht, wenn ein Nutzer „Ausweis auslesen“ drückt, dann erscheint „Das Tageslimit für das Auslesen ist erreicht. Bitte die Angaben von Hand eintragen.“ und es wird nichts gelesen
+- [ ] Angenommen der Betreiber ändert das Tageslimit eines Kunden, wenn er speichert, dann gilt das neue Limit ab sofort
+- [ ] Angenommen der Betreiber öffnet einen freigeschalteten Kunden, wenn er den Abschnitt ansieht, dann sieht er die Anzahl der Auslesungen im laufenden und im letzten Monat
+- [ ] Angenommen der KI-Dienst ist nicht erreichbar, wenn ausgelesen wird, dann zählt das nicht als Auslesung
+
+### Fehler
+- [ ] Angenommen der KI-Dienst ist nicht erreichbar oder antwortet nicht rechtzeitig, wenn ausgelesen wird, dann erscheint „Der Ausweis konnte gerade nicht gelesen werden. Bitte später erneut versuchen oder von Hand eintragen.“ und alle Felder bleiben bearbeitbar
+- [ ] Angenommen ein Bild zeigt keinen Ausweis oder ist unlesbar, wenn ausgelesen wird, dann erscheint „Auf dem Bild wurde kein Ausweis erkannt. Bitte neu fotografieren.“ und es wird nichts vorgeschlagen
+- [ ] Angenommen ein Nutzer gehört zu Kunde A, wenn er versucht, das Auslesen für einen Gast von Kunde B auszulösen (auch direkt über den Server), dann wird es abgelehnt und nicht gezählt
+- [ ] Angenommen ein Kunde ist nicht freigeschaltet, wenn das Auslesen direkt über den Server ausgelöst wird, dann wird es abgelehnt
+- [ ] Angenommen ein beliebiger Nutzer, wenn er den Browser-Quelltext oder die Netzwerkanfragen ansieht, dann ist der Zugang zum KI-Dienst nirgends enthalten
+
+### Datenschutz
+- [ ] Angenommen ein Kunde mit unverändertem Standardtext, wenn Seite 2 des Gästeblatts angezeigt wird, dann enthält Teil A den Satz zur Übermittlung an einen Auftragsverarbeiter
+- [ ] Angenommen ein Kunde mit eigenem Text in Teil A, wenn der Betreiber ihn freischaltet, dann bleibt der Text unverändert und der Inhaber sieht in Einstellungen → Gästeblatt einmalig einen Hinweis, ihn zu prüfen
+- [ ] Angenommen eine Auslesung wurde durchgeführt, wenn das Protokoll angesehen wird, dann stehen Zeitpunkt, Person, Gast und Erfolg, aber keine gelesenen Werte
+
+## Edge Cases
+- **Bild nach dem Auslesen ersetzt oder entfernt:** Eine offene Gegenüberstellung wird verworfen, der Nutzer liest neu aus.
+- **Gast wurde inzwischen anderswo geändert** (z. B. zweites Gerät): Auf dem Blatt gilt die Konfliktregel von PROJ-26. Im Gastformular die übliche Regel beim Speichern.
+- **Anonymisierter Gast:** keine Bilder, also kein Knopf (PROJ-7, PROJ-29).
+- **Zwei Klicks kurz hintereinander:** Der Knopf ist während des Lesens gesperrt, es entsteht nur eine Auslesung.
+- **Ausweis in nicht lateinischer Schrift** (z. B. Kyrillisch): Namen nach der lateinischen Fassung auf dem Ausweis (maschinenlesbare Zone). Gibt es keine, ist der Wert unsicher.
+- **Nur Rückseite vorhanden:** wird gelesen. Fehlende Angaben stehen als „–“.
+- **Ausweis gehört offensichtlich zu einer anderen Person** (Name und Geburtsdatum weichen beide ab): Alle Abweichungen rot. Zusätzlich oben der Hinweis „Der Ausweis passt möglicherweise nicht zu diesem Gast.“ In diesem Fall ist bei Name und Geburtsdatum **nichts vorausgewählt**.
+- **Freischaltung wird während einer offenen Seite abgeschaltet:** Der nächste Klick wird abgelehnt mit „Das Auslesen ist für diesen Kunden nicht freigeschaltet.“
+- **Art „Führerschein“:** wird gelesen. Staatsangehörigkeit steht dort meist nicht und bleibt „–“.
+- **Reisedokument-Regel:** Werden Dokumentangaben übernommen, müssen Art und Dokument-ID gesetzt sein (PROJ-29). Fehlt eine davon, zeigt das Formular die übliche Fehlermeldung. Auf dem Blatt wird das Dokument erst gespeichert, wenn beides da ist.
+
+## Technical Requirements
+- Sicherheit: Der Zugang zum KI-Dienst liegt nur auf dem Server, je Umgebung getrennt. Die Serverfunktion macht genau diese Auslesung mit fester Anweisung und festem Antwortformat und hat kein freies Eingabefeld. Geprüft werden Anmeldung, Mitgliedschaft, Rolle, Freischaltung und Tageslimit.
+- Leistung: Das Ergebnis sollte in der Regel innerhalb von 15 Sekunden vorliegen. Nach etwa 60 Sekunden bricht die App mit der Fehlermeldung ab.
+- Kosten: Ausgabenlimit beim Anbieter des KI-Dienstes zusätzlich zum Tageslimit der App.
+- Datenschutz: Auftragsverarbeitungsvertrag mit dem Anbieter. Die Bilder werden nur zum Auslesen übermittelt. Speicherort und Aufbewahrung beim Anbieter klärt `/architecture`.
+- Geräte: iPad-Safari (Gästeblatt), Desktop und Handy (Gastformular).
+
+## Open Questions
+- [ ] Genauer Wortlaut des Datenschutz-Satzes im Standardtext (Teil A), gegebenenfalls mit Nennung des Anbieters
+- [ ] Anbieter und Standort: Claude über die Anthropic API oder über einen EU-Standort (AWS Bedrock / Google Vertex)? → `/architecture`, nach Prüfung von Aufbewahrung und Verarbeitungsort
+- [ ] Ob die Prüfung der maschinenlesbaren Zone in der App oder durch den KI-Dienst erfolgt → `/architecture`
+- [ ] Nach der Pilotphase: Bleibt die Funktion experimentell, wird sie für alle Kunden eingeschaltet oder gestrichen? Entscheidung nach Erfahrung mit den ersten Kunden
+
+## Decision Log
+
+### Product Decisions
+| Decision | Rationale | Date |
+|----------|-----------|------|
+| P0, experimentell, vor Channex | Vom Nutzer entschieden; Erleichterung beim Check-in, je Kunde freischaltbar | 2026-11-10 |
+| Angebot auf dem Gästeblatt und im Gastformular | Vom Nutzer entschieden; Check-in am Tablet ist der Hauptfall, das Gastformular dient für Altfälle und neue Gäste | 2026-11-10 |
+| Knopf statt automatischem Auslesen, beide Seiten in einem Durchgang | Vom Nutzer entschieden; Kosten nur bei Bedarf, zuerst beide Seiten fotografieren, keine Auslesung verwackelter Fotos | 2026-11-10 |
+| Auch Geschlecht und Staatsangehörigkeit auslesen | Vom Nutzer entschieden; beide braucht das Gästeblatt, sie stehen auf Pass und Ausweis | 2026-11-10 |
+| Bei Abweichung Ausweiswert vorausgewählt, vorhandener Wert per Klick | Vom Nutzer entschieden; der Ausweis ist für das Meldewesen maßgeblich | 2026-11-10 |
+| Unsichere Werte gelb, nicht vorausgewählt | Vom Nutzer entschieden; ein Lesefehler soll nicht unbemerkt richtige Daten ersetzen | 2026-11-10 |
+| Nichts wird ohne „Übernehmen“ geändert | Nutzerwunsch aus der Vorbesprechung; Abgleich statt Überschreiben | 2026-11-10 |
+| Bei vermutlich fremdem Ausweis keine Vorauswahl bei Name und Geburtsdatum | Schutz vor dem Überschreiben eines Gastes mit den Daten einer anderen Person | 2026-11-10 |
+| Freischaltung nur durch den Betreiber, Standard aus | Vom Nutzer entschieden; der Betreiber trägt Zugang und Kosten und steuert das Experiment | 2026-11-10 |
+| Tageslimit je Kunde (Standard 50) und Monatszähler im Betreiber-Admin | Vom Nutzer entschieden; Kostenkontrolle ohne Euro-Abrechnung in der App | 2026-11-10 |
+| Datenschutz: Standardtext ergänzt, eigene Texte unverändert, einmaliger Hinweis an den Inhaber | Vom Nutzer entschieden; Kundentexte werden nicht ungefragt geändert | 2026-11-10 |
+| Rechte wie beim Reisedokument (PROJ-29) und auf dem Gästeblatt (PROJ-26) | Keine neuen Rechte; Mitarbeiter lesen dort aus, wo sie ohnehin erfassen dürfen | 2026-11-10 |
+| Nur Hauptgast | Mitreisende haben kein Reisedokument | 2026-11-10 |
+| Ausleseergebnis nicht gespeichert, Protokoll ohne Werte | Datensparsamkeit (DSGVO) | 2026-11-10 |
+| Ausländische Identitätskarten → „Personalausweis“, andere Dokumente ohne Vorschlag | Die Auswahl aus PROJ-29 bleibt unverändert | 2026-11-10 |
+
+### Technical Decisions
+<!-- Added by /architecture -->
+| Decision | Rationale | Date |
+|----------|-----------|------|
+
+---
+<!-- Sections below are added by subsequent skills -->
+
+## Tech Design (Solution Architect)
+_To be added by /architecture_
+
+## QA Test Results
+_To be added by /qa_
+
+## Deployment
+_To be added by /deploy_
