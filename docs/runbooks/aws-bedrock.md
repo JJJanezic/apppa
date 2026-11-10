@@ -60,6 +60,8 @@ Ein normales AWS-Konto hat **kein hartes Ausgabenlimit**, nur Warnungen. Im vere
 
 > **Stand 2026-11-10 (Konto „Idea Incubator“, vereinfachter Projekt-Modus):** Die Seite „Modellzugriff“ gibt es nicht mehr. Modelle werden beim ersten Aufruf freigeschaltet, das Anthropic-Formular „Submit use case details“ ist einmal je Konto nötig. **Claude Haiku 4.5 funktioniert, Claude Opus 4.8, Opus 5.5 und Sonnet 5 melden „AccessDeniedException … not available for this account“** – auch nach „Erweiterte Features aktivieren“ (Organisation „apppa“ mit Verwaltungskonto, Konto „Idea Incubator“ 672027759451 als Mitglied; das harte 20-$-Limit ist damit weg). Lösung: Support-Fall (Account and billing) mit der Bitte um Freischaltung von Opus 4.8/5.5 in eu-north-1. Haiku 4.5 rät bei fehlenden Angaben (Musterausweis: CAN als Dokumentnummer, Geburtsort als Behörde, Ausstellungsdatum erfunden) und taugt nur für technische Tests.
 
+> **Stand 2026-11-10, nach Schritt 6:** Zugang des Benutzers `apppa-ausweis-dev` und Richtlinie (`bedrock-mantle:CreateInference`) funktionieren; der Endpunkt `bedrock-mantle.eu-north-1.api.aws` ist erreichbar. `GET /v1/models` listet Opus 4.7, Opus 4.8, Opus 5, Sonnet 5 und Haiku 4.5 als „available“ (Datenaufbewahrung erlaubt jeweils `none`), **jeder Aufruf antwortet aber 403 „… is not available for this account“** – auch Haiku 4.5, das im Playground (älterer Endpunkt `bedrock-runtime`, EU-Profil) lief. Entscheidung des Nutzers: auf die Freischaltung durch den AWS-Support warten, bis dahin Test-Leser (`ID_READING_FAKE=1`). Probeaufruf: Skript aus dem Chat bzw. ein kurzer `messages.create` mit „Antworte nur mit OK.“
+
 ### 4a. Testen im Playground
 1. In Bedrock links **„Playground“** → **„Chat“** → Modell **Claude Opus 5.5** wählen.
 2. Lade ein **Musterbild** eines Ausweises hoch (z. B. das offizielle Musterbild „Erika Mustermann“ des deutschen Personalausweises, **keinen echten Ausweis**) und frage: „Lies Name, Geburtsdatum und Dokumentnummer aus.“
@@ -107,7 +109,7 @@ Für die App legst du einen eigenen Benutzer an, der **nur** Claude in Stockholm
 }
 ```
 
-3. Weiter, Name **`apppa-ausweis-claude`**, Beschreibung „PROJ-51: nur Claude in eu-north-1“ → **„Richtlinie erstellen“**.
+3. Weiter, Name **`apppa-ausweis-claude`**, Beschreibung „PROJ-51 nur Claude in eu-north-1“ (ohne Doppelpunkt, den lässt AWS nicht zu) → **„Richtlinie erstellen“**.
 4. **(prüfen)** Meldet der Editor „bedrock-mantle“ als unbekannten Dienst, notiere die Meldung und schick sie mir.
 
 Die beiden Rechte zur Datenaufbewahrung (`…DataRetention`) brauchen wir nur für Schritt 5. Danach entfernen wir sie wieder.

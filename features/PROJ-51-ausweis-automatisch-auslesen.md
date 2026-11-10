@@ -158,7 +158,8 @@ Im Gastformular füllt „Übernehmen“ nur die Formularfelder. Gespeichert wir
 - [x] Anbieter und Standort → Claude über AWS Bedrock in Stockholm (eu-north-1), Verarbeitung nur in der Region (2026-11-10; Irland geplant, AWS wies Stockholm zu)
 - [x] Prüfung der maschinenlesbaren Zone → in der App (Prüfziffern), Claude liefert die MRZ-Zeilen mit (2026-11-10)
 - [ ] Ist Claude Opus 5.5 in eu-north-1 freigeschaltet, und lässt es die Datenaufbewahrung „keine“ zu? → bei der AWS-Einrichtung (Runbook `docs/runbooks/aws-bedrock.md`, Schritte 4 und 5) klären; sonst Sonnet 5.5 bzw. Satz im Datenschutz-Text anpassen
-- [ ] Richtlinie `bedrock-mantle:CreateInference` mit Bedingung Region: beim Einrichten bestätigen, dass der Aufruf damit klappt
+- [x] Richtlinie `bedrock-mantle:CreateInference` mit Bedingung Region → Zugang wird angenommen (2026-11-10)
+- [ ] AWS sperrt auf dem Mantle-Endpunkt (Stockholm) alle Claude-Modelle für das neue Konto („not available for this account“, auch Haiku 4.5); Support-Fall offen. Bis zur Freischaltung Test-Leser; echter Durchstich danach
 - [ ] Nach der Pilotphase: Bleibt die Funktion experimentell, wird sie für alle Kunden eingeschaltet oder gestrichen? Entscheidung nach Erfahrung mit den ersten Kunden
 
 ## Decision Log
