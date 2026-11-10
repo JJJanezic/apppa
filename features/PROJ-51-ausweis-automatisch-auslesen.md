@@ -1,6 +1,6 @@
 # PROJ-51: Ausweis automatisch auslesen
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-11-10
 **Last Updated:** 2026-11-10
 
@@ -155,8 +155,10 @@ Im Gastformular füllt „Übernehmen“ nur die Formularfelder. Gespeichert wir
 
 ## Open Questions
 - [ ] Genauer Wortlaut des Datenschutz-Satzes im Standardtext (Teil A), gegebenenfalls mit Nennung des Anbieters
-- [ ] Anbieter und Standort: Claude über die Anthropic API oder über einen EU-Standort (AWS Bedrock / Google Vertex)? → `/architecture`, nach Prüfung von Aufbewahrung und Verarbeitungsort
-- [ ] Ob die Prüfung der maschinenlesbaren Zone in der App oder durch den KI-Dienst erfolgt → `/architecture`
+- [x] Anbieter und Standort → Claude über AWS Bedrock in Irland (eu-west-1), Verarbeitung nur in der Region (2026-11-10)
+- [x] Prüfung der maschinenlesbaren Zone → in der App (Prüfziffern), Claude liefert die MRZ-Zeilen mit (2026-11-10)
+- [ ] Ist Claude Opus 5.5 in eu-west-1 freigeschaltet, und lässt es die Datenaufbewahrung „keine“ zu? → bei der AWS-Einrichtung (Runbook `docs/runbooks/aws-bedrock.md`, Schritte 4 und 5) klären; sonst Sonnet 5.5 bzw. Satz im Datenschutz-Text anpassen
+- [ ] Richtlinie `bedrock-mantle:CreateInference` mit Bedingung Region: beim Einrichten bestätigen, dass der Aufruf damit klappt
 - [ ] Nach der Pilotphase: Bleibt die Funktion experimentell, wird sie für alle Kunden eingeschaltet oder gestrichen? Entscheidung nach Erfahrung mit den ersten Kunden
 
 ## Decision Log
@@ -184,12 +186,128 @@ Im Gastformular füllt „Übernehmen“ nur die Formularfelder. Gespeichert wir
 <!-- Added by /architecture -->
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Claude über Amazon Bedrock, Region Irland (eu-west-1), Endpunkt nur in dieser Region | Vom Nutzer gewählt (EU-Verarbeitung). Irland verarbeitet laut Anthropic-Doku „in-region only“, Frankfurt leitet innerhalb der EU weiter. Gleiche Region wie Supabase, keine Daten an Anthropic | 2026-11-10 |
+| Modell Claude Opus 5.5, per `BEDROCK_MODEL` umstellbar | Höchste Lesegenauigkeit bei Bildern; Wechsel auf Sonnet 5.5 ohne Codeänderung, falls die Kosten drücken | 2026-11-10 |
+| Eigene Variablennamen `BEDROCK_ACCESS_KEY_ID`/`BEDROCK_SECRET_ACCESS_KEY`/`BEDROCK_REGION` | Vercel reserviert die `AWS_…`-Namen; der Zugang ist nur serverseitig | 2026-11-10 |
+| Ein technischer AWS-Benutzer je Umgebung, Richtlinie nur Claude in eu-west-1 | Einzeln sperrbar, Kosten je Umgebung sichtbar, kein Zugriff auf andere AWS-Dienste | 2026-11-10 |
+| Eigene Serverschnittstelle (POST, max. 60 s) statt Server-Aktion | Wie die übrigen langen Vorgänge (Ausstellen, Gästeblatt fertig); eigene Laufzeitgrenze | 2026-11-10 |
+| Server lädt die Bilder selbst aus dem Speicher; Browser nennt nur Speicherorte im eigenen Kundenordner | Auch frisch hochgeladene, noch ungespeicherte Bilder lesbar; kein Bildversand vom Browser an den Server, keine fremden Dateien | 2026-11-10 |
+| Strukturierte Ausgabe mit festem Schema, feste Anweisung, kein freies Eingabefeld | Der Zugang lässt sich nur für diese eine Funktion nutzen; Antworten sind maschinell prüfbar | 2026-11-10 |
+| MRZ-Prüfziffern in der App, eigener kleiner Baustein ohne Paket | Kostenlos, deterministisch, testbar; Grundlage für „unsicher“; Standard ist öffentlich | 2026-11-10 |
+| Gegenüberstellung auf dem Server berechnet, mit dem aktuellen Formularstand als „vorhanden“ | Regeln an einer Stelle und testbar; ungespeicherte Eingaben werden berücksichtigt | 2026-11-10 |
+| Neue Tabelle der Auslesungen als Zähler und Protokoll, ohne gelesene Werte; Zugriff nur Server/Betreiber | Datensparsamkeit; eine Quelle für Limit, Monatszähler und Kosten (Token) | 2026-11-10 |
+| Vormerken der Auslesung in einer Datenbankfunktion mit Limitprüfung in einem Schritt | Gleichzeitige Klicks oder Geräte überschreiten das Tageslimit nicht | 2026-11-10 |
+| Zeitüberschreitung zählt, fehlende Verbindung nicht | Bei einer Zeitüberschreitung können bei AWS Kosten entstanden sein; ohne Verbindung sicher nicht | 2026-11-10 |
+| Herkunftsvermerk über den bestehenden Mechanismus des Änderungsprotokolls („Ausweis“, „Gästeblatt, aus Ausweis gelesen“), je Speichervorgang | Kein neues Protokollsystem; Feldgenauigkeit wäre unverhältnismäßig aufwendig | 2026-11-10 |
+| Übernahme auf dem Gästeblatt über die bestehende Warteschlange „ein Feld speichern“ | Rechte der Mitarbeiter, Konfliktregel und Unterschriftsregel aus PROJ-26 gelten unverändert | 2026-11-10 |
+| Test-Leser statt Bedrock für E2E, nur außerhalb der Produktion einschaltbar | Tests ohne Kosten, ohne echte Ausweise, mit festen Fällen | 2026-11-10 |
+| Datenschutz-Standardsatz zur Laufzeit eingesetzt | Kunden ohne eigenen Text erhalten ihn ohne Migration; eigene Texte bleiben unberührt | 2026-11-10 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### A) Überblick
+```
+Browser (Gastformular / Gästeblatt)
+  Knopf „Ausweis auslesen“ ──► Server: Auslese-Schnittstelle (nur POST, max. 60 s)
+                                 1. Anmeldung, Kunde, Rolle, Freischaltung prüfen
+                                 2. Tageslimit prüfen und Auslesung vormerken (Datenbank)
+                                 3. Ausweisbilder aus dem privaten Speicher laden
+                                 4. Bilder + feste Anweisung an Claude (AWS Bedrock, Irland)
+                                 5. Antwort prüfen: Formate, Länderliste, Prüfziffern der MRZ
+                                 6. Gegenüberstellung berechnen, Auslesung abschließen
+  Dialog „Gegenüberstellung“ ◄── nur Vorschläge, nichts gespeichert
+  „Übernehmen“ ──► Formular füllen (Gastformular) bzw. Blatt-Felder speichern (Gästeblatt)
+```
+
+### B) Komponenten (Oberfläche)
+```
+Gastformular, Abschnitt „Reisedokument“ (PROJ-29)
++-- Bildplätze Vorder-/Rückseite (bestehend)
++-- Knopf „Ausweis auslesen“ (neu; nur bei Freischaltung, mind. ein Bild, passende Rolle)
+    +-- Dialog „Gegenüberstellung“ (neu, gemeinsamer Baustein)
+        +-- Hinweis „Der Ausweis passt möglicherweise nicht zu diesem Gast.“ (bei Bedarf)
+        +-- Tabelle: Feld | Vorhanden | Vom Ausweis | Auswahl
+        |   (gleich = abgehakt; Abweichung = rot; unsicher = gelb „Bitte prüfen“; „–“)
+        +-- „Abbrechen“ / „Übernehmen“
+
+Gästeblatt Seite 1, Bereich „Reisedokument“ (PROJ-26)
++-- Bildaufnahme (bestehend)
++-- Knopf „Ausweis auslesen“ + derselbe Dialog (Tablet-tauglich, große Schaltflächen)
+
+Betreiber-Admin → Kunde (PROJ-5)
++-- Abschnitt „Ausweis automatisch auslesen (experimentell)“ (neu)
+    +-- Schalter ein/aus, Tageslimit (Zahl), Auslesungen laufender/letzter Monat
+
+Einstellungen → Gästeblatt (PROJ-26)
++-- Einmaliger Hinweis „Datenschutz-Text prüfen“ mit „Verstanden“ (nur Inhaber, nur bei eigenem Text)
+```
+Bausteine: vorhandene shadcn-Komponenten (Dialog, Table, RadioGroup, Switch, Input, Alert, Button). Keine neuen UI-Bibliotheken.
+
+### C) Daten (in Worten)
+**Am Kunden (neu):**
+- Freischaltung „Ausweis auslesen“ (ja/nein, Standard nein), nur durch den Betreiber änderbar
+- Tageslimit (ganze Zahl 1–1.000, Standard 50)
+- Zeitpunkt, wann der Inhaber den Datenschutz-Hinweis bestätigt hat (leer = Hinweis zeigen)
+
+**Neue Tabelle „Ausweis-Auslesungen“ (zugleich Zähler und Protokoll):**
+- Kunde, Person, Gast (leer bei neuem, noch nicht gespeichertem Gast; wird beim Löschen/Anonymisieren des Gastes geleert)
+- Stelle (Gastformular / Gästeblatt), Zeitpunkt
+- Ergebnis: läuft / gelesen / kein Ausweis erkannt / Fehler / nicht erreichbar
+- Zählt fürs Limit (ja/nein): nein nur bei „nicht erreichbar“ (keine Verbindung zustande gekommen)
+- Verbrauch (Ein-/Ausgabe-Token) und Modell, für die Kostenkontrolle
+- **Keine gelesenen Werte, keine Bilder**
+- Lesen und Schreiben nur der Server und der Betreiber; Mitglieder haben keinen Zugriff. Wird mit dem Kunden gelöscht.
+
+**Gastdaten:** keine neuen Felder. Übernommene Werte landen in den bestehenden Feldern (PROJ-7, PROJ-29).
+**Änderungsprotokoll:** bestehender Mechanismus mit Herkunftsvermerk (heute „Gästeblatt“). Neu: „Ausweis“ bzw. „Gästeblatt, aus Ausweis gelesen“. Der Vermerk gilt für den ganzen Speichervorgang, in dem Ausweiswerte übernommen wurden.
+**Datenschutz-Standardtext:** Kunden ohne eigenen Text erhalten den neuen Satz automatisch (der Standard wird nicht kopiert, sondern zur Laufzeit eingesetzt).
+
+### D) Ablauf auf dem Server
+1. **Prüfen:** angemeldet, Mitglied des gewählten Kunden, Rolle passt zur Stelle (Gastformular: Inhaber oder Mitarbeiter beim neuen Gast; Gästeblatt: Inhaber und Mitarbeiter), Kunde aktiv und freigeschaltet.
+2. **Bilder:** Der Browser nennt die Speicherorte der Bilder, die im Formular stehen. Das können auch frisch hochgeladene, noch nicht gespeicherte Bilder sein. Der Server nimmt nur Speicherorte im Ordner des eigenen Kunden an. Bei bestehendem Gast prüft er, dass das Bild am Gast hängt oder noch an keinem Gast. Er lädt die Bilder selbst aus dem privaten Speicher (PROJ-29).
+3. **Vormerken:** Eine Datenbankfunktion prüft in einem Schritt das Tageslimit (Kalendertag Wien) und legt die Auslesung als „läuft“ an. Bei gleichzeitigen Klicks wird so nicht überzählt.
+4. **Claude aufrufen:** beide Bilder in einer Anfrage mit fester Anweisung und festem Antwortschema (strukturierte Ausgabe). Erfragt werden alle Felder je mit Lesesicherheit sowie die Zeilen der maschinenlesbaren Zone (MRZ). Höchstens 50 Sekunden, danach Abbruch.
+5. **Prüfen und Aufbereiten (in der App, ohne KI):**
+   - Prüfziffern der MRZ (Dokumentnummer, Geburtsdatum, gesamt). Weicht ein Feld von der MRZ ab oder stimmt eine Prüfziffer nicht, ist es „unsicher“.
+   - Länder: Ländercodes (z. B. „D“, „AUT“) bzw. Bezeichnungen werden der Länderliste aus PROJ-7 zugeordnet; ohne Treffer kein Vorschlag.
+   - Dokumentart auf Reisepass/Personalausweis/Führerschein abbilden, Leerzeichen der Dokument-ID entfernen, Längen- und Datumsregeln aus PROJ-29/PROJ-7; Verstöße → „unsicher“.
+   - Geschlecht: nur weiblich/männlich.
+6. **Gegenüberstellung** mit den Werten, die der Browser als „vorhanden“ mitschickt (aktueller Formularstand, auch ungespeichert). Regeln laut Spec, inklusive „Ausweis passt möglicherweise nicht“ (Name und Geburtsdatum weichen beide ab).
+7. **Abschließen:** Ergebnis und Verbrauch an der Auslesung vermerken. Antwort an den Browser: nur die Gegenüberstellung.
+
+**Übernehmen:**
+- *Gastformular:* Die gewählten Werte werden in die Formularfelder geschrieben. Gespeichert wird mit dem bestehenden „Speichern“, das zusätzlich den Herkunftsvermerk „Ausweis“ mitgibt. Die Rechte bleiben unverändert (PROJ-29).
+- *Gästeblatt:* Die Werte laufen durch die bestehende Speicher-Warteschlange des Blatts (Feld für Feld, Funktion „ein Feld speichern“, nur Blatt-Felder). Neu ist ein Herkunftsvermerk. Das Reisedokument wird wie bisher erst mit Art und Dokument-ID gespeichert, Unterschrift 1 erlischt wie bei jeder Änderung.
+
+### E) KI-Anbieter und Zugang
+- **Claude über Amazon Bedrock, Region Irland (eu-west-1),** Endpunkt mit Verarbeitung nur in dieser Region. Supabase liegt in derselben Region, Daten gehen nicht an Anthropic. Auftragsverarbeiter ist AWS.
+- **Modell:** Claude Opus 5.5 (Standard), umstellbar per Umgebungsvariable (z. B. auf Sonnet 5.5) ohne Codeänderung.
+- **Zugang:** eigener technischer AWS-Benutzer je Umgebung, darf nur Claude in Irland aufrufen. Schlüssel nur als geheime Vercel-Variablen mit eigenen Namen (`BEDROCK_…`), da Vercel die `AWS_…`-Namen reserviert. Einrichtung: `docs/runbooks/aws-bedrock.md`.
+- **Kapselung:** Ein Baustein „Ausweis-Leser“ enthält Anbieter, Anweisung und Schema. Ein späterer Wechsel des Anbieters betrifft nur ihn.
+- **Datenaufbewahrung bei AWS:** möglichst auf „keine“ gestellt (Runbook Schritt 5).
+- **Kosten:** geschätzt 3–6 Cent je Auslesung (zwei Bilder, Regionalaufschlag 10 %). AWS kennt kein hartes Limit, daher ist das Tageslimit der App die Bremse, dazu eine AWS-Budgetwarnung.
+
+### F) Fehlerfälle (Zuordnung zu den Meldungen der Spec)
+| Lage | Meldung | zählt |
+|---|---|---|
+| Keine Verbindung / Zugang ungültig / Dienst gestört | „Der Ausweis konnte gerade nicht gelesen werden …“ | nein |
+| Zeitüberschreitung (50 s) | dieselbe Meldung | ja (Kosten können entstanden sein) |
+| Antwort ohne erkennbaren Ausweis oder Ablehnung durch das Modell | „Auf dem Bild wurde kein Ausweis erkannt …“ | ja |
+| Antwort passt nicht zum Schema | „Der Ausweis konnte gerade nicht gelesen werden …“ | ja |
+| Limit erreicht / nicht freigeschaltet / fremder Kunde | Meldungen laut Spec | nein (nichts gesendet) |
+
+### G) Tests
+- **Unit:** MRZ-Prüfziffern (Reisepass, Personalausweis mit 3 Zeilen, Führerschein ohne MRZ), Länderzuordnung, Aufbereitung, Gegenüberstellung samt „fremder Ausweis“.
+- **Integration:** Vormerken mit Tageslimit (auch gleichzeitig), Rechte/RLS der Auslesungen, Herkunftsvermerk im Protokoll, Betreiber-Schalter.
+- **E2E:** mit einem **Test-Leser** statt Bedrock, nur in Dev/Test per Umgebungsvariable einschaltbar, in Produktion technisch ausgeschlossen. Feste Ergebnisse für gleich/abweichend/unsicher/fremd/Fehler. E2E-Läufe kosten so nichts und brauchen keine echten Ausweise.
+- **Einmalig von Hand in Dev:** echter Aufruf mit Musterausweisen (z. B. „Erika Mustermann“), keine echten Gästedaten.
+
+### H) Abhängigkeiten (Pakete)
+- `@anthropic-ai/bedrock-sdk`: offizieller Anthropic-Client für Claude auf Bedrock (signiert Anfragen mit dem AWS-Schlüssel). Beim Einbau auf saubere Peer-Abhängigkeiten prüfen (lokales `legacy-peer-deps`).
+- MRZ-Prüfung ohne Zusatzpaket: kleiner eigener Baustein (öffentlicher ICAO-Standard, gut testbar).
 
 ## QA Test Results
 _To be added by /qa_
