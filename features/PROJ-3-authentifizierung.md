@@ -1,6 +1,6 @@
 # PROJ-3: Authentifizierung
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-10-15
 **Last Updated:** 2026-11-10
 
@@ -554,3 +554,10 @@ _Stand 2026-10-25 (/deploy, erstes Release über Staging, Tag `v1.0.0`)_
 - **Staging:** https://staging.apppa.at (Vercel `apppa-staging`, Supabase `iikzjqjjxoznrkkixfqa`). Freigegeben nach Prüfung von Anmeldung mit 2FA, Betreiber-Bereich, Einladung, Team und Wohnungen
 - **Production:** https://app.apppa.at (Vercel `apppa`, Supabase `ahclrqbhfpidxjzbpfgb`), Commit `cedd560`, 2026-10-25
 - **Migrationen:** alle 13 bis `20261024140200_apartments_fk_indexes.sql` in Staging und Production eingespielt (2026-10-24), Advisors ohne Befund. Im Release selbst gab es keine neuen
+
+_Stand 2026-11-10 (/deploy, Bugfix Firefox-Fehlerseite, Tag `v1.51.0-PROJ-3`)_
+
+- **Staging:** https://staging.apppa.at, Commit `fb54320`, 2026-11-10. Der Push nach Staging lief noch vor Abschluss der Vorprüfungen, vermutlich durch einen Rest einer abgebrochenen Sitzung; danach wurden die Vorprüfungen beendet und Staging geprüft
+- **Production:** https://app.apppa.at, Commit `fb54320`, 2026-11-10. Endpunkte und Herkunftsprüfung von außen bestätigt, Anmeldung vom Nutzer bestätigt
+- **Migrationen:** keine
+- **Offen:** Anmeldung in Firefox auf Production prüft der Nutzer am 2026-11-11
