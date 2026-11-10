@@ -50,7 +50,7 @@ Die App wird als Mehrmandanten-SaaS betrieben: Jeder Kunde (Vermieter) hat ein e
 | P0 (Pilot) | Firmen anderer Gäste im Gastformular übernehmen (Vorschläge beim Firmennamen, Kopie) | Deployed (PROJ-49), abgelöst durch PROJ-50 |
 | P0 (Pilot) | Firmenliste: Firmen als eigene Einträge, Gäste verknüpft, Auswahl „Bestehende Firma“/„Neue Firma“ (löst PROJ-49 ab) | Deployed (PROJ-50) |
 | P0 (Pilot) | Gästeblatt (Meldewesen) mit Unterschrift am Tablet, Datenschutz-Information und Marketing-Einwilligung, Upload alter Gästeblätter; Kennzahl und Gästeblattnummer je Gemeinde | Deployed (PROJ-26, inkl. Kennzahl und Nummernbereiche je Gemeinde, Unterschriftsdatum in der Liste, Gästeblattnummer als PDF-Link) |
-| P0 (Pilot) | Ausweis automatisch auslesen (experimentell, je Kunde freischaltbar): Ausweisdaten, Name, Geburtsdatum per KI aus dem Ausweisbild, Abgleich mit Übernahme nach Bestätigung | Planned (PROJ-51) |
+| P0 (Pilot) | Ausweis automatisch auslesen (experimentell, je Kunde freischaltbar): Ausweisdaten, Name, Geburtsdatum per KI aus dem Ausweisbild, Abgleich mit Übernahme nach Bestätigung | Deployed (PROJ-51), echte Auslesung nach Freigabe durch AWS |
 | P0 (Pilot) | Kalender-Abo-Link für Outlook/M365 und Google Calendar | Roadmap |
 | P0 (MVP-Abschluss) | Statistische Auswertungen (Auslastung, Umsatz, Gästeherkunft; Kanäle als Prüfpunkt bei PROJ-11) und Dashboard-Kacheln Auslastung/Umsatz | Deployed (PROJ-18) |
 | P0 (MVP-Abschluss) | Marketing: DSGVO-Einwilligung, Segmente, CSV-Export | Roadmap |

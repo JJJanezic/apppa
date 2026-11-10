@@ -1,6 +1,6 @@
 # PROJ-51: Ausweis automatisch auslesen
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-11-10
 **Last Updated:** 2026-11-10
 
@@ -479,4 +479,10 @@ Bausteine: vorhandene shadcn-Komponenten (Dialog, Table, RadioGroup, Switch, Inp
 
 
 ## Deployment
-_To be added by /deploy_
+
+- **Staging:** https://staging.apppa.at (2026-11-10), vom Nutzer geprüft
+- **Production:** https://app.apppa.at (2026-11-10), vom Nutzer geprüft
+- **Commit:** 846fb6b, Tag `v1.49.0-PROJ-51`
+- **Migrations:** `20261110115816_id_reading.sql` (Staging und Produktion; Advisor nur bekannter Hinweis `auth_otp_long_expiry`)
+- **Umgebungsvariablen:** in Staging und Produktion bewusst **keine** `BEDROCK_*` (Nutzerentscheidung): Die Funktion ist bei allen Kunden aus; eingeschaltet meldet sie „Diese Funktion wird gerade eingerichtet.“ `ID_READING_FAKE` nie in Staging/Produktion.
+- **Offen bis zur Freischaltung echter Kunden:** AWS-Support schaltet Claude auf dem Mantle-Endpunkt eu-north-1 frei → echter Durchstich in Dev (Musterausweis, Antwortschema, Laufzeit, Kosten, Region) → IAM-Benutzer `apppa-ausweis-staging`/`-prod` (Runbook Schritt 6), Variablen in beiden Vercel-Projekten, Redeploy.
