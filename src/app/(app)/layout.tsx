@@ -1,5 +1,5 @@
 import { headers } from 'next/headers'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 
 import { GuestSheetBackfillProvider } from '@/components/guest-sheets/guest-sheet-backfill-context'
 import { IdReadingProvider } from '@/components/id-reading/id-reading-context'
@@ -13,6 +13,7 @@ import { requireAppUser } from '@/lib/auth/session'
 import { isActivePath, isAreaAvailable } from '@/lib/navigation'
 import { getBooking } from '@/lib/bookings-data'
 import { getCompany } from '@/lib/companies-data'
+import { dashboardRedirect } from '@/lib/dashboard-redirect'
 import { getGuestSheetBackfill } from '@/lib/guest-sheet-numbering-data'
 import { getGuest } from '@/lib/guests-data'
 import { getIdReadingEnabled } from '@/lib/id-reading-data'
@@ -27,8 +28,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const shell = await getShellInfo()
   // Einstellungen, Ortstaxe (PROJ-16) und Auswertungen (PROJ-18) nur für Inhaber, Betreiber-Bereich nur für den Admin: hier
   // (vor dem Streaming der Seite) prüfen, damit die Antwort 404 lautet
-  const path = (await headers()).get('x-pathname') ?? ''
+  const requestHeaders = await headers()
+  const path = requestHeaders.get('x-pathname') ?? ''
   const viewer = viewerOf(shell)
+  // Dashboard: Rücksprung-Ziel bzw. Betreiber-Bereich schon hier, als echte Weiterleitung (src/lib/dashboard-redirect.ts)
+  if (path === '/') {
+    const target = await dashboardRedirect(shell, new URLSearchParams(requestHeaders.get('x-search') ?? '').get('weiter'))
+    if (target) redirect(target)
+  }
   if (isActivePath('/einstellungen', path) && !isAreaAvailable('settings', viewer)) notFound()
   if (isActivePath('/betreiber', path) && !isAreaAvailable('operator', viewer)) notFound()
   if (isActivePath('/ortstaxe', path) && !isAreaAvailable('tax', viewer)) notFound()

@@ -1,6 +1,7 @@
 import 'server-only'
 
 import { notFound } from 'next/navigation'
+import { cache } from 'react'
 
 import { getSessionUser } from '@/lib/auth/session'
 import { createClient } from '@/lib/supabase/server'
@@ -69,8 +70,9 @@ export async function getTeam(): Promise<Team> {
   }
 }
 
-// Offene Einladungen an die angemeldete Person (bestehendes Konto)
-export async function getMyInvitations(): Promise<MyInvitation[]> {
+// Offene Einladungen an die angemeldete Person (bestehendes Konto). Pro Anfrage zwischengespeichert: App-Rahmen und
+// Dashboard fragen beim Seitenaufruf beide (src/lib/dashboard-redirect.ts)
+export const getMyInvitations = cache(async (): Promise<MyInvitation[]> => {
   const user = await getSessionUser()
   if (!user) return []
   const supabase = await createClient()
@@ -80,4 +82,4 @@ export async function getMyInvitations(): Promise<MyInvitation[]> {
     return []
   }
   return (data ?? []).map((i) => ({ id: i.id, tenantName: i.tenant_name, invitedBy: i.invited_by_name, role: i.role }))
-}
+})

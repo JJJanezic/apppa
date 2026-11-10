@@ -8,7 +8,7 @@ import { toast } from 'sonner'
 import { callAction } from '@/components/auth/form-error'
 import type { ActionResult } from '@/lib/auth/result'
 
-// Führt eine Team- bzw. Betreiber-Aktion aus: Erfolg → Hinweis-Meldung und Seite neu laden (bzw. Weiterleitung),
+// Führt eine Team- bzw. Betreiber-Aktion aus: Erfolg → Hinweis-Meldung und Seite erneuern (bzw. Weiterleitung durch die Aktion),
 // Fehler → Meldung aus „team.errors“ bzw. „operator.errors“. pending verhindert Doppelklicks.
 export function useTeamAction(namespace: 'team.errors' | 'operator.errors' | 'apartments.errors' | 'guests.errors' | 'companies.errors' = 'team.errors') {
   const t = useTranslations(namespace) as (key: string) => string
@@ -27,8 +27,8 @@ export function useTeamAction(namespace: 'team.errors' | 'operator.errors' | 'ap
       return false
     }
     toast.success(successMessage)
-    if (result.redirectTo) window.location.href = result.redirectTo
-    else router.refresh()
+    // Leitet die Aktion selbst weiter (redirect()), wechselt Next.js die Seite; kein Seitenwechsel im Browser dazwischen
+    if (!result.redirectTo) router.refresh()
     return true
   }
 

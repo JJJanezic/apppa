@@ -2,15 +2,15 @@
 
 import { useTranslations } from 'next-intl'
 
-import { signOut, verifyMfa } from '@/app/(auth)/actions'
 import { OtpForm } from '@/components/auth/otp-form'
 import { Button } from '@/components/ui/button'
+import { postAuthStep, requestSignOut } from '@/lib/auth/requests'
 
 export function MfaChallenge({ next }: { next?: string }) {
   const t = useTranslations('auth.mfa')
 
   async function switchAccount() {
-    await signOut().catch(() => undefined)
+    await requestSignOut()
     window.location.href = '/anmelden'
   }
 
@@ -18,7 +18,7 @@ export function MfaChallenge({ next }: { next?: string }) {
     <div className="flex flex-col gap-4">
       <OtpForm
         submitLabel={t('submit')}
-        onSubmitCode={(code) => verifyMfa({ code, next })}
+        onSubmitCode={(code) => postAuthStep('code', { code, next })}
         onSuccess={(result) => {
           window.location.href = (result.ok && result.redirectTo) || next || '/'
         }}

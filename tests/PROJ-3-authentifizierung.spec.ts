@@ -15,12 +15,15 @@ import {
   totp,
   typeCode,
 } from './support/supabase'
+import { noErrorFlash } from './support/error-flash'
 
-// PROJ-3: Authentifizierung. Ablauf-Tests nur im Projekt „desktop“ (schont die Supabase-Grenzen pro IP);
+// PROJ-3: Authentifizierung. Ablauf-Tests nur im Projekt „desktop“ (schont die Supabase-Grenzen pro IP) und auf Wunsch
+// in Firefox (`PW_FIREFOX=1 … --project=firefox`, dort zeigte der Seitenwechsel kurz die Fehlerseite);
 // Layout und Barrierefreiheit der Anmeldeseiten in allen drei Breiten.
 // Jeder Ablauf-Test legt eigene Nutzer an und löscht sie wieder.
 
-const test = base.extend<{ users: (opts?: Parameters<typeof createUser>[0]) => Promise<E2EUser> }>({
+const test = base.extend<{ users: (opts?: Parameters<typeof createUser>[0]) => Promise<E2EUser>; noErrorFlash: void }>({
+  noErrorFlash,
   users: async ({}, use) => {
     const created: E2EUser[] = []
     await use(async (opts) => {
@@ -33,7 +36,7 @@ const test = base.extend<{ users: (opts?: Parameters<typeof createUser>[0]) => P
 })
 
 const loggedOut = { storageState: { cookies: [], origins: [] } }
-const isDesktopProject = (name: string) => name === 'desktop'
+const isDesktopProject = (name: string) => name === 'desktop' || name === 'firefox'
 const alert = (page: Page) => page.getByRole('alert').filter({ hasNotText: /^$/ })
 
 // TOTP-Codes gelten 30 s; denselben Code nicht zweimal verwenden
@@ -134,12 +137,13 @@ test.describe('Abläufe', () => {
       await page.goto('/anmelden')
       await page.getByLabel('E-Mail-Adresse').fill(user.email)
       await page.getByLabel('Passwort', { exact: true }).fill(user.password)
-      let actions = 0
-      page.on('request', (r) => r.headers()['next-action'] && actions++)
+      // Anmelden läuft über den Route-Handler /api/anmeldung/anmelden (keine Server-Aktion, Firefox-Fehler beim Seitenwechsel)
+      let attempts = 0
+      page.on('request', (r) => r.url().endsWith('/api/anmeldung/anmelden') && attempts++)
       const button = page.getByRole('button', { name: 'Anmelden' })
       await button.dblclick()
       await expect(page).toHaveURL('http://localhost:3000/')
-      expect(actions).toBe(1)
+      expect(attempts).toBe(1)
     })
 
     test('Edge: E-Mail mit Großbuchstaben und Leerzeichen wird normalisiert', async ({ page, users }) => {
@@ -457,7 +461,8 @@ test.describe('Abläufe', () => {
       await expect(page.getByRole('button', { name: 'Entfernen' })).toHaveCount(2)
       await expect(page.getByRole('button', { name: 'Entfernen' }).first()).toBeEnabled()
 
-      // Neue Anmeldung: Code-Abfrage; falscher Code → Meldung; richtiger Code (zweites Gerät) → Dashboard
+      // Neue Anmeldung: Code-Abfrage; falscher Code → Meldung; richtiger Code (zweites Gerät) → Dashboard, das den Admin
+      // ohne eigenen Kunden in den Betreiber-Bereich weiterleitet
       await page.context().clearCookies()
       await login(page, admin)
       await expect(page).toHaveURL(/\/2fa\?next=/)
@@ -468,7 +473,7 @@ test.describe('Abläufe', () => {
       await expect(alert(page)).toHaveText('Der Code ist falsch oder abgelaufen.')
       await typeCode(page, await freshCode(secret2))
       await page.getByRole('button', { name: 'Bestätigen' }).click()
-      await expect(page).toHaveURL('http://localhost:3000/')
+      await expect(page).toHaveURL('/betreiber')
     })
 
     test('AC: 5 falsche Codes → Sperre wie beim Passwort', async ({ page, users }) => {

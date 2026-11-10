@@ -14,12 +14,14 @@ import {
   service,
   signInAs,
 } from './support/supabase'
+import { noErrorFlash, watchErrorFlash } from './support/error-flash'
 
 // PROJ-4: Kundenkonten & Rollen. Abläufe nur im Projekt „desktop“, Layout auch in 375 px.
 // Es werden keine Mails verschickt: Einladungen nur an bestehende Testkonten (Brevo im Test abgeschaltet,
 // playwright.config.ts) bzw. direkt angelegt; Links für neue Personen über admin.generateLink.
 
-const test = base.extend<{ users: (opts?: Parameters<typeof createUser>[0]) => Promise<E2EUser> }>({
+const test = base.extend<{ users: (opts?: Parameters<typeof createUser>[0]) => Promise<E2EUser>; noErrorFlash: void }>({
+  noErrorFlash,
   users: async ({}, use) => {
     const created: E2EUser[] = []
     await use(async (opts) => {
@@ -33,7 +35,7 @@ const test = base.extend<{ users: (opts?: Parameters<typeof createUser>[0]) => P
 
 test.use({ storageState: { cookies: [], origins: [] } })
 
-const desktopOnly = () => test.skip(test.info().project.name !== 'desktop', 'Abläufe nur im Desktop-Projekt')
+const desktopOnly = () => test.skip(!['desktop', 'firefox'].includes(test.info().project.name), 'Abläufe nur im Desktop-Projekt (und auf Wunsch Firefox)')
 const ready = (page: Page) =>
   page.waitForFunction(() => Object.keys(document.querySelector('main') ?? {}).some((k) => k.startsWith('__reactFiber')))
 
@@ -111,16 +113,18 @@ test.describe('Einladen', () => {
     await page.getByRole('radio', { name: /Inhaber/ }).check()
     await page.getByRole('button', { name: 'Einladen', exact: true }).click()
     await expect(page.getByText(`Einladung an ${guest.email} verschickt.`)).toBeVisible()
-    await expect(page.getByText(guest.email)).toBeVisible()
+    await expect(page.getByText(guest.email, { exact: true })).toBeVisible()
 
     const ctx = await browser.newContext()
     const guestPage = await ctx.newPage()
+    const flashes = await watchErrorFlash(guestPage)
     await signInAs(guestPage, guest)
     await guestPage.goto('/')
     await expect(guestPage.getByText('Olga Owner hat dich als Inhaber zu „QA Einladen“ eingeladen.')).toBeVisible()
     await guestPage.getByRole('button', { name: 'Annehmen' }).click()
     await expect(guestPage.getByRole('button', { name: /Kunden wechseln|Benutzermenü/ }).first()).toBeVisible()
     await expect.poll(() => membershipRole(tenant, guest.id)).toBe('owner')
+    expect(flashes, 'Fehlerseite war kurz zu sehen').toEqual([])
     await ctx.close()
   })
 

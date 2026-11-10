@@ -181,12 +181,13 @@ export async function deleteGuest(values: { id: string }): Promise<Result<{ mode
   if (error) return dbFail(error, 'Gast nicht gelöscht')
   // Gelöscht oder anonymisiert: Ausweisbilder endgültig entfernen (PROJ-29)
   await removeDocumentFiles(pathsOf(before))
-  revalidatePath(COMPANIES, 'layout')
   if (data === 'anonymized') {
+    revalidatePath(COMPANIES, 'layout')
     revalidate(values.id)
     return { ok: true, data: { mode: 'anonymized' } }
   }
-  // Endgültig gelöscht: nichts neu laden – die Detailseite würde sonst „Seite nicht gefunden“ zeigen.
+  // Endgültig gelöscht: nichts neu laden – die Detailseite würde sonst „Seite nicht gefunden“ zeigen, und in Firefox
+  // brach der Seitenwechsel die mitgeschickte erneuerte Seite ab („Da ist etwas schiefgelaufen“).
   // Die Oberfläche wechselt mit frischem Laden zur Liste (wie BUG-4 aus QA PROJ-5).
   return { ok: true, data: { mode: 'deleted' }, redirectTo: `${LIST}?geloescht=1` }
 }

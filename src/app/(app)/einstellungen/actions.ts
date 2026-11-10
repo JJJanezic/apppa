@@ -1,6 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { redirect } from 'next/navigation'
 
 import type { ActionResult, CommonErrorCode } from '@/lib/auth/result'
 import { getSessionUser, pendingMfaStep, type SessionUser } from '@/lib/auth/session'
@@ -216,7 +217,8 @@ export async function demoteSelf(): Promise<Result> {
   if (!data?.length) return fail('unknown')
 
   revalidatePath('/', 'layout')
-  return { ok: true, redirectTo: '/' }
+  // Weiterleitung aus der Aktion: Ein Seitenwechsel im Browser brach die mitgeschickte erneuerte Seite ab (Firefox: Fehlerseite)
+  redirect('/')
 }
 
 // Team des gewählten Kunden verlassen (nicht als letzter Inhaber); danach der nächste Kunde bzw. „keinem zugeordnet“
@@ -236,7 +238,8 @@ export async function leaveTenant(): Promise<Result> {
 
   await rememberTenant(null)
   revalidatePath('/', 'layout')
-  return { ok: true, redirectTo: '/' }
+  // Weiterleitung aus der Aktion: Ein Seitenwechsel im Browser brach die mitgeschickte erneuerte Seite ab (Firefox: Fehlerseite)
+  redirect('/')
 }
 
 // Stammdaten speichern (PROJ-28): eine Datenbank-Funktion prüft Rolle, Aktiv-Status und Stand und schreibt das Protokoll

@@ -6,7 +6,6 @@ import { accountHash, clearFailures, getLockState, recordFailure } from '@/lib/a
 import { enrollTotp, type Enrollment, verifyTotp } from '@/lib/auth/mfa'
 import type { ActionResult } from '@/lib/auth/result'
 import {
-  clearSessionLimits,
   getSessionUser,
   hasVerifiedTotp,
   pendingMfaStep,
@@ -31,6 +30,8 @@ import {
 
 // Server-Aktionen der Anmelde-Seiten (PROJ-3). Meldungen bleiben neutral (keine Rückschlüsse auf Konten);
 // Fehlversuche bei Passwort und 2FA-Code zählen zur Sperre (src/lib/auth/lockout.ts).
+// Schritte mit Seitenwechsel (redirectTo) ruft die Oberfläche nicht als Server-Aktion auf, sondern über
+// src/app/api/anmeldung/[schritt]/route.ts; Abmelden über src/app/api/abmelden/route.ts (Gründe dort).
 
 // Die Formulare prüfen schon im Browser; auf dem Server genügen Schlüssel statt übersetzter Texte
 const key = (k: string) => k
@@ -195,12 +196,4 @@ export async function confirmMfaEnrollment(values: OtpValues & { factorId: strin
   const result = await verifyTotp(parsed.data.code, [values.factorId])
   if (!result.ok) return result
   return { ok: true, redirectTo: '/' }
-}
-
-// Abmelden (nur dieses Gerät)
-export async function signOut(): Promise<ActionResult> {
-  const supabase = await createClient()
-  await supabase.auth.signOut({ scope: 'local' })
-  await clearSessionLimits()
-  return { ok: true, redirectTo: '/anmelden?grund=abgemeldet' }
 }

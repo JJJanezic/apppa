@@ -27,6 +27,10 @@ export function FormError({ error, retryAfterMinutes, namespace = 'auth.errors' 
 
 // Netzwerkfehler beim Aufruf einer Server-Aktion als einheitliches Ergebnis.
 // Abgelaufene Sitzung: zur Anmeldung mit Hinweis, danach zurück auf diese Seite.
+// Seitenwechsel im Browser (window.location) nach einer Aktion nur, wenn die Aktion weder Cookies setzt noch revalidatePath
+// aufruft. Sonst schickt Next.js die erneuerte Seite in der Antwort mit, das Ergebnis kommt schon vorher an, und der
+// Seitenwechsel bricht den Rest ab: Firefox zeigte kurz „Da ist etwas schiefgelaufen“. Dann redirect() in der Aktion
+// oder ein Route-Handler mit JSON-Antwort (Anmelde-Schritte, Abmelden: src/lib/auth/requests.ts).
 export async function callAction<T, E extends string = AuthErrorCode>(
   fn: () => Promise<ActionResult<T, E>>
 ): Promise<ActionResult<T, E>> {

@@ -200,7 +200,6 @@ export async function deleteInvoice(input: { id: string }): Promise<Result & { d
   if (!guard.ok) return guard
   if (!isId(input?.id)) return fail('notFound')
   const supabase = await createClient()
-  const { data: before } = await supabase.from('invoices').select('booking_id').eq('id', input.id).eq('tenant_id', guard.tenant.id).maybeSingle()
   const { data, error } = await supabase.rpc('delete_invoice', { p_invoice_id: input.id })
   if (error) {
     const failure = dbFail(error, 'Rechnung löschen')
@@ -208,9 +207,11 @@ export async function deleteInvoice(input: { id: string }): Promise<Result & { d
   }
   // Die Funktion meldet das PDF der gelöschten Rechnung zurück
   await removeInvoiceFiles([data])
-  revalidate({ bookingIds: [before?.booking_id] })
   // Keine Weiterleitung aus der Aktion (QA BUG-2, PROJ-45): Das Neuladen der jetzt gelöschten Rechnung überholte sie sporadisch
-  // („Seite nicht gefunden“). Der Browser wechselt selbst (wie beim Löschen eines Gastes); die Liste zeigt die Bestätigung.
+  // („Seite nicht gefunden“). Der Browser wechselt selbst mit vollständigem Seitenaufruf (wie beim Löschen eines Gastes);
+  // die Liste zeigt die Bestätigung. Auch kein revalidatePath: Next.js schickte sonst die erneuerte Seite in der Antwort
+  // mit, der Seitenwechsel brach sie ab, und Firefox zeigte kurz „Da ist etwas schiefgelaufen“. Der volle Seitenaufruf
+  // lädt ohnehin alles frisch.
   return { ok: true, redirectTo: `${LIST}?geloescht=1` }
 }
 

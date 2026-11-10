@@ -4,7 +4,6 @@ import { CaretUpDown, SignOut, UserCircle } from '@phosphor-icons/react'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 
-import { signOut } from '@/app/(auth)/actions'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { useShell } from '@/components/shell/shell-context'
+import { requestSignOut } from '@/lib/auth/requests'
 
 // Name · Rolle mit Benutzermenü: „Mein Konto“ und „Abmelden“ (PROJ-3)
 export function UserMenu({ side = 'top' }: { side?: 'top' | 'bottom' }) {
@@ -24,7 +24,7 @@ export function UserMenu({ side = 'top' }: { side?: 'top' | 'bottom' }) {
   const label = `${person.name ?? t('personPlaceholder')} · ${role}`
 
   async function handleSignOut() {
-    await signOut().catch(() => undefined)
+    await requestSignOut()
     // Vollständiger Seitenwechsel: keine App-Daten im Verlauf/Zwischenspeicher
     window.location.href = '/anmelden?grund=abgemeldet'
   }

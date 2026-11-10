@@ -5,11 +5,11 @@ import { useTranslations } from 'next-intl'
 import { useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 
-import { setNewPassword } from '@/app/(auth)/actions'
 import { callAction, FormError } from '@/components/auth/form-error'
 import { NewPasswordFields } from '@/components/auth/new-password-fields'
 import { Button } from '@/components/ui/button'
 import { Form } from '@/components/ui/form'
+import { postAuthStep } from '@/lib/auth/requests'
 import type { AuthErrorCode } from '@/lib/auth/result'
 import { newPasswordSchema, type NewPasswordValues } from '@/lib/validation/auth'
 
@@ -22,7 +22,7 @@ export function NewPasswordForm({ email }: { email?: string }) {
 
   async function onSubmit(values: NewPasswordValues) {
     setError(null)
-    const result = await callAction(() => setNewPassword(values))
+    const result = await callAction(() => postAuthStep('neues-passwort', values))
     if (result.ok) {
       window.location.assign(result.redirectTo ?? '/')
       return

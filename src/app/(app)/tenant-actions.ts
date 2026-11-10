@@ -1,6 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { redirect } from 'next/navigation'
 
 import type { ActionResult } from '@/lib/auth/result'
 import { getSessionUser, pendingMfaStep } from '@/lib/auth/session'
@@ -26,7 +27,8 @@ export async function acceptInvitation(values: { invitationId: string }): Promis
   if (error || !tenantId) return { ok: false, error: error?.code === 'P0002' ? 'invitationInvalid' : 'unknown' }
   await rememberTenant(tenantId)
   revalidatePath('/', 'layout')
-  return { ok: true, redirectTo: '/' }
+  // Weiterleitung aus der Aktion: Ein Seitenwechsel im Browser brach die mitgeschickte erneuerte Seite ab (Firefox: Fehlerseite)
+  redirect('/')
 }
 
 export async function declineInvitation(values: { invitationId: string }): Promise<Result> {

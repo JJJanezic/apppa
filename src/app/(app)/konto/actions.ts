@@ -6,7 +6,7 @@ import { revalidatePath } from 'next/cache'
 import { accountHash, clearFailures, getLockState, recordFailure } from '@/lib/auth/lockout'
 import { enrollTotp, type Enrollment, verifyTotp } from '@/lib/auth/mfa'
 import type { ActionResult } from '@/lib/auth/result'
-import { clearSessionLimits, getSessionUser, pendingMfaStep, type SessionUser } from '@/lib/auth/session'
+import { getSessionUser, pendingMfaStep, type SessionUser } from '@/lib/auth/session'
 import { getClientEnv } from '@/lib/env'
 import { createClient } from '@/lib/supabase/server'
 import {
@@ -94,18 +94,6 @@ export async function changePassword(values: ChangePasswordValues): Promise<Acti
 
   await supabase.auth.signOut({ scope: 'others' })
   return { ok: true }
-}
-
-// Beendet alle Sitzungen, auch die aktuelle
-export async function signOutEverywhere(): Promise<ActionResult> {
-  const guard = await requireAccountUser()
-  if (!guard.ok) return guard.result
-
-  const supabase = await createClient()
-  const { error } = await supabase.auth.signOut({ scope: 'global' })
-  if (error) return { ok: false, error: 'unknown' }
-  await clearSessionLimits()
-  return { ok: true, redirectTo: '/anmelden?grund=abgemeldet' }
 }
 
 // Zweites 2FA-Gerät: Einrichtung starten bzw. mit Code bestätigen (nur Admin)

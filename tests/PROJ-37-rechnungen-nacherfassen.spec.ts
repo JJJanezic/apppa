@@ -16,13 +16,15 @@ import {
   signInAsAdmin,
   withCompany,
 } from './support/supabase'
+import { noErrorFlash } from './support/error-flash'
 
 // PROJ-37: Rechnungen nacherfassen. Die Datenbank-Regeln prüft supabase/tests/invoices.integration.test.ts;
 // hier die Abläufe in der Oberfläche. Abläufe im Desktop-Projekt (und Firefox/Safari), Layout auch auf Tablet und Handy.
 
 type Users = (opts?: Parameters<typeof createUser>[0]) => Promise<E2EUser>
 
-const test = base.extend<{ users: Users }>({
+const test = base.extend<{ users: Users; noErrorFlash: void }>({
+  noErrorFlash,
   users: async ({}, use) => {
     const created: E2EUser[] = []
     await use(async (opts) => {

@@ -1,8 +1,8 @@
 # PROJ-3: Authentifizierung
 
-## Status: Deployed
+## Status: In Review
 **Created:** 2026-10-15
-**Last Updated:** 2026-10-23
+**Last Updated:** 2026-11-10
 
 ## Dependencies
 - Requires: PROJ-1 (Supabase Infrastructure Setup): Login-Konten, Einladung nur per Mail, Passwortregel (mind. 10 Zeichen, a-z/A-Z/0-9), 2FA-Pflicht für den Admin, Admin-Kennzeichen, Route `/auth/confirm` mit Schutz vor Open Redirect
@@ -318,6 +318,16 @@ _Stand 2026-10-15 (/backend)_
 - **BUG-4 behoben:** Der Proxy nimmt nur `POST` mit `next-action` von der Weiterleitung aus
 - **BUG-2 behoben (/frontend):** `confirm-link-form.tsx` wertet `signedOutOther` aus und hängt `?hinweis=abgemeldet` an; `/einladung/abschliessen` und `/passwort-neu` zeigen dann „Die bisherige Anmeldung in diesem Browser wurde beendet.“ Neuer Baustein `src/components/auth/auth-notice.tsx` (Hinweis mit `role="status"`, auch auf `/anmelden` verwendet). E2E-Test „andere Person im selben Browser angemeldet“ grün
 - Tests: `src/lib/supabase/proxy.test.ts` (6, u. a. widerrufene Sitzung, gefälschter Header), `src/lib/security-headers.test.ts` (6), Integrationstest weist nach, dass ein widerrufenes Token per Signatur gültig bleibt, Supabase es aber ablehnt. `npm test` 164/164. E2E Desktop: alle Anmelde-, Sitzungs-, Einladungs-, Reset-, Konto-, 2FA- und Design-Tests grün außer BUG-2; zwei Tests mussten wegen der Supabase-Grenze pro IP (30 Link-Bestätigungen in 5 Minuten, durch viele Testläufe hintereinander) wiederholt werden. Tablet und Handy: alle Tests grün. PROJ-2-Test „Seitenleiste bleibt beim Scrollen stehen“ wartet jetzt, bis React die Seite übernommen hat (veränderte die Seite vorher zu früh → Neuaufbau, unzuverlässig); `tests/zz-debug.spec.ts` (versehentlich in 58f736e) entfernt
+
+## Implementation Notes (Bugfix Firefox-Fehlerseite, 2026-11-10)
+_Anlass: Bei einer echten Nutzerin erschien in Firefox nach „Anmelden“ kurz „Da ist etwas schiefgelaufen.“, danach das Dashboard. Chrome und Safari zeigten das nicht._
+
+- **Ursache:** Setzt eine Server-Aktion Cookies oder ruft `revalidatePath` auf, schickt Next.js die erneuerte Seite in derselben Antwort mit; das Ergebnis der Aktion kommt schon vorher an. Ein Seitenwechsel im Browser direkt danach bricht in Firefox den Rest der Antwort ab (`NS_BINDING_ABORTED`), Next.js zeigt dafür die Fehlerseite. Gleiche Ursache wie beim Kundenwechsel (`src/app/kunde-wechseln/route.ts`)
+- **Anmelde-Schritte** (Anmelden, 2FA-Code, 2FA einrichten, Einladung, neues Passwort, Mail-Link): Aufruf über `POST /api/anmeldung/[schritt]` statt als Server-Aktion; kurze JSON-Antwort, danach wie bisher vollständiger Seitenwechsel. Die Funktionen in `src/app/(auth)/actions.ts` sind unverändert. `redirect()` aus der Aktion wurde verworfen, weil Next.js solche Weiterleitungen gelegentlich fallen lässt (BUG-5 aus PROJ-15)
+- **Abmelden** und „Auf allen Geräten abmelden“: `POST /api/abmelden`, Aktionen `signOut`/`signOutEverywhere` entfernt. Oberfläche: `src/lib/auth/requests.ts`
+- **Dashboard-Weiterleitungen** (`?weiter=…`, Admin ohne Kunde → `/betreiber`): zusätzlich im App-Rahmen vor dem Streaming (`src/lib/dashboard-redirect.ts`, Suchteil über Header `x-search` aus dem Proxy). Aus der Seite allein kamen sie erst nach `loading.tsx`, dann liefen zwei Weiterleitungen gegeneinander
+- **Andere Bereiche, gleiche Ursache:** Gast, Rechnung und Sperre löschen ohne `revalidatePath` vor dem vollständigen Seitenwechsel; Einladung annehmen, Rolle abgeben, Team verlassen mit `redirect()` aus der Aktion (PROJ-4, -7, -8, -37)
+- **Tests:** `tests/support/error-flash.ts` (Fixture `noErrorFlash`) lässt Abläufe fehlschlagen, wenn die Fehlerseite kurz zu sehen ist; in Firefox mit `PW_FIREFOX=1 … --project=firefox`
 
 ## QA Test Results
 

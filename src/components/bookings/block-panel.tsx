@@ -84,7 +84,7 @@ export function BlockPanel({ open, onOpenChange, apartments, block, owner, today
   async function remove() {
     if (!block) return
     setConfirmDelete(false)
-    const result = await callAction(() => deleteBlock({ id: block.id }))
+    const result = await callAction(() => deleteBlock({ id: block.id, leave: !afterDeleteHref }))
     if (!result.ok) {
       if (result.error !== 'sessionExpired') toast.error(te(result.error))
       return

@@ -6,12 +6,12 @@ import { useTranslations } from 'next-intl'
 import { useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 
-import { signIn } from '@/app/(auth)/actions'
 import { callAction, FormError } from '@/components/auth/form-error'
 import { PasswordInput } from '@/components/auth/password-input'
 import { Button } from '@/components/ui/button'
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
+import { postAuthStep } from '@/lib/auth/requests'
 import type { AuthErrorCode } from '@/lib/auth/result'
 import { loginSchema, type LoginValues } from '@/lib/validation/auth'
 
@@ -28,7 +28,7 @@ export function LoginForm({ next }: LoginFormProps) {
 
   async function onSubmit(values: LoginValues) {
     setError(null)
-    const result = await callAction(() => signIn({ ...values, next }))
+    const result = await callAction(() => postAuthStep('anmelden', { ...values, next }))
     if (result.ok) {
       // Vollständiger Seitenwechsel, damit die neue Sitzung überall gilt
       window.location.assign(result.redirectTo ?? '/')

@@ -19,6 +19,8 @@ export async function updateSession(request: NextRequest) {
   const env = getServerEnv()
   // Aufgerufener Pfad für Server-Layouts (z. B. Rollenprüfung im App-Rahmen); überschreibt mitgeschickte Werte
   request.headers.set('x-pathname', request.nextUrl.pathname)
+  // Suchteil für Weiterleitungen im App-Rahmen (Dashboard: ?weiter=…, src/lib/dashboard-redirect.ts)
+  request.headers.set('x-search', request.nextUrl.search)
   let response = NextResponse.next({ request })
   // Hatte der Browser eine Supabase-Sitzung? (Unterscheidet „widerrufen“ von „nie angemeldet“)
   const hadSession = request.cookies.getAll().some((c) => c.name.startsWith('sb-') && c.name.includes('-auth-token'))

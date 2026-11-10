@@ -3,9 +3,9 @@
 import { useTranslations } from 'next-intl'
 import { useState } from 'react'
 
-import { confirmEmailLink } from '@/app/(auth)/actions'
 import { callAction, FormError } from '@/components/auth/form-error'
 import { Button } from '@/components/ui/button'
+import { postAuthStep } from '@/lib/auth/requests'
 import type { AuthErrorCode } from '@/lib/auth/result'
 
 interface ConfirmLinkFormProps {
@@ -23,7 +23,7 @@ export function ConfirmLinkForm({ tokenHash, type, onInvalid }: ConfirmLinkFormP
   async function confirm() {
     setPending(true)
     setError(null)
-    const result = await callAction(() => confirmEmailLink({ tokenHash, type }))
+    const result = await callAction(() => postAuthStep<{ signedOutOther: boolean }>('link', { tokenHash, type }))
     if (result.ok) {
       const target = result.redirectTo ?? (type === 'invite' ? '/einladung/abschliessen' : '/passwort-neu')
       // War vorher eine andere Person angemeldet, zeigt die Folgeseite einen Hinweis (BUG-2 aus QA)

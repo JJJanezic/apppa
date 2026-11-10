@@ -22,10 +22,9 @@ import { requireArea } from '@/lib/areas'
 import { todayIso } from '@/lib/bookings'
 import { NO_ACCESS_NOTICE } from '@/lib/dashboard'
 import { type DashboardScope, getDashboardScope } from '@/lib/dashboard-data'
+import { dashboardRedirect } from '@/lib/dashboard-redirect'
 import { greetingFor } from '@/lib/greeting'
-import { isPathAvailable } from '@/lib/navigation'
-import { safeRedirectPath } from '@/lib/safe-redirect'
-import { getShellInfo, viewerOf } from '@/lib/shell'
+import { getShellInfo } from '@/lib/shell'
 import { getMyInvitations } from '@/lib/team-data'
 import { belongsToDeactivatedTenant } from '@/lib/tenant'
 
@@ -51,13 +50,11 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const { person, tenant } = shell
   const params = await searchParams
   const { weiter, hinweis, kunde } = params
-  const target = safeRedirectPath(Array.isArray(weiter) ? weiter[0] : weiter, 'https://app.local')
-  if (target !== '/' && isPathAvailable(new URL(target, 'https://app.local').pathname, viewerOf(shell))) redirect(target)
+  // Rücksprung-Ziel bzw. Betreiber-Bereich; beim Seitenaufruf leitet schon der App-Rahmen weiter
+  const target = await dashboardRedirect(shell, weiter)
+  if (target) redirect(target)
   const invitations = await getMyInvitations()
   const noTenant = tenant.list !== null && tenant.list.length === 0
-  // Admin ohne eigenen Kunden → Betreiber-Bereich; aber nicht, solange eine Einladung an ihn offen ist,
-  // sonst könnte er sie nie annehmen (sie erscheint nur hier)
-  if (noTenant && person.isAdmin && invitations.length === 0) redirect('/betreiber')
   const deactivated = noTenant && (await belongsToDeactivatedTenant())
   const now = new Date()
   const today = todayIso(now)

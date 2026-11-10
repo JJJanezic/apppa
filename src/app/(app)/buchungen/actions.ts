@@ -341,7 +341,9 @@ export async function saveBlock(input: {
   return result
 }
 
-export async function deleteBlock(input: { id: string }): Promise<Result> {
+// leave: Die Oberfläche wechselt danach mit vollständigem Seitenaufruf zur Liste. Dann nichts neu aufbauen: Next.js schickte
+// die erneuerte Seite sonst in der Antwort mit, der Seitenwechsel brach sie ab, Firefox zeigte kurz die Fehlerseite.
+export async function deleteBlock(input: { id: string; leave?: boolean }): Promise<Result> {
   const guard = await requireOwner()
   if (!guard.ok) return guard
   if (!isId(input?.id)) return fail('notFound')
@@ -355,7 +357,7 @@ export async function deleteBlock(input: { id: string }): Promise<Result> {
     .select('id')
   if (error) return dbFail(error, 'Sperre löschen')
   if (!data?.length) return fail('notFound')
-  revalidatePath(LIST)
+  if (!input.leave) revalidatePath(LIST)
   return { ok: true }
 }
 

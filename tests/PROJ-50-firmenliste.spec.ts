@@ -2,11 +2,13 @@ import AxeBuilder from '@axe-core/playwright'
 import { expect, type Page, test as base } from '@playwright/test'
 
 import { createTenant, createUser, deleteUser, type E2EUser, hasSupabaseEnv, service, signInAs } from './support/supabase'
+import { noErrorFlash } from './support/error-flash'
 
 // PROJ-50: Firmenliste. Abläufe nur im Projekt „desktop“; Darstellung und Barrierefreiheit in allen Breiten.
 // Ersetzt die Formular-Tests aus PROJ-33 (Firmenanschrift) und PROJ-49 (Vorschläge).
 
-const test = base.extend<{ users: (opts?: Parameters<typeof createUser>[0]) => Promise<E2EUser> }>({
+const test = base.extend<{ users: (opts?: Parameters<typeof createUser>[0]) => Promise<E2EUser>; noErrorFlash: void }>({
+  noErrorFlash,
   users: async ({}, use) => {
     const created: E2EUser[] = []
     await use(async (opts) => {
@@ -21,7 +23,7 @@ const test = base.extend<{ users: (opts?: Parameters<typeof createUser>[0]) => P
 test.use({ storageState: { cookies: [], origins: [] } })
 
 type Users = (opts?: Parameters<typeof createUser>[0]) => Promise<E2EUser>
-const desktopOnly = () => test.skip(test.info().project.name !== 'desktop', 'Abläufe nur im Desktop-Projekt')
+const desktopOnly = () => test.skip(!['desktop', 'firefox'].includes(test.info().project.name), 'Abläufe nur im Desktop-Projekt (und auf Wunsch Firefox)')
 const ready = (page: Page) =>
   page.waitForFunction(() => Object.keys(document.querySelector('main') ?? {}).some((k) => k.startsWith('__reactFiber')))
 const panel = (page: Page) => page.getByRole('dialog').last()

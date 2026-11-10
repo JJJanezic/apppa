@@ -4,8 +4,7 @@ import { SignOut } from '@phosphor-icons/react'
 import { useTranslations } from 'next-intl'
 import { useState } from 'react'
 
-import { signOutEverywhere } from '@/app/(app)/konto/actions'
-import { callAction, FormError } from '@/components/auth/form-error'
+import { FormError } from '@/components/auth/form-error'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,6 +18,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import type { AuthErrorCode } from '@/lib/auth/result'
+import { requestSignOut } from '@/lib/auth/requests'
 
 // „Auf allen Geräten abmelden“ mit Bestätigung; beendet auch die aktuelle Sitzung
 export function SignOutEverywhere() {
@@ -29,9 +29,14 @@ export function SignOutEverywhere() {
   async function confirm() {
     setPending(true)
     setError(null)
-    const result = await callAction(signOutEverywhere)
+    const result = await requestSignOut({ everywhere: true })
     if (result.ok) {
       window.location.href = '/anmelden?grund=abgemeldet'
+      return
+    }
+    if (result.error === 'sessionExpired') {
+      const next = encodeURIComponent(`${window.location.pathname}${window.location.search}`)
+      window.location.href = `/anmelden?grund=sitzung-abgelaufen&next=${next}`
       return
     }
     setPending(false)

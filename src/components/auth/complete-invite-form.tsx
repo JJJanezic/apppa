@@ -5,12 +5,12 @@ import { useTranslations } from 'next-intl'
 import { useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 
-import { completeInvite } from '@/app/(auth)/actions'
 import { callAction, FormError } from '@/components/auth/form-error'
 import { NewPasswordFields } from '@/components/auth/new-password-fields'
 import { Button } from '@/components/ui/button'
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
+import { postAuthStep } from '@/lib/auth/requests'
 import type { AuthErrorCode } from '@/lib/auth/result'
 import { completeInviteSchema, type CompleteInviteValues, DISPLAY_NAME_MAX } from '@/lib/validation/auth'
 
@@ -26,7 +26,7 @@ export function CompleteInviteForm({ email }: { email?: string }) {
 
   async function onSubmit(values: CompleteInviteValues) {
     setError(null)
-    const result = await callAction(() => completeInvite(values))
+    const result = await callAction(() => postAuthStep('einladung', values))
     if (result.ok) {
       window.location.assign(result.redirectTo ?? '/')
       return
