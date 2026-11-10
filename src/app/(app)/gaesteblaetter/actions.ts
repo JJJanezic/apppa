@@ -8,6 +8,7 @@ import { getSessionUser, pendingMfaStep } from '@/lib/auth/session'
 import { bookingHref } from '@/lib/bookings'
 import { GUEST_SHEET_BUCKET, type GuestSheetErrorCode, guestSheetListHref, type SheetGuestField } from '@/lib/guest-sheet'
 import { isMissingRelation } from '@/lib/guest-sheets-data'
+import { verifiedIdReading } from '@/lib/id-reading-data'
 import { createClient } from '@/lib/supabase/server'
 import { getTenantContext } from '@/lib/tenant'
 import {
@@ -55,16 +56,16 @@ function dbFail(error: { code?: string; message?: string }, context: string, sta
   return fail(mapped ?? 'unknown')
 }
 
-async function requireMember(): Promise<{ ok: true; tenantId: string } | Failure> {
+async function requireMember(): Promise<{ ok: true; tenantId: string; userId: string } | Failure> {
   const user = await getSessionUser()
   if (!user || (await pendingMfaStep(user))) return fail('sessionExpired')
   const { active } = await getTenantContext()
   if (!active) return fail('unknown')
-  return { ok: true, tenantId: active.id }
+  return { ok: true, tenantId: active.id, userId: user.userId }
 }
 
 // tenantId: der Kunde, für den das Blatt geöffnet wurde; ein Kundenwechsel in einem anderen Tab ändert ihn nicht
-async function requireTenant(tenantId: unknown): Promise<{ ok: true; tenantId: string } | Failure> {
+async function requireTenant(tenantId: unknown): Promise<{ ok: true; tenantId: string; userId: string } | Failure> {
   const guard = await requireMember()
   if (!guard.ok) return guard
   if (guard.tenantId !== tenantId) return fail('unknown')
@@ -105,8 +106,9 @@ export async function saveSheetGuest(input: {
   bookingId: string
   updatedAt: string
   values: Partial<SheetGuestInput & { email: string }>
-  // PROJ-51: Werte aus „Ausweis auslesen“ → Vermerk „Gästeblatt, aus Ausweis gelesen“ im Änderungsprotokoll
-  fromIdDocument?: boolean
+  // PROJ-51: Kennung der Auslesung, deren Werte übernommen wurden → Vermerk „Gästeblatt, aus Ausweis gelesen“, sofern der
+  // Server sie für diese Person und den Hauptgast der Buchung nachweisen kann (QA BUG-1)
+  idReadingId?: string | null
 }): Promise<ActionResult<{ updatedAt: string }, ErrorCode>> {
   const guard = await requireTenant(input?.tenantId)
   if (!guard.ok) return guard
@@ -119,8 +121,13 @@ export async function saveSheetGuest(input: {
   const values = Object.fromEntries(Object.entries(parsed.data as Record<string, unknown>).map(([f, v]) => [GUEST_COLUMNS[f as SheetGuestField | 'email'], v]))
 
   const supabase = await untyped()
-  // PROJ-51: übernommene Ausweiswerte → Vermerk „Gästeblatt, aus Ausweis gelesen“
-  const { data, error } = await supabase.rpc(input.fromIdDocument === true ? 'save_guest_sheet_field_from_id_document' : 'save_guest_sheet_field', {
+  let fromId = false
+  if (input.idReadingId) {
+    const { data: booking } = await supabase.from('bookings').select('guest_id').eq('id', input.bookingId).eq('tenant_id', guard.tenantId).maybeSingle()
+    const guestId = (booking as { guest_id: string | null } | null)?.guest_id ?? null
+    fromId = guestId !== null && (await verifiedIdReading(input.idReadingId, guard.tenantId, guard.userId, guestId))
+  }
+  const { data, error } = await supabase.rpc(fromId ? 'save_guest_sheet_field_from_id_document' : 'save_guest_sheet_field', {
     p_booking_id: input.bookingId,
     p_target: 'guest',
     p_values: values,

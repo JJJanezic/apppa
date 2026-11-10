@@ -16,6 +16,7 @@ import {
 } from '@/lib/guests'
 import { removeDocumentFiles, unusedPaths } from '@/lib/guest-documents'
 import { documentImageLinks, GUEST_COLUMNS, guestCompanyPayload, guestDbColumns, guestStays, listRow, toGuest, toRow } from '@/lib/guests-data'
+import { verifiedIdReading } from '@/lib/id-reading-data'
 import { createClient } from '@/lib/supabase/server'
 import { getTenantContext, type TenantSummary } from '@/lib/tenant'
 import { guestSchema, type GuestInput } from '@/lib/validation/guests'
@@ -36,15 +37,15 @@ const SEARCH_LIMIT = 10
 const LIST = '/gaeste'
 const COMPANIES = '/gaeste/firmen'
 
-async function requireMember(): Promise<{ ok: true; tenant: TenantSummary } | Failure> {
+async function requireMember(): Promise<{ ok: true; tenant: TenantSummary; userId: string } | Failure> {
   const user = await getSessionUser()
   if (!user || (await pendingMfaStep(user))) return fail('sessionExpired')
   const { active } = await getTenantContext()
   if (!active) return fail('unknown')
-  return { ok: true, tenant: active }
+  return { ok: true, tenant: active, userId: user.userId }
 }
 
-async function requireOwner(): Promise<{ ok: true; tenant: TenantSummary } | Failure> {
+async function requireOwner(): Promise<{ ok: true; tenant: TenantSummary; userId: string } | Failure> {
   const guard = await requireMember()
   if (!guard.ok) return guard
   return guard.tenant.role === 'owner' ? guard : fail('ownerOnly')
@@ -119,7 +120,9 @@ export async function createGuest(values: GuestInput): Promise<Result<{ id: stri
   const guard = await requireOwner()
   if (!guard.ok) return guard
   const supabase = await createClient()
-  const { data, error } = await supabase.rpc(parsed.data.fromIdDocument ? 'save_guest_from_id_document' : 'save_guest', {
+  // PROJ-51: Vermerk „Ausweis“ nur mit nachgewiesener Auslesung (QA BUG-1)
+  const fromId = await verifiedIdReading(parsed.data.idReadingId, guard.tenant.id, guard.userId, null)
+  const { data, error } = await supabase.rpc(fromId ? 'save_guest_from_id_document' : 'save_guest', {
     p_input: { tenant_id: guard.tenant.id, ...guestDbColumns(parsed.data), ...guestCompanyPayload(parsed.data.company) },
   })
   if (error || !data) return dbFail(error ?? {}, 'Gast nicht angelegt')
@@ -147,7 +150,8 @@ export async function updateGuest(values: { id: string; updatedAt: string } & Gu
     ...(before.email !== parsed.data.email ? { email_source: 'direct' } : {}),
     ...(before.phone !== parsed.data.phone ? { phone_source: 'direct' } : {}),
   }
-  const { error } = await supabase.rpc(parsed.data.fromIdDocument ? 'save_guest_from_id_document' : 'save_guest', {
+  const fromId = await verifiedIdReading(parsed.data.idReadingId, guard.tenant.id, guard.userId, values.id)
+  const { error } = await supabase.rpc(fromId ? 'save_guest_from_id_document' : 'save_guest', {
     p_input: {
       id: values.id,
       updated_at: values.updatedAt,

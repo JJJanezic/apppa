@@ -21,7 +21,8 @@ interface IdReadingButtonProps {
   backPath: string
   // aktueller Stand der Felder beim Klick (auch ungespeichert)
   current: () => IdCurrentValues
-  onApply: (values: Partial<Record<IdField, string>>) => void
+  // readingId: Kennung der Auslesung, Nachweis für den Vermerk im Änderungsprotokoll
+  onApply: (values: Partial<Record<IdField, string>>, readingId: string) => void
 }
 
 // Höchstens so lange auf die Antwort warten (der Server bricht nach 50 Sekunden ab)
@@ -37,6 +38,7 @@ export function IdReadingButton({ tenantId, place, guestId, bookingId, frontPath
   const [reading, setReading] = useState(false)
   const [error, setError] = useState<IdReadingError | null>(null)
   const [comparison, setComparison] = useState<IdComparison | null>(null)
+  const [readingId, setReadingId] = useState<string | null>(null)
 
   if (!enabled || !tenantId || (!realPath(frontPath) && !realPath(backPath))) return null
   const uploading = frontPath === DOCUMENT_UPLOADING || backPath === DOCUMENT_UPLOADING
@@ -60,7 +62,10 @@ export function IdReadingButton({ tenantId, place, guestId, bookingId, frontPath
         }),
       })
       const body = (await response.json().catch(() => null)) as IdReadingResponse | null
-      if (body?.ok) setComparison(body.comparison)
+      if (body?.ok) {
+        setComparison(body.comparison)
+        setReadingId(body.readingId)
+      }
       else setError(body?.error ?? 'unavailable')
     } catch {
       setError('unavailable')
@@ -94,7 +99,7 @@ export function IdReadingButton({ tenantId, place, guestId, bookingId, frontPath
         comparison={comparison}
         onClose={() => setComparison(null)}
         onApply={(values) => {
-          onApply(values)
+          if (readingId) onApply(values, readingId)
           setComparison(null)
         }}
       />

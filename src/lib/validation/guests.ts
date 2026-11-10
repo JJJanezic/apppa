@@ -120,8 +120,9 @@ export const guestSchema = (t: T) =>
         .transform((v) => v || null),
       documentFrontPath: documentPath(t),
       documentBackPath: documentPath(t),
-      // PROJ-51: Werte aus „Ausweis auslesen“ übernommen → Vermerk „aus Ausweis gelesen“ im Änderungsprotokoll
-      fromIdDocument: z.boolean(),
+      // PROJ-51: Kennung der Auslesung, deren Werte übernommen wurden ('' = keine). Der Server prüft sie, bevor er im
+      // Änderungsprotokoll „Ausweis“ vermerkt (QA BUG-1)
+      idReadingId: z.string().refine((v) => v === '' || isId(v), t('unknown')),
     })
     // Sobald irgendeine Angabe des Dokuments oder ein Bild vorhanden ist, sind Art und Nummer Pflicht (Spec)
     .superRefine((v, ctx) => {
@@ -209,7 +210,7 @@ export const EMPTY_GUEST_INPUT: GuestInput = {
   documentCountry: '',
   documentFrontPath: '',
   documentBackPath: '',
-  fromIdDocument: false,
+  idReadingId: '',
 }
 
 // Formularwerte eines bestehenden Gastes (Bearbeiten)
@@ -244,6 +245,6 @@ export function guestInput(g: Guest): GuestInput {
     documentCountry: g.documentCountry ?? '',
     documentFrontPath: g.documentFrontPath ?? '',
     documentBackPath: g.documentBackPath ?? '',
-    fromIdDocument: false,
+    idReadingId: '',
   }
 }

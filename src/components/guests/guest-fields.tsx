@@ -78,13 +78,13 @@ export function GuestFields({ documentImages = {}, company = null, guestId = nul
     ((Boolean(initial?.documentFrontPath) && frontPath === initial?.documentFrontPath) ||
       (Boolean(initial?.documentBackPath) && backPath === initial?.documentBackPath))
   // „Ausweis auslesen“ (PROJ-51): gewählte Werte ins Formular; gespeichert wird wie immer mit „Speichern“
-  const applyIdValues = (values: Partial<Record<IdField, string>>) => {
+  const applyIdValues = (values: Partial<Record<IdField, string>>, readingId: string) => {
     for (const [field, value] of Object.entries(values) as [IdField, string][]) {
       setValue(field, value as never, { shouldDirty: true, shouldValidate: true })
     }
-    setValue('fromIdDocument', true, { shouldDirty: true })
+    setValue('idReadingId', readingId, { shouldDirty: true })
   }
-  const text = (name: Exclude<keyof GuestInput, 'fromIdDocument'>, label: string, opts: { max: number; hint?: string; type?: string; autoComplete?: string; inputMode?: 'email' | 'tel' } ) => (
+  const text = (name: Exclude<keyof GuestInput, 'idReadingId'>, label: string, opts: { max: number; hint?: string; type?: string; autoComplete?: string; inputMode?: 'email' | 'tel' } ) => (
     <FormField
       control={control}
       name={name}

@@ -95,7 +95,8 @@ async function choose(page: Page, scope: Locator, label: string, option: string)
 }
 
 async function chooseCountry(page: Page, label: string, country: string) {
-  await panel(page).getByRole('combobox', { name: label }).click()
+  // exakt: „Staat“ trifft sonst auch „Staatsangehörigkeit“ (seit PROJ-26; QA PROJ-51 BUG-3)
+  await panel(page).getByRole('combobox', { name: label, exact: true }).click()
   await page.getByPlaceholder('Land suchen').fill(country)
   await page.getByRole('option', { name: country, exact: true }).click()
 }
@@ -197,7 +198,7 @@ test.describe('Reisedokument', () => {
     await panel(page).getByLabel('Dokument-ID').fill('')
     await panel(page).getByLabel('Ausstellungsdatum').fill('')
     await panel(page).getByLabel('Behörde').fill('')
-    await panel(page).getByRole('combobox', { name: 'Staat' }).click()
+    await panel(page).getByRole('combobox', { name: 'Staat', exact: true }).click()
     await page.getByRole('option', { name: 'Keine Angabe' }).click()
     await panel(page).getByRole('button', { name: 'Speichern', exact: true }).click()
     await expect(page.getByText('Änderungen gespeichert')).toBeVisible()

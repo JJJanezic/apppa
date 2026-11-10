@@ -351,7 +351,7 @@ Bausteine: vorhandene shadcn-Komponenten (Dialog, Table, RadioGroup, Switch, Inp
 - **Leser** `src/lib/id-reading-reader.ts`: Claude über `@anthropic-ai/bedrock-sdk` (`AnthropicBedrockMantle`, Region/Schlüssel/Modell aus `BEDROCK_*`, kein Rückgriff auf `AWS_*`), feste Systemanweisung (Zweck, nichts raten, CAN ≠ Dokumentnummer, Geburtsort ≠ Behörde, Rückseite deutscher Ausweise), strukturierte Ausgabe mit festem JSON-Schema, 50 s, keine Wiederholung. Fehler: Zeitüberschreitung/400 → `failed` (zählt), Verbindung/Zugang/Modell gesperrt/5xx → `unreachable` (zählt nicht), Ablehnung/kein Dokument → `noDocument`.
 - **Aufbereitung** `src/lib/id-reading-normalize.ts` (Tests): Datum, Länder (ISO-Alpha-2 der Länderliste), Geschlecht nur F/M, Dokumentart, Längen; **MRZ** `src/lib/mrz.ts` (TD1/TD2/TD3, Prüfziffern nach ICAO 9303, Tests mit ICAO-Mustern): gültige MRZ-Nummer gilt, Abweichung der KI → „Bitte prüfen“; Geburtsdatum gegen MRZ.
 - **Schnittstelle** `POST /api/ausweis/auslesen`: Rolle je Stelle (Gastformular: Mitarbeiter nur ohne Gast; Gästeblatt: Hauptgast einer Buchung des Kunden), Gast nicht anonymisiert, Bilder im Kundenordner und am Gast oder an keinem Gast, Bilder vor dem Vormerken laden (fehlende Datei zählt nicht), Vormerken, Leser bzw. Test-Leser, Abschließen mit Verbrauch, Gegenüberstellung. HTTP 401/400/403/429/422/503.
-- **Aktionen:** `createGuest`/`updateGuest` mit `fromIdDocument` → `save_guest_from_id_document`; `saveSheetGuest` mit `fromIdDocument` → `save_guest_sheet_field_from_id_document`.
+- **Aktionen:** `createGuest`/`updateGuest` mit nachgewiesener `idReadingId` → `save_guest_from_id_document`; `saveSheetGuest` mit nachgewiesener `idReadingId` → `save_guest_sheet_field_from_id_document` (Nachweis `verifiedIdReading`, QA BUG-1).
 - **Datenschutz-Standardtext** (Teil A, Nutzerentscheidung): „Gespeichert und verarbeitet werden sie bei IT-Dienstleistern … Dazu kann auch das automatische Auslesen der Angaben aus Bildern Ihres Reisedokuments gehören.“ Gilt für alle Kunden mit Standardtext.
 
 **Tests:** Unit `mrz.test.ts`, `id-reading-normalize.test.ts`, `id-reading.test.ts`, Schnittstelle `src/app/api/ausweis/auslesen/auslesen.test.ts` (10); Integration `supabase/tests/id-reading.integration.test.ts` (13, gegen Dev). Bestehende Integrationstests Gästeblatt, Betreiber, Gäste, Firmen, RLS grün; alle Unit-Tests (1.026) grün; Build grün.
@@ -443,24 +443,27 @@ Bausteine: vorhandene shadcn-Komponenten (Dialog, Table, RadioGroup, Switch, Inp
 - [x] Zugang zum KI-Dienst nur serverseitig; kein freies Eingabefeld, feste Anweisung, festes Antwortschema
 - [x] Kosten: Tageslimit je Kunde, atomar geprüft
 - [x] XSS: gelesene Werte werden von React escaped; Länge per Schema begrenzt
-- [ ] BUG-1 (Low): Herkunftsvermerk vom Browser setzbar
+- [x] BUG-1 (Low, behoben): Herkunftsvermerk nur mit nachgewiesener Auslesung
 
 ### Bugs Found
 
-#### BUG-1: Vermerk „Ausweis“ lässt sich ohne Auslesung setzen
+#### BUG-1: Vermerk „Ausweis“ lässt sich ohne Auslesung setzen – **BEHOBEN (2026-11-10)**
 - **Severity:** Low
+- **Fix:** Statt Ja/Nein trägt das Formular die Kennung der Auslesung (`idReadingId`); die Schnittstelle liefert sie mit. `createGuest`/`updateGuest`/`saveSheetGuest` setzen den Vermerk nur, wenn `verifiedIdReading` eine erfolgreiche Auslesung derselben Person, desselben Kunden und Gastes (neuer Gast: ohne Gast) aus den letzten 12 Stunden findet. Integrationstest ergänzt
 - **Steps to Reproduce:** Speichern im Gastformular mit manipuliertem Formularwert `fromIdDocument: true` (bzw. `saveSheetGuest` mit `fromIdDocument`) ohne vorherige Auslesung
 - **Expected:** Vermerk nur nach echter Auslesung; **Actual:** Protokoll zeigt „Ausweis“, obwohl von Hand eingegeben
 - **Auswirkung:** nur die Beschriftung im Änderungsprotokoll; Werte, Person und Zeitpunkt stimmen. **Priority:** Nice to have
 
-#### BUG-2: Bilder werden auch bei abgeschalteter Funktion aus dem Speicher geladen
+#### BUG-2: Bilder werden auch bei abgeschalteter Funktion aus dem Speicher geladen – **BEHOBEN (2026-11-10)**
 - **Severity:** Low
+- **Fix:** Die Schnittstelle prüft die Freischaltung vor dem Laden der Bilder; verbindlich bleibt die Prüfung beim Vormerken. Schnittstellentest ergänzt
 - **Steps to Reproduce:** Schnittstelle direkt aufrufen bei Kunde ohne Freischaltung
 - **Expected:** sofort „nicht freigeschaltet“; **Actual:** erst Bilder laden (eigene Bilder des Kunden), dann P0990
 - **Auswirkung:** unnötige Last, keine Daten nach außen. **Priority:** Nice to have
 
-#### BUG-3: Alter E2E-Test PROJ-29 findet „Staat“ doppelt (Testpflege, keine App-Änderung durch PROJ-51)
+#### BUG-3: Alter E2E-Test PROJ-29 findet „Staat“ doppelt (Testpflege, keine App-Änderung durch PROJ-51) – **BEHOBEN (2026-11-10)**
 - **Severity:** Low
+- **Fix:** beide Locators in `tests/PROJ-29-…spec.ts` mit `exact: true`; Test grün
 - **Steps to Reproduce:** `tests/PROJ-29-…spec.ts` „Art und Nummer Pflicht …“ – `chooseCountry(page, 'Staat', …)` trifft seit PROJ-26 auch „Staatsangehörigkeit“
 - **Fix:** Locator mit `exact: true`. **Priority:** Fix in next sprint
 
@@ -469,8 +472,8 @@ Bausteine: vorhandene shadcn-Komponenten (Dialog, Table, RadioGroup, Switch, Inp
 
 ### Summary
 - **Acceptance Criteria:** 37/38 bestanden, 1 nur mit echtem Leser prüfbar
-- **Bugs Found:** 3 total (0 critical, 0 high, 0 medium, 3 low)
-- **Security:** Pass (1 Low)
+- **Bugs Found:** 3 total (0 critical, 0 high, 0 medium, 3 low) – alle behoben (2026-11-10)
+- **Security:** Pass
 - **Production Ready:** YES – Funktion ist je Kunde standardmäßig aus; ohne freigeschaltete Modelle meldet sie „konnte gerade nicht gelesen werden“, ohne zu zählen
 - **Recommendation:** Deploy; echte Kunden erst nach dem Durchstich mit AWS freischalten
 

@@ -5,7 +5,7 @@ import { getSessionUser, pendingMfaStep } from '@/lib/auth/session'
 import { todayIso } from '@/lib/bookings'
 import { DOCUMENT_BUCKET } from '@/lib/guests'
 import { compareIdReading, fakeIdReading, ID_FIELDS, ID_READING_PLACES, type IdReadingError, type IdReadingResponse } from '@/lib/id-reading'
-import { fakeReaderActive } from '@/lib/id-reading-data'
+import { fakeReaderActive, loadIdReadingSettings } from '@/lib/id-reading-data'
 import { type IdImage, readIdDocument, type ReaderOutcome } from '@/lib/id-reading-reader'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
@@ -62,6 +62,8 @@ export async function POST(request: Request) {
   const paths = [input.frontPath, input.backPath].filter((p): p is string => Boolean(p))
   if (!paths.length) return fail('noImage')
   if (paths.some((p) => !p.startsWith(`${input.tenantId}/`))) return fail('forbidden')
+  // Freischaltung zuerst (QA BUG-2): ohne sie werden keine Bilder geladen; verbindlich prüft sie das Vormerken
+  if (!(await loadIdReadingSettings(input.tenantId)).enabled) return fail('notEnabled')
 
   // Rollen: Gastformular – Inhaber; Mitarbeiter nur beim neuen Gast (PROJ-29). Gästeblatt – Inhaber und Mitarbeiter,
   // nur für den Hauptgast einer Buchung des Kunden (PROJ-26)
@@ -127,7 +129,8 @@ export async function POST(request: Request) {
   })
   if (finishError) console.error('[ausweis] Abschließen fehlgeschlagen', finishError.code, finishError.message)
 
-  if (outcome.ok) return answer({ ok: true, comparison: compareIdReading(input.current, outcome.read) })
+  // readingId: Nachweis für den Vermerk „aus Ausweis gelesen“ beim Speichern (QA BUG-1)
+  if (outcome.ok) return answer({ ok: true, comparison: compareIdReading(input.current, outcome.read), readingId: readingId as string })
   if (outcome.reason === 'noDocument') return fail('noDocument')
   if (outcome.reason === 'notConfigured') return fail('notReady')
   return fail('unavailable')

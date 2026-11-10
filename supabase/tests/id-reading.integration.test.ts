@@ -6,11 +6,14 @@
 // und das Leeren des Gastbezugs beim Anonymisieren.
 import { randomUUID } from 'node:crypto'
 
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import type { Json } from '../../src/types/database'
 import { type Client, hasSupabaseEnv, serviceClient } from './helpers'
 import { sharedClient } from './shared-sessions'
+
+vi.mock('server-only', () => ({}))
+const { verifiedIdReading } = await import('../../src/lib/id-reading-data')
 
 describe.skipIf(!hasSupabaseEnv)('PROJ-51 Ausweis automatisch auslesen', () => {
   let service: Client
@@ -19,6 +22,7 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-51 Ausweis automatisch auslesen', () => {
   let tenant: string, tenantB: string
   const tenants: string[] = []
   const runId = randomUUID().slice(0, 8)
+  let staffId: string
 
   const setReading = (client: Client, enabled: boolean, limit = 50, tenantId = tenant) =>
     client.rpc('admin_set_id_reading', { p_tenant_id: tenantId, p_enabled: enabled, p_daily_limit: limit })
@@ -41,6 +45,7 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-51 Ausweis automatisch auslesen', () => {
     ])
     ;[owner, staff, ownerB, admin, adminAal1] = [o.client, s.client, ob.client, a2.client, a1.client]
     ownerId = o.user.id
+    staffId = s.user.id
     for (const name of ['A', 'B']) {
       const { data: t, error } = await service.from('tenants').insert({ name: `PROJ-51 Ausweis ${name} ${runId}` }).select('id').single()
       if (error) throw error
@@ -240,6 +245,26 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-51 Ausweis automatisch auslesen', () => {
       await service.from('guests').update({ anonymized_at: new Date().toISOString() }).eq('id', guest!.id)
       const { data } = await service.from('id_readings').select('guest_id').eq('id', r.data as string).single()
       expect(data!.guest_id).toBeNull()
+    })
+  })
+
+  describe('Nachweis für den Vermerk „aus Ausweis gelesen“ (QA BUG-1)', () => {
+    it('gilt nur für eine erfolgreiche Auslesung derselben Person, desselben Kunden und Gastes, höchstens 12 Stunden alt', async () => {
+      await setReading(admin, true, 50)
+      const { data: guest } = await service.from('guests').insert({ tenant_id: tenant, last_name: `Nachweis ${runId}`, country: 'DE' }).select('id').single()
+      const reading = async (over: Record<string, unknown>) =>
+        (await service.from('id_readings').insert({ tenant_id: tenant, user_id: ownerId, guest_id: guest!.id, place: 'guestForm', outcome: 'read', ...over }).select('id').single()).data!.id
+      const ok = await reading({})
+      expect(await verifiedIdReading(ok, tenant, ownerId, guest!.id)).toBe(true)
+      expect(await verifiedIdReading(ok, tenant, staffId, guest!.id)).toBe(false)
+      expect(await verifiedIdReading(ok, tenantB, ownerId, guest!.id)).toBe(false)
+      expect(await verifiedIdReading(ok, tenant, ownerId, null)).toBe(false)
+      expect(await verifiedIdReading(randomUUID(), tenant, ownerId, guest!.id)).toBe(false)
+      expect(await verifiedIdReading('', tenant, ownerId, guest!.id)).toBe(false)
+      expect(await verifiedIdReading(await reading({ outcome: 'unreachable' }), tenant, ownerId, guest!.id)).toBe(false)
+      expect(await verifiedIdReading(await reading({ started_at: new Date(Date.now() - 13 * 3_600_000).toISOString() }), tenant, ownerId, guest!.id)).toBe(false)
+      // neuer Gast: Auslesung ohne Gast
+      expect(await verifiedIdReading(await reading({ guest_id: null }), tenant, ownerId, null)).toBe(true)
     })
   })
 })

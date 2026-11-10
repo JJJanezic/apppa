@@ -80,7 +80,7 @@ export function GuestSheetSigning({ data }: GuestSheetSigningProps) {
   const stamps = useRef({ guest: guest.updatedAt, booking: data.booking.updatedAt })
   const queue = useRef<Promise<void>>(Promise.resolve())
   // Werte aus „Ausweis auslesen“ übernommen (PROJ-51): die nächsten Speicherungen tragen den Vermerk im Protokoll
-  const fromIdDocument = useRef(false)
+  const idReadingId = useRef<string | null>(null)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const sig1Ref = useRef<SignatureValue>(null)
   useEffect(() => {
@@ -123,14 +123,14 @@ export function GuestSheetSigning({ data }: GuestSheetSigningProps) {
           bookingId: data.booking.id,
           updatedAt: stamps.current.guest,
           values: Object.fromEntries(guestFields.map((f) => [f, v[f]])),
-          fromIdDocument: fromIdDocument.current,
+          idReadingId: idReadingId.current,
         })
       )
       if (result.ok && result.data) {
         stamps.current.guest = result.data.updatedAt
         saved.current = { ...saved.current, ...Object.fromEntries(guestFields.map((f) => [f, v[f]])) }
         // Vermerk gilt, bis auch das Reisedokument gespeichert ist (es wartet auf Art und Nummer)
-        if (!(documentDirty && !documentReady)) fromIdDocument.current = false
+        if (!(documentDirty && !documentReady)) idReadingId.current = null
       } else failures.push(result.ok ? 'unknown' : result.error)
     }
     if (companionsDirty) {
@@ -344,11 +344,11 @@ export function GuestSheetSigning({ data }: GuestSheetSigningProps) {
                 tenantId: data.tenantId,
                 guestId: guest.id,
                 bookingId: data.booking.id,
-                onApply: (values) => {
+                onApply: (values, readingId) => {
                   for (const [field, value] of Object.entries(values) as [IdField, string][]) {
                     form.setValue(field, value as never, { shouldDirty: true, shouldValidate: true })
                   }
-                  fromIdDocument.current = true
+                  idReadingId.current = readingId
                   void flush()
                 },
               }}

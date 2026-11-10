@@ -4,6 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { cache } from 'react'
 
 import { isMissingRelation } from '@/lib/guest-sheets-data'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { getTenantContext } from '@/lib/tenant'
 
@@ -73,4 +74,30 @@ export async function loadIdReadingUsage(tenantId: string): Promise<IdReadingUsa
   }
   const row = (Array.isArray(data) ? data[0] : data) as { this_month?: number; last_month?: number } | null
   return { thisMonth: row?.this_month ?? 0, lastMonth: row?.last_month ?? 0 }
+}
+
+// Nachweis für den Vermerk „aus Ausweis gelesen“ (QA BUG-1): eine erfolgreiche Auslesung derselben Person beim selben Kunden
+// für denselben Gast (neuer Gast: ohne Gast), höchstens 12 Stunden alt. Die Tabelle lesen nur Betreiber und Server.
+const PROOF_HOURS = 12
+
+export async function verifiedIdReading(
+  readingId: string | null | undefined,
+  tenantId: string,
+  userId: string,
+  guestId: string | null
+): Promise<boolean> {
+  if (!readingId || !isId(readingId) || !isId(tenantId)) return false
+  const since = new Date(Date.now() - PROOF_HOURS * 3_600_000).toISOString()
+  let query = (createAdminClient() as unknown as SupabaseClient)
+    .from('id_readings')
+    .select('id')
+    .eq('id', readingId)
+    .eq('tenant_id', tenantId)
+    .eq('user_id', userId)
+    .eq('outcome', 'read')
+    .gte('started_at', since)
+  query = guestId ? query.eq('guest_id', guestId) : query.is('guest_id', null)
+  const { data, error } = await query.maybeSingle()
+  if (error) console.error('[ausweis] Nachweis nicht prüfbar', error.code, error.message)
+  return Boolean(data)
 }

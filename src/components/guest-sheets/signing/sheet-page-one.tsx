@@ -34,7 +34,7 @@ interface SheetPageOneProps {
   // Ausweisbilder beim Öffnen schon hinterlegt? Fehlende Seiten lassen sich auf dem Blatt aufnehmen
   imagesOnFile: { front: boolean; back: boolean }
   // „Ausweis auslesen“ (PROJ-51): übernommene Werte werden sofort gespeichert
-  idReading: { tenantId: string; guestId: string; bookingId: string; onApply: (values: Partial<Record<IdField, string>>) => void }
+  idReading: { tenantId: string; guestId: string; bookingId: string; onApply: (values: Partial<Record<IdField, string>>, readingId: string) => void }
 }
 
 // Fehlende Angabe: deutlich rot umrandet (Rückmeldung nach dem Deploy)

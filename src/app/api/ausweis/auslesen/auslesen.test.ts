@@ -45,7 +45,11 @@ vi.mock('@/lib/supabase/admin', () => ({
   createAdminClient: () => ({ rpc: (name: string, args: unknown) => rpc(name, args), storage: { from: () => ({ download: (p: string) => download(p) }) } }),
 }))
 const fake = { active: false }
-vi.mock('@/lib/id-reading-data', () => ({ fakeReaderActive: () => fake.active }))
+const settings = { enabled: true }
+vi.mock('@/lib/id-reading-data', () => ({
+  fakeReaderActive: () => fake.active,
+  loadIdReadingSettings: async () => ({ enabled: settings.enabled, dailyLimit: 50, privacyHintSeen: true, ready: true }),
+}))
 const readIdDocument = vi.fn()
 vi.mock('@/lib/id-reading-reader', () => ({ readIdDocument: (...a: unknown[]) => readIdDocument(...a) }))
 
@@ -98,6 +102,7 @@ describe('POST /api/ausweis/auslesen', () => {
     db.guest = { id: GUEST, anonymized_at: null }
     db.owners = [{ id: GUEST }]
     fake.active = false
+    settings.enabled = true
     rpc.mockReset().mockImplementation(async (name: string) => (name === 'reserve_id_reading' ? { data: 'r1', error: null } : { data: null, error: null }))
     download.mockReset().mockResolvedValue({ data: new Blob([new Uint8Array([0xff, 0xd8, 0xff])]), error: null })
     readIdDocument.mockReset().mockResolvedValue({ ok: true, read: readValues, usage })
@@ -108,6 +113,7 @@ describe('POST /api/ausweis/auslesen', () => {
     expect(res.status).toBe(200)
     const json = await res.json()
     expect(json.ok).toBe(true)
+    expect(json.readingId).toBe('r1')
     expect(json.comparison.rows.find((r: { field: string }) => r.field === 'firstName')).toMatchObject({ state: 'differs', read: 'Maria Theresia' })
     expect(rpc).toHaveBeenCalledWith('reserve_id_reading', { p_tenant_id: TENANT, p_user_id: 'u1', p_guest_id: GUEST, p_place: 'guestForm' })
     expect(rpc).toHaveBeenCalledWith('finish_id_reading', {
@@ -172,6 +178,13 @@ describe('POST /api/ausweis/auslesen', () => {
     expect(res.status).toBe(429)
     expect(await res.json()).toEqual({ ok: false, error: 'dailyLimit' })
     expect(readIdDocument).not.toHaveBeenCalled()
+  })
+
+  it('ohne Freischaltung: keine Bilder geladen, nichts vorgemerkt (QA BUG-2)', async () => {
+    settings.enabled = false
+    expect(await (await post(body())).json()).toEqual({ ok: false, error: 'notEnabled' })
+    expect(download).not.toHaveBeenCalled()
+    expect(rpc).not.toHaveBeenCalled()
   })
 
   it('Bild im Speicher nicht lesbar → „noImage“, nichts gezählt', async () => {

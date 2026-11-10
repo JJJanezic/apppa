@@ -68,7 +68,7 @@ export const ID_READING_ERRORS = [
 ] as const
 export type IdReadingError = (typeof ID_READING_ERRORS)[number]
 
-export type IdReadingResponse = { ok: true; comparison: IdComparison } | { ok: false; error: IdReadingError }
+export type IdReadingResponse = { ok: true; comparison: IdComparison; readingId: string } | { ok: false; error: IdReadingError }
 
 // Vergleich ohne Groß-/Kleinschreibung, Akzente bleiben (Müller ≠ Muller), Leerzeichen zusammengefasst
 const norm = (v: string) => v.trim().replace(/\s+/g, ' ').toLocaleLowerCase('de')
