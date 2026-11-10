@@ -64,6 +64,24 @@ describe('Vorschaltung (proxy)', () => {
     expect(res.headers.get('location')).toBeNull()
   })
 
+  it('Server-Aktion mit abgelaufener Sitzung: Antwort löscht keine Cookies (BUG-6), Seitenaufruf schon', async () => {
+    getUser.mockResolvedValue({ data: { user: null } })
+    const headers = { cookie: `${authCookie}; ${SESSION_COOKIE}=x` }
+    const action = await call('/konto', { method: 'POST', headers: { ...headers, 'next-action': 'abc' } })
+    expect(action.headers.get('location')).toBeNull()
+    expect(action.headers.get('set-cookie')).toBeNull()
+    const page = await call('/konto', { headers })
+    expect(page.headers.get('set-cookie')).toContain(SESSION_COOKIE)
+  })
+
+  it('Server-Aktion nach 8 Stunden ohne Aktivität: abgemeldet, Antwort löscht keine Cookies', async () => {
+    getUser.mockResolvedValue({ data: { user: { id: USER } } })
+    const limits = startSession(USER, 'geheim', Date.now() - 8 * 60 * 60_000 - 60_000)
+    const res = await call('/konto', { method: 'POST', headers: { cookie: `${authCookie}; ${SESSION_COOKIE}=${limits}`, 'next-action': 'abc' } })
+    expect(signOut).toHaveBeenCalledWith({ scope: 'local' })
+    expect(res.headers.get('set-cookie')).toBeNull()
+  })
+
   it('öffentliche Seiten ohne Sitzung bleiben erreichbar', async () => {
     getUser.mockResolvedValue({ data: { user: null } })
     for (const path of ['/anmelden', '/passwort-vergessen', '/bestaetigen', '/auth/confirm']) {

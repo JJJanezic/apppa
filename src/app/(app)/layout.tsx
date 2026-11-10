@@ -31,8 +31,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const requestHeaders = await headers()
   const path = requestHeaders.get('x-pathname') ?? ''
   const viewer = viewerOf(shell)
-  // Dashboard: Rücksprung-Ziel bzw. Betreiber-Bereich schon hier, als echte Weiterleitung (src/lib/dashboard-redirect.ts)
-  if (path === '/') {
+  // Dashboard: Rücksprung-Ziel bzw. Betreiber-Bereich schon hier, als echte Weiterleitung (src/lib/dashboard-redirect.ts).
+  // Nur beim vollständigen Seitenaufruf (Accept: text/html; den Header „rsc“ entfernt Next.js aus headers()): Bei einer
+  // Aktualisierung innerhalb der App behält der Browser den Rahmen samt Weiterleitung und löst sie endlos aus (BUG-5)
+  if (path === '/' && requestHeaders.get('accept')?.includes('text/html')) {
     const target = await dashboardRedirect(shell, new URLSearchParams(requestHeaders.get('x-search') ?? '').get('weiter'))
     if (target) redirect(target)
   }

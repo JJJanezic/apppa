@@ -76,6 +76,10 @@ export async function updateSession(request: NextRequest) {
     }
   }
 
+  // Sitzung abgelaufen, Server-Aktion: Sie sieht niemanden mehr angemeldet (Anfrage ohne Cookies), die Antwort löscht aber
+  // keine Cookies. Sonst baut Next.js die Seite in der Antwort neu auf und leitet selbst weiter; das kam dem Seitenwechsel
+  // zur Anmeldung in die Quere (Firefox: Fehlerseite, BUG-6). Der nächste Seitenaufruf räumt die Cookies weg.
+  if (isAction && expired) return NextResponse.next({ request })
   if (isAction || isApi) return response
 
   if (!userId && !matches(path, PUBLIC_PATHS)) {

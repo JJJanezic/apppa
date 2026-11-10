@@ -8,8 +8,8 @@ import { getMyInvitations } from '@/lib/team-data'
 // Weiterleitungen des Dashboards („/“): Rücksprung-Ziel ?weiter=… nach der Anmeldung, wenn der Bereich erreichbar ist;
 // Admin ohne eigenen Kunden → Betreiber-Bereich (PROJ-5), aber nicht, solange eine Einladung an ihn offen ist, sonst
 // könnte er sie nie annehmen (sie erscheint nur hier).
-// Zweimal geprüft: im App-Rahmen beim vollständigen Seitenaufruf (vor dem Streaming, echte Weiterleitung) und in der
-// Seite beim Wechsel innerhalb der App (dort rendert der Rahmen nicht neu). Aus der Seite allein kam die Weiterleitung
+// Zweimal geprüft: im App-Rahmen nur beim vollständigen Seitenaufruf (vor dem Streaming, echte Weiterleitung) und in der
+// Seite bei Wechsel und Aktualisierung innerhalb der App. Aus der Seite allein kam die Weiterleitung
 // beim Seitenaufruf erst nach dem Ladezustand (loading.tsx); Next.js leitete dann doppelt weiter (Router und
 // meta refresh), und Firefox zeigte kurz „Da ist etwas schiefgelaufen“.
 export async function dashboardRedirect(shell: ShellInfo, weiter: string | string[] | null | undefined): Promise<string | null> {
