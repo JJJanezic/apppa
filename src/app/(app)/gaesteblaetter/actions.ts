@@ -105,7 +105,7 @@ export async function saveSheetGuest(input: {
   bookingId: string
   updatedAt: string
   values: Partial<SheetGuestInput & { email: string }>
-  // PROJ-51: Werte aus „Ausweis auslesen“ → Vermerk „Gästeblatt, aus Ausweis gelesen“ im Protokoll (wertet /backend aus)
+  // PROJ-51: Werte aus „Ausweis auslesen“ → Vermerk „Gästeblatt, aus Ausweis gelesen“ im Änderungsprotokoll
   fromIdDocument?: boolean
 }): Promise<ActionResult<{ updatedAt: string }, ErrorCode>> {
   const guard = await requireTenant(input?.tenantId)
@@ -119,7 +119,8 @@ export async function saveSheetGuest(input: {
   const values = Object.fromEntries(Object.entries(parsed.data as Record<string, unknown>).map(([f, v]) => [GUEST_COLUMNS[f as SheetGuestField | 'email'], v]))
 
   const supabase = await untyped()
-  const { data, error } = await supabase.rpc('save_guest_sheet_field', {
+  // PROJ-51: übernommene Ausweiswerte → Vermerk „Gästeblatt, aus Ausweis gelesen“
+  const { data, error } = await supabase.rpc(input.fromIdDocument === true ? 'save_guest_sheet_field_from_id_document' : 'save_guest_sheet_field', {
     p_booking_id: input.bookingId,
     p_target: 'guest',
     p_values: values,

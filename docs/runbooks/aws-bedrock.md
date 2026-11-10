@@ -138,9 +138,18 @@ Vercel reserviert die üblichen Namen `AWS_ACCESS_KEY_ID` usw. für sich. Darum 
 | `BEDROCK_ACCESS_KEY_ID` | Zugriffsschlüssel-ID des Benutzers der Umgebung | ja |
 | `BEDROCK_SECRET_ACCESS_KEY` | geheimer Zugriffsschlüssel | ja |
 | `BEDROCK_REGION` | `eu-north-1` | nein |
-| `BEDROCK_MODEL` | `anthropic.claude-opus-5-5` | nein |
+| `BEDROCK_MODEL` | vorerst `anthropic.claude-haiku-4-5` (nur zum Testen), nach Freischaltung `anthropic.claude-opus-5-5` | nein |
 
-3. Für die lokale Entwicklung tragen wir die Dev-Werte gemeinsam in `.env.local` ein. Diese Datei wird nie committet. In `.env.local.example` stehen nur die Namen ohne Werte.
+3. Für die lokale Entwicklung trägst du die Dev-Werte in `.env.local` ein (nie committen). In `.env.local.example` stehen nur die Namen ohne Werte:
+   ```
+   BEDROCK_ACCESS_KEY_ID=
+   BEDROCK_SECRET_ACCESS_KEY=
+   BEDROCK_REGION=eu-north-1
+   BEDROCK_MODEL=anthropic.claude-haiku-4-5
+   # Nur Dev/Test: 1 = Test-Leser statt KI (wirkt nie in Produktion)
+   ID_READING_FAKE=
+   ```
+4. **Freischalten je Kunde** im Betreiber-Admin → Kunde → „Ausweis automatisch auslesen (experimentell)“.
 
 ---
 

@@ -119,7 +119,7 @@ export async function createGuest(values: GuestInput): Promise<Result<{ id: stri
   const guard = await requireOwner()
   if (!guard.ok) return guard
   const supabase = await createClient()
-  const { data, error } = await supabase.rpc('save_guest', {
+  const { data, error } = await supabase.rpc(parsed.data.fromIdDocument ? 'save_guest_from_id_document' : 'save_guest', {
     p_input: { tenant_id: guard.tenant.id, ...guestDbColumns(parsed.data), ...guestCompanyPayload(parsed.data.company) },
   })
   if (error || !data) return dbFail(error ?? {}, 'Gast nicht angelegt')
@@ -147,7 +147,7 @@ export async function updateGuest(values: { id: string; updatedAt: string } & Gu
     ...(before.email !== parsed.data.email ? { email_source: 'direct' } : {}),
     ...(before.phone !== parsed.data.phone ? { phone_source: 'direct' } : {}),
   }
-  const { error } = await supabase.rpc('save_guest', {
+  const { error } = await supabase.rpc(parsed.data.fromIdDocument ? 'save_guest_from_id_document' : 'save_guest', {
     p_input: {
       id: values.id,
       updated_at: values.updatedAt,

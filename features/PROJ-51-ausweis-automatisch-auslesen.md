@@ -154,7 +154,7 @@ Im Gastformular füllt „Übernehmen“ nur die Formularfelder. Gespeichert wir
 - Geräte: iPad-Safari (Gästeblatt), Desktop und Handy (Gastformular).
 
 ## Open Questions
-- [ ] Genauer Wortlaut des Datenschutz-Satzes im Standardtext (Teil A), gegebenenfalls mit Nennung des Anbieters
+- [x] Wortlaut des Datenschutz-Satzes → „Dazu kann auch das automatische Auslesen der Angaben aus Bildern Ihres Reisedokuments gehören.“, für alle Kunden mit Standardtext (2026-11-10)
 - [x] Anbieter und Standort → Claude über AWS Bedrock in Stockholm (eu-north-1), Verarbeitung nur in der Region (2026-11-10; Irland geplant, AWS wies Stockholm zu)
 - [x] Prüfung der maschinenlesbaren Zone → in der App (Prüfziffern), Claude liefert die MRZ-Zeilen mit (2026-11-10)
 - [ ] Ist Claude Opus 5.5 in eu-north-1 freigeschaltet, und lässt es die Datenaufbewahrung „keine“ zu? → bei der AWS-Einrichtung (Runbook `docs/runbooks/aws-bedrock.md`, Schritte 4 und 5) klären; sonst Sonnet 5.5 bzw. Satz im Datenschutz-Text anpassen
@@ -337,6 +337,29 @@ Bausteine: vorhandene shadcn-Komponenten (Dialog, Table, RadioGroup, Switch, Inp
 - Tabelle `id_readings` (Zähler und Protokoll, Tech Design C) und Funktion zum Vormerken mit Tageslimit (Service-Rolle)
 - Schnittstelle: Rolle je Stelle (Gastformular: Inhaber, Mitarbeiter nur ohne `guestId`; Gästeblatt: Inhaber und Mitarbeiter, Buchung des Kunden mit diesem Gast), Bild am Gast oder an keinem Gast, Vormerken/Abschließen, Bilder aus dem Speicher, Claude über Bedrock, MRZ-Prüfung, Aufbereitung zu `IdReadValues`, `compareIdReading`; Fehlercodes `ID_READING_ERRORS`
 - Herkunftsvermerk: `fromIdDocument` aus `GuestInput` (createGuest/updateGuest, neuer Gast in Buchung/Rechnung) → `app.source = 'Ausweis'`; aus `saveSheetGuest` → `'Gästeblatt, aus Ausweis gelesen'`
+
+## Implementation Notes (Backend)
+
+**Gebaut (2026-11-10):**
+- **Migration** `20261110115816_id_reading.sql` (in Dev eingespielt):
+  - `id_reading_settings` (eine Zeile je Kunde, `enabled`, `daily_limit` 1–1.000, `privacy_hint_seen_at`); Lesen Mitglieder und Betreiber; Änderungsprotokoll wie Fachtabellen.
+  - `id_readings` (Kunde, Person, Gast, Stelle, Ergebnis `started/read/no_document/failed/unreachable`, `counted`, Modell, Token, Zeitpunkte); Lesen nur Betreiber; Gast gelöscht → leer (Fremdschlüssel), anonymisiert → leer (Trigger).
+  - `admin_set_id_reading` (Admin mit 2FA, deaktivierter Kunde P0016, Limit 22023; Einschalten leert `privacy_hint_seen_at`; Betreiber-Protokoll `id_reading_on/off/limit` mit Limit in `target_label`), `id_reading_usage` (Admin; laufender/letzter Monat Wien, nur gezählte), `dismiss_id_reading_privacy_hint` (Inhaber).
+  - `reserve_id_reading` / `finish_id_reading` nur Service-Rolle: Sperre auf der Einstellungszeile, P0990 nicht freigeschaltet, P0991 Tageslimit (Kalendertag Wien, gezählte inkl. laufender); `unreachable` zählt nicht.
+  - Herkunftsvermerk: `save_guest_from_id_document` (Vermerk „Ausweis“) und `save_guest_sheet_field_from_id_document` („Gästeblatt, aus Ausweis gelesen“); `private.save_guest_sheet_field` lässt diesen Vermerk stehen, sonst unverändert.
+- **Leser** `src/lib/id-reading-reader.ts`: Claude über `@anthropic-ai/bedrock-sdk` (`AnthropicBedrockMantle`, Region/Schlüssel/Modell aus `BEDROCK_*`, kein Rückgriff auf `AWS_*`), feste Systemanweisung (Zweck, nichts raten, CAN ≠ Dokumentnummer, Geburtsort ≠ Behörde, Rückseite deutscher Ausweise), strukturierte Ausgabe mit festem JSON-Schema, 50 s, keine Wiederholung. Fehler: Zeitüberschreitung/400 → `failed` (zählt), Verbindung/Zugang/Modell gesperrt/5xx → `unreachable` (zählt nicht), Ablehnung/kein Dokument → `noDocument`.
+- **Aufbereitung** `src/lib/id-reading-normalize.ts` (Tests): Datum, Länder (ISO-Alpha-2 der Länderliste), Geschlecht nur F/M, Dokumentart, Längen; **MRZ** `src/lib/mrz.ts` (TD1/TD2/TD3, Prüfziffern nach ICAO 9303, Tests mit ICAO-Mustern): gültige MRZ-Nummer gilt, Abweichung der KI → „Bitte prüfen“; Geburtsdatum gegen MRZ.
+- **Schnittstelle** `POST /api/ausweis/auslesen`: Rolle je Stelle (Gastformular: Mitarbeiter nur ohne Gast; Gästeblatt: Hauptgast einer Buchung des Kunden), Gast nicht anonymisiert, Bilder im Kundenordner und am Gast oder an keinem Gast, Bilder vor dem Vormerken laden (fehlende Datei zählt nicht), Vormerken, Leser bzw. Test-Leser, Abschließen mit Verbrauch, Gegenüberstellung. HTTP 401/400/403/429/422/503.
+- **Aktionen:** `createGuest`/`updateGuest` mit `fromIdDocument` → `save_guest_from_id_document`; `saveSheetGuest` mit `fromIdDocument` → `save_guest_sheet_field_from_id_document`.
+- **Datenschutz-Standardtext** (Teil A, Nutzerentscheidung): „Gespeichert und verarbeitet werden sie bei IT-Dienstleistern … Dazu kann auch das automatische Auslesen der Angaben aus Bildern Ihres Reisedokuments gehören.“ Gilt für alle Kunden mit Standardtext.
+
+**Tests:** Unit `mrz.test.ts`, `id-reading-normalize.test.ts`, `id-reading.test.ts`, Schnittstelle `src/app/api/ausweis/auslesen/auslesen.test.ts` (10); Integration `supabase/tests/id-reading.integration.test.ts` (13, gegen Dev). Bestehende Integrationstests Gästeblatt, Betreiber, Gäste, Firmen, RLS grün; alle Unit-Tests (1.026) grün; Build grün.
+
+**Abweichungen:**
+- Herkunftsvermerk nur beim Speichern über Gästeseite und Gästeblatt; ein **neuer Gast im Buchungsformular bzw. in der Rechnungsnacherfassung** wird ohne Vermerk „Ausweis“ protokolliert (die Werte stehen trotzdem im Protokoll). Grund: diese Wege speichern den Gast innerhalb von `save_booking`/Rechnungsfunktionen; ein Eingriff dort wäre unverhältnismäßig.
+- Ohne `BEDROCK_*` antwortet die Schnittstelle „Diese Funktion wird gerade eingerichtet.“ (auch nach dem Vormerken – zählt dann als `unreachable`, also nicht).
+
+**Umgebungsvariablen** (je Umgebung in Vercel, lokal in `.env.local`; `.env.local.example` ergänzt der Nutzer, die Datei ist für Claude gesperrt): `BEDROCK_ACCESS_KEY_ID`, `BEDROCK_SECRET_ACCESS_KEY`, `BEDROCK_REGION` (`eu-north-1`), `BEDROCK_MODEL` (vorerst `anthropic.claude-haiku-4-5`, nach Freischaltung `anthropic.claude-opus-5-5`), `ID_READING_FAKE` (nur Dev/Test, `1` = Test-Leser).
 
 ## QA Test Results
 _To be added by /qa_

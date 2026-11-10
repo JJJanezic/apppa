@@ -1370,6 +1370,110 @@ export type Database = {
           },
         ]
       }
+      id_reading_settings: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          daily_limit: number
+          enabled: boolean
+          id: string
+          privacy_hint_seen_at: string | null
+          tenant_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          daily_limit?: number
+          enabled?: boolean
+          id?: string
+          privacy_hint_seen_at?: string | null
+          tenant_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          daily_limit?: number
+          enabled?: boolean
+          id?: string
+          privacy_hint_seen_at?: string | null
+          tenant_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "id_reading_settings_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      id_readings: {
+        Row: {
+          counted: boolean
+          finished_at: string | null
+          guest_id: string | null
+          id: string
+          input_tokens: number | null
+          model: string | null
+          outcome: string
+          output_tokens: number | null
+          place: string
+          started_at: string
+          tenant_id: string
+          user_id: string | null
+        }
+        Insert: {
+          counted?: boolean
+          finished_at?: string | null
+          guest_id?: string | null
+          id?: string
+          input_tokens?: number | null
+          model?: string | null
+          outcome?: string
+          output_tokens?: number | null
+          place: string
+          started_at?: string
+          tenant_id: string
+          user_id?: string | null
+        }
+        Update: {
+          counted?: boolean
+          finished_at?: string | null
+          guest_id?: string | null
+          id?: string
+          input_tokens?: number | null
+          model?: string | null
+          outcome?: string
+          output_tokens?: number | null
+          place?: string
+          started_at?: string
+          tenant_id?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "id_readings_guest_id_fkey"
+            columns: ["guest_id"]
+            isOneToOne: false
+            referencedRelation: "guests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "id_readings_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invitations: {
         Row: {
           closed_at: string | null
@@ -2821,6 +2925,10 @@ export type Database = {
           kind: string
         }[]
       }
+      admin_set_id_reading: {
+        Args: { p_daily_limit: number; p_enabled: boolean; p_tenant_id: string }
+        Returns: undefined
+      }
       admin_set_tenant_status: {
         Args: { p_active: boolean; p_tenant_id: string }
         Returns: undefined
@@ -2999,7 +3107,21 @@ export type Database = {
         Returns: undefined
       }
       delete_payment: { Args: { p_payment_id: string }; Returns: Json }
+      dismiss_id_reading_privacy_hint: {
+        Args: { p_tenant_id: string }
+        Returns: undefined
+      }
       finish_guest_sheet: { Args: { p_input: Json }; Returns: string }
+      finish_id_reading: {
+        Args: {
+          p_id: string
+          p_input_tokens: number
+          p_model: string
+          p_outcome: string
+          p_output_tokens: number
+        }
+        Returns: undefined
+      }
       guest_duplicate_candidates: {
         Args: {
           p_email: string
@@ -3044,6 +3166,13 @@ export type Database = {
           title_prefix: string
           title_suffix: string
           total: number
+        }[]
+      }
+      id_reading_usage: {
+        Args: { p_tenant_id: string }
+        Returns: {
+          last_month: number
+          this_month: number
         }[]
       }
       invoice_list_page: {
@@ -3134,6 +3263,15 @@ export type Database = {
         Args: { p_ids: string[]; p_tenant_id: string }
         Returns: undefined
       }
+      reserve_id_reading: {
+        Args: {
+          p_guest_id: string
+          p_place: string
+          p_tenant_id: string
+          p_user_id: string
+        }
+        Returns: string
+      }
       save_block: {
         Args: { p_confirm?: boolean; p_input: Json }
         Returns: Json
@@ -3162,11 +3300,21 @@ export type Database = {
         Returns: undefined
       }
       save_guest: { Args: { p_input: Json }; Returns: string }
+      save_guest_from_id_document: { Args: { p_input: Json }; Returns: string }
       save_guest_sheet_backfill: {
         Args: { p_enabled: boolean; p_tenant_id: string }
         Returns: undefined
       }
       save_guest_sheet_field: {
+        Args: {
+          p_booking_id: string
+          p_expected_updated_at: string
+          p_target: string
+          p_values: Json
+        }
+        Returns: string
+      }
+      save_guest_sheet_field_from_id_document: {
         Args: {
           p_booking_id: string
           p_expected_updated_at: string

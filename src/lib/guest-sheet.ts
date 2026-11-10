@@ -300,7 +300,7 @@ export const DEFAULT_PRIVACY_TEXT = `Verantwortlich für die Verarbeitung Ihrer 
 
 Wir verarbeiten die Angaben dieses Gästeblatts (Namen, Geschlecht, Geburtsdaten, Staatsangehörigkeit, Anschrift, Reisedokument, Aufenthaltsdaten und Mitreisende) elektronisch. Das ist nötig, um unsere gesetzlichen Pflichten nach dem Meldegesetz und den Abgabenvorschriften (Ortstaxe) zu erfüllen (Art. 6 Abs. 1 lit. c DSGVO) und um Ihren Beherbergungsvertrag einschließlich der Rechnungslegung abzuwickeln (Art. 6 Abs. 1 lit. b DSGVO).
 
-Ihre Daten geben wir nur weiter, soweit ein Gesetz das verlangt, etwa an die Gemeinde oder an Sicherheitsbehörden. Gespeichert werden sie bei IT-Dienstleistern mit Sitz bzw. Rechenzentrum in der EU, die als Auftragsverarbeiter an unsere Weisungen gebunden sind.
+Ihre Daten geben wir nur weiter, soweit ein Gesetz das verlangt, etwa an die Gemeinde oder an Sicherheitsbehörden. Gespeichert und verarbeitet werden sie bei IT-Dienstleistern mit Sitz bzw. Rechenzentrum in der EU, die als Auftragsverarbeiter an unsere Weisungen gebunden sind. Dazu kann auch das automatische Auslesen der Angaben aus Bildern Ihres Reisedokuments gehören.
 
 Das Gästeblatt bewahren wir sieben Jahre auf; Rechnungsdaten so lange, wie es das Steuer- und Unternehmensrecht vorschreibt. Danach werden die Daten gelöscht.
 
