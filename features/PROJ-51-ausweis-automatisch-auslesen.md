@@ -155,9 +155,9 @@ Im Gastformular füllt „Übernehmen“ nur die Formularfelder. Gespeichert wir
 
 ## Open Questions
 - [ ] Genauer Wortlaut des Datenschutz-Satzes im Standardtext (Teil A), gegebenenfalls mit Nennung des Anbieters
-- [x] Anbieter und Standort → Claude über AWS Bedrock in Irland (eu-west-1), Verarbeitung nur in der Region (2026-11-10)
+- [x] Anbieter und Standort → Claude über AWS Bedrock in Stockholm (eu-north-1), Verarbeitung nur in der Region (2026-11-10; Irland geplant, AWS wies Stockholm zu)
 - [x] Prüfung der maschinenlesbaren Zone → in der App (Prüfziffern), Claude liefert die MRZ-Zeilen mit (2026-11-10)
-- [ ] Ist Claude Opus 5.5 in eu-west-1 freigeschaltet, und lässt es die Datenaufbewahrung „keine“ zu? → bei der AWS-Einrichtung (Runbook `docs/runbooks/aws-bedrock.md`, Schritte 4 und 5) klären; sonst Sonnet 5.5 bzw. Satz im Datenschutz-Text anpassen
+- [ ] Ist Claude Opus 5.5 in eu-north-1 freigeschaltet, und lässt es die Datenaufbewahrung „keine“ zu? → bei der AWS-Einrichtung (Runbook `docs/runbooks/aws-bedrock.md`, Schritte 4 und 5) klären; sonst Sonnet 5.5 bzw. Satz im Datenschutz-Text anpassen
 - [ ] Richtlinie `bedrock-mantle:CreateInference` mit Bedingung Region: beim Einrichten bestätigen, dass der Aufruf damit klappt
 - [ ] Nach der Pilotphase: Bleibt die Funktion experimentell, wird sie für alle Kunden eingeschaltet oder gestrichen? Entscheidung nach Erfahrung mit den ersten Kunden
 
@@ -186,10 +186,10 @@ Im Gastformular füllt „Übernehmen“ nur die Formularfelder. Gespeichert wir
 <!-- Added by /architecture -->
 | Decision | Rationale | Date |
 |----------|-----------|------|
-| Claude über Amazon Bedrock, Region Irland (eu-west-1), Endpunkt nur in dieser Region | Vom Nutzer gewählt (EU-Verarbeitung). Irland verarbeitet laut Anthropic-Doku „in-region only“, Frankfurt leitet innerhalb der EU weiter. Gleiche Region wie Supabase, keine Daten an Anthropic | 2026-11-10 |
+| Claude über Amazon Bedrock, Region Stockholm (eu-north-1), Endpunkt nur in dieser Region | Vom Nutzer gewählt (EU-Verarbeitung). Laut Anthropic-Doku sind Irland und Stockholm die EU-Regionen mit „in-region only“; Frankfurt leitet innerhalb der EU weiter. Irland war geplant (wie Supabase), AWS hat das neue Konto aber Stockholm zugewiesen; Irland nur über „Erweiterte Features“. Keine Daten an Anthropic | 2026-11-10 |
 | Modell Claude Opus 5.5, per `BEDROCK_MODEL` umstellbar | Höchste Lesegenauigkeit bei Bildern; Wechsel auf Sonnet 5.5 ohne Codeänderung, falls die Kosten drücken | 2026-11-10 |
 | Eigene Variablennamen `BEDROCK_ACCESS_KEY_ID`/`BEDROCK_SECRET_ACCESS_KEY`/`BEDROCK_REGION` | Vercel reserviert die `AWS_…`-Namen; der Zugang ist nur serverseitig | 2026-11-10 |
-| Ein technischer AWS-Benutzer je Umgebung, Richtlinie nur Claude in eu-west-1 | Einzeln sperrbar, Kosten je Umgebung sichtbar, kein Zugriff auf andere AWS-Dienste | 2026-11-10 |
+| Ein technischer AWS-Benutzer je Umgebung, Richtlinie nur Claude in eu-north-1 | Einzeln sperrbar, Kosten je Umgebung sichtbar, kein Zugriff auf andere AWS-Dienste | 2026-11-10 |
 | Eigene Serverschnittstelle (POST, max. 60 s) statt Server-Aktion | Wie die übrigen langen Vorgänge (Ausstellen, Gästeblatt fertig); eigene Laufzeitgrenze | 2026-11-10 |
 | Server lädt die Bilder selbst aus dem Speicher; Browser nennt nur Speicherorte im eigenen Kundenordner | Auch frisch hochgeladene, noch ungespeicherte Bilder lesbar; kein Bildversand vom Browser an den Server, keine fremden Dateien | 2026-11-10 |
 | Strukturierte Ausgabe mit festem Schema, feste Anweisung, kein freies Eingabefeld | Der Zugang lässt sich nur für diese eine Funktion nutzen; Antworten sind maschinell prüfbar | 2026-11-10 |
@@ -215,7 +215,7 @@ Browser (Gastformular / Gästeblatt)
                                  1. Anmeldung, Kunde, Rolle, Freischaltung prüfen
                                  2. Tageslimit prüfen und Auslesung vormerken (Datenbank)
                                  3. Ausweisbilder aus dem privaten Speicher laden
-                                 4. Bilder + feste Anweisung an Claude (AWS Bedrock, Irland)
+                                 4. Bilder + feste Anweisung an Claude (AWS Bedrock, Stockholm)
                                  5. Antwort prüfen: Formate, Länderliste, Prüfziffern der MRZ
                                  6. Gegenüberstellung berechnen, Auslesung abschließen
   Dialog „Gegenüberstellung“ ◄── nur Vorschläge, nichts gespeichert
@@ -283,9 +283,9 @@ Bausteine: vorhandene shadcn-Komponenten (Dialog, Table, RadioGroup, Switch, Inp
 - *Gästeblatt:* Die Werte laufen durch die bestehende Speicher-Warteschlange des Blatts (Feld für Feld, Funktion „ein Feld speichern“, nur Blatt-Felder). Neu ist ein Herkunftsvermerk. Das Reisedokument wird wie bisher erst mit Art und Dokument-ID gespeichert, Unterschrift 1 erlischt wie bei jeder Änderung.
 
 ### E) KI-Anbieter und Zugang
-- **Claude über Amazon Bedrock, Region Irland (eu-west-1),** Endpunkt mit Verarbeitung nur in dieser Region. Supabase liegt in derselben Region, Daten gehen nicht an Anthropic. Auftragsverarbeiter ist AWS.
+- **Claude über Amazon Bedrock, Region Stockholm (eu-north-1),** Endpunkt mit Verarbeitung nur in dieser Region. Daten gehen nicht an Anthropic. (Ursprünglich Irland geplant; AWS hat das Konto Stockholm zugewiesen, 2026-11-10.) Auftragsverarbeiter ist AWS.
 - **Modell:** Claude Opus 5.5 (Standard), umstellbar per Umgebungsvariable (z. B. auf Sonnet 5.5) ohne Codeänderung.
-- **Zugang:** eigener technischer AWS-Benutzer je Umgebung, darf nur Claude in Irland aufrufen. Schlüssel nur als geheime Vercel-Variablen mit eigenen Namen (`BEDROCK_…`), da Vercel die `AWS_…`-Namen reserviert. Einrichtung: `docs/runbooks/aws-bedrock.md`.
+- **Zugang:** eigener technischer AWS-Benutzer je Umgebung, darf nur Claude in Stockholm aufrufen. Schlüssel nur als geheime Vercel-Variablen mit eigenen Namen (`BEDROCK_…`), da Vercel die `AWS_…`-Namen reserviert. Einrichtung: `docs/runbooks/aws-bedrock.md`.
 - **Kapselung:** Ein Baustein „Ausweis-Leser“ enthält Anbieter, Anweisung und Schema. Ein späterer Wechsel des Anbieters betrifft nur ihn.
 - **Datenaufbewahrung bei AWS:** möglichst auf „keine“ gestellt (Runbook Schritt 5).
 - **Kosten:** geschätzt 3–6 Cent je Auslesung (zwei Bilder, Regionalaufschlag 10 %). AWS kennt kein hartes Limit, daher ist das Tageslimit der App die Bremse, dazu eine AWS-Budgetwarnung.
