@@ -1,6 +1,6 @@
 # PROJ-51: Ausweis automatisch auslesen
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-11-10
 **Last Updated:** 2026-11-10
 
@@ -363,7 +363,117 @@ Bausteine: vorhandene shadcn-Komponenten (Dialog, Table, RadioGroup, Switch, Inp
 **Umgebungsvariablen** (je Umgebung in Vercel, lokal in `.env.local`; `.env.local.example` ergänzt der Nutzer, die Datei ist für Claude gesperrt): `BEDROCK_ACCESS_KEY_ID`, `BEDROCK_SECRET_ACCESS_KEY`, `BEDROCK_REGION` (`eu-north-1`), `BEDROCK_MODEL` (vorerst `anthropic.claude-haiku-4-5`, nach Freischaltung `anthropic.claude-opus-5-5`), `ID_READING_FAKE` (nur Dev/Test, `1` = Test-Leser).
 
 ## QA Test Results
-_To be added by /qa_
+
+**Tested:** 2026-11-10
+**App URL:** http://localhost:3000 (Dev, Supabase „apppa-dev“)
+**Tester:** QA Engineer (AI)
+**Leser:** Test-Leser (`ID_READING_FAKE=1`). Der echte Aufruf von Claude über AWS Bedrock ist **nicht** getestet: AWS sperrt auf dem Mantle-Endpunkt in eu-north-1 derzeit alle Claude-Modelle für das Konto (403 „not available for this account“, Support-Fall offen). Zugang, Endpunkt und Richtlinie sind geprüft; Aufbereitung und MRZ-Prüfung sind mit Unit-Tests abgedeckt.
+
+### Automatisierte Tests
+- E2E `tests/PROJ-51-ausweis-automatisch-auslesen.spec.ts`: 11 Tests, alle grün (Desktop; Barrierefreiheit zusätzlich Tablet, Handy, Firefox, Safari)
+- Integration `supabase/tests/id-reading.integration.test.ts`: 13 grün; Schnittstelle `auslesen.test.ts`: 10 grün; Unit `mrz`, `id-reading-normalize`, `id-reading`: 28 grün; alle Unit-Tests 1.026 grün
+- Regression E2E: PROJ-29 Reisedokument 15/16 (1 Altlast, BUG-3), PROJ-26 Gästeblatt/Reisedokument 5/5, PROJ-7 Anlegen/Bearbeiten 6/6, PROJ-8/PROJ-37 neuer Gast 5/5; Integration Gästeblatt, Betreiber, Gäste, Firmen, RLS grün
+
+### Acceptance Criteria Status
+
+#### Freischaltung und Sichtbarkeit (8/8)
+- [x] Nicht freigeschaltet → kein Knopf (E2E)
+- [x] Betreiber schaltet ein, Standard aus (E2E, Integration)
+- [x] Inhaber/Mitarbeiter sehen weder Schalter noch Limit noch Zähler (Betreiber-Bereich nur Admin, PROJ-5; Integration: Zähler nur Admin)
+- [x] Ohne Ausweisbild kein Knopf (Code, Unit der Bedingung über E2E „ohne Freischaltung“)
+- [x] Österreichischer Gast: kein Bereich „Reisedokument“ auf dem Blatt (Regression PROJ-26)
+- [x] Gästeblatt: Knopf erscheint mit Bild (E2E)
+- [x] Mitarbeiter im Gast-Detail ohne Knopf (E2E)
+- [x] Mitarbeiter beim neuen Gast im Buchungsformular: Schnittstelle erlaubt (Schnittstellentest), Formular unverändert nutzbar (Regression PROJ-8)
+
+#### Auslesen und Gegenüberstellung (11/12)
+- [x] Beide Seiten in einem Durchgang, eine Auslesung gezählt (Schnittstellentest, E2E)
+- [x] „Ausweis wird gelesen …“, Knopf gesperrt (Code)
+- [x] Beispiel Maria/Maria Theresia: Abweichung rot vorausgewählt, Neu vorausgewählt, Gleich abgehakt (E2E, Unit)
+- [x] Vorhandenen Wert wählen → behalten (E2E)
+- [x] Unsicher gelb, nicht vorausgewählt (E2E)
+- [x] Nicht gefunden „–“ (Unit, Dialog)
+- [ ] Nicht prüfbar ohne echten Leser: Schweizer Identitätskarte → „Personalausweis“ (Regel steckt in Schema/Anweisung „id_card = Personalausweis oder Identitätskarte“)
+- [x] Aufenthaltstitel → keine Art (Unit: „other“ → kein Vorschlag)
+- [x] Geschlecht X → kein Vorschlag (Unit)
+- [x] Datum in der Zukunft / vor 1900 → unsicher (Unit)
+- [x] Länder als Namen der Länderliste („Deutschland“) (E2E)
+- [x] Dokument-ID ohne Leerzeichen, > 30 Zeichen unsicher (Unit)
+
+#### Übernehmen (6/6)
+- [x] Gastformular: nur Formularfelder, „Speichern“ schreibt (E2E)
+- [x] Gästeblatt: sofort gespeichert, „Gespeichert“ (E2E)
+- [x] Unterschrift 1 erlischt bei Änderung (bestehende Regel der Warteschlange, Regression PROJ-26)
+- [x] Abbrechen ändert nichts (E2E)
+- [x] Protokoll „Ausweis“ bzw. „Gästeblatt, aus Ausweis gelesen“ (E2E, Integration)
+- [x] Mitarbeiter auf dem Blatt: nur Blatt-Felder (Datenbankfunktion unverändert, Integration)
+
+#### Limit und Zähler (4/4)
+- [x] Tageslimit erreicht → Meldung, nichts gelesen (E2E, Integration inkl. gleichzeitiger Auslesungen)
+- [x] Neues Limit gilt sofort (Integration)
+- [x] Zähler laufender/letzter Monat (E2E, Integration)
+- [x] Nicht erreichbar zählt nicht (E2E, Integration)
+
+#### Fehler (5/5)
+- [x] Nicht erreichbar → Meldung, Felder bearbeitbar (E2E)
+- [x] Kein Ausweis erkannt (E2E)
+- [x] Fremder Kunde → abgelehnt, nicht gezählt (Schnittstellentest)
+- [x] Nicht freigeschaltet → abgelehnt (Integration P0990, Schnittstellentest)
+- [x] Zugang nirgends im Browser (Client-Bundle ohne `BEDROCK_`/`bedrock-mantle`, Variablen ohne `NEXT_PUBLIC_`)
+
+#### Datenschutz (3/3)
+- [x] Standardtext enthält den Satz (Code, `DEFAULT_PRIVACY_TEXT`)
+- [x] Eigener Text bleibt, einmaliger Hinweis (E2E)
+- [x] Protokoll ohne gelesene Werte (E2E: `id_readings` ohne Namen)
+
+### Edge Cases Status
+- [x] Fremder Ausweis (Name und Geburtsdatum weichen ab): Hinweis, keine Vorauswahl (E2E)
+- [x] Zwei Klicks: Knopf gesperrt; gleichzeitige Anfragen überschreiten das Limit nicht (Integration)
+- [x] Anonymisierter Gast: abgelehnt; Gastbezug der Auslesungen geleert (Schnittstellentest, Integration)
+- [x] Nur Rückseite: wird gelesen (Schnittstelle nimmt eine Seite)
+- [x] Freischaltung abgeschaltet bei offener Seite → „nicht freigeschaltet“ (P0990)
+- [x] Bild fehlt im Speicher → „Bitte zuerst ein Bild …“, nichts gezählt (Schnittstellentest)
+- [x] Reisedokument erst mit Art und Nummer (bestehende Regeln)
+- [ ] Nicht lateinische Schrift: nur mit echtem Leser prüfbar
+
+### Security Audit Results
+- [x] Ohne Sitzung 401; anderer Kunde 403; Bildpfade nur aus dem eigenen Kundenordner (Regex, Präfix), Bild eines anderen Gastes 403
+- [x] Rollen: Mitarbeiter im Gastformular nur ohne Gast; Gästeblatt nur Hauptgast einer Buchung des Kunden
+- [x] Vormerken/Abschließen nur Service-Rolle; `id_readings` nur Betreiber lesbar; Einstellungen nur über Funktionen schreibbar (Integration)
+- [x] Zugang zum KI-Dienst nur serverseitig; kein freies Eingabefeld, feste Anweisung, festes Antwortschema
+- [x] Kosten: Tageslimit je Kunde, atomar geprüft
+- [x] XSS: gelesene Werte werden von React escaped; Länge per Schema begrenzt
+- [ ] BUG-1 (Low): Herkunftsvermerk vom Browser setzbar
+
+### Bugs Found
+
+#### BUG-1: Vermerk „Ausweis“ lässt sich ohne Auslesung setzen
+- **Severity:** Low
+- **Steps to Reproduce:** Speichern im Gastformular mit manipuliertem Formularwert `fromIdDocument: true` (bzw. `saveSheetGuest` mit `fromIdDocument`) ohne vorherige Auslesung
+- **Expected:** Vermerk nur nach echter Auslesung; **Actual:** Protokoll zeigt „Ausweis“, obwohl von Hand eingegeben
+- **Auswirkung:** nur die Beschriftung im Änderungsprotokoll; Werte, Person und Zeitpunkt stimmen. **Priority:** Nice to have
+
+#### BUG-2: Bilder werden auch bei abgeschalteter Funktion aus dem Speicher geladen
+- **Severity:** Low
+- **Steps to Reproduce:** Schnittstelle direkt aufrufen bei Kunde ohne Freischaltung
+- **Expected:** sofort „nicht freigeschaltet“; **Actual:** erst Bilder laden (eigene Bilder des Kunden), dann P0990
+- **Auswirkung:** unnötige Last, keine Daten nach außen. **Priority:** Nice to have
+
+#### BUG-3: Alter E2E-Test PROJ-29 findet „Staat“ doppelt (Testpflege, keine App-Änderung durch PROJ-51)
+- **Severity:** Low
+- **Steps to Reproduce:** `tests/PROJ-29-…spec.ts` „Art und Nummer Pflicht …“ – `chooseCountry(page, 'Staat', …)` trifft seit PROJ-26 auch „Staatsangehörigkeit“
+- **Fix:** Locator mit `exact: true`. **Priority:** Fix in next sprint
+
+### Offen (kein Bug, blockiert durch AWS)
+- Echter Durchstich mit Claude: Antwortschema (strukturierte Ausgabe auf Bedrock), Lesequalität, Laufzeit, Verbrauch und Verarbeitung in eu-north-1. **Vor dem Freischalten echter Kunden in Produktion nachholen.**
+
+### Summary
+- **Acceptance Criteria:** 37/38 bestanden, 1 nur mit echtem Leser prüfbar
+- **Bugs Found:** 3 total (0 critical, 0 high, 0 medium, 3 low)
+- **Security:** Pass (1 Low)
+- **Production Ready:** YES – Funktion ist je Kunde standardmäßig aus; ohne freigeschaltete Modelle meldet sie „konnte gerade nicht gelesen werden“, ohne zu zählen
+- **Recommendation:** Deploy; echte Kunden erst nach dem Durchstich mit AWS freischalten
+
 
 ## Deployment
 _To be added by /deploy_
