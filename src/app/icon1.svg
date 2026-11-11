@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <!-- apppa palette: accent #006786, accent-2 #d6006c, process-yellow #edbb00, bg #f3f2f2, text #201e1d -->
-  <rect width="512" height="512" rx="56" fill="#006786"/>
+  <!-- Favicon-Grund #00708f statt Logo-Petrol #006786: Safari setzt dunklere Favicons in der dunklen Tab-Leiste auf ein weißes Plättchen. Palette: accent #006786, accent-2 #d6006c, process-yellow #edbb00, bg #f3f2f2, text #201e1d -->
+  <rect width="512" height="512" rx="56" fill="#00708f"/>
   <circle cx="392" cy="112" r="34" fill="#edbb00"/>
   <path d="M256 78 L444 236 L414 236 L414 434 L98 434 L98 236 L68 236 Z" fill="#f3f2f2"/>
   <circle cx="250" cy="338" r="58" fill="none" stroke="#d6006c" stroke-width="40"/>
