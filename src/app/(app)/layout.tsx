@@ -6,7 +6,7 @@ import { IdReadingProvider } from '@/components/id-reading/id-reading-context'
 import { AppSidebar } from '@/components/shell/app-sidebar'
 import { BottomNav } from '@/components/shell/bottom-nav'
 import { ShellProvider } from '@/components/shell/shell-context'
-import { Wordmark } from '@/components/shell/wordmark'
+import { Logo } from '@/components/shell/logo'
 import { SidebarProvider } from '@/components/ui/sidebar'
 import { VatStatusProvider } from '@/components/vat/vat-status-context'
 import { requireAppUser } from '@/lib/auth/session'
@@ -88,7 +88,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               style={{ '--sidebar-width': '236px' } as React.CSSProperties}
               className="bg-ds-bg"
             >
-              <AppSidebar wordmark={<Wordmark />} />
+              <AppSidebar logo={<Logo />} />
               <main
                 id="inhalt"
                 className="flex min-w-0 max-w-[1520px] flex-1 flex-col gap-10 px-4 pb-28 pt-8 sm:px-8 lg:gap-[40px] lg:px-10 lg:pb-24 lg:pt-10"

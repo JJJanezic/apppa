@@ -2,7 +2,7 @@
 
 ## Status: Deployed
 **Created:** 2026-10-14
-**Last Updated:** 2026-10-14
+**Last Updated:** 2026-11-11
 
 ## Dependencies
 - Keine harte Abhängigkeit. PROJ-2 ist die Grundlage für alle Features mit Oberfläche (PROJ-3 ff.)
@@ -304,6 +304,12 @@ _Stand 2026-10-14 (/frontend)_
 - BUG-4: Neue Seite `src/app/global-error.tsx`, deutsch, mit „Erneut versuchen“; Texte direkt aus `messages/de.json`, weil next-intl dort nicht verfügbar ist
 - Tests: `src/app/global-error.test.tsx` und 3 Regressionstests in `tests/PROJ-2-app-shell.spec.ts`; `npm test` 106/106, E2E 57/57 (15 übersprungen, weil breitenspezifisch), Build erfolgreich
 - `.gitignore`: Playwright-Ausgaben (`/test-results/`, `/playwright-report/`, `/blob-report/`)
+
+**Logo statt Wortmarke (2026-11-11)**
+- Logo-Dateien in `public/brand/` (Logo, Hochformat, Negativ, Wortmarke je als SVG/PNG/PDF, `icon.svg`)
+- Neue Komponente `src/components/shell/logo.tsx` (ersetzt `wordmark.tsx`): `apppa-logo.svg` (Bildmarke + Schriftzug) über `next/image`, Alternativtext aus `app.name`
+- Seitenleiste 40 px hoch, Anmeldeseiten 56 px hoch und mittig
+- Test in `tests/PROJ-3-authentifizierung.spec.ts` prüft das Logo-Bild statt des Textes „apppa“
 
 ## QA Test Results
 

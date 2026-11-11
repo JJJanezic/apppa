@@ -21,11 +21,11 @@ import {
 import { isActivePath, visibleNavItems } from '@/lib/navigation'
 
 interface AppSidebarProps {
-  wordmark: React.ReactNode
+  logo: React.ReactNode
 }
 
 // Seitenleiste ab 1024 px (Tablet quer, Laptop), fest ausgeklappt wie im Entwurf
-export function AppSidebar({ wordmark }: AppSidebarProps) {
+export function AppSidebar({ logo }: AppSidebarProps) {
   const t = useTranslations('nav')
   const pathname = usePathname()
   const { person } = useShell()
@@ -36,7 +36,7 @@ export function AppSidebar({ wordmark }: AppSidebarProps) {
       <Sidebar collapsible="none" className="gap-6 px-3 py-[30px]">
         <SidebarHeader className="gap-0.5 px-2 py-0">
           <Link href="/" className="w-fit rounded-md">
-            {wordmark}
+            {logo}
           </Link>
           <TenantLabel />
         </SidebarHeader>

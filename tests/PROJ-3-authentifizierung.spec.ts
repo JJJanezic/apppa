@@ -633,7 +633,7 @@ test.describe('Anmeldeseiten: Design und Barrierefreiheit', () => {
     }) => {
       await page.goto(path)
       await expect(page.getByRole('main', { name: 'Anmeldung' })).toBeVisible()
-      await expect(page.getByRole('main').getByText('apppa', { exact: false }).first()).toBeVisible()
+      await expect(page.getByRole('main').getByRole('img', { name: 'apppa' })).toBeVisible()
       await expect(page.getByRole('navigation')).toHaveCount(0)
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
       expect(overflow).toBeLessThanOrEqual(0)
