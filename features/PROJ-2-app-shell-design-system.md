@@ -439,3 +439,9 @@ _Stand 2026-10-25 (/deploy, erstes Release über Staging, Tag `v1.0.0`)_
 - **Staging:** https://staging.apppa.at (Vercel `apppa-staging`, Supabase `iikzjqjjxoznrkkixfqa`). Freigegeben nach Prüfung von Anmeldung mit 2FA, Betreiber-Bereich, Einladung, Team und Wohnungen
 - **Production:** https://app.apppa.at (Vercel `apppa`, Supabase `ahclrqbhfpidxjzbpfgb`), Commit `cedd560`, 2026-10-25
 - **Migrationen:** alle 13 bis `20261024140200_apartments_fk_indexes.sql` in Staging und Production eingespielt (2026-10-24), Advisors ohne Befund. Im Release selbst gab es keine neuen
+
+_Stand 2026-11-11 (/deploy, Logo statt Wortmarke, Tag `v1.52.0-PROJ-2`)_
+
+- **Staging:** https://staging.apppa.at, vom Nutzer geprüft (Anmeldeseite und Seitenleiste mit Logo)
+- **Production:** https://app.apppa.at, Commit `1ede6c2`, 2026-11-11; `/brand/apppa-logo.svg` ausgeliefert, Anmeldeseite zeigt das Logo
+- **Migrationen:** keine
