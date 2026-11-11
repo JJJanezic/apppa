@@ -452,3 +452,10 @@ _Stand 2026-11-11 (/deploy, Favicons und Apple-Symbol mit neuer Bildmarke, Tag `
 - **Staging:** https://staging.apppa.at, vom Nutzer geprüft
 - **Production:** https://app.apppa.at, Commit `c5cdf3a`, 2026-11-11; alle vier Symbole ausgeliefert
 - **Migrationen:** keine
+
+_Stand 2026-11-11 (/deploy, Favicon-Farbe gegen weißen Rand in Safari, Tag `v1.54.0-PROJ-2`)_
+
+- **Änderung:** `src/app/favicon.ico`, `icon.png` und `icon1.svg` mit Grund #00708f statt #006786. Safari legt zu dunkle Favicons in der dunklen Tab-Leiste auf ein weißes Plättchen. Lokal getestet: #006b8a zeigt den Rand, #00708f nicht. Das Apple-Symbol bleibt vollflächig in #006786
+- **Staging:** https://staging.apppa.at, vom Nutzer geprüft
+- **Production:** https://app.apppa.at, Commit `5644de9`, 2026-11-11
+- **Migrationen:** keine
