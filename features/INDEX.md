@@ -16,7 +16,7 @@
 | ID | Feature | Beschreibung | Priority | Dependencies | Status | Spec | Created |
 |----|---------|--------------|----------|--------------|--------|------|---------|
 | PROJ-1 | Supabase Infrastructure Setup | Projekt-Anbindung, Env-Variablen, Schema-Grundriss, Mandanten-RLS-Muster, Auth-Konfiguration | P0 | None | Deployed | [Spec](PROJ-1-supabase-infrastructure-setup.md) | 2026-10-12 |
-| PROJ-2 | App-Shell & Design-System | Responsives Layout, Navigation, Broadsheet-Tokens in shadcn/ui, i18n-Grundlage (Deutsch). Logo statt Wortmarke auf Anmeldeseite und in der Seitenleiste (2026-11-11, live seit v1.52.0) | P0 | None | Deployed | [Spec](PROJ-2-app-shell-design-system.md) | 2026-10-12 |
+| PROJ-2 | App-Shell & Design-System | Responsives Layout, Navigation, Broadsheet-Tokens in shadcn/ui, i18n-Grundlage (Deutsch). Logo statt Wortmarke auf Anmeldeseite und in der Seitenleiste (2026-11-11, live seit v1.52.0), Favicons und Apple-Symbol mit neuer Bildmarke (live seit v1.53.0) | P0 | None | Deployed | [Spec](PROJ-2-app-shell-design-system.md) | 2026-10-12 |
 | PROJ-3 | Authentifizierung | Login, Einladung annehmen, Passwort zurücksetzen, Logout. Bugfix Firefox-Fehlerseite beim Seitenwechsel: Anmelde-Schritte und Abmelden über Route-Handler (2026-11-10, live seit v1.51.0) | P0 | PROJ-1, PROJ-2 | Deployed | [Spec](PROJ-3-authentifizierung.md) | 2026-10-12 |
 | PROJ-4 | Kundenkonten & Rollen | Mandant (Kunde), Rollen Inhaber/Mitarbeiter, Team-Mitglieder einladen | P0 | PROJ-1, PROJ-3 | Deployed | [Spec](PROJ-4-kundenkonten-rollen.md) | 2026-10-12 |
 | PROJ-5 | Betreiber-Admin | Kunden anlegen, einladen, deaktivieren; Übersicht aller Mandanten | P0 | PROJ-1, PROJ-4 | Deployed | [Spec](PROJ-5-betreiber-admin.md) | 2026-10-12 |

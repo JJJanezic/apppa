@@ -445,3 +445,10 @@ _Stand 2026-11-11 (/deploy, Logo statt Wortmarke, Tag `v1.52.0-PROJ-2`)_
 - **Staging:** https://staging.apppa.at, vom Nutzer geprüft (Anmeldeseite und Seitenleiste mit Logo)
 - **Production:** https://app.apppa.at, Commit `1ede6c2`, 2026-11-11; `/brand/apppa-logo.svg` ausgeliefert, Anmeldeseite zeigt das Logo
 - **Migrationen:** keine
+
+_Stand 2026-11-11 (/deploy, Favicons und Apple-Symbol mit neuer Bildmarke, Tag `v1.53.0-PROJ-2`)_
+
+- **Änderung:** `src/app/favicon.ico`, `icon.png`, `icon1.svg` und `apple-icon.png` zeigen die Bildmarke aus `public/brand/icon.svg` (vom Nutzer ersetzt)
+- **Staging:** https://staging.apppa.at, vom Nutzer geprüft
+- **Production:** https://app.apppa.at, Commit `c5cdf3a`, 2026-11-11; alle vier Symbole ausgeliefert
+- **Migrationen:** keine
