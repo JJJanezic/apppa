@@ -1,6 +1,6 @@
 # PROJ-19: Marketing-Einwilligung verwalten
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-11-11
 **Last Updated:** 2026-11-11
 
@@ -200,12 +200,102 @@ Erteilen, Widerrufen und Irrtümlich-Markieren erscheinen im Protokoll (audit_lo
 ### Technical Decisions
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Eigene Verlaufstabelle je Gast, unveränderlich per Schutzregel; nur Irrtümlich-Markierung und Leeren beim Anonymisieren erlaubt | Nachweis nach DSGVO; Muster wie beim Gästeblatt | 2026-11-11 |
+| Stand (erteilt/widerrufen/keine + Datum) zusätzlich am Gast, von der Datenbank nach jeder Änderung neu berechnet | Schneller Filter in der Gästeliste und Export (PROJ-52) ohne Durchrechnen des Verlaufs; ein Ort für die Regel | 2026-11-11 |
+| Gästeblatt über die bestehende interne Funktion anbinden, die heute die Einwilligung setzt | Gästeblatt-„Fertig“ und Hochladen bleiben unverändert; nur eine Stelle wird umgestellt | 2026-11-11 |
+| Schreiben nur über Datenbank-Funktionen (Erfassen, Irrtümlich), keine direkten Schreibrechte | Regeln (Rollen, mündlich nur Widerruf, Widerruf nur bei Erteilt, gesperrte Gäste) an einer Stelle durchgesetzt | 2026-11-11 |
+| Belege in eigenem privatem Speicherbereich, gleiche Regeln und gleiches Eingabefeld wie Zahlungsbelege | Bekannte Bedienung samt Handyfoto; Zugriffsprüfung und Aufräumen getrennt von Zahlungen | 2026-11-11 |
+| Nicht gespeicherte Belege räumt der bestehende nächtliche Aufräumlauf mit auf | Kein zusätzlicher Zeitplan nötig | 2026-11-11 |
+| Rückfrage „ändert den Stand nicht“: Schreibfunktion meldet Ergebnis, Dialog bestätigt | Muster der Hinweise aus der Zahlungserfassung (PROJ-45) | 2026-11-11 |
+| Übernahme bestehender Daten aus allen Gästeblättern mit Häkchen (auch ersetzten), nicht nur aus dem Vermerk am Gast | Der Vermerk am Gast hält nur die jüngste Erteilung; der Verlauf soll vollständig sein | 2026-11-11 |
+| Keine neuen Pakete | Alles mit vorhandenen Bausteinen machbar | 2026-11-11 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+
+### Überblick
+Kein neues Paket, keine neue Seite. PROJ-19 ergänzt die **Gastdetailseite** um einen Abschnitt, die **Gästeliste** um einen Filter und die Datenbank um einen **Verlauf der Einwilligung je Gast**. Fast alles nutzt Vorhandenes: Belege wie bei Zahlungen (PROJ-45), Protokoll wie überall, Anbindung an das Gästeblatt über die eine Stelle, an der es heute die Einwilligung setzt.
+
+### A) Bildschirm-Aufbau
+
+```
+Gastdetailseite (/gaeste/[id], bestehend)
++-- … bestehende Abschnitte (Kontakt, Adresse, Firma, Marketing-Quelle …)
++-- NEU Abschnitt „Marketing-Einwilligung“
+    +-- Stand-Zeile („Eingewilligt seit …“ / „Widerrufen am …“ / „Keine Einwilligung“)
+    +-- Hinweis „keine eigene E-Mail-Adresse oder Anschrift“ (nur bei Stand „Erteilt“)
+    +-- Knöpfe „Einwilligung erfassen“ / „Widerruf erfassen“ (Inhaber und Mitarbeiter)
+    +-- Verlauf (neueste zuerst)
+    |   +-- Eintrag: Datum, Art, Weg bzw. Gästeblatt-Link, Notiz, Beleg-Symbol, erfasst von/am
+    |   +-- irrtümliche Einträge durchgestrichen mit Grund
+    |   +-- „Als irrtümlich markieren“ (nur Inhaber, nur von Hand erfasste Einträge)
+    +-- Leerer Zustand
++-- NEU Dialog „Einwilligung erfassen“ / „Widerruf erfassen“ (ein Dialog, zwei Arten)
+|   +-- Datum, Weg (Auswahl je nach Art), Notiz
+|   +-- Beleg-Feld (bestehendes Feld aus der Zahlungserfassung, wiederverwendet)
+|   +-- Hinweis „ohne Beleg“ bzw. „liegt vor dem letzten Eintrag, ändert den Stand nicht“ (Rückfrage)
++-- NEU Dialog „Als irrtümlich markieren“ (Grund, Bestätigen)
+
+Gästeliste (/gaeste, bestehend)
++-- Filterleiste: NEU Auswahl „Marketing-Einwilligung“ (Alle / Erteilt / Widerrufen / Keine)
+```
+
+Am Handy stehen die Verlaufseinträge als Karten untereinander; die Dialoge verhalten sich wie bei der Zahlungserfassung.
+
+### B) Daten (in Worten)
+
+**Neu: Verlauf der Marketing-Einwilligung** – je Eintrag:
+- Kunde und Gast
+- Art: Erteilung oder Widerruf
+- Herkunft: Gästeblatt, nacherfasstes Gästeblatt oder von Hand
+- Datum (Tag, an dem erteilt bzw. widerrufen wurde)
+- Weg (nur von Hand): E-Mail, schriftlich, Webformular, mündlich/telefonisch (nur Widerruf), Sonstiges
+- Verweis aufs Gästeblatt (nur bei Herkunft Gästeblatt)
+- Notiz (bis 500 Zeichen), Beleg (Speicherort der Datei)
+- erfasst von, erfasst am
+- Irrtümlich: markiert am, von, Grund (sonst leer)
+
+**Am Gast** (bestehende Tabelle): Der heutige Vermerk „Einwilligung erteilt am, über Gästeblatt“ wird zum **Stand** erweitert: Stand (erteilt / widerrufen / keine) und Datum des maßgeblichen Eintrags. Die Datenbank rechnet ihn nach jeder Änderung am Verlauf neu aus (jüngster nicht irrtümlicher Eintrag nach Datum, bei Gleichstand nach Erfassungszeit). So sind der Filter in der Gästeliste und später der Export (PROJ-52) schnell, ohne den Verlauf jedes Mal durchzurechnen.
+
+**Belege:** eigener privater Speicherbereich je Kunde, gleiche Regeln wie Zahlungsbelege (PDF bis 10 MB, Bilder als JPEG; Lesen nur Mitglieder des Kunden über kurzlebige Links).
+
+**Bestehende Daten:** Eine Datenbank-Umstellung legt für jedes Gästeblatt mit Häkchen (auch ersetzte) einen Eintrag „Erteilung über (nacherfasstes) Gästeblatt“ an, mit Datum und Person vom Blatt, und rechnet den Stand aller Gäste aus.
+
+### C) Abläufe
+
+| Ablauf | Was passiert |
+|--------|--------------|
+| Gästeblatt „Fertig“ / Hochladen mit Häkchen (PROJ-26) | Die bestehende zentrale Stelle, die heute die Einwilligung am Gast setzt, legt stattdessen einen Verlaufseintrag an; der Stand folgt automatisch. Am Gästeblatt selbst ändert sich nichts. |
+| Erfassen von Hand | Eine Schreibfunktion in der Datenbank prüft Rechte, Datum, Weg (mündlich nur beim Widerruf), „Widerruf nur bei Stand erteilt“ und gesperrte Gäste; sie meldet, ob der Eintrag den Stand ändert. Ändert er ihn nicht, fragt der Dialog vorher nach. |
+| Irrtümlich markieren | Eigene Schreibfunktion, nur Inhaber, nur Einträge „von Hand“, Grund Pflicht, nur einmal. |
+| Unveränderlichkeit | Eine Schutzregel verhindert Ändern und Löschen von Einträgen (Muster wie beim Gästeblatt); erlaubt sind nur die Irrtümlich-Markierung und das Leeren beim Anonymisieren. |
+| Anonymisieren (PROJ-7) | Bestehende Funktion ergänzt: Notizen und Beleg-Verweise leeren, Stand „keine“; die App löscht danach die Beleg-Dateien. Neue Einträge sind gesperrt. |
+| Zusammenführen (PROJ-7) | Bestehende Funktion ergänzt: Einträge des entfernten Gastes wandern zum verbleibenden, Stand wird neu berechnet (ersetzt „jüngste Erteilung gilt“). |
+| Kunde löschen (PROJ-5) | Verlauf wird mit dem Kunden gelöscht; Beleg-Dateien des Kunden werden entfernt wie Zahlungsbelege. |
+| Liegengebliebene Belege | Hochgeladen, aber nie gespeichert (Dialog abgebrochen): Der bestehende nächtliche Aufräumlauf entfernt sie mit. |
+| Protokoll | Der Verlauf hängt am bestehenden Protokoll (Anlegen, Irrtümlich-Markieren). |
+
+### D) Rechte
+- Lesen von Verlauf, Stand und Belegen: alle Mitglieder des Kunden.
+- Erfassen von Erteilung und Widerruf: Inhaber und Mitarbeiter, nur über die Schreibfunktion (kein direktes Schreiben in die Tabelle).
+- Irrtümlich markieren: nur Inhaber.
+- Mandantentrennung wie überall über die Zugriffsregeln der Datenbank; Belege zusätzlich über die Regeln des Speicherbereichs.
+
+### E) Technische Entscheidungen (Begründung)
+- **Verlauf als eigene Tabelle, Stand zusätzlich am Gast:** Der Verlauf ist der Nachweis; der Stand am Gast macht Filter und Export schnell. Die Datenbank hält beide zusammen, nicht die App.
+- **Anbindung des Gästeblatts über eine Stelle:** Gästeblatt-„Fertig“ und Hochladen rufen schon heute dieselbe interne Funktion auf. Wird nur sie umgestellt, bleibt PROJ-26 unberührt.
+- **Belege wie bei Zahlungen, eigener Speicherbereich:** gleiche Bedienung (auch Handyfoto), gleiche Sicherheit; eigener Bereich, weil sich die Zugriffsprüfung auf den jeweiligen Datensatz bezieht und Aufräumen und Löschen getrennt laufen.
+- **„Ändert den Stand nicht“ als Rückfrage:** Die Schreibfunktion meldet das Ergebnis vorab, der Dialog fragt nach; gleiches Muster wie die Hinweise bei der Zahlungserfassung.
+- **Kein neues Paket.**
+
+### F) Abhängigkeiten (Pakete)
+- Keine neuen Pakete.
+
+### G) Arbeitsteilung
+- **/frontend:** Abschnitt auf der Gastdetailseite, Dialoge (Beleg-Feld aus der Zahlungserfassung wiederverwenden bzw. für beide Zwecke verallgemeinern), Filter in der Gästeliste, Texte.
+- **/backend:** Verlaufstabelle mit Schutzregel und Protokoll, Stand am Gast samt Neuberechnung, Schreibfunktionen (Erfassen, Irrtümlich), Anbindung Gästeblatt, Anonymisieren, Zusammenführen, Kunde löschen, Filter in der Gästelisten-Abfrage, Speicherbereich mit Regeln, Aufräumen, Übernahme der bestehenden Einwilligungen, Typen neu erzeugen.
 
 ## QA Test Results
 _To be added by /qa_
