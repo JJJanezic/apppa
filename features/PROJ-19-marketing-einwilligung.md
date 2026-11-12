@@ -608,3 +608,7 @@ Automatisiert in `tests/PROJ-19-marketing-einwilligung.spec.ts` (Browser) und `s
 - **Migrationen:** `20261112044228_marketing_consent.sql`
 - **Kein** `config push`, keine neuen Umgebungsvariablen.
 - Mitausgeliefert: Supabase CLI 2.122.1 (1008f68, nur Entwicklungswerkzeug).
+
+**Nachbesserung ausgeliefert:** 2026-11-12, Tag `v1.56.0-PROJ-19`, Stand `d111f7b`
+- Gastdetailseite: Abschnitt „Buchungen“ steht über „Marketing-Einwilligung“ (Wunsch nach dem Deploy).
+- Staging (vom Nutzer geprüft) und Production 2026-11-12; keine Migration, kein `config push`, keine neuen Umgebungsvariablen.
