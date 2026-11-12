@@ -6,7 +6,7 @@ import { revalidatePath } from 'next/cache'
 import type { ActionResult, CommonErrorCode } from '@/lib/auth/result'
 import { getSessionUser, pendingMfaStep } from '@/lib/auth/session'
 import { todayIso } from '@/lib/bookings'
-import { CONSENT_RECEIPT_BUCKET, type ConsentErrorCode, type ConsentKind, type ConsentWarning } from '@/lib/marketing-consent'
+import { CONSENT_RECEIPT_BUCKET, consentDbError, type ConsentErrorCode, type ConsentKind, type ConsentWarning } from '@/lib/marketing-consent'
 import { isMissingRelation } from '@/lib/marketing-consent-data'
 import { createClient } from '@/lib/supabase/server'
 import { getTenantContext, type TenantSummary } from '@/lib/tenant'
@@ -33,23 +33,9 @@ async function requireMember(): Promise<{ ok: true; tenant: TenantSummary } | Fa
   return active ? { ok: true, tenant: active } : fail('unknown')
 }
 
-// Fehler der Datenbank → Meldung (Codes siehe „Erwartete Datenbank-Schnittstellen“ in features/PROJ-19-marketing-einwilligung.md)
-const DB_ERRORS: Record<string, ConsentErrorCode | CommonErrorCode> = {
-  '42501': 'ownerOnly',
-  P0988: 'consentReceiptMissing',
-  P0992: 'notFound',
-  P0993: 'guestAnonymized',
-  P0994: 'consentDateInFuture',
-  P0995: 'consentDateBeforeBirth',
-  P0996: 'consentChannelInvalid',
-  P0997: 'consentNotGranted',
-  P0998: 'consentNotVoidable',
-  P0999: 'consentAlreadyVoided',
-}
-
-function dbFail(error: DbError, context: string): Failure {
+function dbFail(error: DbError, context: string, action: 'record' | 'void' = 'record'): Failure {
   if (isMissingRelation(error)) return fail('notImplemented')
-  const mapped = error.code ? DB_ERRORS[error.code] : undefined
+  const mapped = consentDbError(error.code, action)
   if (!mapped) console.error(`[einwilligung] ${context}`, error.code, error.message)
   return fail(mapped ?? 'unknown')
 }
@@ -103,7 +89,7 @@ export async function voidConsentEntry(input: { guestId: string; entryId: string
   if (!parsed.success) return fail('unknown')
   const supabase = await untyped()
   const { error } = await supabase.rpc('void_marketing_consent', { p_entry_id: input.entryId, p_reason: parsed.data.reason })
-  if (error) return dbFail(error, 'Eintrag als irrtümlich markieren')
+  if (error) return dbFail(error, 'Eintrag als irrtümlich markieren', 'void')
   revalidate(input.guestId)
   return { ok: true }
 }

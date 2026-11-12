@@ -56,6 +56,29 @@ export type ConsentErrorCode =
   | 'consentNotVoidable'
   | 'consentAlreadyVoided'
   | 'consentReceiptMissing'
+  | 'tenantDeactivated'
+  | 'notMember'
+
+// Fehler der Datenbank → Meldung (Codes siehe features/PROJ-19-marketing-einwilligung.md). 42501 bedeutet beim Erfassen
+// „kein Mitglied mehr“ (z. B. aus dem Team entfernt), beim Irrtümlich-Markieren „nur Inhaber“ (QA BUG-1).
+const CONSENT_DB_ERRORS: Record<string, ConsentErrorCode> = {
+  P0016: 'tenantDeactivated',
+  P0988: 'consentReceiptMissing',
+  P0992: 'notFound',
+  P0993: 'guestAnonymized',
+  P0994: 'consentDateInFuture',
+  P0995: 'consentDateBeforeBirth',
+  P0996: 'consentChannelInvalid',
+  P0997: 'consentNotGranted',
+  P0998: 'consentNotVoidable',
+  P0999: 'consentAlreadyVoided',
+}
+
+export function consentDbError(code: string | undefined, action: 'record' | 'void'): ConsentErrorCode | null {
+  if (!code) return null
+  if (code === '42501') return action === 'record' ? 'notMember' : 'ownerOnly'
+  return CONSENT_DB_ERRORS[code] ?? null
+}
 
 // Hinweis der Datenbank vor dem Speichern: Der Eintrag liegt vor dem maßgeblichen Eintrag und ändert den Stand nicht
 export type ConsentWarning = { code: 'notEffective'; latestOn: string; latestKind: ConsentKind }

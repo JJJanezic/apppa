@@ -1137,7 +1137,9 @@
       "consentNotGranted": "Es besteht keine Einwilligung, die widerrufen werden kann. Bitte die Seite neu laden.",
       "consentNotVoidable": "Dieser Eintrag lässt sich nicht als irrtümlich markieren.",
       "consentAlreadyVoided": "Dieser Eintrag ist bereits als irrtümlich markiert.",
-      "consentReceiptMissing": "Der Beleg ist nicht mehr verfügbar. Bitte erneut hochladen."
+      "consentReceiptMissing": "Der Beleg ist nicht mehr verfügbar. Bitte erneut hochladen.",
+      "tenantDeactivated": "Dieser Kunde ist deaktiviert. Änderungen sind nicht möglich.",
+      "notMember": "Du hast keinen Zugriff mehr auf diesen Kunden. Bitte lade die Seite neu."
     },
     "validation": {
       "lastNameRequired": "Bitte den Nachnamen eingeben.",

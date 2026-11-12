@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { channelsFor, hasOwnContact, parseConsentFilter, receiptTypeOf } from '@/lib/marketing-consent'
+import { channelsFor, consentDbError, hasOwnContact, parseConsentFilter, receiptTypeOf } from '@/lib/marketing-consent'
 import { consentSchema, voidSchema } from '@/lib/validation/marketing-consent'
 
 const key = (k: string) => k
@@ -23,6 +23,16 @@ describe('Marketing-Einwilligung (PROJ-19)', () => {
   it('liest den Filter aus der Adresse', () => {
     expect(parseConsentFilter('erteilt')).toBe('granted')
     expect(parseConsentFilter('granted')).toBeNull()
+  })
+
+  it('übersetzt Datenbankfehler je Aktion (QA BUG-1)', () => {
+    expect(consentDbError('P0016', 'record')).toBe('tenantDeactivated')
+    expect(consentDbError('P0016', 'void')).toBe('tenantDeactivated')
+    expect(consentDbError('42501', 'record')).toBe('notMember')
+    expect(consentDbError('42501', 'void')).toBe('ownerOnly')
+    expect(consentDbError('P0997', 'record')).toBe('consentNotGranted')
+    expect(consentDbError('XX000', 'record')).toBeNull()
+    expect(consentDbError(undefined, 'record')).toBeNull()
   })
 
   it('erkennt die Belegart am Speicherort', () => {
