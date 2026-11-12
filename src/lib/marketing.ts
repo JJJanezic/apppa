@@ -1,5 +1,7 @@
 import { BOOKING_SOURCES, type BookingSource } from '@/lib/bookings'
-import { isCountry, LANGUAGES, type Language } from '@/lib/guests'
+import { formatDatePlain } from '@/lib/format'
+import { countryName, isCountry, languageName, LANGUAGES, type Language } from '@/lib/guests'
+import { csvText } from '@/lib/tourist-tax-report'
 
 // Marketing: Segmente und CSV-Export (PROJ-52). Seite „Marketing“ nur für Inhaber des gewählten Kunden: Gäste mit
 // Einwilligung „Erteilt“ (PROJ-19) und eigener E-Mail-Adresse oder Anschrift; Plattform-E-Mail und -Telefon nie.
@@ -251,4 +253,35 @@ export function marketingFileName(tenantName: string, now: Date = new Date()): s
       .map((p) => [p.type, p.value])
   )
   return `gaeste_${fileNamePart(tenantName)}_${parts.year}-${parts.month}-${parts.day}_${parts.hour}-${parts.minute}.csv`
+}
+
+// CSV für Excel und Newsletter-Programme (PROJ-52): eine Zeile je Gast, Strichpunkt, UTF-8 mit BOM, CRLF, Schutz vor Formeln
+// (csvText aus PROJ-16). Spalten: Anrede, Titel vor, Vorname, Nachname, Titel nach, Firma, E-Mail, Telefon, Straße, PLZ, Ort,
+// Land, Sprache, Anzahl Aufenthalte, letzter Aufenthalt, eingewilligt seit.
+export function buildMarketingCsv(rows: readonly MarketingRow[], columns: readonly string[], locale = 'de'): string {
+  const text = (v: string | null | undefined) => csvText(v ?? '')
+  const lines = [columns.map(csvText).join(';')]
+  for (const r of rows) {
+    lines.push(
+      [
+        text(salutation(r.gender)),
+        text(r.titlePrefix),
+        text(r.firstName),
+        text(r.lastName),
+        text(r.titleSuffix),
+        text(r.companyName),
+        text(r.email),
+        text(r.phone),
+        text(r.street),
+        text(r.postalCode),
+        text(r.city),
+        text(r.country ? countryName(r.country, locale) : ''),
+        text(r.language ? languageName(r.language, locale) : ''),
+        String(r.stayCount),
+        r.lastStay ? formatDatePlain(r.lastStay) : '',
+        formatDatePlain(r.consentOn),
+      ].join(';')
+    )
+  }
+  return `\uFEFF${lines.join('\r\n')}\r\n`
 }

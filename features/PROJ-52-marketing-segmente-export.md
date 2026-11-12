@@ -396,6 +396,56 @@ Lesen und Schreiben nur für Inhaber des Kunden. Wohnungen und Objekte stehen al
 - Ohne Gastdaten.
 - Nur für Inhaber, z. B. über eine Funktion `log_marketing_export`.
 
+## Implementation Notes (Backend, 2026-11-12)
+
+### Gebaut
+- **Migration** `20261112072927_marketing_segments_export.sql` und Korrektur `20261112073305_marketing_guest_list_company.sql` (Fehler 42702: Firmenname hieß wie die alte Gastspalte `company_name`), auf Dev eingespielt. Typen neu erzeugt; Advisors nur mit dem bekannten Hinweis `auth_otp_long_expiry`.
+- **Tabelle `marketing_segments`**
+  - Name getrimmt, 1–60 Zeichen, eindeutig je Kunde über `lower(name)` (Fehler 23505).
+  - `filters` als jsonb-Objekt.
+  - Zugriffsregeln für Lesen, Anlegen, Ändern und Löschen: nur `has_role(tenant_id, 'owner')`.
+  - Ändern nur von Name und Filtern (Spaltenrechte).
+  - Deaktivierter Kunde → P0016.
+  - Protokoll über `enable_tenant_table`; Kaskade mit dem Kunden.
+- **`marketing_guest_list(p_tenant_id, p_filters, p_limit, p_offset) → jsonb`**
+  - Rechte: läuft mit den Rechten der Person (security invoker) und prüft die Inhaber-Rolle (42501).
+  - Gäste: Stand „granted“, nicht anonymisiert, eigene E-Mail (`email_source = 'direct'`) oder Straße + PLZ/Ort.
+  - Ausgabe: E-Mail und Telefon nur, wenn direkt erfasst.
+  - Aufenthalt: Buchung, nicht storniert, Anreise ≤ heute (Wien).
+  - Zeitraum: Abreise > Monatsanfang „von“ und Anreise ≤ Monatsende „bis“.
+  - Wohnungen: gewählte Wohnungen und alle Wohnungen der gewählten Objekte. Wohnung, Quelle und Zeitraum gelten für denselben Aufenthalt.
+  - `minStays` zählt alle Aufenthalte des Gastes.
+  - Eine unbekannte Wohnung ergibt keine Treffer (die App entfernt gelöschte Wohnungen vorher).
+  - Ungültige Werte in den Filtern werden übergangen (Muster je Liste).
+  - Blättern bis 1000 je Abruf, `p_limit` null = alle.
+- **`log_marketing_export`** (nur Inhaber)
+  - Eintrag im `audit_log` mit `table_name = 'marketing_exports'`, Person und Zeit.
+  - `new_data`: Filter, Segment-ID und -Name, Anzahl; keine Gastdaten.
+- **Download `/api/marketing/csv`** (`src/lib/marketing-export.ts`)
+  - Ohne Anmeldung 401, offene 2FA bzw. Mitarbeiter 403, keine Treffer 404, fehlende Datenbank-Funktion 503.
+  - Ablauf: Filter wie die Seite (gelöschte Objekte und Wohnungen entfernt), alle Zeilen, erst Protokoll, dann Datei. Scheitert das Protokoll → 500 ohne Datei.
+  - CSV über `buildMarketingCsv`: Strichpunkt, BOM, CRLF, Formelschutz aus PROJ-16; Spalten aus `marketing.csv.columns`.
+  - Dateiname `gaeste_[Kunde]_[JJJJ-MM-TT_HH-MM].csv`, `no-store`, keine Kopie auf dem Server.
+
+### Tests
+- `supabase/tests/marketing.integration.test.ts` (7):
+  - Einwilligung und Kontakt, Plattform-Daten ausgeblendet, „Erreichbar per“.
+  - Nur Inhaber.
+  - Aufenthalte mit allen Filtern und Zählweise.
+  - Land und Sprache, Blättern und Export ohne Blättern.
+  - Segmente mit Zugriffsregeln, Namen und Protokoll.
+  - Export-Protokoll.
+- `src/app/api/marketing/marketing.test.ts` (3): Zugang, Filter an die Datenbank, Protokoll vor der Datei, Dateiname, BOM, Spalten, Formelschutz, Fehlerfälle.
+- Grün:
+  - Unit: 1074.
+  - Integration: rls, operator, marketing-consent.
+  - Lint und Build.
+- **Durchstich im Browser** (gebaute App, Dev):
+  - Liste mit Hinweis „ohne eigene Kontaktdaten“.
+  - Filter Land.
+  - Segment speichern, aktualisieren, umbenennen, öffnen, löschen.
+  - CSV-Download mit richtigem Namen und ohne Plattform-Adresse; Protokolleintrag vorhanden.
+
 ## QA Test Results
 _To be added by /qa_
 

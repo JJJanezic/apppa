@@ -2181,6 +2181,54 @@ export type Database = {
           },
         ]
       }
+      marketing_segments: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          filters: Json
+          id: string
+          name: string
+          tenant_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          filters?: Json
+          id?: string
+          name: string
+          tenant_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          filters?: Json
+          id?: string
+          name?: string
+          tenant_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketing_segments_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketing_segments_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       memberships: {
         Row: {
           created_at: string
@@ -3386,6 +3434,24 @@ export type Database = {
       invoice_preview_data: { Args: { p_tenant_id: string }; Returns: Json }
       issue_credit_note: { Args: { p_input: Json }; Returns: string }
       issue_invoice: { Args: { p_input: Json }; Returns: string }
+      log_marketing_export: {
+        Args: {
+          p_count: number
+          p_filters: Json
+          p_segment_id: string
+          p_tenant_id: string
+        }
+        Returns: undefined
+      }
+      marketing_guest_list: {
+        Args: {
+          p_filters?: Json
+          p_limit?: number
+          p_offset?: number
+          p_tenant_id: string
+        }
+        Returns: Json
+      }
       merge_companies: {
         Args: { p_choice: Json; p_keep: string; p_remove: string }
         Returns: undefined
