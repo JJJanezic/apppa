@@ -53,7 +53,7 @@ Die App wird als Mehrmandanten-SaaS betrieben: Jeder Kunde (Vermieter) hat ein e
 | P0 (Pilot) | Ausweis automatisch auslesen (experimentell, je Kunde freischaltbar): Ausweisdaten, Name, Geburtsdatum per KI aus dem Ausweisbild, Abgleich mit Übernahme nach Bestätigung | Deployed (PROJ-51), echte Auslesung nach Freigabe durch AWS |
 | P0 (Pilot) | Kalender-Abo-Link für Outlook/M365 und Google Calendar | Roadmap |
 | P0 (MVP-Abschluss) | Statistische Auswertungen (Auslastung, Umsatz, Gästeherkunft; Kanäle als Prüfpunkt bei PROJ-11) und Dashboard-Kacheln Auslastung/Umsatz | Deployed (PROJ-18) |
-| P0 (MVP-Abschluss) | Marketing-Einwilligung verwalten: Stand und Verlauf am Gast, Erfassen und Widerruf, Filter in der Gästeliste | Planned (PROJ-19) |
+| P0 (MVP-Abschluss) | Marketing-Einwilligung verwalten: Stand und Verlauf am Gast, Erfassen und Widerruf, Filter in der Gästeliste | Deployed (PROJ-19) |
 | P0 (MVP-Abschluss) | Marketing: Segmente und CSV-Export (nur Gäste mit Einwilligung, ohne Plattform-Adressen) | Roadmap (PROJ-52) |
 | P2 | Zwei-Wege-Kalendersync, Selbstregistrierung & Abo, E-Mail-Versand, Englisch, Online-Zahlung, Bankabgleich | Roadmap |
 

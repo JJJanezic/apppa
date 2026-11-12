@@ -1,6 +1,6 @@
 # PROJ-19: Marketing-Einwilligung verwalten
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-11-11
 **Last Updated:** 2026-11-11
 
@@ -596,4 +596,15 @@ Automatisiert in `tests/PROJ-19-marketing-einwilligung.spec.ts` (Browser) und `s
 - **Nachtest nach dem Fix:** Unit 1061 grün, Lint grün, PROJ-19 E2E Desktop 13/13 grün. Ein Ausreißer beim Anonymisieren-Test war fünffach wiederholt und im ganzen Lauf grün; Verdacht ist derselbe Seitenwechsel-Fehler wie bei PROJ-7.
 
 ## Deployment
-_To be added by /deploy_
+
+**Ausgeliefert:** 2026-11-12, Tag `v1.55.0-PROJ-19`, Stand `db24cce`
+
+- **Staging:** https://staging.apppa.at (2026-11-12). Migration eingespielt, Advisors nur `auth_otp_long_expiry` (bekannt). Staging enthielt keine Gäste, daher keine Altdaten-Übernahme. Vom Nutzer geprüft und freigegeben.
+- **Production:** https://app.apppa.at (2026-11-12). Migration eingespielt, Advisors nur `auth_otp_long_expiry`.
+- **Zählprobe Produktion:**
+  - vorher: 93 Gäste, 0 Gästeblätter mit Einwilligung, 0 Gäste mit Vermerk aus PROJ-26
+  - nachher: 93 Gäste, alle mit Stand „none“, 0 Einträge im Verlauf, Speicherbereich `marketing-consent-receipts` vorhanden
+  - Keine Altdaten zu übernehmen.
+- **Migrationen:** `20261112044228_marketing_consent.sql`
+- **Kein** `config push`, keine neuen Umgebungsvariablen.
+- Mitausgeliefert: Supabase CLI 2.122.1 (1008f68, nur Entwicklungswerkzeug).
