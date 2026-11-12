@@ -1,6 +1,6 @@
 # PROJ-52: Marketing: Segmente und CSV-Export
 
-## Status: Approved
+## Status: Deployed
 **Created:** 2026-11-12
 **Last Updated:** 2026-11-12
 
@@ -565,4 +565,11 @@ Automatisiert in `tests/PROJ-52-marketing-segmente-export.spec.ts` (Browser, 13 
 - **Nachtest nach den Fixes:** Lint, Unit 1075, Build, PROJ-52 Browsertests Desktop (14) grün.
 
 ## Deployment
-_To be added by /deploy_
+
+**Ausgeliefert:** 2026-11-12, Tag `v1.57.0-PROJ-52`, Stand `392e117`
+
+- **Staging:** https://staging.apppa.at (2026-11-12). Migrationen eingespielt, Advisors nur `auth_otp_long_expiry` (bekannt). Vom Nutzer geprüft und freigegeben.
+- **Production:** https://app.apppa.at (2026-11-12). Migrationen eingespielt, Advisors nur `auth_otp_long_expiry`.
+- **Migrationen:** `20261112072927_marketing_segments_export.sql`, `20261112073305_marketing_guest_list_company.sql`
+- **Kein** `config push`, keine neuen Umgebungsvariablen.
+- Mitausgeliefert: `162e3cd` (Dev-Bereinigung kennt den Speicher der Einwilligungsbelege, nur Entwicklungswerkzeug).
