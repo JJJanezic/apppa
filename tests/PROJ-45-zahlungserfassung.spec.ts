@@ -500,7 +500,8 @@ test.describe('Zahlungsliste', () => {
     expect(thisMonth()).toMatch(/^\d{4}-\d{2}$/)
   })
 
-  test('AC: leere Liste ohne Zahlungen; Menüpunkt zwischen „Rechnungen“ und „Einstellungen“', async ({ page, users }) => {
+  // Seit PROJ-16/18 stehen „Auswertungen“ und „Ortstaxe“ (nur Inhaber) zwischen „Zahlungen“ und „Einstellungen“
+  test('AC: leere Liste ohne Zahlungen; Menüpunkt direkt nach „Rechnungen“, vor „Auswertungen“, „Ortstaxe“ und „Einstellungen“', async ({ page, users }) => {
     desktopOnly()
     const s = await setup(users)
     await signInAs(page, s.owner)
@@ -509,7 +510,7 @@ test.describe('Zahlungsliste', () => {
     await expect(page.getByText('Noch keine Zahlungen')).toBeVisible()
     const names = (await page.getByRole('navigation', { name: 'Hauptnavigation' }).getByRole('link').allInnerTexts()).map((l) => l.trim())
     expect(names.indexOf('Zahlungen')).toBe(names.indexOf('Rechnungen') + 1)
-    expect(names.indexOf('Einstellungen')).toBe(names.indexOf('Zahlungen') + 1)
+    expect(names.slice(names.indexOf('Zahlungen') + 1)).toEqual(['Auswertungen', 'Ortstaxe', 'Einstellungen'])
   })
 })
 

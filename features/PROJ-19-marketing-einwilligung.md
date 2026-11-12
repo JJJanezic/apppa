@@ -1,6 +1,6 @@
 # PROJ-19: Marketing-Einwilligung verwalten
 
-## Status: In Progress
+## Status: Approved
 **Created:** 2026-11-11
 **Last Updated:** 2026-11-11
 
@@ -469,7 +469,131 @@ Migration `supabase/migrations/20261112044228_marketing_consent.sql`, auf Dev ei
 - Durchstich im Browser (gebaute App, Dev): Mitarbeiter erteilt mit Notiz, widerruft mündlich; Inhaber markiert den Widerruf als irrtümlich, der Stand springt zurück; Filter „Erteilt“/„Keine“ stimmt.
 
 ## QA Test Results
-_To be added by /qa_
+
+**Tested:** 2026-11-12
+**App URL:** http://localhost:3000 (gebaute App, `npm run start`, Supabase „apppa-dev“)
+**Tester:** QA Engineer (AI)
+**Stand:** Frontend e582976, Backend 729c3a2
+
+### Acceptance Criteria Status
+Automatisiert in `tests/PROJ-19-marketing-einwilligung.spec.ts` (Browser) und `supabase/tests/marketing-consent.integration.test.ts` (Datenbank).
+
+**Anzeige**
+- [x] Erteilung über Gästeblatt: „Eingewilligt seit Mi, 12.08.2026 – über Gästeblatt 2026/014“, Verlaufseintrag mit Link zum PDF (Inhaber und Mitarbeiter; PDF abrufbar)
+- [x] Ohne Eintrag: „Keine Einwilligung“ und leerer Zustand mit Hinweis aufs Gästeblatt
+- [x] Hinweis „Eingewilligt, aber keine eigene E-Mail-Adresse oder Anschrift erfasst.“ bei Plattform-E-Mail ohne Anschrift; nicht bei eigener E-Mail
+- [x] Übernahme der Einwilligungen aus PROJ-26: Migration und Logik geprüft (Integrationstest Hochladen/Fertigstellen → Eintrag mit Datum „Unterschrieben am“ bzw. Unterschrift 2). Dev enthielt keine Altdaten; Zählprobe auf Staging/Prod beim Deploy (siehe Hinweise)
+
+**Erteilung von Hand**
+- [x] Mitarbeiter erfasst Erteilung per E-Mail → „Eingewilligt seit [heute]“, Weg, Notiz, „Erfasst von Sam Staff am …“
+- [x] Ohne Beleg erscheint der Hinweis; Speichern trotzdem möglich
+- [x] Datum in der Zukunft, vor dem Geburtsdatum oder ohne Weg → Fehlermeldung am Feld, nichts gespeichert
+- [x] „Mündlich/telefonisch“ fehlt bei der Erteilung
+- [x] HEIC-Foto → als JPEG abgelegt, über „Beleg öffnen“ abrufbar
+- [x] Falsches Format → Fehlermeldung (Größenlimit 10 MB: gleiche Prüfung wie bei Zahlungsbelegen, PROJ-45)
+
+**Widerruf**
+- [x] Mitarbeiter widerruft mündlich mit heutigem Datum → „Widerrufen am [heute]“, Erteilung bleibt sichtbar
+- [x] Bei „Widerrufen“/„Keine“ kein Knopf „Widerruf erfassen“
+- [x] Neue Erteilung über Gästeblatt nach Widerruf gilt wieder, Widerruf bleibt im Verlauf (Browser und Datenbank)
+- [x] Gästeblatt ohne Häkchen ändert den Stand nicht (es entsteht kein Eintrag; Integrationstest Fertigstellen ohne Einwilligung)
+- [x] Widerruf vor der jüngsten Erteilung: Hinweis schon im Formular und Rückfrage „Der Widerruf liegt vor der letzten Einwilligung vom … und ändert den Stand nicht.“; nach „Trotzdem speichern“ bleibt „Erteilt“
+
+**Irrtümlich markieren**
+- [x] Inhaber markiert mit Grund → durchgestrichen, „Irrtümlich – Grund (Person, Datum)“, Stand aus den übrigen Einträgen
+- [x] Gästeblatt-Einträge ohne Knopf
+- [x] Mitarbeiter ohne Knopf; direkter Aufruf der Datenbank-Funktion abgelehnt (42501)
+- [x] Ohne Grund → „Bitte einen Grund angeben.“, nichts geändert
+
+**Gästeliste**
+- [x] Filter „Erteilt“/„Widerrufen“/„Keine“, zusammen mit der Suche (Adresse `?einwilligung=…`)
+- [x] Anonymisierter Gast mit früherer Einwilligung erscheint nicht unter „Erteilt“
+
+**Anonymisieren und Zusammenführen**
+- [x] Anonymisieren über „Gast löschen“: Einträge bleiben (Datum, Art, Weg), Notiz leer, Beleg-Symbol weg, Datei im Speicher gelöscht, Stand „Keine“, keine Knöpfe
+- [x] Zusammenführen: beide Verläufe am verbleibenden Gast, jüngerer Widerruf maßgeblich (Integrationstest)
+
+**Rechte und Protokoll**
+- [x] Fremder Kunde: Gastseite 404; Verlauf, Sicht und Beleg nicht lesbar (Browser und Datenbank)
+- [x] Erteilung, Widerruf und Irrtümlich-Markierung im Protokoll mit Person und Zeitpunkt
+- [x] Ändern und Löschen von Einträgen abgelehnt (P0989), auch mit Service-Rolle; direktes Anlegen ohne Funktion abgelehnt
+
+### Edge Cases Status
+- [x] Zwei Personen gleichzeitig: Der Gast wird beim Erfassen gesperrt, beide Einträge bleiben, der Stand ergibt sich nach Datum und Erfassungszeit
+- [x] Widerruf ohne Einwilligung: Knopf fehlt; die Datenbank lehnt ab (P0997, Meldung „Bitte die Seite neu laden“)
+- [x] Erteilung vor bestehendem Widerruf: Rückfrage „Die Einwilligung liegt vor dem letzten Widerruf …“ (gleicher Ablauf wie der Widerruf, Datenbanktest)
+- [x] Gleiches Datum: Der später erfasste Eintrag zählt
+- [x] Gästeblatt neu unterschrieben: Die Erteilung aus dem ersetzten Blatt bleibt (Übernahme und `note_marketing_consent` legen je Blatt einen Eintrag an)
+- [x] Hochladen schlägt fehl: Beleg-Feld wie bei Zahlungen (Fehlermeldung, Eingaben bleiben)
+- [x] Beleg nach Anonymisieren: kein Symbol, Datei gelöscht
+- [x] Gast ohne Geburtsdatum: keine Prüfung gegen das Geburtsdatum
+- [x] Kunde gelöscht: Einträge über die Kaskade weg (Schutzregel lässt es zu), Belegordner wird von der App geleert, Reste entfernt die nächtliche Bereinigung
+- [x] Zusätzlich: Gast ohne Buchungen endgültig löschen entfernt Verlauf und Protokollinhalte; bei anonymisiertem Gast kein Erfassen (P0993) und kein Irrtümlich-Markieren
+
+### Browser und Breiten
+- [x] Chrome Desktop 1440: alle Abläufe (13 Tests)
+- [x] Tablet 768 und Handy 375: Gastseite, Dialog, Gästeliste ohne waagrechtes Scrollen und ohne axe-Verstöße (WCAG 2.1 AA)
+- [x] Firefox: Erfassen, HEIC-Beleg, Widerruf, Irrtümlich-Markieren
+- [ ] Safari nicht automatisiert: läuft nur gegen `npm run dev` (Secure-Cookies). Das Beleg-Symbol nutzt dasselbe Safari-sichere Öffnen wie die Zahlungsbelege. Bitte auf dem iPad bzw. auf Staging kurz prüfen.
+
+### Security Audit Results
+- [x] Ohne Anmeldung kein Zugriff (Server-Aktionen prüfen Sitzung und 2FA-Schritt; RLS)
+- [x] Mandantentrennung:
+  - Tabelle, Sicht (security_invoker) und Beleg-Speicher nur für Mitglieder.
+  - Der Beleg ist nur lesbar, wenn er an einem Eintrag des eigenen Kunden hängt.
+  - Hochladen nur in den eigenen Ordner.
+- [x] Rollen: Irrtümlich-Markierung nur Inhaber (App und Datenbank); Erfassen für Mitglieder, Kunde und Gast werden in der Datenbank geprüft (nicht über Eingaben umgehbar)
+- [x] Unveränderlichkeit per Schutzregel, auch gegen die Service-Rolle
+- [x] Eingaben: serverseitig mit Zod geprüft und in der Datenbank erneut geprüft
+  - Weg: feste Werte; Notiz ≤ 500, Grund ≤ 200 Zeichen.
+  - Notiz und Grund werden als Text gerendert (kein XSS).
+  - Beleg: Pfadformat, gehört zum eigenen Kunden, existiert, nur einmal verwendbar.
+- [x] Abruf-Links der Belege kurzlebig (10 Minuten); die Liste unbenutzter Belege darf nur der Server abrufen
+- [x] DSGVO: Anonymisieren entfernt Notizen, Belege und deren Altwerte im Protokoll
+- [x] Rate Limiting: wie bei Zahlungsbelegen keines. Schreiben geht nur angemeldet und nur in den eigenen Kunden; Bucket auf 10 MB und PDF/JPEG begrenzt. Kein neues Risiko.
+
+### Bugs Found
+
+#### BUG-1: Meldungen bei deaktiviertem Kunden bzw. entzogener Mitgliedschaft unpassend – behoben 2026-11-12
+- **Severity:** Low
+- **Steps to Reproduce:**
+  1. Mitarbeiter öffnet eine Gastseite.
+  2. Der Betreiber deaktiviert den Kunden, oder der Inhaber entfernt den Mitarbeiter aus dem Team.
+  3. Der Mitarbeiter speichert „Einwilligung erfassen“.
+  4. Erwartet: „Kundenkonto deaktiviert“ bzw. ein Hinweis auf die fehlende Berechtigung, wie bei Zahlungen (`P0016` → `tenantDeactivated`).
+  5. Tatsächlich: P0016 erscheint als allgemeiner Fehler; 42501 (kein Mitglied) erscheint als „Das darf nur ein Inhaber.“
+- **Ort:** `DB_ERRORS` in `src/app/(app)/gaeste/consent-actions.ts`
+- **Priority:** Nice to have (selten, nichts wird gespeichert)
+- **Fix:** Zuordnung nach `consentDbError` in `src/lib/marketing-consent.ts` verlegt.
+  - P0016 → „Dieser Kunde ist deaktiviert. Änderungen sind nicht möglich.“
+  - 42501 beim Erfassen → „Du hast keinen Zugriff mehr auf diesen Kunden. Bitte lade die Seite neu.“
+  - 42501 beim Irrtümlich-Markieren → weiterhin „Das darf nur ein Inhaber.“
+  - Unit-Test in `src/lib/marketing-consent.test.ts`.
+
+### Regression
+- Integration grün:
+  - marketing-consent (10), guest-sheets (19), guests, rls, operator, companies
+  - guest-sheet-numbering, payments
+- Unit-Tests: 1060 grün.
+- PROJ-26 E2E Desktop: 31/31 grün. Ein Zeitüberschreiter bei „E-Mail auf Seite 2“ war beim erneuten Lauf und dreifacher Wiederholung grün, im Serverprotokoll stand kein Fehler.
+- PROJ-7 E2E: wechselnd ein Fehlschlag bei „Anlegen“ bzw. „Zusammenführen“ (Seitenwechsel nach dem Speichern). Einzeln grün. Das ist der bekannte, noch offene Next-16-Fehler „router.push nach Server-Aktion“ (Gast/Zusammenführen) und hat nichts mit PROJ-19 zu tun.
+- PROJ-45 E2E: „Menüpunkt zwischen Rechnungen und Einstellungen“ scheitert, weil seit PROJ-16/18 „Auswertungen“ und „Ortstaxe“ dazwischen stehen. Der Test ist veraltet, nicht PROJ-19. Übrige 18 grün, auch der wiederverwendete Beleg-Upload. **Test angepasst (2026-11-12):** „Zahlungen“ direkt nach „Rechnungen“, danach „Auswertungen“, „Ortstaxe“, „Einstellungen“; grün.
+
+### Hinweise für den Deploy
+- Vor dem Einspielen auf Staging/Prod zählen:
+  - Gästeblätter mit `marketing_consent = true` und Gast,
+  - danach Einträge mit `origin in ('sheet','sheet_upload')`.
+  - Beide Zahlen müssen gleich sein.
+  - Die Zahl der Gäste mit Stand „granted“ muss den Gästen mit bisheriger Einwilligung entsprechen (außer bei späterem Widerruf, den es vorher nicht gab).
+- Die Migration löscht `guests.marketing_consent_at`/`_sheet_id`. Die bisherige Prod-App liest diese Spalten nicht (erst das neue Frontend), daher ist die Reihenfolge Migration → App unkritisch.
+
+### Summary
+- **Acceptance Criteria:** 26/26 bestanden (Übernahme der Altdaten auf Dev ohne Daten, Logik geprüft; Zählprobe beim Deploy)
+- **Bugs Found:** 1 (0 critical, 0 high, 0 medium, 1 low), behoben
+- **Security:** bestanden
+- **Production Ready:** YES
+- **Recommendation:** Deploy
+- **Nachtest nach dem Fix:** Unit 1061 grün, Lint grün, PROJ-19 E2E Desktop 13/13 grün. Ein Ausreißer beim Anonymisieren-Test war fünffach wiederholt und im ganzen Lauf grün; Verdacht ist derselbe Seitenwechsel-Fehler wie bei PROJ-7.
 
 ## Deployment
 _To be added by /deploy_
