@@ -1,6 +1,6 @@
 # PROJ-52: Marketing: Segmente und CSV-Export
 
-## Status: Planned
+## Status: Architected
 **Created:** 2026-11-12
 **Last Updated:** 2026-11-12
 
@@ -90,6 +90,7 @@ Als Aufenthalt zählt eine **Buchung** (keine Option, keine Sperre), die **nicht
   14. Anzahl Aufenthalte
   15. Letzter Aufenthalt (Datum der letzten Anreise)
   16. Eingewilligt seit
+- Die Datei wird nur an den Browser heruntergeladen (Ablage im Download-Ordner des Geräts); die App speichert **keine Kopie**, nur den Protokolleintrag.
 - Ohne Treffer ist der Knopf ausgegraut.
 - Jeder Export wird im **Protokoll** festgehalten: Person, Zeitpunkt, Filter bzw. Segment und Anzahl der Gäste. Eine eigene Anzeige dieser Einträge gibt es nicht.
 
@@ -218,18 +219,106 @@ Mitarbeiter erfassen Einwilligungen und Widerrufe weiterhin auf der Gastseite (P
 | Benannte Segmente, die nur die Filter speichern | Nutzerwunsch; neu berechnet, damit Widerrufe sofort wirken (DSGVO) | 2026-11-12 |
 | Segmente gehören dem Kunden, alle Inhaber teilen sie | Mehrere Inhaber arbeiten mit denselben Aussendungen | 2026-11-12 |
 | Jeder Export ins Protokoll, ohne Anzeige in der App | Nachweis nach DSGVO, ohne zusätzlichen Bildschirm | 2026-11-12 |
+| Export nur als Download, keine Kopie in der App | Eine gespeicherte Kontaktliste wäre nach einem Widerruf veraltet und müsste eigens gelöscht werden; der Export wird bei Bedarf neu erzeugt | 2026-11-12 |
 | Keine Obergrenze für die Anzahl exportierter Gäste | Nutzerentscheid; Pilotkunden haben wenige hundert Gäste | 2026-11-12 |
 | Dateiname `gaeste_[Kundenname]_[JJJJ-MM-TT_HH-MM].csv` | Nutzervorgabe; Kunde und Zeitpunkt sind auf einen Blick erkennbar, mehrere Exporte am selben Tag überschreiben sich nicht | 2026-11-12 |
 
 ### Technical Decisions
 | Decision | Rationale | Date |
 |----------|-----------|------|
+| Eine Datenbank-Abfrage liefert Trefferseite, Gesamtzahl, Zahl ohne Kontaktdaten und (ohne Blättern) die Exportzeilen | Eine Stelle für alle Regeln; Liste und Datei stimmen immer überein; wiederverwendbar für PROJ-22 | 2026-11-12 |
+| Plattform-E-Mail und -Telefon blendet schon die Datenbank-Abfrage aus | Sie können nirgends in der App oder im Export auftauchen, auch nicht durch einen Fehler in der Oberfläche | 2026-11-12 |
+| CSV über eigene Download-Adresse (Muster Ortstaxe/Auswertungen), Datei wird nicht gespeichert | Rollenprüfung und Protokoll auf dem Server; immer aktueller Stand; keine veralteten Kontaktlisten | 2026-11-12 |
+| Vorhandenen CSV-Baustein (Strichpunkt, BOM, CRLF, Formelschutz) wiederverwenden | Gleiches Verhalten in Excel wie die übrigen Exporte | 2026-11-12 |
+| Segmente: eigene Tabelle je Kunde, Filter als ein Feld, nur Inhaber | Neue Filter ohne Umbau; Segmente speichern keine Gäste, Widerrufe wirken sofort | 2026-11-12 |
+| Protokolleintrag je Export im bestehenden Änderungsprotokoll, ohne Gastdaten | DSGVO-Nachweis, ohne personenbezogene Daten ins Protokoll zu kopieren | 2026-11-12 |
+| Filter in der Adresse, Segment öffnen = Filter in die Adresse laden | Lesezeichen, Zurück, Neuladen; ein Weg für Seite und Export | 2026-11-12 |
+| Keine neuen Pakete | Alles mit vorhandenen Bausteinen machbar | 2026-11-12 |
 
 ---
 <!-- Sections below are added by subsequent skills -->
 
 ## Tech Design (Solution Architect)
-_To be added by /architecture_
+### Überblick
+Eine neue Seite **„Marketing“** mit Filterleiste, Segmentauswahl, Trefferliste und Export; dazu in der Datenbank eine Abfrage für die bewerbbaren Gäste, eine kleine Tabelle für Segmente und ein Protokolleintrag je Export. Kein neues Paket: Trefferliste, Blättern, Mehrfachauswahl, Dialoge und der CSV-Download folgen den Mustern von „Gästeliste“, „Auswertungen“ und „Ortstaxe“.
+
+### A) Bildschirm-Aufbau
+
+```
+Seite „Marketing“ (/marketing, neu; nur Inhaber des gewählten Kunden)
++-- Kopf: Titel, Erklärung (nur Gäste mit Einwilligung, ohne Plattform-Adressen)
++-- Segmentleiste
+|   +-- Auswahl „Segment öffnen“ (gespeicherte Segmente / „Keine Segmente“)
+|   +-- „Als Segment speichern“ → Dialog: Name
+|   +-- bei geöffnetem Segment: „Segment aktualisieren“ (Rückfrage), „Umbenennen“ (Dialog), „Löschen“ (Rückfrage)
+|   +-- Hinweis, wenn eine gespeicherte Wohnung nicht mehr existiert
++-- Filterleiste (am Handy aufklappbar)
+|   +-- Aufenthaltszeitraum von/bis (Monat/Jahr)
+|   +-- Mindestens Aufenthalte (Zahl)
+|   +-- Objekt/Wohnung (Mehrfachauswahl, Objekte mit ihren Wohnungen)
+|   +-- Buchungsquelle (Mehrfachauswahl)
+|   +-- Herkunftsland (Mehrfachauswahl mit Suche)
+|   +-- Sprache (Mehrfachauswahl inkl. „Keine Angabe“)
+|   +-- Erreichbar per (egal / E-Mail / Post)
+|   +-- „Filter zurücksetzen“
++-- Trefferzahl („42 Gäste“) + Hinweis „x Gäste mit Einwilligung ohne eigene Kontaktdaten“
++-- Knopf „CSV exportieren“ (ausgegraut ohne Treffer)
++-- Trefferliste (Tabelle; am Handy Karten), 50 je Seite, Blättern
+|   +-- Name (Link zur Gastseite), Ort/Land, Sprache, Erreichbar per, Aufenthalte, letzter Aufenthalt, eingewilligt seit
++-- Leere Zustände (noch keine Einwilligung / keine Treffer)
+
+Menü (bestehend)
++-- NEU Punkt „Marketing“ nach „Auswertungen“ und „Ortstaxe“, nur für Inhaber des gewählten Kunden (am Handy unter „Mehr“)
+```
+
+### B) Daten (in Worten)
+
+**Neu: Segmente** – je Segment:
+- Kunde
+- Name (bis 60 Zeichen, je Kunde eindeutig ohne Rücksicht auf Groß-/Kleinschreibung)
+- Filter (die gespeicherten Einstellungen: Zeitraum, Mindestanzahl, Wohnungen/Objekte, Quellen, Länder, Sprachen, Erreichbar per)
+- angelegt/geändert von und am
+
+Lesen und Schreiben nur für Inhaber des Kunden. Wohnungen und Objekte stehen als Verweise in den Filtern; gibt es eine nicht mehr, wird sie beim Öffnen übergangen und gemeldet.
+
+**Keine neuen Felder an Gästen oder Buchungen.** Die Trefferliste rechnet aus Vorhandenem:
+- Stand der Einwilligung und „eingewilligt seit“ am Gast (aus PROJ-19)
+- eigene E-Mail und eigenes Telefon (Herkunft „direkt“ statt „Plattform“, PROJ-7), Anschrift, Land der Adresse, Sprache
+- Aufenthalte aus den Buchungen (Buchung, nicht storniert, Anreise bis heute) mit Wohnung und Buchungsquelle
+- Anrede aus dem Geschlecht, Titel (PROJ-29), Firma über die Verknüpfung (PROJ-50)
+
+**Protokoll:** Jeder Export legt einen Eintrag im bestehenden Änderungsprotokoll an (Person, Zeitpunkt, Kunde, Filter bzw. Segment, Anzahl der Gäste); keine Gastdaten im Eintrag. Segmente hängen wie andere Tabellen am Protokoll.
+
+**Die CSV-Datei** wird beim Klick erzeugt und nur an den Browser geschickt; der Server speichert sie nicht.
+
+### C) Abläufe
+
+| Ablauf | Was passiert |
+|--------|--------------|
+| Seite öffnen / Filter ändern | Die Filter stehen in der Adresse. Der Server fragt die Datenbank nach einer Seite Treffer, der Gesamtzahl und der Zahl der Gäste mit Einwilligung ohne eigene Kontaktdaten, in einem Aufruf. |
+| CSV exportieren | Eigene Download-Adresse mit denselben Filtern (wie bei Ortstaxe/Auswertungen). Der Server prüft Anmeldung und Inhaber-Rolle, holt alle Treffer aus derselben Datenbank-Abfrage, schreibt den Protokolleintrag und schickt die Datei mit dem Namen `gaeste_[Kunde]_[JJJJ-MM-TT_HH-MM].csv`. Plattform-E-Mail und -Telefon gibt die Abfrage gar nicht erst heraus. |
+| Segment speichern / aktualisieren / umbenennen / löschen | Server-Aktionen mit Prüfung (Name, Eindeutigkeit, Inhaber); bei „aktualisieren“ und „umbenennen“ wird erkannt, wenn das Segment inzwischen gelöscht oder geändert wurde. |
+| Segment öffnen | Lädt die gespeicherten Filter in die Adresse; die Liste wird neu berechnet (Widerrufe wirken sofort). |
+
+### D) Rechte
+- Seite, Trefferliste, Export und Segmente: nur **Inhaber** des gewählten Kunden; geprüft in der Seite, in der Download-Adresse und in der Datenbank (Abfrage und Segmente nur für Inhaber).
+- Mitarbeiter: kein Menüpunkt; die Adresse zeigt „Seite nicht gefunden“, der Download antwortet mit „keine Berechtigung“.
+- Mandantentrennung wie überall über die Zugriffsregeln der Datenbank.
+
+### E) Technische Entscheidungen (Begründung)
+- **Eine Datenbank-Abfrage für Liste und Export:** Die Regeln (nur „Erteilt“, eigene Kontaktdaten, Plattform-Daten ausblenden, Zählweise der Aufenthalte, Filter) stehen an einer Stelle. Liste und Datei können nicht voneinander abweichen, und PROJ-22 (Versand) kann sie später wiederverwenden.
+- **Download-Adresse statt Datei im Browser zusammenbauen:** Wie bei „Ortstaxe“ und „Auswertungen“: Der Server prüft die Rolle, schreibt das Protokoll und liefert immer den aktuellen Stand; nichts bleibt gespeichert.
+- **CSV-Format der bestehenden Exporte:** Strichpunkt, UTF-8 mit Kennung für Excel, Schutz vor Formeln (Zellen mit „=“, „+“, „-“, „@“), korrekt eingefasste Felder. Der vorhandene Baustein aus PROJ-16/18 wird wiederverwendet.
+- **Segmente als eigene kleine Tabelle mit den Filtern als einem Feld:** Neue Filter lassen sich später ergänzen, ohne die Tabelle umzubauen; Widerrufe wirken, weil keine Gästeliste gespeichert wird.
+- **Filter in der Adresse:** Lesezeichen, „Zurück“ und Neuladen funktionieren; Segment öffnen heißt nur „Adresse mit diesen Filtern laden“.
+- **Kein neues Paket.**
+
+### F) Abhängigkeiten (Pakete)
+- Keine neuen Pakete.
+
+### G) Arbeitsteilung
+- **/frontend:** Seite, Menüpunkt, Filterleiste (Mehrfachauswahl wie die Länderauswahl), Segmentleiste mit Dialogen, Trefferliste mit Blättern und leeren Zuständen, Export-Knopf, Texte.
+- **/backend:** Datenbank-Abfrage der bewerbbaren Gäste (Seite, Gesamtzahl, Zahl ohne Kontaktdaten; ohne Blättern für den Export), Segment-Tabelle mit Regeln und Protokoll, Protokolleintrag je Export, Download-Adresse für die CSV-Datei, Server-Aktionen für Segmente, Typen neu erzeugen, Bereinigung bei gelöschtem Kunden (Kaskade).
 
 ## QA Test Results
 _To be added by /qa_
