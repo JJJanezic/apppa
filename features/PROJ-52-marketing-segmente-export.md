@@ -1,6 +1,6 @@
 # PROJ-52: Marketing: Segmente und CSV-Export
 
-## Status: In Progress
+## Status: In Review
 **Created:** 2026-11-12
 **Last Updated:** 2026-11-12
 
@@ -221,6 +221,7 @@ Mitarbeiter erfassen Einwilligungen und Widerrufe weiterhin auf der Gastseite (P
 | Jeder Export ins Protokoll, ohne Anzeige in der App | Nachweis nach DSGVO, ohne zusätzlichen Bildschirm | 2026-11-12 |
 | Export nur als Download, keine Kopie in der App | Eine gespeicherte Kontaktliste wäre nach einem Widerruf veraltet und müsste eigens gelöscht werden; der Export wird bei Bedarf neu erzeugt | 2026-11-12 |
 | Keine Obergrenze für die Anzahl exportierter Gäste | Nutzerentscheid; Pilotkunden haben wenige hundert Gäste | 2026-11-12 |
+| Telefonnummern im Export mit „+“ und ohne Formelschutz, sofern sie nur aus Ziffern, Leerzeichen, „+“, „-“, „/“ und Klammern bestehen | Nutzerentscheid aus QA BUG-2: verwendbar in Newsletter-Programmen; übrige Zellen bleiben geschützt | 2026-11-12 |
 | Dateiname `gaeste_[Kundenname]_[JJJJ-MM-TT_HH-MM].csv` | Nutzervorgabe; Kunde und Zeitpunkt sind auf einen Blick erkennbar, mehrere Exporte am selben Tag überschreiben sich nicht | 2026-11-12 |
 
 ### Technical Decisions
@@ -447,7 +448,118 @@ Lesen und Schreiben nur für Inhaber des Kunden. Wohnungen und Objekte stehen al
   - CSV-Download mit richtigem Namen und ohne Plattform-Adresse; Protokolleintrag vorhanden.
 
 ## QA Test Results
-_To be added by /qa_
+
+**Tested:** 2026-11-12
+**App URL:** http://localhost:3000 (gebaute App, `npm run start`, Supabase „apppa-dev“)
+**Tester:** QA Engineer (AI)
+**Stand:** Frontend 4bee764, Backend fb0b251
+
+### Acceptance Criteria Status
+Automatisiert in `tests/PROJ-52-marketing-segmente-export.spec.ts` (Browser, 13 Tests), `supabase/tests/marketing.integration.test.ts` (Datenbank, 7), `src/app/api/marketing/marketing.test.ts` (Download, 3) und `src/lib/marketing.test.ts` (Regeln).
+
+**Zugang**
+- [x] Inhaber: Menüpunkt „Marketing“ direkt nach „Ortstaxe“
+- [x] Mitarbeiter: kein Menüpunkt, `/marketing` antwortet 404, `/api/marketing/csv` 403
+
+**Wer erscheint**
+- [x] Nur Stand „Erteilt“; Widerrufen und Keine fehlen
+- [x] Nur Plattform-E-Mail ohne Anschrift: fehlt, Hinweis „1 Gast mit Einwilligung hat keine eigene E-Mail-Adresse und keine Anschrift.“
+- [x] Plattform-E-Mail mit Anschrift: „Erreichbar per: Post“, E-Mail leer (auch in der Datenbank-Ausgabe)
+- [x] Widerruf nach dem Speichern eines Segments: Gast fällt beim Öffnen heraus
+
+**Filter**
+- [x] Zeitraum (Überschneidung), Mindestanzahl über alle Zeit, künftige und stornierte Buchungen zählen nicht
+- [x] Wohnung, ganzes Objekt, Buchungsquelle (mindestens eine Buchung; zusammen mit dem Zeitraum auf denselben Aufenthalt), Herkunftsland (Adresse), Sprache inkl. „Keine Angabe“, „Erreichbar per“
+- [x] Filter wirken zusammen und stehen in der Adresse; Auswahl über die Oberfläche (Mehrfachauswahl mit Suche, Mindestanzahl), „Filter zurücksetzen“
+
+**Trefferliste**
+- [x] 53 Treffer: Zahl, 50 je Seite nach Nachname, „Weiter“ zeigt 3
+- [x] Name führt zur Gastseite
+- [x] Leerer Zustand, „CSV exportieren“ ausgegraut
+
+**Export**
+- [x] Dateiname `gaeste_Pichler-Ferienwohnungen_JJJJ-MM-TT_HH-MM.csv`, UTF-8 mit BOM, Kopfzeile mit 16 Spalten in der festgelegten Reihenfolge, alle Treffer
+- [x] Plattform-Telefon leer; Anrede „Frau“, Titel „Dr.“
+- [x] Protokolleintrag mit Person, Filtern, Segment und Anzahl, ohne Gastdaten
+- [x] Mitarbeiter: Download abgelehnt (403); ohne Anmeldung 401
+
+**Segmente**
+- [x] Speichern öffnet das neue Segment; gleicher Name (andere Schreibweise) → „Diesen Namen gibt es schon.“; leer bzw. 61 Zeichen → Meldung am Feld
+- [x] „Filter geändert“ → „Segment aktualisieren“ speichert die neuen Filter; Umbenennen; Löschen mit Rückfrage, Filter bleiben ohne Segment stehen
+- [x] Zweiter Inhaber sieht und öffnet dasselbe Segment
+- [x] Segment mit gelöschter Wohnung: Filterteil übergangen, Hinweis
+
+**Mandantentrennung**
+- [x] Inhaber eines anderen Kunden: keine fremden Gäste, keine fremden Segmente (Browser); Abfrage, Segmente und Protokoll-Funktion lehnen fremde Kunden ab (Datenbank)
+
+### Edge Cases Status
+- [x] Widerruf zwischen Anzeige und Export: Der Export rechnet beim Klick neu (gleiche Abfrage, kein Zwischenstand)
+- [x] Zwei Inhaber, Segment inzwischen gelöscht bzw. geändert: „Dieses Segment gibt es nicht mehr.“ bzw. „… inzwischen geändert“ (Prüfung über `updated_at`, Code-Review)
+- [x] Gast ohne Aufenthalt erscheint ohne Aufenthaltsfilter, mit Aufenthalts-, Wohnungs- oder Quellenfilter nicht
+- [ ] **BUG-1:** „bis“ vor „von“ zeigt keine Fehlermeldung (siehe unten)
+- [x] Archivierte Wohnungen bleiben wählbar und gekennzeichnet; gelöschte fallen weg
+- [x] Zusammengeführte Gäste: Aufenthalte und Verlauf gehören dem verbleibenden Gast (PROJ-7/19, keine eigene Logik)
+- [x] Sonderzeichen: Strichpunkt und Anführungszeichen eingefasst, Formeln entschärft (Download-Test)
+- [x] Netzwerkfehler beim Export: Meldung, Liste bleibt (gleicher Knopf wie Ortstaxe/Auswertungen, dort getestet)
+- [ ] Leistung mit 5.000 Gästen nicht gemessen (Dev hat wenige Gäste); die Abfrage läuft in einem Aufruf mit Indizes auf Kunde/Stand und Buchungen je Gast
+
+### Browser und Breiten
+- [x] Chrome Desktop 1440: alle 13 Tests
+- [x] Firefox: alle 13 Tests
+- [x] Tablet 768 und Handy 375: Seite, Mehrfachauswahl, Dialog ohne waagrechtes Scrollen und ohne axe-Verstöße
+- [ ] Safari nicht automatisiert (nur gegen `npm run dev`); bitte auf Staging bzw. am iPad den Download prüfen
+
+### Security Audit Results
+- [x] Ohne Anmeldung kein Zugriff (Seite leitet zur Anmeldung, Download 401)
+- [x] Nur Inhaber an drei Stellen:
+  - in der Seite (404 bereits im Layout),
+  - im Download (403),
+  - in der Datenbank (Abfrage und Protokoll-Funktion 42501, Segmente über die Zugriffsregeln).
+- [x] Mandantentrennung: fremder Kunde in Abfrage, Segmenten und Protokoll abgelehnt; Segmente fremder Kunden unsichtbar, nicht änderbar
+- [x] Plattform-E-Mail und -Telefon verlassen die Datenbank nie (Abfrage gibt sie gar nicht heraus)
+- [x] Eingaben: Filter aus der Adresse und aus Segmenten werden in App und Datenbank auf feste Muster geprüft; Segmentname 1–60 Zeichen; Filter-JSON begrenzt
+- [x] XSS: Namen und Segmentnamen als Text gerendert
+- [x] CSV-Injection: Zellen mit „= + - @“ entschärft
+- [x] Download `no-store`, keine Kopie auf dem Server; Protokoll ohne Gastdaten
+- [x] Hinweis (kein Fehler): Ein Inhaber kann `log_marketing_export` direkt aufrufen und so zusätzliche Protokolleinträge mit beliebiger Anzahl erzeugen. Das gilt nur für den eigenen Kunden und läuft immer unter dem eigenen Namen, verschleiert also keinen echten Export.
+- [x] Rate Limiting: keines (wie Ortstaxe/Auswertungen); jeder Export wird protokolliert
+
+### Bugs Found
+
+#### BUG-1: „Aufenthalt bis“ vor „von“ ohne Fehlermeldung
+- **Severity:** Low
+- **Steps to Reproduce:**
+  1. `/marketing?von=2026-06&bis=2026-08` öffnen.
+  2. Bei „Aufenthalt bis“ das Jahr 2025 wählen.
+  3. Erwartet (Spec, Edge Cases): Fehlermeldung am Feld.
+  4. Tatsächlich: Die Adresse lautet `bis=2025-08`, der Filter verwirft „bis“ ohne Hinweis, und das Feld zeigt „beliebig“.
+- **Ort:** `MonthField` in `src/components/marketing/marketing-filters.tsx` sperrt nur frühere Monate im selben Jahr, nicht frühere Jahre.
+- **Priority:** Fix before deployment (klein). Vorschlag: frühere Jahre ebenfalls sperren bzw. „bis“ auf „von“ ziehen wie beim Ändern von „von“.
+
+#### BUG-2: Telefonnummern mit „+“ stehen im Export mit vorangestelltem Hochkomma
+- **Severity:** Medium
+- **Steps to Reproduce:**
+  1. Gast mit eigener Telefonnummer „+43 1 234“ und Einwilligung anlegen.
+  2. Auf „Marketing“ „CSV exportieren“ klicken.
+  3. Tatsächlich: Die Zelle lautet `'+43 1 234`. Der Formelschutz aus der Spec (Zellen mit „= + - @“) trifft alle internationalen Telefonnummern. Beim Import in ein Newsletter-Programm bzw. beim Öffnen der CSV in Excel bleibt das Hochkomma sichtbar.
+  4. Erwartet: verwendbare Telefonnummern.
+- **Hinweis:** Ohne Schutz liest Excel „+43 1 234“ als Formel und zeigt einen Fehler. Es braucht also eine Entscheidung, z. B.:
+  - Telefonnummern im Export mit „00“ statt „+“ ausgeben („0043 1 234“), oder
+  - nur bei Telefonnummern ein Format wählen, das Excel nicht als Formel liest, oder
+  - das Hochkomma bewusst lassen.
+- **Entscheidung (Nutzer, 2026-11-12):** „+“ behalten, kein Hochkomma bei Telefonnummern. Telefonnummern, die nur aus Ziffern, Leerzeichen, „+“, „-“, „/“ und Klammern bestehen, werden unverändert geschrieben; alle übrigen Zellen bleiben gegen Formeln geschützt. In Excel kann eine solche Zelle beim direkten Öffnen einen Formelfehler zeigen; Newsletter-Programme lesen sie richtig.
+- **Priority:** Fix before deployment
+
+### Regression
+- E2E Ortstaxe (PROJ-16), Auswertungen (PROJ-18) und Zahlungen (PROJ-45), Export-, Menü- und Mitarbeitertests: 19/19 grün; die Export-Knöpfe wurden für „nur CSV“ erweitert.
+- Integration: rls, operator, marketing-consent grün; Unit: 1074 grün.
+
+### Summary
+- **Acceptance Criteria:** 32/32 bestanden
+- **Bugs Found:** 2 (0 critical, 0 high, 1 medium, 1 low)
+- **Security:** bestanden
+- **Production Ready:** YES nach Kriterium (keine Critical/High), empfohlen nach Behebung von BUG-1 und BUG-2
+- **Recommendation:** BUG-1 und BUG-2 (nach Nutzerentscheidung) beheben, dann Deploy
 
 ## Deployment
 _To be added by /deploy_
