@@ -1216,8 +1216,8 @@ export type Database = {
           id: string
           language: string | null
           last_name: string
-          marketing_consent_at: string | null
-          marketing_consent_sheet_id: string | null
+          marketing_consent_on: string | null
+          marketing_consent_state: string
           marketing_custom: string | null
           marketing_source: string | null
           name_key: string | null
@@ -1265,8 +1265,8 @@ export type Database = {
           id?: string
           language?: string | null
           last_name: string
-          marketing_consent_at?: string | null
-          marketing_consent_sheet_id?: string | null
+          marketing_consent_on?: string | null
+          marketing_consent_state?: string
           marketing_custom?: string | null
           marketing_source?: string | null
           name_key?: string | null
@@ -1314,8 +1314,8 @@ export type Database = {
           id?: string
           language?: string | null
           last_name?: string
-          marketing_consent_at?: string | null
-          marketing_consent_sheet_id?: string | null
+          marketing_consent_on?: string | null
+          marketing_consent_state?: string
           marketing_custom?: string | null
           marketing_source?: string | null
           name_key?: string | null
@@ -1339,27 +1339,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id", "tenant_id"]
-          },
-          {
-            foreignKeyName: "guests_marketing_consent_sheet_id_fkey"
-            columns: ["marketing_consent_sheet_id"]
-            isOneToOne: false
-            referencedRelation: "guest_sheet_list"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "guests_marketing_consent_sheet_id_fkey"
-            columns: ["marketing_consent_sheet_id"]
-            isOneToOne: false
-            referencedRelation: "guest_sheet_register"
-            referencedColumns: ["sheet_id"]
-          },
-          {
-            foreignKeyName: "guests_marketing_consent_sheet_id_fkey"
-            columns: ["marketing_consent_sheet_id"]
-            isOneToOne: false
-            referencedRelation: "guest_sheets"
-            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "guests_tenant_id_fkey"
@@ -2091,6 +2070,116 @@ export type Database = {
           kind?: string
         }
         Relationships: []
+      }
+      marketing_consent_events: {
+        Row: {
+          channel: string | null
+          created_at: string
+          created_by: string | null
+          guest_id: string
+          guest_sheet_id: string | null
+          id: string
+          kind: string
+          note: string | null
+          occurred_on: string
+          origin: string
+          receipt_path: string | null
+          tenant_id: string
+          updated_at: string
+          updated_by: string | null
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
+        }
+        Insert: {
+          channel?: string | null
+          created_at?: string
+          created_by?: string | null
+          guest_id: string
+          guest_sheet_id?: string | null
+          id?: string
+          kind: string
+          note?: string | null
+          occurred_on: string
+          origin: string
+          receipt_path?: string | null
+          tenant_id: string
+          updated_at?: string
+          updated_by?: string | null
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
+        }
+        Update: {
+          channel?: string | null
+          created_at?: string
+          created_by?: string | null
+          guest_id?: string
+          guest_sheet_id?: string | null
+          id?: string
+          kind?: string
+          note?: string | null
+          occurred_on?: string
+          origin?: string
+          receipt_path?: string | null
+          tenant_id?: string
+          updated_at?: string
+          updated_by?: string | null
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketing_consent_events_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketing_consent_events_guest_fkey"
+            columns: ["guest_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "guests"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "marketing_consent_events_guest_sheet_id_fkey"
+            columns: ["guest_sheet_id"]
+            isOneToOne: false
+            referencedRelation: "guest_sheet_list"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketing_consent_events_guest_sheet_id_fkey"
+            columns: ["guest_sheet_id"]
+            isOneToOne: false
+            referencedRelation: "guest_sheet_register"
+            referencedColumns: ["sheet_id"]
+          },
+          {
+            foreignKeyName: "marketing_consent_events_guest_sheet_id_fkey"
+            columns: ["guest_sheet_id"]
+            isOneToOne: false
+            referencedRelation: "guest_sheets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketing_consent_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketing_consent_events_voided_by_fkey"
+            columns: ["voided_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       memberships: {
         Row: {
@@ -2832,6 +2921,81 @@ export type Database = {
           },
         ]
       }
+      marketing_consent_history: {
+        Row: {
+          booking_id: string | null
+          booking_number: string | null
+          channel: string | null
+          created_at: string | null
+          created_by: string | null
+          created_by_name: string | null
+          guest_id: string | null
+          guest_sheet_id: string | null
+          id: string | null
+          kind: string | null
+          note: string | null
+          occurred_on: string | null
+          origin: string | null
+          receipt_path: string | null
+          sheet_number: string | null
+          tenant_id: string | null
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
+          voided_by_name: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketing_consent_events_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketing_consent_events_guest_fkey"
+            columns: ["guest_id", "tenant_id"]
+            isOneToOne: false
+            referencedRelation: "guests"
+            referencedColumns: ["id", "tenant_id"]
+          },
+          {
+            foreignKeyName: "marketing_consent_events_guest_sheet_id_fkey"
+            columns: ["guest_sheet_id"]
+            isOneToOne: false
+            referencedRelation: "guest_sheet_list"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketing_consent_events_guest_sheet_id_fkey"
+            columns: ["guest_sheet_id"]
+            isOneToOne: false
+            referencedRelation: "guest_sheet_register"
+            referencedColumns: ["sheet_id"]
+          },
+          {
+            foreignKeyName: "marketing_consent_events_guest_sheet_id_fkey"
+            columns: ["guest_sheet_id"]
+            isOneToOne: false
+            referencedRelation: "guest_sheets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketing_consent_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketing_consent_events_voided_by_fkey"
+            columns: ["voided_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payment_list: {
         Row: {
           amount_cents: number | null
@@ -3145,6 +3309,7 @@ export type Database = {
       }
       guest_list: {
         Args: {
+          p_consent?: string
           p_country?: string
           p_limit?: number
           p_marketing?: string
@@ -3253,6 +3418,7 @@ export type Database = {
           received_cents: number
         }[]
       }
+      record_marketing_consent: { Args: { p_input: Json }; Returns: Json }
       record_payment: { Args: { p_input: Json }; Returns: Json }
       register_guest_sheet_upload: { Args: { p_input: Json }; Returns: string }
       rename_cleaning_charges: {
@@ -3521,6 +3687,10 @@ export type Database = {
         Returns: string[]
       }
       unused_invoice_pdfs: { Args: { p_limit?: number }; Returns: string[] }
+      unused_marketing_consent_receipts: {
+        Args: { p_limit?: number }
+        Returns: string[]
+      }
       unused_payment_receipts: { Args: { p_limit?: number }; Returns: string[] }
       unused_tenant_logos: { Args: { p_limit?: number }; Returns: string[] }
       update_payment: { Args: { p_input: Json }; Returns: Json }
@@ -3531,6 +3701,10 @@ export type Database = {
           p_tenant_id: string
         }
         Returns: Json
+      }
+      void_marketing_consent: {
+        Args: { p_entry_id: string; p_reason: string }
+        Returns: undefined
       }
     }
     Enums: {

@@ -393,6 +393,81 @@ Regeln:
 | P0998 | nicht als irrtümlich markierbar |
 | P0999 | bereits irrtümlich |
 
+## Implementation Notes (Backend, 2026-11-12)
+
+### Gebaut
+Migration `supabase/migrations/20261112044228_marketing_consent.sql`, auf Dev eingespielt; Typen neu erzeugt; Advisors ohne neue Meldung (nur der bekannte Hinweis zur OTP-Ablaufzeit).
+
+- **Tabelle `marketing_consent_events`**
+  - Spalten wie in den erwarteten Schnittstellen.
+  - Prüfregeln:
+    - Von Hand: Weg Pflicht, kein Gästeblatt.
+    - Gästeblatt: Verweis Pflicht, nur Erteilung, ohne Weg, Notiz und Beleg.
+    - Mündlich nur beim Widerruf.
+    - Irrtümlich nur bei Einträgen von Hand und immer mit Grund.
+    - Beleg im Ordner des eigenen Kunden.
+  - Rechte: Lesen dürfen Mitglieder (RLS); direkte Schreibrechte gibt es nicht.
+  - Protokoll über `enable_tenant_table`.
+  - Schutzregel `protect_marketing_consent_event` (P0989). Erlaubt sind nur:
+    - die Irrtümlich-Markierung, einmalig (sonst P0999),
+    - das Umhängen beim Zusammenführen,
+    - das Leeren von Notiz und Beleg bei anonymisiertem Gast.
+  - Löschen nur zusammen mit dem Gast bzw. dem Kunden.
+- **Stand am Gast**
+  - Neue Spalten `guests.marketing_consent_state` und `guests.marketing_consent_on`, Index (Kunde, Stand).
+  - Ein Trigger berechnet den Stand nach jedem neuen, umgehängten oder irrtümlich markierten Eintrag neu.
+  - Anonymisierte Gäste haben immer „keine“.
+- **Alte Spalten entfernt:** `marketing_consent_at`/`marketing_consent_sheet_id` entfallen, ihr Inhalt steckt im Verlauf.
+- **Übernahme bestehender Daten**
+  - Je Gästeblatt mit Häkchen (auch ersetzte) eine Erteilung.
+  - Datum: Unterschrift 2 bzw. „Unterschrieben am“, sonst Hochladedatum.
+  - „Erfasst von/am“ vom Blatt; danach wurde der Stand aller Gäste berechnet.
+  - Dev enthielt keine solchen Blätter (bereinigt).
+- **Sicht `marketing_consent_history`** (security_invoker) mit Lfd.-Nr., Buchung und den Namen „erfasst von“ und „irrtümlich von“.
+- **`record_marketing_consent`** (Inhaber und Mitarbeiter; private Funktion mit öffentlicher Hülle)
+  - Prüft:
+    - Kunde deaktiviert (P0016) und Mitgliedschaft (42501),
+    - Gast vorhanden (P0992) und nicht anonymisiert (P0993),
+    - Datum nicht in der Zukunft (Wiener Zeit, P0994) und nicht vor dem Geburtsdatum (P0995),
+    - Weg (P0996),
+    - Widerruf nur bei Stand „Erteilt“ (P0997),
+    - Beleg vorhanden, im eigenen Ordner und unbenutzt (P0988).
+  - Liegt das Datum vor dem maßgeblichen Eintrag: ohne `confirmed` kein Speichern, Hinweis `notEffective`. Bei gleichem Datum zählt der neue Eintrag.
+  - Der Gast wird gesperrt: gleichzeitige Einträge laufen nacheinander.
+- **`void_marketing_consent`**: nur Inhaber (42501), nur Einträge „von Hand“ (P0998), nur einmal (P0999), Grund 1–200 Zeichen, nicht bei anonymisiertem Gast.
+- **`private.note_marketing_consent`** (Aufruf aus PROJ-26 unverändert) legt eine Erteilung „über Gästeblatt“ bzw. „über nacherfasstes Gästeblatt“ an. „Erfasst von“ ist die Person, die das Blatt fertigstellt bzw. hochlädt.
+- **`guest_list`**: neuer Parameter `p_consent`.
+- **`delete_guest`**: Ein Gast ohne Buchungen, Rechnungen und Gästeblätter wird samt Verlauf gelöscht; die Protokollinhalte der Einträge werden geleert.
+- **`anonymize_guest`**
+  - Leert Notizen und Beleg-Verweise samt Protokollinhalten und setzt den Stand auf „keine“.
+  - Der Verlauf bleibt.
+- **`merge_guests`**: hängt die Einträge um; der Stand ergibt sich aus dem vereinten Verlauf.
+- **Speicherbereich `marketing-consent-receipts`**
+  - Privat, PDF/JPEG bis 10 MB.
+  - Hochladen: Mitglieder in den eigenen Ordner.
+  - Lesen: nur Belege, die an einem Eintrag des eigenen Kunden hängen.
+  - Die Liste unbenutzter Belege (`unused_marketing_consent_receipts`) darf nur der Server abrufen.
+- **App**
+  - `src/lib/consent-files.ts`: Belege löschen; Kundenordner löschen; tägliche Bereinigung, eingehängt in `/api/cron/ausweisbilder`.
+  - „Gast löschen“ entfernt die Belege des Gastes.
+  - „Kunde löschen“ (Betreiber) entfernt den Belegordner.
+  - Übergangslösung aus dem Frontend (Vermerk aus PROJ-26) entfernt.
+  - „Als irrtümlich markieren“ wird bei anonymisierten Gästen nicht angezeigt.
+  - Der Filter nutzt den typisierten Parameter.
+
+### Entscheidungen
+- Ein Gast ohne Buchungen, Rechnungen und Gästeblätter wird weiterhin endgültig gelöscht, samt Verlauf. Damit sind alle Daten weg und es gibt niemanden mehr zu bewerben. Mit Buchungen bleibt es beim Anonymisieren.
+- Ein von Hand erfasster Eintrag macht den Gast wieder „geändert“ (`updated_at`), weil der Stand am Gast liegt. Ein gleichzeitig offenes Gastformular meldet dann „inzwischen geändert“.
+
+### Tests
+- `supabase/tests/marketing-consent.integration.test.ts` (10 Tests): Erfassen, alle Prüfungen, Hinweis und Bestätigung, gleicher Tag, Irrtümlich-Markierung, Unveränderlichkeit, Mandantentrennung, Filter, Anonymisieren, Zusammenführen, Löschen, Speicherregeln, Bereinigung.
+- Angepasst: `guest-sheets.integration.test.ts` und `tests/PROJ-26-gaesteblatt.spec.ts` prüfen jetzt Verlauf und Stand statt der alten Spalten; der Cron-Test kennt die Einwilligungsbelege.
+- Grün:
+  - Integration: guest-sheets, guests, rls, operator, companies, guest-sheet-numbering, payments.
+  - Unit: 1060 Tests.
+  - Lint und Build.
+- Durchstich im Browser (gebaute App, Dev): Mitarbeiter erteilt mit Notiz, widerruft mündlich; Inhaber markiert den Widerruf als irrtümlich, der Stand springt zurück; Filter „Erteilt“/„Keine“ stimmt.
+
 ## QA Test Results
 _To be added by /qa_
 

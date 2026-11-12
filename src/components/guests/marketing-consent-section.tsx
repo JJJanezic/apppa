@@ -82,7 +82,7 @@ export function MarketingConsentSection({ guestId, consent, isOwner, anonymized,
               <ConsentEntryRow
                 key={entry.id}
                 entry={entry}
-                canVoid={isOwner && consent.historyAvailable && entry.origin === 'manual' && !entry.voided}
+                canVoid={isOwner && !anonymized && consent.historyAvailable && entry.origin === 'manual' && !entry.voided}
                 onVoid={() => setVoiding(entry)}
               />
             ))}

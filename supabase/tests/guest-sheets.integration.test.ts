@@ -314,9 +314,11 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-26 Gästeblatt', () => {
         [first, second, true],
         [second, null, false],
       ])
-      const { data: g } = await service.from('guests').select('marketing_consent_at, marketing_consent_sheet_id').eq('id', guest).single()
-      expect(g!.marketing_consent_sheet_id).toBe(first)
-      expect(new Date(g!.marketing_consent_at!).toISOString()).toBe('2025-08-11T22:00:00.000Z')
+      // PROJ-19: Erteilung im Verlauf mit „Unterschrieben am“, Stand am Gast
+      const { data: events } = await service.from('marketing_consent_events').select('origin, occurred_on, guest_sheet_id, created_by').eq('guest_id', guest)
+      expect(events).toEqual([{ origin: 'sheet_upload', occurred_on: '2025-08-12', guest_sheet_id: first, created_by: staffUser.id }])
+      const { data: g } = await service.from('guests').select('marketing_consent_state, marketing_consent_on').eq('id', guest).single()
+      expect(g).toEqual({ marketing_consent_state: 'granted', marketing_consent_on: '2025-08-12' })
       // Lfd.-Nr. aus der Buchung, eine mitgeschickte Nummer zählt nicht
       const { data: sheet } = await service.from('guest_sheets').select('sheet_number').eq('id', first as string).single()
       expect(sheet!.sheet_number).toBe('0017')
@@ -337,8 +339,10 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-26 Gästeblatt', () => {
       expect((await finish(booking, { previous_sheet_id: null })).error?.code).toBe('P0973')
       const { data: row } = await staff.from('guest_sheets').select('kind, created_by, marketing_consent, sheet_number').eq('id', id as string).single()
       expect(row).toEqual({ kind: 'signed', created_by: staffUser.id, marketing_consent: true, sheet_number: 'A-1' })
-      const { data: g } = await service.from('guests').select('marketing_consent_sheet_id').eq('id', guest).single()
-      expect(g!.marketing_consent_sheet_id).toBe(id)
+      const { data: events } = await service.from('marketing_consent_events').select('origin, guest_sheet_id').eq('guest_id', guest)
+      expect(events).toEqual([{ origin: 'sheet', guest_sheet_id: id }])
+      const { data: g } = await service.from('guests').select('marketing_consent_state').eq('id', guest).single()
+      expect(g!.marketing_consent_state).toBe('granted')
     })
 
     it('Gästeblätter sind unveränderlich und nicht löschbar', async () => {
@@ -394,8 +398,11 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-26 Gästeblatt', () => {
       const { data, error } = await owner.rpc('delete_guest', { p_guest_id: guest })
       expect(error).toBeNull()
       expect(data).toBe('anonymized')
-      const { data: g } = await service.from('guests').select('marketing_consent_at, marketing_consent_sheet_id').eq('id', guest).single()
-      expect(g).toEqual({ marketing_consent_at: null, marketing_consent_sheet_id: null })
+      // PROJ-19: Stand „keine“, die Erteilung bleibt im Verlauf
+      const { data: g } = await service.from('guests').select('marketing_consent_state, marketing_consent_on').eq('id', guest).single()
+      expect(g).toEqual({ marketing_consent_state: 'none', marketing_consent_on: null })
+      const { data: kept } = await service.from('marketing_consent_events').select('origin').eq('guest_id', guest)
+      expect(kept).toEqual([{ origin: 'sheet' }])
       const { data: sheet } = await service.from('guest_sheets').select('guest_id').eq('id', id as string).single()
       expect(sheet!.guest_id).toBe(guest)
     })
@@ -430,8 +437,11 @@ describe.skipIf(!hasSupabaseEnv)('PROJ-26 Gästeblatt', () => {
       expect(error).toBeNull()
       const { data: sheet } = await service.from('guest_sheets').select('guest_id').eq('id', id as string).single()
       expect(sheet!.guest_id).toBe(keep)
-      const { data: g } = await service.from('guests').select('marketing_consent_sheet_id').eq('id', keep).single()
-      expect(g!.marketing_consent_sheet_id).toBe(id)
+      // PROJ-19: Verlauf zieht zum verbleibenden Gast um
+      const { data: events } = await service.from('marketing_consent_events').select('guest_id, guest_sheet_id').eq('guest_sheet_id', id as string)
+      expect(events).toEqual([{ guest_id: keep, guest_sheet_id: id }])
+      const { data: g } = await service.from('guests').select('marketing_consent_state').eq('id', keep).single()
+      expect(g!.marketing_consent_state).toBe('granted')
     })
   })
 

@@ -6,6 +6,7 @@ import { revalidatePath } from 'next/cache'
 import type { ActionResult, CommonErrorCode } from '@/lib/auth/result'
 import { getSessionUser, pendingMfaStep, type SessionUser } from '@/lib/auth/session'
 import { type OperatorErrorCode, tenantHref } from '@/lib/operator'
+import { removeTenantConsentReceipts } from '@/lib/consent-files'
 import { removeTenantDocuments } from '@/lib/guest-documents'
 import { ID_READING_LIMIT_MAX, ID_READING_LIMIT_MIN } from '@/lib/id-reading'
 import { removeTenantGuestSheets } from '@/lib/guest-sheet-files'
@@ -218,14 +219,15 @@ export async function deleteTenant(values: { tenantId: string; confirmName: stri
     p_confirm_name: values.confirmName,
   })
   if (error) return dbFail(error, 'Kunde nicht gelöscht')
-  // Ausweisbilder der Gäste (PROJ-29), Rechnungs-PDFs (PROJ-37), Logo (PROJ-38), Zahlungsbelege (PROJ-45) und Gästeblätter (PROJ-26); Reste entfernt die
-  // tägliche Bereinigung
+  // Ausweisbilder der Gäste (PROJ-29), Rechnungs-PDFs (PROJ-37), Logo (PROJ-38), Zahlungsbelege (PROJ-45), Gästeblätter (PROJ-26) und
+  // Einwilligungsbelege (PROJ-19); Reste entfernt die tägliche Bereinigung
   await Promise.all([
     removeTenantDocuments(values.tenantId),
     removeTenantInvoices(values.tenantId),
     removeTenantReceipts(values.tenantId),
     removeTenantLogos(values.tenantId),
     removeTenantGuestSheets(values.tenantId),
+    removeTenantConsentReceipts(values.tenantId),
   ])
 
   const admin = createAdminClient()

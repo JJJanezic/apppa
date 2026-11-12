@@ -14,6 +14,7 @@ import {
   MERGE_FIELDS,
   type MergeChoice,
 } from '@/lib/guests'
+import { removeConsentReceiptFiles } from '@/lib/consent-files'
 import { removeDocumentFiles, unusedPaths } from '@/lib/guest-documents'
 import { documentImageLinks, GUEST_COLUMNS, guestCompanyPayload, guestDbColumns, guestStays, listRow, toGuest, toRow } from '@/lib/guests-data'
 import { verifiedIdReading } from '@/lib/id-reading-data'
@@ -176,11 +177,15 @@ export async function deleteGuest(values: { id: string }): Promise<Result<{ mode
   const guard = await requireOwner()
   if (!guard.ok) return guard
   const supabase = await createClient()
-  const { data: before } = await supabase.from('guests').select(DOCUMENT_PATHS).eq('id', values.id).eq('tenant_id', guard.tenant.id).maybeSingle()
+  const [{ data: before }, { data: consentReceipts }] = await Promise.all([
+    supabase.from('guests').select(DOCUMENT_PATHS).eq('id', values.id).eq('tenant_id', guard.tenant.id).maybeSingle(),
+    supabase.from('marketing_consent_events').select('receipt_path').eq('guest_id', values.id).eq('tenant_id', guard.tenant.id).not('receipt_path', 'is', null).limit(1000),
+  ])
   const { data, error } = await supabase.rpc('delete_guest', { p_guest_id: values.id })
   if (error) return dbFail(error, 'Gast nicht gelöscht')
-  // Gelöscht oder anonymisiert: Ausweisbilder endgültig entfernen (PROJ-29)
-  await removeDocumentFiles(pathsOf(before))
+  // Gelöscht oder anonymisiert: Ausweisbilder (PROJ-29) und Belege der Marketing-Einwilligung (PROJ-19) endgültig entfernen;
+  // Reste räumt die tägliche Bereinigung weg
+  await Promise.all([removeDocumentFiles(pathsOf(before)), removeConsentReceiptFiles((consentReceipts ?? []).map((r) => r.receipt_path))])
   if (data === 'anonymized') {
     revalidatePath(COMPANIES, 'layout')
     revalidate(values.id)

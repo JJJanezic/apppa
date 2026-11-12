@@ -260,8 +260,8 @@ test.describe('Vollbild-Ansicht', () => {
 
     const { data: sheet } = await service().from('guest_sheets').select('id, kind, sheet_number, marketing_consent, created_by').eq('booking_id', booking.id).single()
     expect(sheet).toMatchObject({ kind: 'signed', sheet_number: '0001', marketing_consent: true })
-    const { data: consent } = await service().from('guests').select('marketing_consent_sheet_id').eq('id', guest).single()
-    expect(consent!.marketing_consent_sheet_id).toBe(sheet!.id)
+    const { data: consent } = await service().from('marketing_consent_events').select('origin, guest_sheet_id').eq('guest_id', guest)
+    expect(consent).toEqual([{ origin: 'sheet', guest_sheet_id: sheet!.id }])
     const pdf = await page.request.get(`/api/gaesteblatt/${sheet!.id}/pdf`)
     expect(pdf.status()).toBe(200)
     expect(pdf.headers()['content-type']).toBe('application/pdf')
@@ -413,8 +413,8 @@ test.describe('Hochladen', () => {
     await dialog.getByRole('button', { name: 'Hochladen' }).click()
     await expect(page.getByText('Gästeblatt gespeichert.')).toBeVisible()
     await expect(page.getByText(/Nacherfasst am .* von Sam Staff · unterschrieben am Di, 12\.08\.2025/)).toBeVisible()
-    const { data: g } = await service().from('guests').select('marketing_consent_at').eq('id', guest).single()
-    expect(new Date(g!.marketing_consent_at!).toISOString()).toBe('2025-08-11T22:00:00.000Z')
+    const { data: g } = await service().from('guests').select('marketing_consent_state, marketing_consent_on').eq('id', guest).single()
+    expect(g).toEqual({ marketing_consent_state: 'granted', marketing_consent_on: '2025-08-12' })
     const { data: b } = await service().from('bookings').select('guest_sheet_number').eq('id', booking.id).single()
     expect(b!.guest_sheet_number).toBe('17')
 

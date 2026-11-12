@@ -146,8 +146,8 @@ type LegacyCompanyColumn =
   | 'company_city'
   | 'company_country'
 
-// Marketing-Einwilligung (PROJ-26): gehört zu PROJ-19, im Gast-Detail noch nicht gelesen
-type MarketingConsentColumn = 'marketing_consent_at' | 'marketing_consent_sheet_id'
+// Stand der Marketing-Einwilligung (PROJ-19): liest die Gastdetailseite getrennt (marketing-consent-data.ts)
+type MarketingConsentColumn = 'marketing_consent_state' | 'marketing_consent_on'
 
 export function toGuest(
   g: Pick<GuestDbRow, Exclude<keyof GuestDbRow, 'tenant_id' | 'created_at' | 'created_by' | 'updated_by' | 'search_text' | 'email_key' | 'phone_key' | 'name_key' | LegacyCompanyColumn | MarketingConsentColumn>> & {
@@ -237,8 +237,6 @@ export const listRow = (r: Omit<ListRow, 'total'>): GuestRow => ({
 export async function getGuestPage(filters: GuestFilters): Promise<GuestPage> {
   const { tenantId } = await requireMember()
   const supabase = await createClient()
-  // Filter Marketing-Einwilligung (PROJ-19): Parameter p_consent nur, wenn gewählt
-  const consent = filters.consent ? { p_consent: filters.consent } : {}
   const load = (page: number) =>
     supabase.rpc('guest_list', {
       p_tenant_id: tenantId,
@@ -248,9 +246,9 @@ export async function getGuestPage(filters: GuestFilters): Promise<GuestPage> {
       p_sort: filters.sort,
       p_limit: GUEST_PAGE_SIZE,
       p_offset: (page - 1) * GUEST_PAGE_SIZE,
-      ...consent,
-      // p_consent fehlt in den erzeugten Typen, bis /backend die Funktion erweitert
-    } as unknown as Database['public']['Functions']['guest_list']['Args'])
+      // Filter Marketing-Einwilligung (PROJ-19)
+      p_consent: filters.consent ?? undefined,
+    })
   let page = filters.page
   let { data, error } = await load(page)
   // Seite hinter dem Ende (alter Link, Filter geändert): erste Seite zeigen

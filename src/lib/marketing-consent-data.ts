@@ -2,7 +2,6 @@ import 'server-only'
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 
-import { todayIso } from '@/lib/bookings'
 import {
   type ConsentChannel,
   type ConsentEntry,
@@ -15,8 +14,7 @@ import {
 import { createClient } from '@/lib/supabase/server'
 
 // Stand und Verlauf der Marketing-Einwilligung eines Gastes (PROJ-19). Gelesen wird im Namen der Person; die Zugriffsregeln
-// lassen nur Gäste des eigenen Kunden durch. Solange der Verlauf in der Datenbank fehlt, gilt der Vermerk aus PROJ-26
-// (Einwilligung über Gästeblatt am Gast) als einziger Eintrag.
+// lassen nur Gäste des eigenen Kunden durch. Stand: guests.marketing_consent_state/_on, Verlauf: Sicht marketing_consent_history.
 
 const MISSING = new Set(['42P01', '42703', '42883', 'PGRST200', 'PGRST202', 'PGRST204', 'PGRST205'])
 export const isMissingRelation = (error: { code?: string } | null) => Boolean(error?.code && MISSING.has(error.code))
@@ -74,7 +72,6 @@ export async function getGuestConsent(tenantId: string, guestId: string): Promis
   ])
 
   if (state.error || history.error) {
-    if (isMissingRelation(state.error) || isMissingRelation(history.error)) return legacyConsent(supabase, tenantId, guestId)
     console.error('[einwilligung] nicht lesbar', state.error?.message ?? history.error?.message)
     return { state: 'none', since: null, sheetNumber: null, entries: [], historyAvailable: false }
   }
@@ -87,54 +84,4 @@ export async function getGuestConsent(tenantId: string, guestId: string): Promis
   const latest = entries.find((e) => !e.voided)
   const sheetNumber = consentState === 'granted' && latest?.kind === 'grant' ? (latest.sheet?.number ?? null) : null
   return { state: consentState, since, sheetNumber, entries, historyAvailable: true }
-}
-
-// Übergang bis /backend: Vermerk aus PROJ-26 (Einwilligung über Gästeblatt) als einziger Eintrag
-async function legacyConsent(supabase: SupabaseClient, tenantId: string, guestId: string): Promise<GuestConsent> {
-  const empty: GuestConsent = { state: 'none', since: null, sheetNumber: null, entries: [], historyAvailable: false }
-  const { data, error } = await supabase
-    .from('guests')
-    .select('marketing_consent_at, marketing_consent_sheet_id')
-    .eq('id', guestId)
-    .eq('tenant_id', tenantId)
-    .maybeSingle()
-  const guest = data as { marketing_consent_at: string | null; marketing_consent_sheet_id: string | null } | null
-  if (error || !guest?.marketing_consent_at) return empty
-  let sheet: ConsentEntry['sheet'] = null
-  let origin: ConsentOrigin = 'sheet'
-  if (guest.marketing_consent_sheet_id) {
-    const { data: s } = await supabase
-      .from('guest_sheets')
-      .select('id, kind, sheet_number, booking_id')
-      .eq('id', guest.marketing_consent_sheet_id)
-      .eq('tenant_id', tenantId)
-      .maybeSingle()
-    const found = s as { id: string; kind: 'signed' | 'uploaded'; sheet_number: string | null; booking_id: string } | null
-    if (found) {
-      sheet = { id: found.id, number: found.sheet_number, bookingId: found.booking_id, bookingNumber: null }
-      origin = found.kind === 'uploaded' ? 'sheet_upload' : 'sheet'
-    }
-  }
-  const since = todayIso(new Date(guest.marketing_consent_at))
-  return {
-    state: 'granted',
-    since,
-    sheetNumber: sheet?.number ?? null,
-    historyAvailable: false,
-    entries: [
-      {
-        id: `legacy-${guestId}`,
-        kind: 'grant',
-        origin,
-        occurredOn: since,
-        channel: null,
-        note: null,
-        receipt: null,
-        sheet,
-        createdAt: guest.marketing_consent_at,
-        createdBy: null,
-        voided: null,
-      },
-    ],
-  }
 }
