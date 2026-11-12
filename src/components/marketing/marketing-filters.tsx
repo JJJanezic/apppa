@@ -111,7 +111,8 @@ export function MarketingFilterBar({ view, places, today }: MarketingFilterBarPr
               years={years}
               edge="end"
               min={filters.from}
-              onChange={(to) => go({ to })}
+              // „bis“ nie vor „von“ (QA BUG-1): frühere Jahre gesperrt, ein früherer Monat zieht auf „von“
+              onChange={(to) => go({ to: to && filters.from && to < filters.from ? filters.from : to })}
             />
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="marketing-aufenthalte" className={LABEL}>
@@ -285,7 +286,7 @@ function MonthField({
               {t('anyMonth')}
             </SelectItem>
             {shownYears.map((y) => (
-              <SelectItem key={y} value={y} className="min-h-11">
+              <SelectItem key={y} value={y} disabled={Boolean(min && y < min.slice(0, 4))} className="min-h-11">
                 {y}
               </SelectItem>
             ))}

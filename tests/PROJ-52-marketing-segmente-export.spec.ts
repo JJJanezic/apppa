@@ -204,6 +204,24 @@ test.describe('Filter', () => {
   })
 })
 
+test.describe('Zeitraum', () => {
+  test('„bis“ kann nicht vor „von“ liegen: frühere Jahre gesperrt, früherer Monat zieht auf „von“ (QA BUG-1)', async ({ page, users }) => {
+    desktopOnly()
+    const s = await setup(users)
+    await addGuest(s.tenantId, 'Zeitraum')
+    await signInAs(page, s.owner)
+    await open(page, '?von=2026-06&bis=2026-08')
+    await page.getByRole('combobox', { name: 'Aufenthalt bis: Jahr' }).click()
+    await expect(page.getByRole('option', { name: '2025' })).toHaveAttribute('aria-disabled', 'true')
+    await page.keyboard.press('Escape')
+    await open(page, '?von=2026-06')
+    await page.getByRole('combobox', { name: 'Aufenthalt bis: Jahr' }).click()
+    await page.getByRole('option', { name: '2026' }).click()
+    // nur Jahr gewählt → Dezember
+    await expect(page).toHaveURL(/bis=2026-12/)
+  })
+})
+
 test.describe('Trefferliste', () => {
   test('AC: mehr als 50 Treffer seitenweise nach Nachname; Name führt zur Gastseite', async ({ page, users }) => {
     desktopOnly()
@@ -252,8 +270,8 @@ test.describe('Export', () => {
     const lines = bytes.toString('utf8').slice(1).trim().split('\r\n')
     expect(lines[0]).toBe('Anrede;Titel vor;Vorname;Nachname;Titel nach;Firma;E-Mail;Telefon;Straße;PLZ;Ort;Land;Sprache;Anzahl Aufenthalte;Letzter Aufenthalt;Eingewilligt seit')
     expect(lines).toHaveLength(3)
-    // Telefon mit „+“ wird wie jede Zelle mit „=+-@“ gegen Excel-Formeln entschärft (Spec, Edge Cases); siehe QA BUG-2
-    expect(lines).toContain("Frau;Dr.;Anna;Huber;;;huber@example.at;'+43 1 234;Seeweg 1;5340;St. Gilgen;Österreich;Deutsch;0;;12.08.2026")
+    // Telefonnummer mit „+“ ohne Hochkomma (Nutzerentscheid QA BUG-2)
+    expect(lines).toContain('Frau;Dr.;Anna;Huber;;;huber@example.at;+43 1 234;Seeweg 1;5340;St. Gilgen;Österreich;Deutsch;0;;12.08.2026')
     expect(lines.find((l) => l.includes('Plattformtel'))).toContain(';plattformtel@example.at;;')
     const { data: log } = await service().from('audit_log').select('actor_id, new_data').eq('tenant_id', s.tenantId).eq('table_name', 'marketing_exports')
     expect(log).toEqual([{ actor_id: s.owner.id, new_data: { filters: expect.any(Object), segment_id: null, segment_name: null, count: 2 } }])

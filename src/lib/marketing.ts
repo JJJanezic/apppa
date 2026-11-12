@@ -255,6 +255,11 @@ export function marketingFileName(tenantName: string, now: Date = new Date()): s
   return `gaeste_${fileNamePart(tenantName)}_${parts.year}-${parts.month}-${parts.day}_${parts.hour}-${parts.minute}.csv`
 }
 
+// Telefonnummern (nur Ziffern, Leerzeichen, „+“ vorne, „-“, „/“, Klammern) unverändert, damit „+43 …“ ohne Hochkomma im
+// Newsletter-Programm ankommt (Nutzerentscheid QA BUG-2); alles andere wie jede Zelle gegen Formeln geschützt
+const PHONE = /^\+?[\d(][\d\s\-/()]*$/
+export const phoneCell = (value: string | null) => (value && PHONE.test(value) ? value : csvText(value ?? ''))
+
 // CSV für Excel und Newsletter-Programme (PROJ-52): eine Zeile je Gast, Strichpunkt, UTF-8 mit BOM, CRLF, Schutz vor Formeln
 // (csvText aus PROJ-16). Spalten: Anrede, Titel vor, Vorname, Nachname, Titel nach, Firma, E-Mail, Telefon, Straße, PLZ, Ort,
 // Land, Sprache, Anzahl Aufenthalte, letzter Aufenthalt, eingewilligt seit.
@@ -271,7 +276,7 @@ export function buildMarketingCsv(rows: readonly MarketingRow[], columns: readon
         text(r.titleSuffix),
         text(r.companyName),
         text(r.email),
-        text(r.phone),
+        phoneCell(r.phone),
         text(r.street),
         text(r.postalCode),
         text(r.city),

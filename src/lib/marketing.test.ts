@@ -9,6 +9,7 @@ import {
   marketingExportHref,
   marketingFileName,
   marketingHref,
+  phoneCell,
   parseMarketingView,
   parseSegmentFilters,
   reachOf,
@@ -112,6 +113,16 @@ describe('Export (PROJ-52)', () => {
     expect(marketingFileName('Gästehaus Müller', new Date('2026-07-01T22:05:00Z'))).toBe('gaeste_Gästehaus-Müller_2026-07-02_00-05.csv')
     expect(fileNamePart('A/B: C*D?  "E"')).toBe('A-B-C-D-E')
     expect(fileNamePart('  ')).toBe('Kunde')
+  })
+
+  it('Telefonnummern ohne Hochkomma, alles andere gegen Formeln geschützt (QA BUG-2)', () => {
+    expect(phoneCell('+43 1 234')).toBe('+43 1 234')
+    expect(phoneCell('+49 (0)30 123-45/6')).toBe('+49 (0)30 123-45/6')
+    expect(phoneCell('0664 1234567')).toBe('0664 1234567')
+    expect(phoneCell('-5+5')).toBe("'-5+5")
+    expect(phoneCell('+1;=cmd')).toBe(`"'+1;=cmd"`)
+    expect(phoneCell('=HYPERLINK("x")')).toBe(`"'=HYPERLINK(""x"")"`)
+    expect(phoneCell(null)).toBe('')
   })
 
   it('erreichbar per E-Mail bzw. Post (Anschrift: Straße und PLZ oder Ort)', () => {
