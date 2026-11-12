@@ -1,6 +1,6 @@
 # PROJ-52: Marketing: Segmente und CSV-Export
 
-## Status: In Review
+## Status: Approved
 **Created:** 2026-11-12
 **Last Updated:** 2026-11-12
 
@@ -186,7 +186,7 @@ Mitarbeiter erfassen Einwilligungen und Widerrufe weiterhin auf der Gastseite (P
 - **Zwei Inhaber bearbeiten dasselbe Segment:** Der zuletzt gespeicherte Stand gilt; wurde das Segment inzwischen gelöscht, meldet „Segment aktualisieren“ „Dieses Segment gibt es nicht mehr.“
 - **Sehr viele Treffer** (mehrere Tausend): Export bleibt möglich; Seite und Datei laden in vertretbarer Zeit (siehe Technical Requirements).
 - **Gast mit Einwilligung, aber ohne jeden Aufenthalt:** erscheint ohne Aufenthaltsfilter (Aufenthalte 0, letzter Aufenthalt leer); mit Aufenthalts-, Wohnungs- oder Quellenfilter nicht.
-- **Aufenthaltszeitraum nur „von“ oder nur „bis“:** offen nach der anderen Seite; „bis“ vor „von“ → Fehlermeldung am Feld.
+- **Aufenthaltszeitraum nur „von“ oder nur „bis“:** offen nach der anderen Seite; „bis“ vor „von“ ist nicht wählbar (frühere Jahre gesperrt, ein früherer Monat zieht auf „von“; geändert nach QA BUG-1).
 - **Archivierte bzw. gelöschte Wohnung:** Aufenthalte darin zählen weiterhin; nur die Auswahl im Filter zeigt bestehende Objekte und Wohnungen.
 - **Gast zusammengeführt** (PROJ-7): Aufenthalte und Verlauf beider Gäste gelten für den verbleibenden Gast.
 - **Kunde gewechselt** während die Seite offen ist: Seite zeigt nach dem Wechsel die Gäste und Segmente des neuen Kunden bzw. ist ausgeblendet, wenn die Person dort Mitarbeiter ist.
@@ -496,7 +496,7 @@ Automatisiert in `tests/PROJ-52-marketing-segmente-export.spec.ts` (Browser, 13 
 - [x] Widerruf zwischen Anzeige und Export: Der Export rechnet beim Klick neu (gleiche Abfrage, kein Zwischenstand)
 - [x] Zwei Inhaber, Segment inzwischen gelöscht bzw. geändert: „Dieses Segment gibt es nicht mehr.“ bzw. „… inzwischen geändert“ (Prüfung über `updated_at`, Code-Review)
 - [x] Gast ohne Aufenthalt erscheint ohne Aufenthaltsfilter, mit Aufenthalts-, Wohnungs- oder Quellenfilter nicht
-- [ ] **BUG-1:** „bis“ vor „von“ zeigt keine Fehlermeldung (siehe unten)
+- [x] „bis“ vor „von“: nicht mehr wählbar (BUG-1 behoben)
 - [x] Archivierte Wohnungen bleiben wählbar und gekennzeichnet; gelöschte fallen weg
 - [x] Zusammengeführte Gäste: Aufenthalte und Verlauf gehören dem verbleibenden Gast (PROJ-7/19, keine eigene Logik)
 - [x] Sonderzeichen: Strichpunkt und Anführungszeichen eingefasst, Formeln entschärft (Download-Test)
@@ -526,7 +526,7 @@ Automatisiert in `tests/PROJ-52-marketing-segmente-export.spec.ts` (Browser, 13 
 
 ### Bugs Found
 
-#### BUG-1: „Aufenthalt bis“ vor „von“ ohne Fehlermeldung
+#### BUG-1: „Aufenthalt bis“ vor „von“ ohne Fehlermeldung – behoben 2026-11-12
 - **Severity:** Low
 - **Steps to Reproduce:**
   1. `/marketing?von=2026-06&bis=2026-08` öffnen.
@@ -535,8 +535,9 @@ Automatisiert in `tests/PROJ-52-marketing-segmente-export.spec.ts` (Browser, 13 
   4. Tatsächlich: Die Adresse lautet `bis=2025-08`, der Filter verwirft „bis“ ohne Hinweis, und das Feld zeigt „beliebig“.
 - **Ort:** `MonthField` in `src/components/marketing/marketing-filters.tsx` sperrt nur frühere Monate im selben Jahr, nicht frühere Jahre.
 - **Priority:** Fix before deployment (klein). Vorschlag: frühere Jahre ebenfalls sperren bzw. „bis“ auf „von“ ziehen wie beim Ändern von „von“.
+- **Fix:** Jahre vor „von“ sind bei „bis“ gesperrt; ergibt eine Auswahl trotzdem ein früheres „bis“, zieht es auf „von“. Damit lässt sich „bis vor von“ gar nicht mehr wählen, eine Meldung ist nicht nötig. Browsertest „Zeitraum“.
 
-#### BUG-2: Telefonnummern mit „+“ stehen im Export mit vorangestelltem Hochkomma
+#### BUG-2: Telefonnummern mit „+“ stehen im Export mit vorangestelltem Hochkomma – behoben 2026-11-12
 - **Severity:** Medium
 - **Steps to Reproduce:**
   1. Gast mit eigener Telefonnummer „+43 1 234“ und Einwilligung anlegen.
@@ -549,6 +550,7 @@ Automatisiert in `tests/PROJ-52-marketing-segmente-export.spec.ts` (Browser, 13 
   - das Hochkomma bewusst lassen.
 - **Entscheidung (Nutzer, 2026-11-12):** „+“ behalten, kein Hochkomma bei Telefonnummern. Telefonnummern, die nur aus Ziffern, Leerzeichen, „+“, „-“, „/“ und Klammern bestehen, werden unverändert geschrieben; alle übrigen Zellen bleiben gegen Formeln geschützt. In Excel kann eine solche Zelle beim direkten Öffnen einen Formelfehler zeigen; Newsletter-Programme lesen sie richtig.
 - **Priority:** Fix before deployment
+- **Fix:** `phoneCell` in `src/lib/marketing.ts` schreibt reine Telefonnummern unverändert, alles andere weiter über `csvText`. Unit-Test (auch Angriffsfälle wie „+1;=cmd“), Browsertest Export.
 
 ### Regression
 - E2E Ortstaxe (PROJ-16), Auswertungen (PROJ-18) und Zahlungen (PROJ-45), Export-, Menü- und Mitarbeitertests: 19/19 grün; die Export-Knöpfe wurden für „nur CSV“ erweitert.
@@ -556,10 +558,11 @@ Automatisiert in `tests/PROJ-52-marketing-segmente-export.spec.ts` (Browser, 13 
 
 ### Summary
 - **Acceptance Criteria:** 32/32 bestanden
-- **Bugs Found:** 2 (0 critical, 0 high, 1 medium, 1 low)
+- **Bugs Found:** 2 (0 critical, 0 high, 1 medium, 1 low), beide behoben
 - **Security:** bestanden
-- **Production Ready:** YES nach Kriterium (keine Critical/High), empfohlen nach Behebung von BUG-1 und BUG-2
-- **Recommendation:** BUG-1 und BUG-2 (nach Nutzerentscheidung) beheben, dann Deploy
+- **Production Ready:** YES
+- **Recommendation:** Deploy
+- **Nachtest nach den Fixes:** Lint, Unit 1075, Build, PROJ-52 Browsertests Desktop (14) grün.
 
 ## Deployment
 _To be added by /deploy_
