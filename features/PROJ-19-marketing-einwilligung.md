@@ -68,7 +68,7 @@ Jede spätere, freiwillige Erteilung (Gästeblatt, nacherfasstes Gästeblatt, vo
 ## Bildschirme
 
 ### Gastdetailseite: Abschnitt „Marketing-Einwilligung“
-- Platz: nach dem Abschnitt mit der Marketing-Quelle (die beiden werden klar unterschieden: Quelle = „Wie kam der Gast erstmals zu uns?“, Einwilligung = „Darf ich ihn bewerben?“).
+- Platz: unter dem Abschnitt „Buchungen“ (Änderung 2026-11-12; ursprünglich nach dem Abschnitt mit der Marketing-Quelle) (die beiden werden klar unterschieden: Quelle = „Wie kam der Gast erstmals zu uns?“, Einwilligung = „Darf ich ihn bewerben?“).
 - Oben der **Stand** als deutliche Zeile („Eingewilligt seit Mi, 12.08.2026 – über Gästeblatt 2026/014“, „Widerrufen am …“, „Keine Einwilligung“).
 - Hinweis, wenn eingewilligt, aber **keine eigene Kontaktmöglichkeit**: „Eingewilligt, aber keine eigene E-Mail-Adresse oder Anschrift erfasst.“ (Plattform-Adressen zählen nicht als eigene.)
 - Knöpfe **„Einwilligung erfassen“** und **„Widerruf erfassen“** (Inhaber und Mitarbeiter). „Widerruf erfassen“ nur bei Stand „Erteilt“; „Einwilligung erfassen“ immer außer bei anonymisierten Gästen.
@@ -300,7 +300,7 @@ Am Handy stehen die Verlaufseinträge als Karten untereinander; die Dialoge verh
 ## Implementation Notes (Frontend, 2026-11-11)
 
 ### Gebaut
-- **Gastdetailseite:** Abschnitt „Marketing-Einwilligung“ unter den Angaben, über die ganze Breite, vor „Buchungen“ (`src/components/guests/marketing-consent-section.tsx`).
+- **Gastdetailseite:** Abschnitt „Marketing-Einwilligung“ unter den Angaben, über die ganze Breite, nach „Buchungen“ (`src/components/guests/marketing-consent-section.tsx`; ursprünglich vor „Buchungen“, auf Wunsch nach dem Deploy am 2026-11-12 getauscht).
   - Stand-Zeile; Widerruf in Magenta.
   - Hinweis „keine eigene E-Mail-Adresse oder Anschrift“ (`hasOwnContact`: direkt erfasste E-Mail oder Straße mit PLZ/Ort).
   - Knöpfe für Inhaber und Mitarbeiter; „Widerruf erfassen“ nur bei Stand „Erteilt“; bei anonymisierten Gästen keine Knöpfe.

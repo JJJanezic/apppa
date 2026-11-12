@@ -186,6 +186,14 @@ export default async function GuestDetailPage({ params }: { params: Params }) {
         )}
       </div>
 
+      {bookings.length > 0 && (
+        <section className="flex flex-col gap-3">
+          <h2 className="text-2xl">{t('detail.bookings')}</h2>
+          <BookingList rows={bookings} showAmounts={isOwner} guestLinks={false} />
+        </section>
+      )}
+
+      {/* PROJ-19: Marketing-Einwilligung unter den Buchungen (Wunsch nach dem Deploy, 2026-11-12) */}
       {consent && (
         <MarketingConsentSection
           guestId={guest.id}
@@ -196,13 +204,6 @@ export default async function GuestDetailPage({ params }: { params: Params }) {
           birthDate={guest.birthDate}
           today={todayIso()}
         />
-      )}
-
-      {bookings.length > 0 && (
-        <section className="flex flex-col gap-3">
-          <h2 className="text-2xl">{t('detail.bookings')}</h2>
-          <BookingList rows={bookings} showAmounts={isOwner} guestLinks={false} />
-        </section>
       )}
     </>
   )

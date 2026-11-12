@@ -129,6 +129,20 @@ test.describe('Anzeige', () => {
     }
   })
 
+  test('Abschnitt „Buchungen“ steht über „Marketing-Einwilligung“ (Wunsch nach dem Deploy, 2026-11-12)', async ({ page, users }) => {
+    desktopOnly()
+    const s = await setup(users)
+    const guest = await addGuest(s.tenantId)
+    await addSheet(s.tenantId, guest, '2026/040')
+    await signInAs(page, s.owner)
+    await openGuest(page, guest)
+    const bookings = page.getByRole('heading', { name: 'Buchungen', level: 2 })
+    const consent = page.getByRole('heading', { name: 'Marketing-Einwilligung', level: 2 })
+    await expect(bookings).toBeVisible()
+    const [b, c] = [await bookings.boundingBox(), await consent.boundingBox()]
+    expect(b!.y).toBeLessThan(c!.y)
+  })
+
   test('AC: ohne Eintrag „Keine Einwilligung“, leerer Zustand, kein „Widerruf erfassen“', async ({ page, users }) => {
     desktopOnly()
     const s = await setup(users)
