@@ -17,6 +17,7 @@ export type NavItemId =
   | 'payments'
   | 'reports'
   | 'tax'
+  | 'marketing'
   | 'channels'
   | 'settings'
   | 'operator'
@@ -51,6 +52,8 @@ export const NAV_ITEMS: readonly NavItem[] = [
   // (die Seite zeigt nur Inhaber-Kunden); am Handy unter „Mehr“
   { id: 'reports', href: '/auswertungen', roles: OWNER, anyOwner: true, ready: true, mobile: 'more' },
   { id: 'tax', href: '/ortstaxe', roles: OWNER, ready: true, mobile: 'more' },
+  // PROJ-52: Marketing (Segmente, CSV-Export) nur für Inhaber des gewählten Kunden, am Handy unter „Mehr“
+  { id: 'marketing', href: '/marketing', roles: OWNER, ready: true, mobile: 'more' },
   { id: 'channels', href: '/kanaele', roles: OWNER, ready: false, mobile: 'more' },
   { id: 'settings', href: '/einstellungen', roles: OWNER, ready: true, mobile: 'more' },
   { id: 'operator', href: '/betreiber', roles: [], adminOnly: true, ready: true, mobile: 'more' },

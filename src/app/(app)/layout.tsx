@@ -42,6 +42,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (isActivePath('/betreiber', path) && !isAreaAvailable('operator', viewer)) notFound()
   if (isActivePath('/ortstaxe', path) && !isAreaAvailable('tax', viewer)) notFound()
   if (isActivePath('/auswertungen', path) && !isAreaAvailable('reports', viewer)) notFound()
+  // PROJ-52: Marketing nur für Inhaber des gewählten Kunden
+  if (isActivePath('/marketing', path) && !isAreaAvailable('marketing', viewer)) notFound()
   // Detailseite eines Kunden: gibt es ihn (noch)? Sonst ebenfalls 404 statt 200 (BUG-2 aus QA PROJ-5).
   // Die Abfrage ist pro Anfrage zwischengespeichert; die Seite nutzt dasselbe Ergebnis.
   const tenantPath = /^\/betreiber\/kunden\/([^/]+)/.exec(path)

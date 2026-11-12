@@ -1,6 +1,6 @@
 # PROJ-52: Marketing: Segmente und CSV-Export
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-11-12
 **Last Updated:** 2026-11-12
 
@@ -319,6 +319,82 @@ Lesen und Schreiben nur für Inhaber des Kunden. Wohnungen und Objekte stehen al
 ### G) Arbeitsteilung
 - **/frontend:** Seite, Menüpunkt, Filterleiste (Mehrfachauswahl wie die Länderauswahl), Segmentleiste mit Dialogen, Trefferliste mit Blättern und leeren Zuständen, Export-Knopf, Texte.
 - **/backend:** Datenbank-Abfrage der bewerbbaren Gäste (Seite, Gesamtzahl, Zahl ohne Kontaktdaten; ohne Blättern für den Export), Segment-Tabelle mit Regeln und Protokoll, Protokolleintrag je Export, Download-Adresse für die CSV-Datei, Server-Aktionen für Segmente, Typen neu erzeugen, Bereinigung bei gelöschtem Kunden (Kaskade).
+
+## Implementation Notes (Frontend, 2026-11-12)
+
+### Gebaut
+- **Seite `/marketing`** (`src/app/(app)/marketing/page.tsx`), nur Inhaber des gewählten Kunden.
+  - Prüfung im gemeinsamen Layout, damit Mitarbeiter eine echte 404-Antwort bekommen (wie bei „Ortstaxe“ und „Auswertungen“).
+  - Menüpunkt „Marketing“ nach „Ortstaxe“ (Symbol Megafon), am Handy unter „Mehr“.
+- **Filterleiste** (`src/components/marketing/marketing-filters.tsx`)
+  - Aufenthalt von/bis als Monat + Jahr; nur Jahr gewählt → Jänner bzw. Dezember; nur Monat → laufendes Jahr.
+  - „Mindestens Aufenthalte“: Auswahl 1–10.
+  - Erreichbar per.
+  - Mehrfachauswahlen für Objekt/Wohnung (Objekt als „ganzes Objekt“ über seinen Wohnungen, archivierte gekennzeichnet), Buchungsquelle, Herkunftsland (mit Suche) und Sprache (inkl. „Keine Angabe“).
+  - Am Handy aufklappbar mit Anzahl aktiver Filter; „Filter zurücksetzen“.
+  - Mehrfachauswahl `src/components/marketing/multi-select.tsx` aus Popover + Command; übernimmt beim Schließen.
+- **Adresse:** `?von=2026-06&bis=2026-08&aufenthalte=2&objekt=…&wohnung=…&quelle=website,booking_com&land=DE,AT&sprache=de,none&erreichbar=email&segment=…&seite=2`.
+- **Segmentleiste** (`segment-bar.tsx`)
+  - Öffnen lädt die gespeicherten Filter in die Adresse.
+  - „Als Segment speichern“ (Dialog, Name 1–60) öffnet danach das neue Segment.
+  - Bei geänderten Filtern Hinweis „Filter geändert“ und „Segment aktualisieren“ (Rückfrage).
+  - „Umbenennen“ (Dialog) und „Löschen“ (Rückfrage; die Filter bleiben stehen).
+  - Doppelter Name → Meldung am Feld.
+  - Gespeicherte, aber gelöschte Objekte/Wohnungen fallen aus dem Filter, Hinweis erscheint.
+- **Trefferliste** (`marketing-list.tsx`): Tabelle ab 768 px, Karten am Handy, Name führt zur Gastseite, 50 je Seite.
+- **Export:** Knopf „CSV exportieren“; die vorhandenen Export-Knöpfe (`report-export-buttons.tsx`) können jetzt auch nur CSV.
+  - Dateiname aus `marketingFileName` (Server-Antwort hat Vorrang).
+  - Ausgegraut ohne Treffer.
+- **Regeln und Typen:** `src/lib/marketing.ts` (Adresse lesen/schreiben, Segmentfilter lesen, Vergleich, Anrede, Dateiname), `src/lib/validation/marketing.ts`.
+- **Lesen:** `src/lib/marketing-data.ts`. **Aktionen:** `src/app/(app)/marketing/actions.ts`; nach Anlegen und Löschen leiten sie selbst weiter (Next-16-Problem mit `router.push`).
+- **Texte:** `marketing.*`, `nav.marketing`.
+- **Tests:** `src/lib/marketing.test.ts`; Navigation und PROJ-45-Menüreihenfolge angepasst.
+- **Übergang bis /backend:**
+  - Die Seite zeigt „Die Gästeliste für Marketing wird gerade eingerichtet.“
+  - Die Segmentauswahl ist gesperrt.
+  - Der Export meldet einen Fehler.
+- **Sichttest** (gebaute App, Dev): Desktop und Handy ohne seitliches Scrollen, axe ohne Verstöße; Mitarbeiter: 404 und kein Menüpunkt.
+
+### Erwartete Datenbank-Schnittstellen (für /backend)
+
+**Tabelle `marketing_segments`**
+- Spalten: `id`, `tenant_id`, `name` (getrimmt, 1–60), `filters` (jsonb), `created_at/by`, `updated_at/by`.
+- Eindeutig je Kunde über `lower(name)` → Fehler 23505.
+- Zugriffsregeln: Lesen, Anlegen, Ändern, Löschen nur `has_role(tenant_id, 'owner')`; deaktivierter Kunde → P0016.
+- Protokoll über `enable_tenant_table`; Kaskade beim Löschen des Kunden.
+- Form von `filters`: `{from, to, minStays, properties[], apartments[], sources[], countries[], languages[], reach}` (siehe `filtersPayload`).
+
+**Funktion `marketing_guest_list(p_tenant_id uuid, p_filters jsonb, p_limit integer, p_offset integer) → jsonb`**
+- Nur Inhaber (42501).
+- `p_limit` null = alle (Export).
+- Ergebnis: `{total, without_contact, rows: [...]}`.
+- Felder je Zeile:
+  - `id`, `last_name`, `first_name`, `title_prefix`, `title_suffix`, `gender`, `company_name`
+  - `email` (nur `email_source = 'direct'`), `phone` (nur `phone_source = 'direct'`)
+  - `street`, `postal_code`, `city`, `address_country`, `language`
+  - `stay_count`, `last_stay`, `consent_on`
+- Regeln laut Spec „Wer erscheint“, „Aufenthalt“ und „Filter“:
+  - Stand `granted`.
+  - Eigene Kontaktmöglichkeit: direkte E-Mail oder Straße + (PLZ oder Ort).
+  - Aufenthalt = Buchung, nicht storniert, Anreise ≤ heute (Wien).
+  - Zeitraum überschneidet [Monatsanfang von, Monatsende bis].
+  - `minStays` zählt alle Aufenthalte.
+  - Wohnungen = gewählte Wohnungen ∪ Wohnungen der gewählten Objekte; Wohnungs- und Quellenfilter wirken auf Aufenthalte im Zeitraum, falls gesetzt.
+  - `languages` mit `'none'` für leere Sprache.
+  - `reach` email/post.
+- Sortierung: Nachname, Vorname, id.
+- `without_contact`: Gäste mit `granted` ohne eigene Kontaktmöglichkeit; die übrigen Filter wirken dafür nicht.
+
+**Download `/api/marketing/csv`**
+- GET mit denselben Parametern wie die Seite.
+- Nur Inhaber: 401 ohne Anmeldung, 404 für Mitarbeiter wie bei Ortstaxe.
+- Spalten laut Spec, Dateiname `marketingFileName`, `no-store`.
+- CSV-Baustein aus PROJ-16 (`csvText`, BOM, CRLF).
+
+**Protokolleintrag je Export**
+- Inhalt: Person, Zeitpunkt, Kunde, Filter, Segment-ID (falls `segment` in der Adresse) und Anzahl.
+- Ohne Gastdaten.
+- Nur für Inhaber, z. B. über eine Funktion `log_marketing_export`.
 
 ## QA Test Results
 _To be added by /qa_

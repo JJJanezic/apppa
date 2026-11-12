@@ -10,12 +10,14 @@ type Kind = 'pdf' | 'csv'
 
 interface ReportExportButtonsProps {
   // Download-Adressen mit den Filtern der Seite
-  hrefs: Record<Kind, string>
+  hrefs: Partial<Record<Kind, string>>
   // Texte des Berichts (Beschriftung, Fehlermeldung)
-  namespace: 'touristTaxReport.export' | 'statistics.export'
+  namespace: 'touristTaxReport.export' | 'statistics.export' | 'marketing.export'
   // Dateinamen, falls der Server keinen mitschickt
-  fileNames: Record<Kind, string>
+  fileNames: Partial<Record<Kind, string>>
   disabled: boolean
+  // Angebotene Formate (Marketing PROJ-52: nur CSV)
+  kinds?: readonly Kind[]
 }
 
 // Dateiname aus „Content-Disposition“ (filename* bevorzugt)
@@ -32,9 +34,9 @@ function fileNameFrom(header: string | null): string | null {
   return /filename="([^"]+)"/i.exec(header)?.[1] ?? null
 }
 
-// Export-Knöpfe der Berichte (Ortstaxe PROJ-16, Auswertungen PROJ-18): laden PDF bzw. CSV im Hintergrund und speichern
+// Export-Knöpfe der Berichte (Ortstaxe PROJ-16, Auswertungen PROJ-18, Marketing PROJ-52): laden PDF bzw. CSV im Hintergrund und speichern
 // die Datei. Scheitert das, erscheint eine Meldung; der Bericht bleibt sichtbar.
-export function ReportExportButtons({ hrefs, namespace, fileNames, disabled }: ReportExportButtonsProps) {
+export function ReportExportButtons({ hrefs, namespace, fileNames, disabled, kinds = ['pdf', 'csv'] }: ReportExportButtonsProps) {
   const t = useTranslations(namespace)
   const [busy, setBusy] = useState<Kind | null>(null)
   const [failed, setFailed] = useState(false)
@@ -43,13 +45,15 @@ export function ReportExportButtons({ hrefs, namespace, fileNames, disabled }: R
     setBusy(kind)
     setFailed(false)
     try {
-      const res = await fetch(hrefs[kind], { cache: 'no-store' })
+      const href = hrefs[kind]
+      if (!href) throw new Error('no href')
+      const res = await fetch(href, { cache: 'no-store' })
       if (!res.ok) throw new Error(String(res.status))
       const blob = await res.blob()
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = fileNameFrom(res.headers.get('content-disposition')) ?? fileNames[kind]
+      a.download = fileNameFrom(res.headers.get('content-disposition')) ?? fileNames[kind] ?? `export.${kind}`
       document.body.appendChild(a)
       a.click()
       a.remove()
@@ -73,7 +77,7 @@ export function ReportExportButtons({ hrefs, namespace, fileNames, disabled }: R
   return (
     <div className="flex flex-col items-start gap-2 sm:items-end">
       <div role="group" aria-label={t('label')} className="flex flex-wrap gap-2">
-        {(['pdf', 'csv'] as const).map((kind) => (
+        {kinds.map((kind) => (
           <Button
             key={kind}
             type="button"
