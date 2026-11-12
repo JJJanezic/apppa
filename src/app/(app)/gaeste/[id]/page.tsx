@@ -6,6 +6,7 @@ import { getLocale, getTranslations } from 'next-intl/server'
 import { BookingList } from '@/components/bookings/booking-list'
 import { DocumentImages } from '@/components/guests/document-images'
 import { GuestActions } from '@/components/guests/guest-actions'
+import { MarketingConsentSection } from '@/components/guests/marketing-consent-section'
 import { PageHeader } from '@/components/page-header'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -13,8 +14,11 @@ import { requireArea } from '@/lib/areas'
 import { formatDate, formatDatePlain, formatNumber } from '@/lib/format'
 import { companyAddressLines, countryName, type Guest, guestDisplayName, hasCompany, languageName, privateAddressLines } from '@/lib/guests'
 import { getGuestBookings } from '@/lib/bookings-data'
+import { todayIso } from '@/lib/bookings'
 import { companyHref } from '@/lib/companies'
 import { getGuest } from '@/lib/guests-data'
+import { hasOwnContact } from '@/lib/marketing-consent'
+import { getGuestConsent } from '@/lib/marketing-consent-data'
 import { getTenantContext } from '@/lib/tenant'
 
 type Params = Promise<{ id: string }>
@@ -30,8 +34,12 @@ export default async function GuestDetailPage({ params }: { params: Params }) {
   const t = await getTranslations('guests')
   const locale = await getLocale()
   const tb = await getTranslations('bookings')
-  const [guest, bookings] = await Promise.all([getGuest(id), getGuestBookings(id)])
   const { active } = await getTenantContext()
+  const [guest, bookings, consent] = await Promise.all([
+    getGuest(id),
+    getGuestBookings(id),
+    active ? getGuestConsent(active.id, id) : Promise.resolve(null),
+  ])
   const isOwner = active?.role === 'owner'
   // Datum ohne Uhrzeit: mittags erzeugen, damit die Zeitzone den Tag nicht verschiebt
   // „Mi, 28.10.2026“; Geburts- und Ausstellungsdatum ohne Wochentag (PROJ-31)
@@ -177,6 +185,18 @@ export default async function GuestDetailPage({ params }: { params: Params }) {
           </DetailSection>
         )}
       </div>
+
+      {consent && (
+        <MarketingConsentSection
+          guestId={guest.id}
+          consent={consent}
+          isOwner={isOwner}
+          anonymized={Boolean(guest.anonymizedAt)}
+          missingContact={!hasOwnContact(guest)}
+          birthDate={guest.birthDate}
+          today={todayIso()}
+        />
+      )}
 
       {bookings.length > 0 && (
         <section className="flex flex-col gap-3">

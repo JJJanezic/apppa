@@ -155,6 +155,7 @@ describe('Filter in der Adresse', () => {
       query: 'huber',
       country: 'DE',
       marketing: 'instagram',
+      consent: null,
       sort: 'lastStay',
       page: 3,
     })
@@ -162,9 +163,18 @@ describe('Filter in der Adresse', () => {
       query: '',
       country: null,
       marketing: null,
+      consent: null,
       sort: 'name',
       page: 1,
     })
+  })
+
+  it('liest und schreibt den Filter Marketing-Einwilligung (PROJ-19)', () => {
+    expect(parseGuestFilters({ einwilligung: 'widerrufen' }).consent).toBe('revoked')
+    expect(parseGuestFilters({ einwilligung: 'erteilt' }).consent).toBe('granted')
+    expect(parseGuestFilters({ einwilligung: 'keine' }).consent).toBe('none')
+    expect(parseGuestFilters({ einwilligung: 'ja' }).consent).toBeNull()
+    expect(guestListHref({ query: '', consent: 'granted', sort: 'name', page: 1 })).toBe('/gaeste?einwilligung=erteilt')
   })
 
   it('baut die Adresse ohne Standardwerte', () => {

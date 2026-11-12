@@ -924,6 +924,13 @@
     "allCountries": "Alle Länder",
     "filterMarketing": "Marketing-Quelle",
     "allSources": "Alle Quellen",
+    "filterConsent": "Marketing-Einwilligung",
+    "allConsents": "Alle",
+    "consentFilter": {
+      "granted": "Erteilt",
+      "revoked": "Widerrufen",
+      "none": "Keine"
+    },
     "sortLabel": "Sortierung",
     "sort": {
       "name": "Name",
@@ -1123,7 +1130,14 @@
       "notImplemented": "Diese Funktion wird gerade eingerichtet.",
       "unknown": "Etwas ist schiefgelaufen. Bitte versuche es erneut.",
       "documentImageMissing": "Ein Ausweisbild ist nicht mehr verfügbar. Bitte lade es erneut hoch und speichere noch einmal.",
-      "companyMissing": "Die gewählte Firma gibt es nicht mehr. Bitte eine andere Firma wählen."
+      "companyMissing": "Die gewählte Firma gibt es nicht mehr. Bitte eine andere Firma wählen.",
+      "consentDateInFuture": "Das Datum darf nicht in der Zukunft liegen.",
+      "consentDateBeforeBirth": "Das Datum liegt vor dem Geburtsdatum des Gastes.",
+      "consentChannelInvalid": "Bitte einen gültigen Weg wählen.",
+      "consentNotGranted": "Es besteht keine Einwilligung, die widerrufen werden kann. Bitte die Seite neu laden.",
+      "consentNotVoidable": "Dieser Eintrag lässt sich nicht als irrtümlich markieren.",
+      "consentAlreadyVoided": "Dieser Eintrag ist bereits als irrtümlich markiert.",
+      "consentReceiptMissing": "Der Beleg ist nicht mehr verfügbar. Bitte erneut hochladen."
     },
     "validation": {
       "lastNameRequired": "Bitte den Nachnamen eingeben.",
@@ -1188,6 +1202,111 @@
         "imageUnsupported": "Diese Datei ist kein lesbares Bild. Bitte wähle ein Foto (z. B. JPEG, PNG oder HEIC).",
         "imageFailed": "Das Bild konnte nicht verarbeitet werden. Bitte versuche es mit einem anderen Foto.",
         "uploadFailed": "Das Bild konnte nicht hochgeladen werden. Bitte prüfe deine Internetverbindung und versuche es erneut."
+      }
+    },
+    "consent": {
+      "title": "Marketing-Einwilligung",
+      "stateGranted": "Eingewilligt seit {date}",
+      "stateGrantedSheet": "Eingewilligt seit {date} – über Gästeblatt {number}",
+      "stateRevoked": "Widerrufen am {date}",
+      "stateNone": "Keine Einwilligung",
+      "noContact": "Eingewilligt, aber keine eigene E-Mail-Adresse oder Anschrift erfasst.",
+      "recordGrant": "Einwilligung erfassen",
+      "recordRevoke": "Widerruf erfassen",
+      "empty": "Noch keine Einwilligung erfasst. Gäste willigen in der Regel auf dem Gästeblatt ein.",
+      "history": "Verlauf",
+      "kind": {
+        "grant": "Einwilligung erteilt",
+        "revoke": "Widerrufen"
+      },
+      "viaChannel": "Weg: {channel}",
+      "viaSheet": "Über Gästeblatt",
+      "viaUploadedSheet": "Über nacherfasstes Gästeblatt",
+      "sheetWithoutNumber": "ohne Nummer",
+      "opensPdf": "(öffnet das PDF in einem neuen Fenster)",
+      "createdBy": "Erfasst von {name} am {date}",
+      "createdAt": "Erfasst am {date}",
+      "voided": "Irrtümlich – {reason} ({name}, {date})",
+      "voidButton": "Als irrtümlich markieren",
+      "channel": {
+        "email": "E-Mail",
+        "paper": "Schriftlich (Papier)",
+        "webform": "Webformular",
+        "oral": "Mündlich/telefonisch",
+        "other": "Sonstiges"
+      },
+      "dialog": {
+        "titleGrant": "Einwilligung erfassen",
+        "titleRevoke": "Widerruf erfassen",
+        "leadGrant": "Für Einwilligungen, die nicht über das Gästeblatt kamen, z. B. per E-Mail oder auf Papier.",
+        "leadRevoke": "Ab dem Datum des Widerrufs darf der Gast nicht mehr beworben werden.",
+        "dateGrant": "Eingewilligt am",
+        "dateRevoke": "Widerrufen am",
+        "beforeHint": "Liegt vor dem letzten Eintrag vom {date} und ändert den Stand nicht.",
+        "channel": "Weg",
+        "channelPlaceholder": "Weg wählen",
+        "note": "Notiz",
+        "notePlaceholder": "z. B. „Mail vom 3.12. an info@…“",
+        "noteCount": "{count} von {max} Zeichen",
+        "receipt": "Beleg",
+        "receiptHint": "PDF bis 10 MB oder ein Foto, z. B. die E-Mail als PDF.",
+        "receiptMissingHint": "Ohne Beleg lässt sich die Einwilligung später schwer nachweisen.",
+        "save": "Speichern",
+        "saving": "Wird gespeichert …",
+        "cancel": "Abbrechen",
+        "createdGrant": "Einwilligung erfasst.",
+        "createdRevoke": "Widerruf erfasst.",
+        "warnTitle": "Stand ändert sich nicht",
+        "warn": {
+          "grantBeforeGrant": "Die Einwilligung liegt vor der letzten Einwilligung vom {date} und ändert den Stand nicht.",
+          "grantBeforeRevoke": "Die Einwilligung liegt vor dem letzten Widerruf vom {date} und ändert den Stand nicht.",
+          "revokeBeforeGrant": "Der Widerruf liegt vor der letzten Einwilligung vom {date} und ändert den Stand nicht.",
+          "revokeBeforeRevoke": "Der Widerruf liegt vor dem letzten Widerruf vom {date} und ändert den Stand nicht."
+        },
+        "warnBack": "Zurück",
+        "warnConfirm": "Trotzdem speichern"
+      },
+      "void": {
+        "title": "Als irrtümlich markieren",
+        "lead": "„{entry}“ vom {date} bleibt durchgestrichen im Verlauf und zählt nicht mehr für den Stand. Das lässt sich nicht rückgängig machen.",
+        "reason": "Grund",
+        "reasonPlaceholder": "z. B. „beim falschen Gast erfasst“",
+        "reasonCount": "{count} von {max} Zeichen",
+        "confirm": "Als irrtümlich markieren",
+        "saving": "Wird gespeichert …",
+        "cancel": "Abbrechen",
+        "done": "Eintrag als irrtümlich markiert."
+      },
+      "validation": {
+        "dateRequired": "Bitte ein Datum angeben.",
+        "dateInvalid": "Bitte ein gültiges Datum angeben.",
+        "dateInFuture": "Das Datum darf nicht in der Zukunft liegen.",
+        "dateBeforeBirth": "Das Datum liegt vor dem Geburtsdatum des Gastes.",
+        "channelRequired": "Bitte den Weg wählen.",
+        "noteTooLong": "Die Notiz ist zu lang (höchstens 500 Zeichen).",
+        "receiptUploading": "Der Beleg wird noch hochgeladen.",
+        "reasonRequired": "Bitte einen Grund angeben.",
+        "reasonTooLong": "Der Grund ist zu lang (höchstens 200 Zeichen)."
+      },
+      "receipt": {
+        "choose": "Beleg wählen oder fotografieren",
+        "uploading": "Wird hochgeladen …",
+        "saved": "Gespeicherter Beleg",
+        "ready": "Beleg bereit",
+        "pendingHint": "Wird beim Speichern am Eintrag abgelegt.",
+        "open": "Öffnen",
+        "openLabel": "Beleg öffnen",
+        "replace": "Ersetzen",
+        "remove": "Entfernen",
+        "errors": {
+          "receiptUnsupported": "Bitte ein PDF oder ein Bild (JPEG, PNG, HEIC, WebP) wählen.",
+          "receiptTooLarge": "Das PDF ist größer als 10 MB.",
+          "imageTooLarge": "Das Bild ist zu groß (höchstens 30 MB).",
+          "imageUnsupported": "Dieses Bild lässt sich nicht lesen. Bitte ein anderes Format wählen.",
+          "imageFailed": "Das Bild ließ sich nicht umwandeln. Bitte erneut versuchen.",
+          "uploadFailed": "Der Beleg ließ sich nicht laden. Bitte erneut versuchen.",
+          "notImplemented": "Belege lassen sich erst hochladen, wenn die Einwilligungsverwaltung eingerichtet ist."
+        }
       }
     }
   },

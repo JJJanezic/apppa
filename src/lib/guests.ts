@@ -2,6 +2,7 @@
 // Lesefunktionen: src/lib/guests-data.ts (nur Server), Aktionen: src/app/(app)/gaeste/actions.ts.
 
 import type { CompanySummary } from '@/lib/companies'
+import { CONSENT_FILTER_PARAM, type ConsentFilter, parseConsentFilter } from '@/lib/marketing-consent'
 
 export type GuestErrorCode =
   | 'notFound'
@@ -162,6 +163,8 @@ export type GuestFilters = {
   query: string
   country: string | null
   marketing: MarketingFilter | null
+  // Marketing-Einwilligung (PROJ-19): erteilt, widerrufen, keine
+  consent: ConsentFilter | null
   sort: GuestSort
   page: number
 }
@@ -319,6 +322,7 @@ export function parseGuestFilters(params: Record<string, string | string[] | und
     query: first(params.q).trim().slice(0, 200),
     country: isCountry(country) ? country : null,
     marketing: isMarketing(marketing) ? marketing : null,
+    consent: parseConsentFilter(first(params.einwilligung)),
     sort: first(params.sortierung) === 'aufenthalt' ? 'lastStay' : 'name',
     page: Math.max(1, Math.floor(Number(first(params.seite)) || 1)),
   }
@@ -330,6 +334,7 @@ export function guestListHref(filters: Partial<GuestFilters>): string {
   if (filters.query) params.set('q', filters.query)
   if (filters.country) params.set('land', filters.country)
   if (filters.marketing) params.set('quelle', filters.marketing)
+  if (filters.consent) params.set('einwilligung', CONSENT_FILTER_PARAM[filters.consent])
   if (filters.sort === 'lastStay') params.set('sortierung', 'aufenthalt')
   if (filters.page && filters.page > 1) params.set('seite', String(filters.page))
   const search = params.toString()

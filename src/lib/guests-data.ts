@@ -237,6 +237,8 @@ export const listRow = (r: Omit<ListRow, 'total'>): GuestRow => ({
 export async function getGuestPage(filters: GuestFilters): Promise<GuestPage> {
   const { tenantId } = await requireMember()
   const supabase = await createClient()
+  // Filter Marketing-Einwilligung (PROJ-19): Parameter p_consent nur, wenn gewählt
+  const consent = filters.consent ? { p_consent: filters.consent } : {}
   const load = (page: number) =>
     supabase.rpc('guest_list', {
       p_tenant_id: tenantId,
@@ -246,7 +248,9 @@ export async function getGuestPage(filters: GuestFilters): Promise<GuestPage> {
       p_sort: filters.sort,
       p_limit: GUEST_PAGE_SIZE,
       p_offset: (page - 1) * GUEST_PAGE_SIZE,
-    })
+      ...consent,
+      // p_consent fehlt in den erzeugten Typen, bis /backend die Funktion erweitert
+    } as unknown as Database['public']['Functions']['guest_list']['Args'])
   let page = filters.page
   let { data, error } = await load(page)
   // Seite hinter dem Ende (alter Link, Filter geändert): erste Seite zeigen

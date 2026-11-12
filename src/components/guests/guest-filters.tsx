@@ -17,6 +17,7 @@ import {
   MARKETING_SOURCES,
   type MarketingFilter,
 } from '@/lib/guests'
+import { CONSENT_FILTERS, type ConsentFilter } from '@/lib/marketing-consent'
 
 const DELAY_MS = 300
 const ALL = '__alle'
@@ -26,6 +27,7 @@ const ALL = '__alle'
 export function GuestFilterBar({ filters }: { filters: GuestFilters }) {
   const t = useTranslations('guests')
   const tm = useTranslations('guests.marketing')
+  const tcf = useTranslations('guests.consentFilter')
   const tc = useTranslations('guests.countryPicker')
   const locale = useLocale()
   const router = useRouter()
@@ -76,7 +78,7 @@ export function GuestFilterBar({ filters }: { filters: GuestFilters }) {
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:flex lg:flex-wrap">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:flex lg:flex-wrap">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="filter-land" className="text-[13px] text-ds-neutral-800">
             {t('filterCountry')}
@@ -132,6 +134,27 @@ export function GuestFilterBar({ filters }: { filters: GuestFilters }) {
               <SelectItem value={MARKETING_NONE} className="min-h-11">
                 {tm('none')}
               </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="filter-einwilligung" className="text-[13px] text-ds-neutral-800">
+            {t('filterConsent')}
+          </Label>
+          <Select value={filters.consent ?? ALL} onValueChange={(v) => go({ consent: v === ALL ? null : (v as ConsentFilter) })}>
+            <SelectTrigger id="filter-einwilligung" className="min-h-11 lg:w-52">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL} className="min-h-11">
+                {t('allConsents')}
+              </SelectItem>
+              {CONSENT_FILTERS.map((c) => (
+                <SelectItem key={c} value={c} className="min-h-11">
+                  {tcf(c)}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>

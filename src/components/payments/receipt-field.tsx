@@ -6,6 +6,7 @@ import { useRef, useState } from 'react'
 
 import { openReceipt, prepareReceiptUpload } from '@/app/(app)/zahlungen/actions'
 import { callAction } from '@/components/auth/form-error'
+import type { ActionResult } from '@/lib/auth/result'
 import { Button } from '@/components/ui/button'
 import { convertDocumentImage, ImageConvertError, type ImageErrorCode, looksLikeImage } from '@/lib/document-image'
 import { checkReceiptPdf, isPdfFile, RECEIPT_ACCEPT, RECEIPT_BUCKET, RECEIPT_UPLOADING, type ReceiptErrorCode, receiptTypeOf } from '@/lib/payments'
@@ -19,6 +20,10 @@ interface ReceiptFieldProps {
   // Gespeicherter Beleg der Zahlung (Bearbeiten): Öffnen über einen frischen Abruf-Link
   saved?: { paymentId: string; path: string }
   describedBy?: string
+  // Andere Verwendung (Marketing-Einwilligung, PROJ-19): eigener Speicherbereich, eigene Upload-Aktion und Texte
+  bucket?: string
+  prepareUpload?: (input: { type: 'pdf' | 'image' }) => Promise<ActionResult<{ path: string; token: string }, string>>
+  textNamespace?: 'payments.receipt' | 'guests.consent.receipt'
 }
 
 type UploadError = ReceiptErrorCode | ImageErrorCode | 'uploadFailed' | 'notImplemented'
@@ -26,8 +31,17 @@ type UploadError = ReceiptErrorCode | ImageErrorCode | 'uploadFailed' | 'notImpl
 // Beleg einer Zahlung (PROJ-45): höchstens eine Datei, PDF bis 10 MB unverändert oder ein Bild, das wie das Reisedokument
 // (PROJ-29) im Browser gedreht, verkleinert und als JPEG gespeichert wird. Am Handy lässt sich direkt fotografieren.
 // Der Browser lädt die Datei direkt in den privaten Speicher; an der Zahlung eingetragen wird sie erst beim Speichern.
-export function ReceiptField({ id, value, onChange, saved, describedBy }: ReceiptFieldProps) {
-  const t = useTranslations('payments.receipt')
+export function ReceiptField({
+  id,
+  value,
+  onChange,
+  saved,
+  describedBy,
+  bucket = RECEIPT_BUCKET,
+  prepareUpload = prepareReceiptUpload,
+  textNamespace = 'payments.receipt',
+}: ReceiptFieldProps) {
+  const t = useTranslations(textNamespace)
   const input = useRef<HTMLInputElement>(null)
   const [fileName, setFileName] = useState<{ path: string; name: string } | null>(null)
   const [error, setError] = useState<UploadError | null>(null)
@@ -49,14 +63,14 @@ export function ReceiptField({ id, value, onChange, saved, describedBy }: Receip
     onChange(RECEIPT_UPLOADING)
     try {
       const body = pdf ? file : await convertDocumentImage(file)
-      const prepared = await callAction(() => prepareReceiptUpload({ type: pdf ? 'pdf' : 'image' }))
+      const prepared = await callAction(() => prepareUpload({ type: pdf ? 'pdf' : 'image' }))
       if (!prepared.ok || !prepared.data) {
         setError(!prepared.ok && prepared.error === 'notImplemented' ? 'notImplemented' : 'uploadFailed')
         onChange(previous)
         return
       }
       const { error: uploadError } = await createClient()
-        .storage.from(RECEIPT_BUCKET)
+        .storage.from(bucket)
         .uploadToSignedUrl(prepared.data.path, prepared.data.token, body, { contentType: pdf ? 'application/pdf' : 'image/jpeg' })
       if (uploadError) throw uploadError
       setFileName({ path: prepared.data.path, name: file.name })

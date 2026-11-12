@@ -1,6 +1,6 @@
 # PROJ-19: Marketing-Einwilligung verwalten
 
-## Status: Architected
+## Status: In Progress
 **Created:** 2026-11-11
 **Last Updated:** 2026-11-11
 
@@ -296,6 +296,102 @@ Am Handy stehen die Verlaufseinträge als Karten untereinander; die Dialoge verh
 ### G) Arbeitsteilung
 - **/frontend:** Abschnitt auf der Gastdetailseite, Dialoge (Beleg-Feld aus der Zahlungserfassung wiederverwenden bzw. für beide Zwecke verallgemeinern), Filter in der Gästeliste, Texte.
 - **/backend:** Verlaufstabelle mit Schutzregel und Protokoll, Stand am Gast samt Neuberechnung, Schreibfunktionen (Erfassen, Irrtümlich), Anbindung Gästeblatt, Anonymisieren, Zusammenführen, Kunde löschen, Filter in der Gästelisten-Abfrage, Speicherbereich mit Regeln, Aufräumen, Übernahme der bestehenden Einwilligungen, Typen neu erzeugen.
+
+## Implementation Notes (Frontend, 2026-11-11)
+
+### Gebaut
+- **Gastdetailseite:** Abschnitt „Marketing-Einwilligung“ unter den Angaben, über die ganze Breite, vor „Buchungen“ (`src/components/guests/marketing-consent-section.tsx`).
+  - Stand-Zeile; Widerruf in Magenta.
+  - Hinweis „keine eigene E-Mail-Adresse oder Anschrift“ (`hasOwnContact`: direkt erfasste E-Mail oder Straße mit PLZ/Ort).
+  - Knöpfe für Inhaber und Mitarbeiter; „Widerruf erfassen“ nur bei Stand „Erteilt“; bei anonymisierten Gästen keine Knöpfe.
+  - Verlauf mit Gästeblatt-Link (`/api/gaesteblatt/[id]/pdf`), Beleg-Symbol, „Erfasst von … am …“, irrtümliche Einträge durchgestrichen mit Grund.
+- **Dialog Erteilung/Widerruf** (`consent-dialog.tsx`, Seitenpanel wie bei Zahlungen):
+  - Datum (heute vorbelegt, nicht in der Zukunft, nicht vor dem Geburtsdatum), Weg (mündlich nur beim Widerruf), Notiz (500), Beleg.
+  - Ohne Beleg bei Erteilung: Hinweis in Magenta.
+  - Liegt das Datum vor dem jüngsten gültigen Eintrag: Hinweis schon im Formular; die Datenbank meldet `warnings`, Rückfrage „Trotzdem speichern“.
+- **Dialog „Als irrtümlich markieren“** (`consent-void-dialog.tsx`, nur Inhaber, nur Einträge „von Hand“): Grund Pflicht (200).
+- **Gästeliste:** Filter „Marketing-Einwilligung“ (Alle/Erteilt/Widerrufen/Keine), Adresse `?einwilligung=erteilt|widerrufen|keine`.
+- **Beleg-Feld und Beleg-Symbol** der Zahlungen verallgemeinert (Speicherbereich, Upload-/Abruf-Aktion und Texte als Parameter; Zahlungen unverändert).
+- **Aktionen:** `src/app/(app)/gaeste/consent-actions.ts`. **Lesen:** `src/lib/marketing-consent-data.ts`. **Regeln/Typen:** `src/lib/marketing-consent.ts`, `src/lib/validation/marketing-consent.ts`. **Texte:** `guests.consent`, `guests.consentFilter`, `guests.errors.consent*`.
+- **Übergang bis /backend:**
+  - Fehlt der Verlauf, zeigt die Gastseite den Vermerk aus PROJ-26 (`marketing_consent_at`, `marketing_consent_sheet_id`) als einzigen Eintrag.
+  - Erfassen meldet „Diese Funktion wird gerade eingerichtet.“
+  - Der Filter liefert eine leere Liste (Log „guest_list … p_consent“).
+- **Tests:** `src/lib/marketing-consent.test.ts`, Filter in `src/lib/guests.test.ts`.
+- **Sichttest:** gebauter Server, Desktop und Handy: Gastseite, Widerrufs-Dialog mit Pflichtfeldmeldung, Gästeliste mit Filter.
+
+### Erwartete Datenbank-Schnittstellen (für /backend)
+
+**Neue Tabelle `marketing_consent_events`**
+
+Spalten:
+- `id`, `tenant_id`, `guest_id`
+- `kind`: `grant` | `revoke`
+- `origin`: `sheet` | `sheet_upload` | `manual`
+- `occurred_on` (date)
+- `channel`: `email` | `paper` | `webform` | `oral` | `other`; nur bei `manual`; `oral` nur bei `revoke`
+- `guest_sheet_id` (nur Gästeblatt)
+- `note` (≤ 500), `receipt_path`
+- `created_at`, `created_by`
+- `voided_at`, `voided_by`, `void_reason` (≤ 200)
+
+Regeln:
+- Lesen dürfen Mitglieder.
+- Keine direkten Schreibrechte.
+- Schutzregel: nur die Irrtümlich-Markierung und das Leeren beim Anonymisieren sind erlaubt.
+- Hängt am Protokoll.
+
+**Neue Sicht `marketing_consent_history`** (security_invoker)
+- Alle Spalten der Tabelle.
+- Dazu `sheet_number`, `booking_id`, `booking_number` (über das Gästeblatt) sowie `created_by_name` und `voided_by_name`.
+
+**Neue Spalten an `guests`**
+- `marketing_consent_state`: `granted` | `revoked` | `none`, Standard `none`.
+- `marketing_consent_on` (date).
+- Werden nach jeder Änderung neu berechnet: jüngster nicht irrtümlicher Eintrag nach `occurred_on`, dann `created_at`.
+- `marketing_consent_at`/`_sheet_id` können danach entfallen oder bleiben; das entscheidet /backend.
+
+**Funktion `record_marketing_consent(p_input jsonb)`** für Mitglieder
+- Eingabe: `tenant_id`, `guest_id`, `kind`, `occurred_on`, `channel`, `note`, `receipt_path`, `confirmed`.
+- Ergebnis: `{saved, id, warnings: [{code: 'notEffective', latestOn, latestKind}]}`.
+- `saved = false` mit Hinweis, wenn der Eintrag vor dem maßgeblichen liegt und `confirmed` fehlt.
+
+**Funktion `void_marketing_consent(p_entry_id, p_reason)`**
+- Nur Inhaber, nur `origin = manual`, nur einmal.
+
+**`guest_list`**
+- Neuer Parameter `p_consent` (`granted` | `revoked` | `none`, null = alle).
+
+**`private.note_marketing_consent`**
+- Legt einen Eintrag an (`origin` je nach Blattart, Datum in Wiener Zeit, Person vom Blatt).
+
+**Anpassungen**
+- `anonymize_guest`: Notizen und Beleg-Verweise leeren, Stand `none`, Belegpfade zurückgeben bzw. Dateien entfernen; neue Einträge sperren (P0993).
+- `merge_guests`: Einträge umhängen, Stand neu berechnen.
+- `admin_delete_tenant`: Einträge und Belege entfernen.
+
+**Speicherbereich `marketing-consent-receipts`**
+- Privat, PDF/JPEG, 10 MB; Ordner = Kunde.
+- Hochladen und Lesen nur für Mitglieder (Lesen nur, wenn der Pfad an einem Eintrag hängt).
+- Aufräumen nicht genutzter Belege im nächtlichen Lauf.
+
+**Übernahme bestehender Daten**
+- Je `guest_sheets` mit `marketing_consent = true` (auch ersetzte) ein Eintrag; danach den Stand aller Gäste berechnen.
+
+**Fehlercodes**
+
+| Code | Bedeutung |
+|------|-----------|
+| 42501 | nur Inhaber |
+| P0988 | Beleg fehlt |
+| P0992 | Gast nicht gefunden |
+| P0993 | Gast anonymisiert |
+| P0994 | Datum in der Zukunft |
+| P0995 | Datum vor dem Geburtsdatum |
+| P0996 | Weg ungültig |
+| P0997 | Widerruf ohne Erteilung |
+| P0998 | nicht als irrtümlich markierbar |
+| P0999 | bereits irrtümlich |
 
 ## QA Test Results
 _To be added by /qa_
