@@ -118,6 +118,7 @@
 | Produktion im Pro-Tarif mit Tagesbackups (7 Tage), Test-Wiederherstellung vor dem Pilot | Gratis-Tarif hat keine Backups und pausiert Projekte | 2026-10-13 |
 | Admin-Rechte nur manuell außerhalb der App vergeben | Keine Rechteausweitung über die Oberfläche möglich | 2026-10-13 |
 | Erster Betreiber-Admin: `joachim@janezic.at`; später änderbar | Rechte hängen am Konto, nicht an der Adresse: Wechsel per E-Mail-Änderung des Kontos oder durch ein neues Admin-Konto mit manuellem Entzug des alten | 2026-10-13 |
+| Admin-Wechsel auf `admin@apppa.at` (neues Konto je Umgebung), `joachim@janezic.at` wird normales Kundenkonto | Betreiber-Rechte getrennt von der Alltagsarbeit als Vermieter: kleinere Angriffsfläche, eindeutiges Protokoll, keine 2FA-Pflicht im Kundenalltag; kein Code nötig | 2026-11-13 |
 
 ### Technical Decisions
 <!-- Added by /architecture -->

@@ -80,16 +80,18 @@ select private.enable_tenant_table('public.<tabelle>');  -- Standardfelder + Än
 
 ## 4. Ersten Betreiber-Admin einrichten
 
-1. Dashboard → *Authentication → Users → Invite user* → `joachim@janezic.at`
+1. Dashboard → *Authentication → Users → Invite user* → `admin@apppa.at`
 2. Einladung annehmen und Passwort setzen
 3. Im SQL-Editor einmalig:
    ```sql
    update public.profiles set is_operator_admin = true
-   where email = 'joachim@janezic.at';
+   where email = 'admin@apppa.at';
    ```
 4. In der App 2FA (Authenticator-App) einrichten. **Ohne bestätigte 2FA hat das Konto keine Admin-Rechte.**
 
 Admin-Rechte entziehen: dieselbe Anweisung mit `false`.
+
+**Admin-Wechsel (2026-11-13):** Betreiber-Admin ist `admin@apppa.at` (Staging und Produktion, jeweils eigenes Konto). Das frühere Admin-Konto `joachim@janezic.at` wird nach erfolgreicher Einrichtung des neuen Admins mit `false` herabgestuft und bleibt als normales Kundenkonto bestehen (nicht löschen: Mitgliedschaften und „erstellt von“-Verweise hängen daran).
 Angemeldete Nutzer können das Kennzeichen nicht ändern (Spaltenrechte + Trigger). Mit dem Secret Key ist es serverseitig möglich. Die automatischen Tests nutzen das, App-Code darf es nicht.
 
 ## 5. Staging- und Produktionsprojekt einrichten
@@ -170,9 +172,9 @@ Fall: Der Admin hat sein einziges Authenticator-Gerät verloren und kommt nicht 
    ```sql
    -- alle 2FA-Geräte des Kontos entfernen und alle Sitzungen beenden
    delete from auth.mfa_factors
-   where user_id = (select id from auth.users where email = 'joachim@janezic.at');
+   where user_id = (select id from auth.users where email = 'admin@apppa.at');
    delete from auth.sessions
-   where user_id = (select id from auth.users where email = 'joachim@janezic.at');
+   where user_id = (select id from auth.users where email = 'admin@apppa.at');
    ```
 3. Der Admin meldet sich mit Passwort an und wird zur Pflicht-Einrichtung `/2fa/einrichten` geleitet. Danach sofort ein **zweites Gerät** unter „Mein Konto“ hinzufügen.
 4. Den Vorgang mit Datum und Grund festhalten (z. B. im Betriebs-Logbuch).
